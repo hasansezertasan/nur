@@ -102,18 +102,20 @@ class ProcessRunner:
             proc = self._proc
         if proc is None or proc.poll() is not None:
             return
+        # if/else (not an early return) so type checkers treat each arm as a
+        # platform-specific branch and don't flag the other as unreachable.
         if sys.platform == "win32":
             # Windows has no os.killpg; CTRL_BREAK is the documented way to
             # interrupt a CREATE_NEW_PROCESS_GROUP child (and, unlike CTRL_C,
             # it targets only the child's group, never nur's own console).
             with contextlib.suppress(OSError):
                 proc.send_signal(signal.CTRL_BREAK_EVENT)
-            return
-        try:
-            os.killpg(os.getpgid(proc.pid), signal.SIGINT)
-        except OSError:
-            # Process already gone (ProcessLookupError), or the group could not
-            # be signalled (PermissionError) -- both subclass OSError;
-            # fall back to signalling the process directly.
-            with contextlib.suppress(ProcessLookupError, OSError):
-                proc.send_signal(signal.SIGINT)
+        else:
+            try:
+                os.killpg(os.getpgid(proc.pid), signal.SIGINT)
+            except OSError:
+                # Process already gone (ProcessLookupError), or the group could
+                # not be signalled (PermissionError) -- both subclass OSError;
+                # fall back to signalling the process directly.
+                with contextlib.suppress(ProcessLookupError, OSError):
+                    proc.send_signal(signal.SIGINT)
