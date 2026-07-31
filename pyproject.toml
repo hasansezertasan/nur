@@ -39,6 +39,11 @@ classifiers = [
 requires-python = ">=3.14"
 dependencies = ["textual>=3.0.0", "pyyaml>=6.0", "typer>=0.20.0"]
 
+[project.optional-dependencies]
+# No optional feature extras yet; `all` is defined (empty) so tooling and CI can
+# invoke `--extra all` uniformly regardless of which features a project enables.
+all = []
+
 
 [project.urls]
 changelog = "https://github.com/hasansezertasan/nur/blob/main/CHANGELOG.md"
@@ -94,7 +99,6 @@ style = [
 test = [
   "coverage-enable-subprocess==1.0",
   "coverage[toml]==7.11.0",
-  "pytest-dependency==0.6.0",
   "pytest-mock==3.15.1",
   "pytest-rerunfailures==16.1",
   "pytest-xdist[psutil]==3.8.0",
@@ -282,6 +286,9 @@ exclude-modules = "nur.tui"
 # Intentional misspelling used to exercise the close-match suggestion path
 # (tests/unit/test_registry.py resolves "biuld").
 biuld = "biuld"
+# Intentional misspelling used to exercise the "did you mean build?" suggestion
+# (tests/integration/test_cli.py).
+buld = "buld"
 
 
 [tool.ruff]
@@ -488,6 +495,12 @@ error-on-warning = true
 
 [tool.pyrefly]
 python-version = "3.14"
+# Pin the type-checking platform so results are deterministic across CI runners.
+# Unlike mypy/basedpyright/ty, pyrefly does not narrow `sys.platform` to the
+# host OS, so on the Windows runner it would otherwise flag POSIX-only
+# os.killpg/os.getpgid in the platform-guarded interrupt path. The Windows
+# branches remain type-checked by the other three checkers on that runner.
+python-platform = "linux"
 project-includes = ["src"]
 
 [tool.tox]
@@ -643,6 +656,6 @@ description = "Check documentation for broken links"
 runner = "uv-venv-runner"
 
 [tool.tox.env.cli]
-commands = [["nur", "version", { replace = "posargs", extend = true }]]
+commands = [["nur", { replace = "posargs", default = ["--version"], extend = true }]]
 description = "Run the CLI application."
 runner = "uv-venv-runner"

@@ -5,12 +5,12 @@ See https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # -- Project information -----------------------------------------------------
 project = "nur"
 author = "Hasan Sezer Taşan"
-copyright = f"{datetime.now(tz=timezone.utc):%Y}, Hasan Sezer Taşan"  # noqa: A001
+copyright = f"{datetime.now(tz=UTC):%Y}, Hasan Sezer Taşan"  # noqa: A001
 
 # -- General configuration ---------------------------------------------------
 extensions = [
