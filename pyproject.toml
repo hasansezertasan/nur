@@ -646,6 +646,6 @@ description = "Check documentation for broken links"
 runner = "uv-venv-runner"
 
 [tool.tox.env.cli]
-commands = [["nur", "version", { replace = "posargs", extend = true }]]
+commands = [["nur", "--version", { replace = "posargs", extend = true }]]
 description = "Run the CLI application."
 runner = "uv-venv-runner"
