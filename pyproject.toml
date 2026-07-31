@@ -39,6 +39,11 @@ classifiers = [
 requires-python = ">=3.14"
 dependencies = ["textual>=3.0.0", "pyyaml>=6.0", "typer>=0.20.0"]
 
+[project.optional-dependencies]
+# No optional feature extras yet; `all` is defined (empty) so tooling and CI can
+# invoke `--extra all` uniformly regardless of which features a project enables.
+all = []
+
 
 [project.urls]
 changelog = "https://github.com/hasansezertasan/nur/blob/main/CHANGELOG.md"
