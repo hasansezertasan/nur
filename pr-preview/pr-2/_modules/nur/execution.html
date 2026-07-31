@@ -221,21 +221,23 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="102">            <span class="n">proc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_proc</span>
 </span><span data-line="103">        <span class="k">if</span> <span class="n">proc</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">proc</span><span class="o">.</span><span class="n">poll</span><span class="p">()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="104">            <span class="k">return</span>
-</span><span data-line="105">        <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">&quot;win32&quot;</span><span class="p">:</span>
-</span><span data-line="106">            <span class="c1"># Windows has no os.killpg; CTRL_BREAK is the documented way to</span>
-</span><span data-line="107">            <span class="c1"># interrupt a CREATE_NEW_PROCESS_GROUP child (and, unlike CTRL_C,</span>
-</span><span data-line="108">            <span class="c1"># it targets only the child&#39;s group, never nur&#39;s own console).</span>
-</span><span data-line="109">            <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">OSError</span><span class="p">):</span>
-</span><span data-line="110">                <span class="n">proc</span><span class="o">.</span><span class="n">send_signal</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">CTRL_BREAK_EVENT</span><span class="p">)</span>
-</span><span data-line="111">            <span class="k">return</span>
-</span><span data-line="112">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="113">            <span class="n">os</span><span class="o">.</span><span class="n">killpg</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getpgid</span><span class="p">(</span><span class="n">proc</span><span class="o">.</span><span class="n">pid</span><span class="p">),</span> <span class="n">signal</span><span class="o">.</span><span class="n">SIGINT</span><span class="p">)</span>
-</span><span data-line="114">        <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
-</span><span data-line="115">            <span class="c1"># Process already gone (ProcessLookupError), or the group could not</span>
-</span><span data-line="116">            <span class="c1"># be signalled (PermissionError) -- both subclass OSError;</span>
-</span><span data-line="117">            <span class="c1"># fall back to signalling the process directly.</span>
-</span><span data-line="118">            <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">ProcessLookupError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
-</span><span data-line="119">                <span class="n">proc</span><span class="o">.</span><span class="n">send_signal</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">SIGINT</span><span class="p">)</span></div>
+</span><span data-line="105">        <span class="c1"># if/else (not an early return) so type checkers treat each arm as a</span>
+</span><span data-line="106">        <span class="c1"># platform-specific branch and don&#39;t flag the other as unreachable.</span>
+</span><span data-line="107">        <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">&quot;win32&quot;</span><span class="p">:</span>
+</span><span data-line="108">            <span class="c1"># Windows has no os.killpg; CTRL_BREAK is the documented way to</span>
+</span><span data-line="109">            <span class="c1"># interrupt a CREATE_NEW_PROCESS_GROUP child (and, unlike CTRL_C,</span>
+</span><span data-line="110">            <span class="c1"># it targets only the child&#39;s group, never nur&#39;s own console).</span>
+</span><span data-line="111">            <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">OSError</span><span class="p">):</span>
+</span><span data-line="112">                <span class="n">proc</span><span class="o">.</span><span class="n">send_signal</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">CTRL_BREAK_EVENT</span><span class="p">)</span>
+</span><span data-line="113">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="114">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="115">                <span class="n">os</span><span class="o">.</span><span class="n">killpg</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getpgid</span><span class="p">(</span><span class="n">proc</span><span class="o">.</span><span class="n">pid</span><span class="p">),</span> <span class="n">signal</span><span class="o">.</span><span class="n">SIGINT</span><span class="p">)</span>
+</span><span data-line="116">            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+</span><span data-line="117">                <span class="c1"># Process already gone (ProcessLookupError), or the group could</span>
+</span><span data-line="118">                <span class="c1"># not be signalled (PermissionError) -- both subclass OSError;</span>
+</span><span data-line="119">                <span class="c1"># fall back to signalling the process directly.</span>
+</span><span data-line="120">                <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">ProcessLookupError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
+</span><span data-line="121">                    <span class="n">proc</span><span class="o">.</span><span class="n">send_signal</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">SIGINT</span><span class="p">)</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">
