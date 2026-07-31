@@ -49,9 +49,16 @@ class ProcessRunner:
         self._lock = threading.Lock()
 
     def run(self, argv: list[str], cwd: Path, on_line: Callable[[str], None]) -> int:
-        # start_new_session=True puts the child in its own process group so an
-        # interrupt can signal the whole tree (e.g. npm -> node, make -> sh),
-        # not just the runner PID.
+        # Put the child in its own process group so an interrupt can signal the
+        # whole tree (e.g. npm -> node, make -> sh), not just the runner PID:
+        # start_new_session on POSIX, CREATE_NEW_PROCESS_GROUP on Windows. Each
+        # flag is a no-op on the other platform, so both are always passed.
+        creationflags = 0
+        start_new_session = False
+        if sys.platform == "win32":
+            creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            start_new_session = True
         # Not a `with` block: the process is stored on self and outlives this
         # method so interrupt() can signal it; cleanup happens in the finally.
         try:
@@ -63,7 +70,8 @@ class ProcessRunner:
                 stdin=subprocess.DEVNULL,
                 text=True,
                 bufsize=1,
-                start_new_session=True,
+                creationflags=creationflags,
+                start_new_session=start_new_session,
             )
         except FileNotFoundError:
             # Natively-discovered task whose runner isn't installed: surface a
@@ -93,6 +101,13 @@ class ProcessRunner:
         with self._lock:
             proc = self._proc
         if proc is None or proc.poll() is not None:
+            return
+        if sys.platform == "win32":
+            # Windows has no os.killpg; CTRL_BREAK is the documented way to
+            # interrupt a CREATE_NEW_PROCESS_GROUP child (and, unlike CTRL_C,
+            # it targets only the child's group, never nur's own console).
+            with contextlib.suppress(OSError):
+                proc.send_signal(signal.CTRL_BREAK_EVENT)
             return
         try:
             os.killpg(os.getpgid(proc.pid), signal.SIGINT)
