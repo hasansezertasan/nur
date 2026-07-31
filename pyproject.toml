@@ -1,0 +1,648 @@
+[project]
+name = "nur"
+description = "A script discovery and execution engine for your project's tasks."
+license = "MIT"
+readme = "README.md"
+authors = [
+  { name = "Hasan Sezer Taşan", email = "hasansezertasan@gmail.com" },
+]
+maintainers = [
+  { name = "Hasan Sezer Taşan", email = "hasansezertasan@gmail.com" },
+]
+dynamic = ["version"]
+keywords = [
+  "cli",
+  "tui",
+  "developer-tools",
+  "task-runner",
+  "make",
+  "npm",
+  "just",
+  "taskfile",
+  "pdm",
+  "poe",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development",
+  "Topic :: Software Development :: Build Tools",
+  "Topic :: Utilities",
+  "Typing :: Typed",
+]
+requires-python = ">=3.14"
+dependencies = ["textual>=3.0.0", "pyyaml>=6.0", "typer>=0.20.0"]
+
+
+[project.urls]
+changelog = "https://github.com/hasansezertasan/nur/blob/main/CHANGELOG.md"
+documentation = "https://hasansezertasan.github.io/nur"
+homepage = "https://github.com/hasansezertasan/nur"
+issues = "https://github.com/hasansezertasan/nur/issues"
+releasenotes = "https://github.com/hasansezertasan/nur/releases"
+source = "https://github.com/hasansezertasan/nur.git"
+
+
+[project.scripts]
+nur = "nur.cli:main"
+
+
+
+
+
+
+
+[dependency-groups]
+dev = [
+  "tox==4.31.0",
+  "tox-uv==1.29.0",
+  "debugpy==1.8.0",
+  { include-group = "style" },
+  { include-group = "test" },
+]
+style = [
+  "actionlint-py==1.7.12.24",
+  "basedpyright==1.39.8",
+  "editorconfig-checker==3.6.1",
+  "mypy==2.1.0",
+  "pyrefly==1.1.1",
+  "ruff==0.15.19",
+  "slotscheck==0.20.0",
+  "sphinx-lint==1.0.2",
+  "taplo==0.9.3",
+  "ty==0.0.53",
+  "typos==1.47.2",
+  "validate-pyproject[all]==0.25",
+  "vulture==2.16",
+  "zuban==0.9.0",
+  "types-PyYAML>=6.0",  # yaml stubs for the Taskfile provider (mypy/type checkers)
+  # "google-yamlfmt",
+  # "shellcheck-makefile>=1.27.3",
+  # "shellcheck-py>=0.10.0.1",
+  # "types-setuptools",
+  # "types-ujson",
+  # "yamlfix>=1.18.0",
+  # "yamlfmt>=1.1.1",
+  # "yamllint>=1.37.1",
+]
+test = [
+  "coverage-enable-subprocess==1.0",
+  "coverage[toml]==7.11.0",
+  "pytest-dependency==0.6.0",
+  "pytest-mock==3.15.1",
+  "pytest-rerunfailures==16.1",
+  "pytest-xdist[psutil]==3.8.0",
+  "pytest==8.4.2",
+  "pytest-sugar",
+  "pytest-asyncio>=0.23.0",
+  "dirty-equals",
+  "inline-snapshot",
+]
+docs = [
+    "sphinx==8.1.3",
+    "shibuya==2026.5.19",
+    "sphinx-autobuild==2024.10.3",  # 2025.x drops Python 3.10 (requires-python >= 3.11)
+    "sphinx-copybutton==0.5.2",
+    "sphinx-design==0.6.1",  # 0.7.0 drops Python 3.10 (requires-python >= 3.11)
+    "sphinx-togglebutton==0.4.5",
+    "sphinx-paramlinks==0.6.0",
+    "auto-pytabs[sphinx]==0.5.0",
+    "myst-parser==4.0.1",
+    "sphinx-click==6.2.0",
+]
+tool = [
+  "commitizen==4.10.0",
+  # "marimo==0.15.2",
+  # "inflection==0.5.1",
+  # "copier==9.11.0",
+]
+prek = [
+    "prek==0.4.3",
+]
+
+
+[build-system]
+
+requires = ["hatchling", "hatch-vcs"]
+
+build-backend = "hatchling.build"
+
+
+[tool.uv]
+add-bounds = "exact"
+cache-keys = [
+  { file = "pyproject.toml" },
+  { git = { commit = true, tags = true } },
+]
+package = true
+trusted-publishing = "always"
+
+
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0.1.0"
+
+
+[tool.hatch.build]
+hooks.vcs.version-file = "src/nur/_version.py"
+
+
+[tool.hatch.version.raw-options]
+version_scheme = "only-version"
+local_scheme = "no-local-version"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+
+[tool.hatch.build.targets.sdist]
+# The package uses a src layout, so the source tree lives under /src (not
+# /nur); including /src ships the actual modules -- and, for
+# C-extension projects, the .pyx/.pxd sources needed to compile from the sdist.
+include = ["/README.md", "LICENSE", "/src", "/tests"]
+
+
+[tool.commitizen]
+# Commit-authoring and message linting only. release-please owns version
+# bumping, git tagging, and CHANGELOG.md (see .github/release-please-config.json),
+# so the bump/tag/changelog settings are intentionally omitted here to avoid two
+# tools competing over the same tags and changelog file.
+name = "cz_conventional_commits"
+
+[tool.pytest.ini_options]
+# addopts = "-rXs --strict-config --strict-markers"
+addopts = "-v --tb=short"
+asyncio_mode = "auto"
+filterwarnings = [
+  "error",
+]
+testpaths = ["tests"]
+xfail_strict = true
+
+
+[tool.coverage.run]
+branch = true
+# Match `_version.py` wherever it resolves: `src/...` in editable dev installs and
+# `.../site-packages/...` when tox/CI installs the built wheel or sdist. A
+# `src/**`-only pattern silently misses the installed copy and reports it at 0%.
+omit = ["*/_version.py"]
+parallel = true
+source_pkgs = ["nur"]
+
+
+[tool.coverage.paths]
+# Unify coverage data across environments. tox installs the built wheel/sdist into
+# each env's site-packages, so the same source file is measured under a different
+# `.tox/<env>/.../site-packages/nur` path per interpreter. Without
+# remapping those back to the canonical `src/` tree, `coverage combine` keeps a
+# separate copy per env and a version-gated line covered in one interpreter but not
+# another is wrongly counted as missed — silently failing the `fail_under` gate.
+# `tests` needs no remapping: it is never installed, so every environment measures
+# it at the same repo-local path.
+nur = ["src/nur", "*/site-packages/nur"]
+
+
+[tool.coverage.report]
+# Untestable code is excluded per site with `# pragma: no cover`, not with blanket
+# patterns here: a regex matching a `def` line excludes the *whole function body*,
+# so a pattern like `def main\(` would silently un-measure any future `main()`
+# with real logic (and did mask the tested GUI/TUI entrypoints). Pragmas carry the
+# exclusion decision next to the code it affects. See ADR-008.
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+  # Protocol/abstract method stubs have no executable body.
+  "\\.\\.\\.",
+]
+fail_under = 99
+# Patterns match both the `src/` (editable) and installed (`site-packages`)
+# layouts (see [tool.coverage.run] omit).
+omit = ["*/_version.py"]
+show_missing = true
+skip_covered = true
+
+
+[tool.vulture]
+# Framework-invoked handlers: Typer commands, FastAPI routes, FastStream
+# lifecycle hooks, and the MCP tool dispatcher.
+ignore_decorators = [
+  "@app.command",
+  "@app.get",
+  "@app.after_startup",
+  "@app.after_shutdown",
+  "@server.call_tool",
+]
+# Public API surfaces vulture cannot see being used: ``main`` entry points are
+# referenced only via pyproject scripts, ``model_config`` is consumed by
+# pydantic-settings, ``logger`` is imported only by optional components, the MCP
+# ``arguments`` parameter is mandated by the call_tool signature, the Textual
+# names (CSS/compose/on_mount/title/BINDINGS) are invoked by the TUI framework,
+# and ``pytestmark`` is consumed by pytest at collection time.
+ignore_names = [
+  "CONFIG_FILE_PATH",
+  "logger",
+  "main",
+  "model_config",
+  "CSS",
+  "CSS_PATH",
+  "compose",
+  "on_mount",
+  "on_*",
+  "action_*",
+  "title",
+  "BINDINGS",
+  "nur_task",
+  "pytestmark",
+  "return_value",
+  "side_effect",
+]
+# 70 avoids the 60%-confidence false positives on Textual-managed attributes
+# (``_detail_text``/``_status_text`` are assigned in one handler, read in another).
+min_confidence = 70
+# Scan the package only: test fixtures/monkeypatch lambdas have throwaway args
+# (``*a, **k``) that vulture would flag as unused.
+paths = ["src"]
+
+
+[tool.slotscheck]
+strict-imports = false
+# Textual widgets don't declare __slots__; excluding the TUI keeps slotscheck
+# focused on the plain-class core without false positives.
+exclude-modules = "nur.tui"
+
+
+[tool.typos.default.extend-words]
+# Intentional misspelling used to exercise the close-match suggestion path
+# (tests/unit/test_registry.py resolves "biuld").
+biuld = "biuld"
+
+
+[tool.ruff]
+fix = true
+output-format = "full"
+preview = true
+show-fixes = true
+src = ["src", "tests", "examples"]
+target-version = "py314"
+unsafe-fixes = true
+
+
+[tool.ruff.analyze]
+detect-string-imports = true
+preview = true
+
+
+[tool.ruff.format]
+docstring-code-format = true
+line-ending = "lf"
+preview = true
+skip-magic-trailing-comma = true
+
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+ignore = [
+  "COM812",
+  "CPY",
+  "FIX",
+  "TD",
+  # Docstrings on every public symbol are not enforced yet; the ported source
+  # was written to a lighter standard. Tracked as a follow-up, not a day-one gate.
+  "D100",
+  "D101",
+  "D102",
+  "D103",
+  "D104",
+  "D107",
+  "DOC201",
+  "DOC501",
+]
+logger-objects = ["logging_setup.logger"]
+preview = true
+select = ["ALL"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+# skip-magic-trailing-comma = true
+split-on-trailing-comma = false
+
+[tool.ruff.lint.flake8-copyright]
+author = "Hasan Sezer Taşan <hasansezertasan@gmail.com>"
+
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+
+
+
+[tool.ruff.lint.mccabe]
+# nur's parsers and the CLI dispatch are legitimately branchy (each source
+# format and each task-resolution outcome is a distinct path); 10 keeps a
+# guard-rail without forcing artificial helper splits.
+max-complexity = 10
+
+
+[tool.ruff.lint.pycodestyle]
+ignore-overlong-task-comments = true
+
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+
+[tool.ruff.lint.per-file-ignores]
+# Recursive glob so nested test packages (tests/cli, tests/gui, ...) are covered.
+# Tests legitimately use asserts/magic values, reach into package internals, and
+# don't need return-value documentation on their fixtures and helpers.
+"tests/**/*.py" = [
+  "ANN",      # tests don't need type annotations on fixtures/helpers
+  "D",        # tests don't need docstrings
+  "S101",     # asserts are the point of a test
+  "SLF001",   # white-box tests reach into package internals
+  "ARG",      # pytest fixtures/monkeypatch lambdas take unused args
+  "PLR2004",  # magic values are fine in assertions
+  "PLR6301",  # test methods needn't use self
+  "PLC0415",  # local imports keep test isolation
+  "PLC1901",  # explicit empty-string compares read clearer in tests
+  "PLC2701",  # importing private members for testing
+  "DOC201",   # helper return values needn't be documented
+]
+"examples/*.py" = ["INP001"]
+# The Sphinx config is a standalone module, not part of an importable package.
+"docs/conf.py" = ["INP001"]
+# Typer's declarative API puts function calls (Argument/Option) in argument
+# defaults by design, so B008 is expected here.
+# Typer's declarative API puts function calls (Argument/Option) in argument
+# defaults, and a boolean --version option is idiomatic, by design.
+"src/nur/cli.py" = ["B008", "FBT001"]
+# Discovery must not crash on one malformed source file: catching broadly and
+# skipping is deliberate robustness.
+"src/nur/discovery.py" = ["BLE001"]
+# nur is a task runner: executing discovered project commands via subprocess is
+# the whole point, so the shell/subprocess-audit rules are intended here. The
+# assert narrows an Optional Popen handle for the type checkers. T201: it prints
+# a user-facing "runner not installed" error to stderr by design (do NOT let
+# ruff's preview/unsafe autofix delete the print).
+"src/nur/execution.py" = ["S101", "S404", "S603", "T201"]
+# The providers package intentionally builds the PROVIDERS registry in __init__.
+"src/nur/providers/__init__.py" = ["RUF067"]
+# Providers implement a shared Protocol (so detect()/_source_file() must stay
+# instance methods -> PLR6301), shell out to their runner by name (S404/S603/
+# S607), and parse tokens that trip the hardcoded-password heuristic (S105).
+"src/nur/providers/*.py" = ["PLR6301", "S404", "S603", "S607", "S105"]
+# Textual invokes compose() as an instance method and stores BINDINGS as a
+# class-level list, both mandated by the framework.
+"src/nur/tui/app.py" = ["PLR6301", "RUF012"]
+
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
+
+
+[tool.ruff.lint.ruff]
+parenthesize-tuple-in-subscript = true
+
+
+[tool.mypy]
+files = ["src"]
+pretty = true
+python_version = "3.14"
+strict = true
+
+
+[tool.basedpyright]
+exclude = [".venv"]
+include = ["src/nur"]
+pythonVersion = "3.14"
+venv = ".venv"
+# Silence basedpyright's strict-mode *warnings* that fight this project's
+# deliberate patterns; error-level type checking stays on (0 errors), and dead
+# code is still caught by ruff + vulture:
+#   - reportAny / reportExplicitAny: providers parse untyped JSON/TOML/YAML.
+#   - reportUnannotatedClassAttribute: Textual widgets and provider classes use
+#     bare class attributes (``prefix = "npm"``, ``BINDINGS = [...]``).
+#   - reportCallInDefaultInitializer / reportUnusedParameter: Typer's declarative
+#     API (Argument/Option in defaults; the eager --version callback param).
+#   - reportUnusedFunction: the ``@app.command()`` handler is used by Typer.
+#   - reportUnusedCallResult: Textual mount/query calls return discarded widgets.
+#   - reportImplicitStringConcatenation: wrapped f-string error messages.
+reportAny = false
+reportExplicitAny = false
+reportUnannotatedClassAttribute = false
+reportCallInDefaultInitializer = false
+reportUnusedParameter = false
+reportUnusedFunction = false
+reportUnusedCallResult = false
+reportImplicitStringConcatenation = false
+# venvPath is the directory *containing* the venv, not the venv itself; ".venv"
+# here would make basedpyright look for ".venv/.venv". Use "." so both the venv
+# and basedpyright's strict ruleset resolve the project's installed deps.
+venvPath = "."
+
+# Textual's App/Worker/query APIs are generically typed as Unknown under strict
+# checking; the TUI glue code can't satisfy it without noise. Relax only the
+# Unknown-* reports for this module (real type errors still surface).
+[[tool.basedpyright.executionEnvironments]]
+root = "src/nur/tui"
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
+# Textual's mount/query calls return widgets that are idiomatically discarded,
+# and action_* handlers override App methods without an explicit decorator.
+reportUnusedCallResult = false
+reportImplicitOverride = false
+
+# Providers parse untyped external data (json.loads / tomllib.loads / yaml → Any),
+# so strict basedpyright reports every derived value as Unknown. Relax only the
+# Unknown-* reports here; mypy/ty/pyrefly still fully type-check these modules.
+[[tool.basedpyright.executionEnvironments]]
+root = "src/nur/providers"
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
+
+
+[tool.ty.src]
+# Type-check the package. Tests are excluded here: the pinned ty (0.0.53)
+# misreads pytest's skip()/fail() reason argument as "too many positional
+# arguments"; mypy already covers the package's public surface.
+include = ["src"]
+respect-ignore-files = false
+
+
+[tool.ty.environment]
+python-version = "3.14"
+
+
+[tool.ty.terminal]
+error-on-warning = true
+
+
+[tool.pyrefly]
+python-version = "3.14"
+project-includes = ["src"]
+
+[tool.tox]
+# The ``worker`` env is intentionally omitted: it starts a broker-bound process
+# and would hang/fail under ``tox run`` in CI (where no broker is available).
+# The worker is covered by its pytest TestBroker suite; run it on demand with
+# ``tox -e worker`` when a broker is up (e.g. inside the devcontainer).
+env_list = [
+    "style",
+    "cli",
+    "3.14"
+]
+requires = ["tox>=4"]
+
+
+[tool.tox.env_run_base]
+commands = [
+  [
+    "coverage",
+    "run",
+    "--module",
+    "pytest",
+    "-v",
+    "--tb=short",
+    "--basetemp={env_tmp_dir}",
+    { replace = "posargs", default = [
+    ], extend = true },
+  ],
+]
+constrain_package_deps = true
+dependency_groups = ["test"]
+description = "Run the tests under {base_python}"
+env_tmp_dir = "{toxworkdir}/tmp/{envname}"
+# Arms coverage-enable-subprocess so xdist/subprocess workers are measured too;
+# `coverage run` plus `parallel = true` writes per-env data files that the CI
+# `coverage combine` step merges.
+set_env = { COVERAGE_PROCESS_START = "{tox_root}/pyproject.toml" }
+extras = ["all"]
+
+package = "wheel"
+
+runner = "uv-venv-runner"
+use_frozen_constraints = true
+wheel_build_env = ".pkg"
+
+
+[tool.tox.env.style]
+base_python = ["3.14"]
+commands = [
+  [
+    "ruff",
+    "check",
+  ],
+  [
+    "ruff",
+    "format",
+  ],
+  [
+    "mypy",
+    "--python-version",
+    "3.14",
+  ],
+  [
+    "basedpyright",
+  ],
+  [
+    "ty",
+    "check",
+  ],
+  [
+    "pyrefly",
+    "check",
+  ],
+  [
+    "zuban",
+    "check",
+    "src",
+  ],
+  [
+    "vulture",
+  ],
+  [
+    "python",
+    "-m",
+    "slotscheck",
+    "src",
+  ],
+  [
+    "taplo",
+    "lint",
+  ],
+  [
+    "taplo",
+    "format",
+  ],
+  [
+    "validate-pyproject",
+    "pyproject.toml",
+  ],
+  [
+    "typos",
+    "--diff",
+  ],
+  [
+    "actionlint",
+  ],
+  [
+    "ec",
+  ],
+  [
+    "sphinx-lint",
+    "docs",
+  ],
+  # ["yamlfmt", "."],
+]
+# `test` is included so the type checkers that scope tests (e.g. ty) can
+# resolve pytest and other test-only imports.
+dependency_groups = ["style", "test"]
+description = "Run Checkers, Linters and Formatters"
+runner = "uv-venv-runner"
+
+
+[tool.tox.env.prek]
+commands = [["prek", "run", "--all-files"]]
+dependency_groups = ["prek"]
+description = "Run prek hooks"
+runner = "uv-venv-runner"
+
+
+[tool.tox.env.docs-build]
+commands = [["sphinx-build", "-b", "html", "docs", "docs/_build/html"]]
+extras = ["all"]
+dependency_groups = ["docs"]
+description = "Build Docs"
+runner = "uv-venv-runner"
+
+
+[tool.tox.env.docs-server]
+commands = [["sphinx-autobuild", "docs", "docs/_build/html"]]
+extras = ["all"]
+dependency_groups = ["docs"]
+description = "Start the live-reloading docs server"
+runner = "uv-venv-runner"
+
+
+[tool.tox.env.docs-linkcheck]
+# On-demand link checker. Also run weekly (non-blocking) by docs-linkcheck.yml.
+# Hits the network, so it is deliberately not part of the `style` env or PR CI.
+commands = [["sphinx-build", "-b", "linkcheck", "docs", "docs/_build/linkcheck"]]
+extras = ["all"]
+dependency_groups = ["docs"]
+description = "Check documentation for broken links"
+runner = "uv-venv-runner"
+
+[tool.tox.env.cli]
+commands = [["nur", "version", { replace = "posargs", extend = true }]]
+description = "Run the CLI application."
+runner = "uv-venv-runner"

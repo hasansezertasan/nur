@@ -1,0 +1,6 @@
+#tasks { width: 40%; border: solid $accent; }
+#right { width: 60%; }
+#detail { height: 50%; border: solid $accent; padding: 0 1; }
+#output { height: 1fr; border: solid $accent; }
+#status { height: 1; color: $text-muted; }
+.group-header { color: $accent; text-style: bold; }
