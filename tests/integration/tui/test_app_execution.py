@@ -1,4 +1,5 @@
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -12,12 +13,28 @@ def _registry(argv):
     return Registry([Task(name="go", prefix="py", argv_base=tuple(argv))])
 
 
-async def _wait_until_done(app, pilot) -> None:
-    for _ in range(100):
-        if not app._task_running:
+async def _wait_until(pilot, predicate, *, message: str) -> None:
+    # Poll against a wall-clock deadline rather than counting event-loop pauses:
+    # the child process is spawned and reaped on a background thread, so bare
+    # pauses can spin faster than the OS starts/stops it and flake under load.
+    # Returns as soon as the predicate holds, so the fast path stays fast.
+    deadline = time.monotonic() + 15.0
+    while True:
+        if predicate():
             return
-        await pilot.pause()
-    pytest.fail("task did not finish within the pause budget")
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        await pilot.pause(min(0.05, remaining))
+    pytest.fail(message)
+
+
+async def _wait_until_done(app, pilot) -> None:
+    await _wait_until(
+        pilot,
+        lambda: not app._task_running,
+        message="task did not finish within 15 seconds",
+    )
 
 
 @pytest.mark.asyncio
@@ -40,10 +57,15 @@ async def test_interrupt_stops_running_task() -> None:
     async with app.run_test() as pilot:
         await pilot.pause()
         await pilot.press("r")
-        for _ in range(100):
-            if app._task_running:
-                break
-            await pilot.pause()
+        # action_run() sets _task_running synchronously but spawns the child on
+        # a worker thread, so wait for the process itself to exist -- otherwise
+        # interrupt() can race ahead of the spawn, no-op on a None proc, and
+        # leave sleep(30) running until the deadline.
+        await _wait_until(
+            pilot,
+            lambda: app._runner._proc is not None,
+            message="task process did not start within 15 seconds",
+        )
         assert app._task_running
         app.action_interrupt()
         await _wait_until_done(app, pilot)
