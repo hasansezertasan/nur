@@ -7,6 +7,6 @@
     "MD013": false,
   },
   "fix": true,
-  "globs": ["**/*.md", "**/*.markdown"],
+  "globs": ["**/*.md", "**/*.markdown", "!docs/superpowers/**"],
   "gitignore": true,
 }

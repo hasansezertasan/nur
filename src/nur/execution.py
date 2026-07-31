@@ -96,8 +96,9 @@ class ProcessRunner:
             return
         try:
             os.killpg(os.getpgid(proc.pid), signal.SIGINT)
-        except ProcessLookupError, PermissionError, OSError:
-            # Process already gone, or the group could not be signalled;
+        except OSError:
+            # Process already gone (ProcessLookupError), or the group could not
+            # be signalled (PermissionError) -- both subclass OSError;
             # fall back to signalling the process directly.
             with contextlib.suppress(ProcessLookupError, OSError):
                 proc.send_signal(signal.SIGINT)

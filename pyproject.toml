@@ -282,6 +282,9 @@ exclude-modules = "nur.tui"
 # Intentional misspelling used to exercise the close-match suggestion path
 # (tests/unit/test_registry.py resolves "biuld").
 biuld = "biuld"
+# Intentional misspelling used to exercise the "did you mean build?" suggestion
+# (tests/integration/test_cli.py).
+buld = "buld"
 
 
 [tool.ruff]
