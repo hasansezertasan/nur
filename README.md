@@ -1,6 +1,7 @@
 # nur
 
 [![CI](https://github.com/hasansezertasan/nur/actions/workflows/ci.yml/badge.svg)](https://github.com/hasansezertasan/nur/actions/workflows/ci.yml)
+[![MegaLinter](https://github.com/hasansezertasan/nur/actions/workflows/mega-linter.yml/badge.svg)](https://github.com/hasansezertasan/nur/actions/workflows/mega-linter.yml)
 [![Coverage](https://img.shields.io/codecov/c/github/hasansezertasan/nur)](https://codecov.io/gh/hasansezertasan/nur)
 [![Documentation Status](https://img.shields.io/github/deployments/hasansezertasan/nur/github-pages?label=docs)](https://hasansezertasan.github.io/nur)
 [![PyPI - Version](https://img.shields.io/pypi/v/nur.svg)](https://pypi.org/project/nur)
@@ -120,7 +121,8 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 - **Testing**: pytest with coverage reporting and parallel execution.
 - **Documentation**: Sphinx documentation with the Shibuya theme, GitHub Pages deployment, and live per-PR documentation previews.
 - **CI/CD**: automated testing, building, and publishing across multiple platforms.
-- **Security**: CodeQL, OpenSSF Scorecard, dependency review, secret scanning (gitleaks), dependency auditing (pip-audit), GitHub Actions static analysis (zizmor), hardened least-privilege workflows, and a CycloneDX SBOM attached to every release.
+- **Security**: CodeQL, OpenSSF Scorecard, dependency review, secret scanning (gitleaks), dependency auditing (pip-audit), GitHub Actions static analysis (zizmor — a blocking prek/CI gate plus a Security-tab dashboard, over hardened least-privilege workflows), and a CycloneDX SBOM attached to every release.
+- **Managed `.gitignore`**: kept in sync with the upstream [github/gitignore](https://github.com/github/gitignore) templates by [cobo](https://github.com/hasansezertasan/cobo), with a weekly drift check.
 - **Modern Python**: uv for dependency management, hatch for building.
 
 ## Author :person_with_crown:

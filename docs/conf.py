@@ -36,9 +36,8 @@ source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "superpowers/**"]
 
 # autosectionlabel can emit duplicate-label warnings across documents; the
-# document prefix keeps them unique and the suppression keeps builds quiet.
+# document prefix keeps them unique, so no blanket suppression is needed.
 autosectionlabel_prefix_document = True
-suppress_warnings = ["autosectionlabel.*"]
 
 # -- Autodoc / Napoleon ------------------------------------------------------
 autodoc_default_options = {
@@ -61,12 +60,6 @@ auto_pytabs_max_version = (3, 14)
 # -- Intersphinx -------------------------------------------------------------
 intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
 
-
-# -- Link checking (sphinx-build -b linkcheck) -------------------------------
-# Ignore the project's own GitHub URLs: they resolve once the repository is
-# published, so checking them only produces false 404s before the first push.
-# linkcheck then focuses on the external links that actually rot.
-linkcheck_ignore = [r"https://github\.com/hasansezertasan/nur(?:[/#?]|$)"]
 
 # -- HTML output (Shibuya theme) ---------------------------------------------
 # https://shibuya.lepture.com/
