@@ -382,6 +382,10 @@ convention = "pep257"
   "PLC2701",  # importing private members for testing
   "DOC201",   # helper return values needn't be documented
 ]
+# The __main__ smoke test runs `python -m nur` in a real subprocess (the only
+# faithful check that the module entry point is wired up); the subprocess
+# import/call are the point of the test, not a risk.
+"tests/smoke/test_main_module.py" = ["S404", "S603"]
 "examples/*.py" = ["INP001"]
 # The Sphinx config is a standalone module, not part of an importable package.
 "docs/conf.py" = ["INP001"]
