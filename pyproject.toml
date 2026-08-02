@@ -281,6 +281,11 @@ buld = "buld"
 
 
 [tool.ruff]
+# docs/superpowers/ holds frozen internal design/planning docs (already walled
+# off from Sphinx via conf.py exclude_patterns and from markdownlint). In preview
+# mode `ruff format` reformats Python code fences inside their Markdown, so
+# exclude the tree here too — those illustrative snippets are not project source.
+extend-exclude = ["docs/superpowers"]
 fix = true
 output-format = "full"
 preview = true
