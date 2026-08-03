@@ -9,6 +9,9 @@ from nur.models import Task
 if TYPE_CHECKING:
     from pathlib import Path
 
+__all__ = ["MakeProvider", "parse_descriptions", "parse_targets"]
+
+
 log = logging.getLogger("nur")
 
 # A rule's left-hand side: one or more target names before ':' or '::'.

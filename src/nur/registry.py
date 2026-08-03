@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from nur.models import Task
 
+__all__ = ["AmbiguousTaskError", "Registry", "ResolutionError", "UnknownTaskError"]
+
 
 class ResolutionError(Exception):
     """Base class for name-resolution failures."""

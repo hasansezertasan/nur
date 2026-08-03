@@ -10,6 +10,9 @@ from nur.models import Task
 if TYPE_CHECKING:
     from pathlib import Path
 
+__all__ = ["TaskfileProvider", "parse_taskfile"]
+
+
 log = logging.getLogger("nur")
 
 
