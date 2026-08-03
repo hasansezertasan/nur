@@ -1,3 +1,4 @@
+import logging
 import threading
 import time
 from pathlib import Path
@@ -129,17 +130,63 @@ async def test_empty_scan_shows_no_tasks_found() -> None:
 
 
 @pytest.mark.asyncio
-async def test_scan_failure_sets_status_and_shows_no_tasks() -> None:
+async def test_scan_failure_sets_status_detail_and_logs(caplog) -> None:
     def boom() -> Registry:
         msg = "discovery blew up"
         raise RuntimeError(msg)
 
     app = NurApp(Path(), scan=boom)
+    with caplog.at_level(logging.ERROR, logger="nur"):
+        async with app.run_test() as pilot:
+            await _wait_scanned(app, pilot)
+            assert "scan failed" in str(app._status_text).lower()
+            assert app.selected_task is None
+            # Distinct from the genuinely-empty "no tasks found" message.
+            assert "scan failed" in str(app._detail_text)
+    # The exception must not be swallowed silently.
+    assert "discovery failed" in caplog.text
+    assert "discovery blew up" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_filter_typed_during_scan_is_honored() -> None:
+    release = threading.Event()
+
+    def slow_scan() -> Registry:
+        release.wait(5.0)
+        return _registry()
+
+    app = NurApp(Path(), scan=slow_scan)
     async with app.run_test() as pilot:
+        await pilot.pause()
+        assert app._task_registry is None  # still scanning
+        await pilot.press("/")  # focus the filter
+        for ch in "lint":
+            await pilot.press(ch)
+        await pilot.pause()
+        release.set()
         await _wait_scanned(app, pilot)
-        assert "scan failed" in str(app._status_text).lower()
-        assert app.selected_task is None
-        assert "no tasks found" in str(app._detail_text)
+        # The filter typed mid-scan is replayed once the scan lands.
+        assert app.selected_task is not None
+        assert app.selected_task.name == "lint"
+
+
+@pytest.mark.asyncio
+async def test_quit_during_scan_does_not_hang() -> None:
+    release = threading.Event()
+
+    def slow_scan() -> Registry:
+        release.wait(5.0)
+        return _registry()
+
+    app = NurApp(Path(), scan=slow_scan)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert app._task_registry is None  # quitting mid-scan
+        await pilot.press("q")
+        await pilot.pause()
+        assert not app.is_running
+        release.set()  # let the worker thread unblock so teardown stays fast
 
 
 @pytest.mark.asyncio

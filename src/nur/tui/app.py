@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from textual.app import App, ComposeResult
@@ -16,6 +17,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from nur.models import Task
+
+log = logging.getLogger("nur")
 
 
 class TaskItem(ListItem):
@@ -56,6 +59,9 @@ class NurApp(App[None]):
         self._scan = scan
         self._cwd = cwd
         self._task_registry: Registry | None = None
+        # True once a scan raised, so the empty list reads "scan failed" instead
+        # of the misleading "no tasks found".
+        self._scan_failed = False
         self.selected_task: Task | None = None
         self.exit_code = 0
         # NOTE: named `_task_running`, not `_running` — `App` already has a
@@ -128,9 +134,12 @@ class NurApp(App[None]):
             self._select_task(matches[0])  # drive detail from data, not widgets
         else:
             self.selected_task = None
-            self._set_detail(
-                "no tasks found" if self._task_registry.is_empty() else "no matches"
-            )
+            if not self._task_registry.is_empty():
+                self._set_detail("no matches")
+            elif self._scan_failed:
+                self._set_detail("scan failed")
+            else:
+                self._set_detail("no tasks found")
 
     def _set_detail(self, text: str) -> None:
         self._detail_text = text
@@ -211,9 +220,15 @@ class NurApp(App[None]):
                 event.worker.result, Registry
             ):
                 self._task_registry = event.worker.result
+                self._scan_failed = False
                 self._set_status("")
             else:
+                # The exception is otherwise lost: `exit_on_error=False` keeps it
+                # off stderr, and stderr is hidden behind the TUI anyway.
+                if event.worker.state == WorkerState.ERROR:
+                    log.error("nur: task discovery failed: %s", event.worker.error)
                 self._task_registry = Registry([])
+                self._scan_failed = True
                 self._set_status("scan failed")
             self._rebuild(self.query_one("#filter", Input).value)
             return
