@@ -85,9 +85,13 @@ class NurApp(App[None]):
         # app bindings instead of being typed into the filter box.
         self.query_one("#tasks", ListView).focus()
         # Discovery may spawn subprocesses (e.g. `just --dump`), so run it off
-        # the UI thread. Non-exclusive: it must not be cancelled by the
-        # exclusive `task-run` worker group.
-        self.run_worker(self._scan, thread=True, name="scan")
+        # the UI thread. It lives in its own "scan" worker group, so the
+        # exclusive `task-run` worker (default group) can never cancel it.
+        # exit_on_error=False: a scan failure is handled by the ERROR branch
+        # in on_worker_state_changed (status "scan failed"), not a crash.
+        self.run_worker(
+            self._scan, thread=True, name="scan", group="scan", exit_on_error=False
+        )
 
     def _matches(self, query: str) -> list[Task]:
         q = query.lower()

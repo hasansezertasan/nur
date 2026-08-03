@@ -129,6 +129,20 @@ async def test_empty_scan_shows_no_tasks_found() -> None:
 
 
 @pytest.mark.asyncio
+async def test_scan_failure_sets_status_and_shows_no_tasks() -> None:
+    def boom() -> Registry:
+        msg = "discovery blew up"
+        raise RuntimeError(msg)
+
+    app = NurApp(Path(), scan=boom)
+    async with app.run_test() as pilot:
+        await _wait_scanned(app, pilot)
+        assert "scan failed" in str(app._status_text).lower()
+        assert app.selected_task is None
+        assert "no tasks found" in str(app._detail_text)
+
+
+@pytest.mark.asyncio
 async def test_quit_binding() -> None:
     app = NurApp(Path(), scan=_registry)
     async with app.run_test() as pilot:
