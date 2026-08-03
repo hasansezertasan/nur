@@ -64,20 +64,18 @@ def _run(
     extra: list[str] = ctx.obj["extra"] if ctx.obj else []
     cwd = Path.cwd()
 
+    if task is None:
+        # Launch the TUI immediately; it scans in the background. Do NOT call
+        # discover() here — that is what used to block startup.
+        from nur.tui.app import launch  # noqa: PLC0415
+
+        raise typer.Exit(launch(cwd))
+
     registry = discover(cwd)
 
     if task == "list":
         typer.echo(format_list(registry))
         raise typer.Exit(0)
-
-    if task is None:
-        if registry.is_empty():
-            typer.echo("nur: no supported task files found in this directory.")
-            raise typer.Exit(0)
-        # Lazy import — keeps the direct-run path from paying Textual's import cost.
-        from nur.tui.app import launch  # noqa: PLC0415
-
-        raise typer.Exit(launch(registry, cwd))
 
     try:
         resolved = registry.resolve(task)

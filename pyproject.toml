@@ -403,6 +403,9 @@ convention = "pep257"
 # faithful check that the module entry point is wired up); the subprocess
 # import/call are the point of the test, not a risk.
 "tests/smoke/test_main_module.py" = ["S404", "S603"]
+# The just provider test patches out the subprocess call; the import itself is
+# only used for monkeypatching/assertions, not to spawn a real subprocess.
+"tests/unit/providers/test_just.py" = ["S404"]
 "examples/*.py" = ["INP001"]
 # The Sphinx config is a standalone module, not part of an importable package.
 "docs/conf.py" = ["INP001"]
@@ -427,8 +430,10 @@ convention = "pep257"
 # S607), and parse tokens that trip the hardcoded-password heuristic (S105).
 "src/nur/providers/*.py" = ["PLR6301", "S404", "S603", "S607", "S105"]
 # Textual invokes compose() as an instance method and stores BINDINGS as a
-# class-level list, both mandated by the framework.
-"src/nur/tui/app.py" = ["PLR6301", "RUF012"]
+# class-level list, both mandated by the framework. The assert in _matches()
+# narrows the post-scan Optional Registry for the type checker; _rebuild()
+# guarantees it's non-None before _matches() is ever called.
+"src/nur/tui/app.py" = ["PLR6301", "RUF012", "S101"]
 
 
 [tool.ruff.lint.pyupgrade]

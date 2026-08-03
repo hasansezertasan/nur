@@ -37,12 +37,21 @@ async def _wait_until_done(app, pilot) -> None:
     )
 
 
+async def _wait_scanned(app, pilot) -> None:
+    await _wait_until(
+        pilot,
+        lambda: app._task_registry is not None and app.selected_task is not None,
+        message="scan did not populate within 15 seconds",
+    )
+
+
 @pytest.mark.asyncio
 async def test_run_streams_output_and_sets_status() -> None:
     argv = [sys.executable, "-c", "print('hello-from-task')"]
-    app = NurApp(_registry(argv), Path())
+    app = NurApp(Path(), scan=lambda argv=argv: _registry(argv))
     async with app.run_test() as pilot:
         await pilot.pause()
+        await _wait_scanned(app, pilot)
         await pilot.press("r")
         await _wait_until_done(app, pilot)
         await pilot.pause()
@@ -53,9 +62,10 @@ async def test_run_streams_output_and_sets_status() -> None:
 @pytest.mark.asyncio
 async def test_interrupt_stops_running_task() -> None:
     argv = [sys.executable, "-c", "import time; time.sleep(30)"]
-    app = NurApp(_registry(argv), Path())
+    app = NurApp(Path(), scan=lambda argv=argv: _registry(argv))
     async with app.run_test() as pilot:
         await pilot.pause()
+        await _wait_scanned(app, pilot)
         await pilot.press("r")
         # action_run() sets _task_running synchronously but spawns the child on
         # a worker thread, so wait for the process itself to exist -- otherwise
@@ -77,9 +87,10 @@ async def test_interrupt_stops_running_task() -> None:
 
 @pytest.mark.asyncio
 async def test_second_run_blocked_while_running() -> None:
-    app = NurApp(_registry([sys.executable, "-c", "pass"]), Path())
+    app = NurApp(Path(), scan=lambda: _registry([sys.executable, "-c", "pass"]))
     async with app.run_test() as pilot:
         await pilot.pause()
+        await _wait_scanned(app, pilot)
         app._task_running = True  # simulate an in-flight run
         before = app._status_text
         await pilot.press("r")

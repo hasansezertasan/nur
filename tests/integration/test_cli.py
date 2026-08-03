@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from typing import Never
 
 import nur
@@ -36,10 +37,21 @@ def test_missing_runner_returns_127(tmp_path, monkeypatch) -> None:
     assert main(["npm:build"]) == 127
 
 
-def test_empty_dir_no_tasks_message(tmp_path, monkeypatch, capsys) -> None:
+def test_empty_dir_still_launches_tui(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
+    called = {}
+
+    def fake_launch(cwd) -> int:
+        called["launched"] = True
+        called["cwd"] = cwd
+        return 0
+
+    import nur.tui.app
+
+    monkeypatch.setattr(nur.tui.app, "launch", fake_launch)
     assert main([]) == 0
-    assert "no" in capsys.readouterr().out.lower()
+    assert called["launched"] is True
+    assert Path(called["cwd"]).resolve() == tmp_path.resolve()
 
 
 def test_no_args_launches_tui_and_returns_its_code(tmp_path, monkeypatch) -> None:
@@ -47,8 +59,9 @@ def test_no_args_launches_tui_and_returns_its_code(tmp_path, monkeypatch) -> Non
     monkeypatch.chdir(tmp_path)
     called = {}
 
-    def fake_launch(registry, cwd) -> int:
-        called["n"] = len(registry.all())
+    def fake_launch(cwd) -> int:
+        called["launched"] = True
+        called["cwd"] = cwd
         return 5
 
     # main() does `from nur.tui.app import launch` lazily, so patch it there.
@@ -56,7 +69,8 @@ def test_no_args_launches_tui_and_returns_its_code(tmp_path, monkeypatch) -> Non
 
     monkeypatch.setattr(nur.tui.app, "launch", fake_launch)
     assert main([]) == 5
-    assert called["n"] == 1
+    assert called["launched"] is True
+    assert Path(called["cwd"]).resolve() == tmp_path.resolve()
 
 
 def test_list_output(tmp_path, monkeypatch, capsys) -> None:

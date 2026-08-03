@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from textual.app import App, ComposeResult
@@ -9,12 +10,15 @@ from textual.widgets import Input, ListItem, ListView, RichLog, Static
 from textual.worker import Worker, WorkerState
 
 from nur.execution import ProcessRunner
+from nur.registry import Registry
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from nur.models import Task
-    from nur.registry import Registry
+
+log = logging.getLogger("nur")
 
 __all__ = ["HeaderItem", "NurApp", "TaskItem", "launch"]
 
@@ -52,10 +56,14 @@ class NurApp(App[None]):
         ("question_mark", "toggle_help", "help"),
     ]
 
-    def __init__(self, registry: Registry, cwd: Path) -> None:
+    def __init__(self, cwd: Path, scan: Callable[[], Registry]) -> None:
         super().__init__()
-        self._task_registry = registry
+        self._scan = scan
         self._cwd = cwd
+        self._task_registry: Registry | None = None
+        # True once a scan raised, so the empty list reads "scan failed" instead
+        # of the misleading "no tasks found".
+        self._scan_failed = False
         self.selected_task: Task | None = None
         self.exit_code = 0
         # NOTE: named `_task_running`, not `_running` — `App` already has a
@@ -79,14 +87,24 @@ class NurApp(App[None]):
                 yield Static("", id="status")
 
     def on_mount(self) -> None:
-        self._rebuild("")
+        self._set_status("scanning…")
+        self._set_detail("scanning for tasks…")
         # Focus the list (not the Input) so '/', 'j', 'k', 'r', 'q' fire as
         # app bindings instead of being typed into the filter box.
         self.query_one("#tasks", ListView).focus()
+        # Discovery may spawn subprocesses (e.g. `just --dump`), so run it off
+        # the UI thread. It lives in its own "scan" worker group, so the
+        # exclusive `task-run` worker (default group) can never cancel it.
+        # exit_on_error=False: a scan failure is handled by the ERROR branch
+        # in on_worker_state_changed (status "scan failed"), not a crash.
+        self.run_worker(
+            self._scan, thread=True, name="scan", group="scan", exit_on_error=False
+        )
 
     def _matches(self, query: str) -> list[Task]:
         q = query.lower()
         out = []
+        assert self._task_registry is not None  # guarded by _rebuild
         for t in self._task_registry.all():
             hay = f"{t.name} {t.description or ''}".lower()
             if q in hay:
@@ -96,6 +114,10 @@ class NurApp(App[None]):
     def _rebuild(self, query: str) -> None:
         lv = self.query_one("#tasks", ListView)
         lv.clear()
+        if self._task_registry is None:
+            self.selected_task = None
+            self._set_detail("scanning for tasks…")
+            return
         matches = self._matches(query)
         current_prefix = None
         first_index = None  # index of the first selectable TaskItem
@@ -114,7 +136,12 @@ class NurApp(App[None]):
             self._select_task(matches[0])  # drive detail from data, not widgets
         else:
             self.selected_task = None
-            self._set_detail("no matches")
+            if not self._task_registry.is_empty():
+                self._set_detail("no matches")
+            elif self._scan_failed:
+                self._set_detail("scan failed")
+            else:
+                self._set_detail("no tasks found")
 
     def _set_detail(self, text: str) -> None:
         self._detail_text = text
@@ -187,6 +214,26 @@ class NurApp(App[None]):
         self.query_one("#output", RichLog).write(text)
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
+        if event.worker.name == "scan" and event.worker.state in {
+            WorkerState.SUCCESS,
+            WorkerState.ERROR,
+        }:
+            if event.worker.state == WorkerState.SUCCESS and isinstance(
+                event.worker.result, Registry
+            ):
+                self._task_registry = event.worker.result
+                self._scan_failed = False
+                self._set_status("")
+            else:
+                # The exception is otherwise lost: `exit_on_error=False` keeps it
+                # off stderr, and stderr is hidden behind the TUI anyway.
+                if event.worker.state == WorkerState.ERROR:
+                    log.error("nur: task discovery failed: %s", event.worker.error)
+                self._task_registry = Registry([])
+                self._scan_failed = True
+                self._set_status("scan failed")
+            self._rebuild(self.query_one("#filter", Input).value)
+            return
         if event.worker.name == "task-run" and event.worker.state in {
             WorkerState.SUCCESS,
             WorkerState.ERROR,
@@ -207,7 +254,9 @@ class NurApp(App[None]):
         self.exit()
 
 
-def launch(registry: Registry, cwd: Path) -> int:  # pragma: no cover
-    app = NurApp(registry, cwd)
+def launch(cwd: Path) -> int:  # pragma: no cover
+    from nur.discovery import discover  # noqa: PLC0415
+
+    app = NurApp(cwd, scan=lambda: discover(cwd))
     app.run()  # needs a real terminal; exercised manually, not in CI
     return app.exit_code

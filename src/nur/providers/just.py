@@ -50,9 +50,13 @@ class JustProvider:
                 capture_output=True,
                 text=True,
                 check=False,
+                timeout=5.0,
             )
         except OSError:
             log.warning("nur: 'just' not installed; skipping justfile tasks")
+            return []
+        except subprocess.TimeoutExpired:
+            log.warning("nur: 'just --dump' timed out; skipping justfile tasks")
             return []
         try:
             return parse_dump(result.stdout, self._source_file(cwd))
