@@ -1,7 +1,6 @@
 # nur
 
 [![CI](https://github.com/hasansezertasan/nur/actions/workflows/ci.yml/badge.svg)](https://github.com/hasansezertasan/nur/actions/workflows/ci.yml)
-[![MegaLinter](https://github.com/hasansezertasan/nur/actions/workflows/mega-linter.yml/badge.svg)](https://github.com/hasansezertasan/nur/actions/workflows/mega-linter.yml)
 [![Coverage](https://img.shields.io/codecov/c/github/hasansezertasan/nur)](https://codecov.io/gh/hasansezertasan/nur)
 [![Documentation Status](https://img.shields.io/github/deployments/hasansezertasan/nur/github-pages?label=docs)](https://hasansezertasan.github.io/nur)
 [![PyPI - Version](https://img.shields.io/pypi/v/nur.svg)](https://pypi.org/project/nur)
@@ -117,7 +116,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 - **TUI Application**: interactive three-pane task picker built with Textual.
 - **Safe by default**: discovery parses files; it never shells out to a runner just to list tasks.
 - **Type Safety**: full type hints checked by mypy, basedpyright, ty, pyrefly, and zuban.
-- **Code Quality**: comprehensive linting and formatting with ruff.
+- **Code Quality**: comprehensive linting and formatting with ruff, plus architecture-contract enforcement with import-linter.
 - **Testing**: pytest with coverage reporting and parallel execution.
 - **Documentation**: Sphinx documentation with the Shibuya theme, GitHub Pages deployment, and live per-PR documentation previews.
 - **CI/CD**: automated testing, building, and publishing across multiple platforms.

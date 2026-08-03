@@ -11,6 +11,9 @@ if TYPE_CHECKING:
 
     from nur.models import Provider, Task
 
+__all__ = ["discover"]
+
+
 log = logging.getLogger("nur")
 
 

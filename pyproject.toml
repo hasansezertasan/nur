@@ -68,6 +68,7 @@ style = [
   "actionlint-py==1.7.12.24",
   "basedpyright==1.39.8",
   "editorconfig-checker==3.6.1",
+  "import-linter==2.13",
   "mypy==2.1.0",
   "pyrefly==1.1.1",
   "ruff==0.15.19",
@@ -278,6 +279,30 @@ biuld = "biuld"
 # Intentional misspelling used to exercise the "did you mean build?" suggestion
 # (tests/integration/test_cli.py).
 buld = "buld"
+
+
+[tool.importlinter]
+root_package = "nur"
+
+
+[[tool.importlinter.contracts]]
+name = "Layered architecture with independent components"
+type = "layers"
+# Layers are listed high -> low: a layer may import lower layers but never a
+# higher one. Modules joined by ` | ` on one line are independent SIBLINGS that
+# may not import each other. `cli` is the orchestrator layer — it drives
+# discovery/execution and launches the `tui` via a lazy import — so it sits ABOVE
+# the `tui`, which sits above `discovery`. `discovery` composes the independent
+# `providers | execution | registry` group, which all sit above the leaf
+# `models` data types. `__init__`, `__main__`, and `_version` are left outside
+# the contract as unconstrained foundations.
+layers = [
+  "nur.cli",
+  "nur.tui",
+  "nur.discovery",
+  "nur.providers | nur.execution | nur.registry",
+  "nur.models",
+]
 
 
 [tool.ruff]
@@ -551,6 +576,7 @@ commands = [
   ["zuban", "check", "src"],
   ["vulture"],
   ["python", "-m", "slotscheck", "src"],
+  ["lint-imports"],
   ["taplo", "lint", "*.toml"],
   # NOTE: kept in fix mode (not `--check`) because the rendered TOML is not yet
   # guaranteed taplo-formatted across every component combination. The `*.toml`

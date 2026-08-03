@@ -10,6 +10,9 @@ from nur.discovery import discover
 from nur.execution import run_direct
 from nur.registry import AmbiguousTaskError, Registry, UnknownTaskError
 
+__all__ = ["format_list", "main", "split_passthrough"]
+
+
 app = typer.Typer(
     add_completion=False, context_settings={"help_option_names": ["-h", "--help"]}
 )

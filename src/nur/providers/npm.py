@@ -9,6 +9,9 @@ from nur.models import Task
 if TYPE_CHECKING:
     from pathlib import Path
 
+__all__ = ["NpmProvider", "resolve_pm"]
+
+
 log = logging.getLogger("nur")
 
 # (lockfile, package manager) in precedence order. Bun writes a text `bun.lock`

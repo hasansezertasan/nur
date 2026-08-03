@@ -14,6 +14,9 @@ if TYPE_CHECKING:
 
     from nur.models import Task
 
+__all__ = ["ProcessRunner", "run_direct"]
+
+
 # Conventional "command not found" exit status (as used by POSIX shells).
 RUNNER_NOT_FOUND = 127
 

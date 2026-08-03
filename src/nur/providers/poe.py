@@ -9,6 +9,9 @@ from nur.models import Task
 if TYPE_CHECKING:
     from pathlib import Path
 
+__all__ = ["PoeProvider"]
+
+
 log = logging.getLogger("nur")
 
 

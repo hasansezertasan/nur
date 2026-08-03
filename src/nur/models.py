@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 if TYPE_CHECKING:
     from pathlib import Path
 
+__all__ = ["Provider", "Task"]
+
 
 @dataclass(frozen=True, slots=True)
 class Task:
