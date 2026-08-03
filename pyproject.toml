@@ -3,9 +3,7 @@ name = "nur"
 description = "A script discovery and execution engine for your project's tasks."
 license = "MIT"
 readme = "README.md"
-authors = [
-  { name = "Hasan Sezer Taşan", email = "hasansezertasan@gmail.com" },
-]
+authors = [{ name = "Hasan Sezer Taşan", email = "hasansezertasan@gmail.com" }]
 maintainers = [
   { name = "Hasan Sezer Taşan", email = "hasansezertasan@gmail.com" },
 ]
@@ -58,11 +56,6 @@ source = "https://github.com/hasansezertasan/nur.git"
 nur = "nur.cli:main"
 
 
-
-
-
-
-
 [dependency-groups]
 dev = [
   "tox==4.31.0",
@@ -86,7 +79,7 @@ style = [
   "validate-pyproject[all]==0.25",
   "vulture==2.16",
   "zuban==0.9.0",
-  "types-PyYAML>=6.0",  # yaml stubs for the Taskfile provider (mypy/type checkers)
+  "types-PyYAML>=6.0",             # yaml stubs for the Taskfile provider (mypy/type checkers)
   # "google-yamlfmt",
   # "shellcheck-makefile>=1.27.3",
   # "shellcheck-py>=0.10.0.1",
@@ -109,16 +102,16 @@ test = [
   "inline-snapshot",
 ]
 docs = [
-    "sphinx==8.1.3",
-    "shibuya==2026.5.19",
-    "sphinx-autobuild==2024.10.3",  # 2025.x drops Python 3.10 (requires-python >= 3.11)
-    "sphinx-copybutton==0.5.2",
-    "sphinx-design==0.6.1",  # 0.7.0 drops Python 3.10 (requires-python >= 3.11)
-    "sphinx-togglebutton==0.4.5",
-    "sphinx-paramlinks==0.6.0",
-    "auto-pytabs[sphinx]==0.5.0",
-    "myst-parser==4.0.1",
-    "sphinx-click==6.2.0",
+  "sphinx==8.1.3",
+  "shibuya==2026.5.19",
+  "sphinx-autobuild==2024.10.3", # 2025.x drops Python 3.10 (requires-python >= 3.11)
+  "sphinx-copybutton==0.5.2",
+  "sphinx-design==0.6.1",        # 0.7.0 drops Python 3.10 (requires-python >= 3.11)
+  "sphinx-togglebutton==0.4.5",
+  "sphinx-paramlinks==0.6.0",
+  "auto-pytabs[sphinx]==0.5.0",
+  "myst-parser==4.0.1",
+  "sphinx-click==6.2.0",
 ]
 tool = [
   "commitizen==4.10.0",
@@ -126,9 +119,7 @@ tool = [
   # "inflection==0.5.1",
   # "copier==9.11.0",
 ]
-prek = [
-    "prek==0.4.3",
-]
+prek = ["prek==0.4.3"]
 
 
 [build-system]
@@ -183,9 +174,7 @@ name = "cz_conventional_commits"
 # addopts = "-rXs --strict-config --strict-markers"
 addopts = "-v --tb=short"
 asyncio_mode = "auto"
-filterwarnings = [
-  "error",
-]
+filterwarnings = ["error"]
 testpaths = ["tests"]
 xfail_strict = true
 
@@ -292,6 +281,11 @@ buld = "buld"
 
 
 [tool.ruff]
+# docs/superpowers/ holds frozen internal design/planning docs (already walled
+# off from Sphinx via conf.py exclude_patterns and from markdownlint). In preview
+# mode `ruff format` reformats Python code fences inside their Markdown, so
+# exclude the tree here too — those illustrative snippets are not project source.
+extend-exclude = ["docs/superpowers"]
 fix = true
 output-format = "full"
 preview = true
@@ -348,8 +342,6 @@ author = "Hasan Sezer Taşan <hasansezertasan@gmail.com>"
 ban-relative-imports = "all"
 
 
-
-
 [tool.ruff.lint.mccabe]
 # nur's parsers and the CLI dispatch are legitimately branchy (each source
 # format and each task-resolution outcome is a distinct path); 10 keeps a
@@ -370,17 +362,17 @@ convention = "pep257"
 # Tests legitimately use asserts/magic values, reach into package internals, and
 # don't need return-value documentation on their fixtures and helpers.
 "tests/**/*.py" = [
-  "ANN",      # tests don't need type annotations on fixtures/helpers
-  "D",        # tests don't need docstrings
-  "S101",     # asserts are the point of a test
-  "SLF001",   # white-box tests reach into package internals
-  "ARG",      # pytest fixtures/monkeypatch lambdas take unused args
-  "PLR2004",  # magic values are fine in assertions
-  "PLR6301",  # test methods needn't use self
-  "PLC0415",  # local imports keep test isolation
-  "PLC1901",  # explicit empty-string compares read clearer in tests
-  "PLC2701",  # importing private members for testing
-  "DOC201",   # helper return values needn't be documented
+  "ANN",     # tests don't need type annotations on fixtures/helpers
+  "D",       # tests don't need docstrings
+  "S101",    # asserts are the point of a test
+  "SLF001",  # white-box tests reach into package internals
+  "ARG",     # pytest fixtures/monkeypatch lambdas take unused args
+  "PLR2004", # magic values are fine in assertions
+  "PLR6301", # test methods needn't use self
+  "PLC0415", # local imports keep test isolation
+  "PLC1901", # explicit empty-string compares read clearer in tests
+  "PLC2701", # importing private members for testing
+  "DOC201",  # helper return values needn't be documented
 ]
 # The __main__ smoke test runs `python -m nur` in a real subprocess (the only
 # faithful check that the module entry point is wired up); the subprocess
@@ -512,11 +504,7 @@ project-includes = ["src"]
 # and would hang/fail under ``tox run`` in CI (where no broker is available).
 # The worker is covered by its pytest TestBroker suite; run it on demand with
 # ``tox -e worker`` when a broker is up (e.g. inside the devcontainer).
-env_list = [
-    "style",
-    "cli",
-    "3.14"
-]
+env_list = ["style", "cli", "3.14"]
 requires = ["tox>=4"]
 
 
@@ -554,70 +542,29 @@ wheel_build_env = ".pkg"
 [tool.tox.env.style]
 base_python = ["3.14"]
 commands = [
-  [
-    "ruff",
-    "check",
-  ],
-  [
-    "ruff",
-    "format",
-  ],
-  [
-    "mypy",
-    "--python-version",
-    "3.14",
-  ],
-  [
-    "basedpyright",
-  ],
-  [
-    "ty",
-    "check",
-  ],
-  [
-    "pyrefly",
-    "check",
-  ],
-  [
-    "zuban",
-    "check",
-    "src",
-  ],
-  [
-    "vulture",
-  ],
-  [
-    "python",
-    "-m",
-    "slotscheck",
-    "src",
-  ],
-  [
-    "taplo",
-    "lint",
-  ],
-  [
-    "taplo",
-    "format",
-  ],
-  [
-    "validate-pyproject",
-    "pyproject.toml",
-  ],
-  [
-    "typos",
-    "--diff",
-  ],
-  [
-    "actionlint",
-  ],
-  [
-    "ec",
-  ],
-  [
-    "sphinx-lint",
-    "docs",
-  ],
+  ["ruff", "check", "--no-fix"],
+  ["ruff", "format", "--check", "--diff"],
+  ["mypy", "--python-version", "3.14"],
+  ["basedpyright"],
+  ["ty", "check"],
+  ["pyrefly", "check"],
+  ["zuban", "check", "src"],
+  ["vulture"],
+  ["python", "-m", "slotscheck", "src"],
+  ["taplo", "lint", "*.toml"],
+  # NOTE: kept in fix mode (not `--check`) because the rendered TOML is not yet
+  # guaranteed taplo-formatted across every component combination. The `*.toml`
+  # glob is non-recursive, so it scopes taplo to this project's own root TOML
+  # (pyproject/prek/mise) without walking vendored `.tox`/`.venv`/site-packages
+  # trees — no `.taplo.toml` exclude config needed. Making this a strict
+  # `--check` gate is a follow-up that first requires the generated
+  # pyproject/prek to be clean.
+  ["taplo", "format", "*.toml"],
+  ["validate-pyproject", "pyproject.toml"],
+  ["typos", "--diff"],
+  ["actionlint"],
+  ["ec"],
+  ["sphinx-lint", "docs"],
   # ["yamlfmt", "."],
 ]
 # `test` is included so the type checkers that scope tests (e.g. ty) can
@@ -653,13 +600,28 @@ runner = "uv-venv-runner"
 [tool.tox.env.docs-linkcheck]
 # On-demand link checker. Also run weekly (non-blocking) by docs-linkcheck.yml.
 # Hits the network, so it is deliberately not part of the `style` env or PR CI.
-commands = [["sphinx-build", "-b", "linkcheck", "docs", "docs/_build/linkcheck"]]
+commands = [
+  [
+    "sphinx-build",
+    "-b",
+    "linkcheck",
+    "docs",
+    "docs/_build/linkcheck",
+  ],
+]
 extras = ["all"]
 dependency_groups = ["docs"]
 description = "Check documentation for broken links"
 runner = "uv-venv-runner"
 
 [tool.tox.env.cli]
-commands = [["nur", { replace = "posargs", default = ["--version"], extend = true }]]
+commands = [
+  [
+    "nur",
+    { replace = "posargs", default = [
+      "--version",
+    ], extend = true },
+  ],
+]
 description = "Run the CLI application."
 runner = "uv-venv-runner"

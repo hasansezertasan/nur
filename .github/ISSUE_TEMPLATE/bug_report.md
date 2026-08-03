@@ -11,13 +11,14 @@ assignees: 'hasansezertasan'
 This issue tracker is a tool to address bugs in nur itself.
 Please use GitHub Discussions for questions about your own project's tasks.
 
-Replace this comment with a clear outline of what the bug is.
+Replace this comment with a clear description of what the bug is.
 -->
 
 ## How to Reproduce
 
 <!--
-Describe how to replicate the bug.
+Provide a minimal reproducible example that developers can run to investigate.
+See https://stackoverflow.com/help/minimal-reproducible-example for guidance.
 
 Because nur discovers tasks from the files in a directory, the most useful
 report includes the source file(s) it was run against and the exact command.
@@ -48,9 +49,7 @@ whether the problem is in discovery, the CLI, or the TUI.
 
 ## Expected Behavior
 
-<!--
-Describe the expected behavior that should have happened but didn't.
--->
+<!-- Describe the behavior you expected but did not get. -->
 
 ## Environment
 
@@ -66,6 +65,4 @@ Please complete the following information:
 
 ### Additional Context
 
-<!--
-Add any other context about the problem here.
--->
+<!-- Add any other context about the problem here. -->
