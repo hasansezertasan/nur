@@ -78,8 +78,10 @@ def __init__(self, cwd: Path, scan: Callable[[], Registry]) -> None:
   `"task-run"` branch.
   - On `SUCCESS`: `self._task_registry = event.worker.result`, clear the
     scanning status, call `_rebuild(<current filter value>)`.
-  - On `ERROR`: set an error status, leave the registry empty (treated as
-    no tasks).
+  - On `ERROR`: log the worker's exception, set status `scan failed`, set the
+    `_scan_failed` flag, and store an empty registry so the app leaves the
+    `scanning…` state. (The worker is started with `exit_on_error=False` so the
+    exception reaches this branch instead of crashing the app.)
 - `_matches` / `_rebuild`: guard against a `None` registry (return no matches).
 
 ### List states
@@ -89,10 +91,13 @@ def __init__(self, cwd: Path, scan: Callable[[], Registry]) -> None:
 | Scanning | `scanning…` | `scanning for tasks…` | empty |
 | Done, tasks found | (normal) | task detail (current behavior) | populated |
 | Done, empty | (cleared) | `no tasks found` | empty |
+| Scan failed | `scan failed` | `scan failed` | empty |
 
 Note: `_rebuild` must distinguish "scanning" (registry is `None`) from "empty
-result" (registry present, no tasks) from "no matches for filter" (registry has
-tasks, none match the query).
+result" (registry present, no tasks) from "scan failed" (registry empty and the
+`_scan_failed` flag set) from "no matches for filter" (registry has tasks, none
+match the query). The failed and empty cases both hold an empty registry, so the
+`_scan_failed` flag is what tells them apart.
 
 ### `just` provider timeout (`src/nur/providers/just.py`)
 

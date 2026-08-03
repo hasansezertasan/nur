@@ -247,6 +247,25 @@ Replace the body of `_rebuild` so a `None` registry means "scanning" and an empt
             )
 ```
 
+> **Update (post-review):** the empty branch was later refined to a fourth
+> state. A `_scan_failed` flag (set in Step 8's ERROR branch) lets `_rebuild`
+> show `scan failed` — rather than the misleading `no tasks found` — when the
+> empty registry is the result of a discovery failure:
+>
+> ```python
+>         else:
+>             self.selected_task = None
+>             if not self._task_registry.is_empty():
+>                 self._set_detail("no matches")
+>             elif self._scan_failed:
+>                 self._set_detail("scan failed")
+>             else:
+>                 self._set_detail("no tasks found")
+> ```
+>
+> `_scan_failed` is initialized to `False` in `__init__` and reset to `False`
+> on a successful scan.
+
 - [ ] **Step 7: Point `_matches` at the (now non-None) registry**
 
 `_matches` is only reached from `_rebuild` after the `None` guard, so it can assume a registry. Update its loop source:
@@ -293,6 +312,24 @@ In `on_worker_state_changed`, add a `"scan"` branch before the existing `"task-r
             self._task_running = False
             self._set_status(f"exited({self.exit_code})")
 ```
+
+> **Update (post-review):** the ERROR branch was hardened. The worker is
+> started with `exit_on_error=False` (Step 5) so the exception reaches this
+> handler instead of crashing the app; the branch now logs it (it is otherwise
+> lost, since stderr is hidden behind the TUI) and sets the `_scan_failed` flag
+> that Step 6 reads:
+>
+> ```python
+>             else:
+>                 if event.worker.state == WorkerState.ERROR:
+>                     log.error("nur: task discovery failed: %s", event.worker.error)
+>                 self._task_registry = Registry([])
+>                 self._scan_failed = True
+>                 self._set_status("scan failed")
+> ```
+>
+> The SUCCESS branch sets `self._scan_failed = False`. This needs a
+> module-level `log = logging.getLogger("nur")` in `app.py`.
 
 - [ ] **Step 9: Update `launch` to build the scan callable**
 
