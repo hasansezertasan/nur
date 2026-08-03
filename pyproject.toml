@@ -378,6 +378,9 @@ convention = "pep257"
 # faithful check that the module entry point is wired up); the subprocess
 # import/call are the point of the test, not a risk.
 "tests/smoke/test_main_module.py" = ["S404", "S603"]
+# The just provider test patches out the subprocess call; the import itself is
+# only used for monkeypatching/assertions, not to spawn a real subprocess.
+"tests/unit/providers/test_just.py" = ["S404"]
 "examples/*.py" = ["INP001"]
 # The Sphinx config is a standalone module, not part of an importable package.
 "docs/conf.py" = ["INP001"]
