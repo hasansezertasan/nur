@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import subprocess
+from pathlib import Path
 from typing import Never
 
 from nur.providers.just import JustProvider, parse_dump
@@ -68,3 +72,11 @@ def test_parse_dump_honors_source_file() -> None:
     tasks = parse_dump(DUMP, source_file="Justfile")
     assert tasks
     assert all(t.source_file == "Justfile" for t in tasks)
+
+
+def test_discover_returns_empty_on_timeout(monkeypatch) -> None:
+    def _raise_timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd="just", timeout=5.0)
+
+    monkeypatch.setattr(subprocess, "run", _raise_timeout)
+    assert JustProvider().discover(Path()) == []
