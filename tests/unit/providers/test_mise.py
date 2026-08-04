@@ -74,6 +74,16 @@ def test_list_shorthand_task_is_joined(tmp_path) -> None:
     assert tasks["release"].description is None
 
 
+def test_hidden_task_is_skipped(tmp_path) -> None:
+    _write(
+        tmp_path,
+        '[tasks.secret]\nhide = true\nrun = "deploy"\n\n'
+        '[tasks.build]\nrun = "uv build"\n',
+    )
+    names = {t.name for t in MiseProvider().discover(tmp_path)}
+    assert names == {"build"}
+
+
 def test_dotted_config_file(tmp_path) -> None:
     _write(tmp_path, TOML, name=".mise.toml")
     tasks = {t.name: t for t in MiseProvider().discover(tmp_path)}

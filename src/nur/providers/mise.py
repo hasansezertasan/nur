@@ -77,6 +77,8 @@ class MiseProvider:
         source_file, tasks_table = loaded
         tasks: list[Task] = []
         for name, value in tasks_table.items():
+            if isinstance(value, dict) and value.get("hide") is True:
+                continue  # mise hides `hide = true` tasks from `mise tasks ls`
             definition, help_text = _definition_and_help(value)
             tasks.append(
                 Task(
