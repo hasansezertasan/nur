@@ -60,7 +60,7 @@ nur = "nur.cli:main"
 
 [dependency-groups]
 dev = [
-  "tox==4.31.0",
+  "tox==4.58.0",
   "tox-uv==1.29.0",
   "debugpy==1.8.21",
   { include-group = "style" },
