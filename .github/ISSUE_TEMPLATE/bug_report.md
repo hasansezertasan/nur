@@ -43,8 +43,8 @@ $ nur build
 nur: runner 'tsc' is not installed (needed to run npm:build).
 ```
 
-Tell us which task provider is involved (make, npm, just, task, pdm, poe) and
-whether the problem is in discovery, the CLI, or the TUI.
+Tell us which task provider is involved (make, npm, just, task, pdm, poe, mise,
+xc) and whether the problem is in discovery, the CLI, or the TUI.
 -->
 
 ## Expected Behavior
@@ -59,7 +59,7 @@ Please complete the following information:
 - nur version (`nur --version`): [e.g. 0.1.0]
 - Python version (`python --version`): [e.g. 3.14.0]
 - OS / terminal: [e.g. macOS 15, iTerm2]
-- Task provider involved: [make | npm | just | task | pdm | poe]
+- Task provider involved: [make | npm | just | task | pdm | poe | mise | xc]
 - Surface: [discovery | CLI | TUI]
 -->
 

@@ -19,6 +19,8 @@ keywords = [
   "taskfile",
   "pdm",
   "poe",
+  "mise",
+  "xc",
 ]
 classifiers = [
   "Development Status :: 4 - Beta",

@@ -23,9 +23,9 @@
 -----
 
 Run `nur` in a project and it discovers tasks across npm (`package.json`),
-`Makefile`, PDM/poe (`pyproject.toml`), `justfile`, `Taskfile.yml`, and mise
-(`mise.toml`), then lets you run them from a TUI picker or directly from the
-command line. Discovery is limited to the current directory.
+`Makefile`, PDM/poe (`pyproject.toml`), `justfile`, `Taskfile.yml`, mise
+(`mise.toml`), and xc (`README.md`), then lets you run them from a TUI picker or
+directly from the command line. Discovery is limited to the current directory.
 
 ## Table of Contents
 
@@ -103,17 +103,20 @@ If you have any questions or need help, feel free to open an issue on the [GitHu
 ## Motivation
 
 Every project speaks a different task dialect — `make test`, `npm run test`,
-`just test`, `task test`, `pdm run test`, `poe test`, `mise run test`. nur gives
+`just test`, `task test`, `pdm run test`, `poe test`, `mise run test`, `xc test`. nur gives
 you one command that discovers whatever a project already uses and runs it, with no config and
 no need to remember which runner lives where. Discovery is pure text/JSON/TOML
 parsing, so listing tasks never executes anything (no `make -pRrq` side effects).
 
 ## Features
 
-- **Zero-config discovery** across seven providers: `make`, `npm`, `just`,
-  `task` (Taskfile), `pdm`, `poe`, and `mise`. mise is read from the first
+- **Zero-config discovery** across eight providers: `make`, `npm`, `just`,
+  `task` (Taskfile), `pdm`, `poe`, `mise`, and `xc`. mise is read from the first
   config file present, in priority order: `mise.local.toml`, `mise.toml`,
-  `.mise.local.toml`, `.mise.toml`, `.config/mise.toml`.
+  `.mise.local.toml`, `.mise.toml`, `.config/mise.toml`. xc is read from
+  `README.md`: tasks come from the section marked with an `<!-- xc-heading -->`
+  comment, or failing that from a heading named `Tasks` — which is how nur
+  discovers the tasks documented below in this very file.
 - **CLI Application**: run any discovered task by name or qualified `prefix:name`, with `--` passthrough to the underlying runner.
 - **TUI Application**: interactive three-pane task picker built with Textual.
 - **Safe by default**: discovery parses files; it never shells out to a runner just to list tasks.

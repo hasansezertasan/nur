@@ -7,6 +7,7 @@ from nur.providers.npm import NpmProvider
 from nur.providers.pdm import PdmProvider
 from nur.providers.poe import PoeProvider
 from nur.providers.task import TaskfileProvider
+from nur.providers.xc import XcProvider
 
 if TYPE_CHECKING:
     from nur.models import Provider
@@ -19,6 +20,7 @@ PROVIDERS: list[Provider] = [
     JustProvider(),
     TaskfileProvider(),
     MiseProvider(),
+    XcProvider(),
 ]
 
 __all__ = [
@@ -30,4 +32,5 @@ __all__ = [
     "PdmProvider",
     "PoeProvider",
     "TaskfileProvider",
+    "XcProvider",
 ]
