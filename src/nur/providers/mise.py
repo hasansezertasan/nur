@@ -39,23 +39,28 @@ def _load_tasks(cwd: Path) -> tuple[str, dict[str, object]] | None:
     if name is None:
         return None
     try:
-        data = tomllib.loads((cwd / name).read_text())
-    except (OSError, tomllib.TOMLDecodeError) as exc:
+        data = tomllib.loads((cwd / name).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
         log.warning("nur: skipping %s (%s)", name, exc)
         return None
     tasks = data.get("tasks")
     return (name, tasks) if isinstance(tasks, dict) else None
 
 
+def _join_run(body: object) -> str:
+    # mise `run` may be a list of sequential shell commands.
+    if isinstance(body, list):
+        return " && ".join(str(x) for x in body)
+    return str(body)
+
+
 def _definition_and_help(value: object) -> tuple[str, str | None]:
     if isinstance(value, dict):
         body: Any = value.get("run", "")
-        # mise `run` may be a list of sequential shell commands.
-        if isinstance(body, list):
-            body = " && ".join(str(x) for x in body)
         desc = value.get("description")
-        return str(body), (desc if isinstance(desc, str) else None)
-    return str(value), None
+        return _join_run(body), (desc if isinstance(desc, str) else None)
+    # Shorthand form: `name = "cmd"` or `name = ["cmd1", "cmd2"]`.
+    return _join_run(value), None
 
 
 class MiseProvider:

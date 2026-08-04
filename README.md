@@ -111,7 +111,9 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 ## Features
 
 - **Zero-config discovery** across seven providers: `make`, `npm`, `just`,
-  `task` (Taskfile), `pdm`, `poe`, and `mise`.
+  `task` (Taskfile), `pdm`, `poe`, and `mise`. mise is read from the first
+  config file present, in priority order: `mise.local.toml`, `mise.toml`,
+  `.mise.local.toml`, `.mise.toml`, `.config/mise.toml`.
 - **CLI Application**: run any discovered task by name or qualified `prefix:name`, with `--` passthrough to the underlying runner.
 - **TUI Application**: interactive three-pane task picker built with Textual.
 - **Safe by default**: discovery parses files; it never shells out to a runner just to list tasks.

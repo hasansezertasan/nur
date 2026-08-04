@@ -23,7 +23,9 @@ run = ["uv build", "uv publish"]
 
 
 def _write(tmp_path: Path, text: str, name: str = "mise.toml") -> Path:
-    (tmp_path / name).write_text(text)
+    path = tmp_path / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
     return tmp_path
 
 
@@ -65,10 +67,31 @@ def test_string_shorthand_task(tmp_path) -> None:
     assert tasks["lint"].description is None
 
 
+def test_list_shorthand_task_is_joined(tmp_path) -> None:
+    _write(tmp_path, '[tasks]\nrelease = ["uv build", "uv publish"]\n')
+    tasks = {t.name: t for t in MiseProvider().discover(tmp_path)}
+    assert tasks["release"].definition == "uv build && uv publish"
+    assert tasks["release"].description is None
+
+
 def test_dotted_config_file(tmp_path) -> None:
     _write(tmp_path, TOML, name=".mise.toml")
     tasks = {t.name: t for t in MiseProvider().discover(tmp_path)}
     assert tasks["install"].source_file == ".mise.toml"
+
+
+def test_nested_config_file(tmp_path) -> None:
+    _write(tmp_path, TOML, name=".config/mise.toml")
+    tasks = {t.name: t for t in MiseProvider().discover(tmp_path)}
+    assert tasks["install"].source_file == ".config/mise.toml"
+
+
+def test_config_priority_prefers_local(tmp_path) -> None:
+    _write(tmp_path, '[tasks]\nx = "from-mise"\n', name="mise.toml")
+    _write(tmp_path, '[tasks]\nx = "from-local"\n', name="mise.local.toml")
+    tasks = {t.name: t for t in MiseProvider().discover(tmp_path)}
+    assert tasks["x"].definition == "from-local"
+    assert tasks["x"].source_file == "mise.local.toml"
 
 
 def test_discover_malformed_returns_empty(tmp_path, caplog) -> None:
