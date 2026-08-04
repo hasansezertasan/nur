@@ -49,7 +49,8 @@ Core data types shared across discovery, the registry, and execution.
 Providers (``nur.providers``)
 ---------------------------------
 
-One module per supported task source (make, npm, just, taskfile, pdm, poe).
+One module per supported task source (make, npm, just, taskfile, pdm, poe, mise,
+xc).
 
 .. automodule:: nur.providers.make
 
@@ -62,6 +63,10 @@ One module per supported task source (make, npm, just, taskfile, pdm, poe).
 .. automodule:: nur.providers.pdm
 
 .. automodule:: nur.providers.poe
+
+.. automodule:: nur.providers.mise
+
+.. automodule:: nur.providers.xc
 
 TUI (``nur.tui``)
 ---------------------------
