@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=e1a1ceaf" />
-    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=9454f7d5" />
+    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
@@ -79,50 +79,50 @@ data-aria-dark="Switch to auto color mode">
       <i class="i-lucide close"></i>
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
-<li><a class="reference internal" href="#cli-nur-cli">CLI (<code class="docutils literal notranslate">cli</span></code>)</a><ul>
+<li><a class="reference internal" href="#cli-nur-cli">CLI (<code class="docutils literal notranslate"><span class="pre">nur.cli</span></code>)</a><ul>
 <li><a class="reference internal" href="#nur.cli.format_list"><code class="docutils literal notranslate"><span class="pre">format_list()</span></code></a></li>
 <li><a class="reference internal" href="#nur.cli.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
 <li><a class="reference internal" href="#nur.cli.split_passthrough"><code class="docutils literal notranslate"><span class="pre">split_passthrough()</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#discovery-nur-discovery">Discovery (<code class="docutils literal notranslate">discovery</span></code>)</a></li>
-<li><a class="reference internal" href="#registry-nur-registry">Registry (<code class="docutils literal notranslate">registry</span></code>)</a><ul>
+<li><a class="reference internal" href="#discovery-nur-discovery">Discovery (<code class="docutils literal notranslate"><span class="pre">nur.discovery</span></code>)</a></li>
+<li><a class="reference internal" href="#registry-nur-registry">Registry (<code class="docutils literal notranslate"><span class="pre">nur.registry</span></code>)</a><ul>
 <li><a class="reference internal" href="#nur.registry.AmbiguousTaskError"><code class="docutils literal notranslate"><span class="pre">AmbiguousTaskError</span></code></a></li>
 <li><a class="reference internal" href="#nur.registry.ResolutionError"><code class="docutils literal notranslate"><span class="pre">ResolutionError</span></code></a></li>
 <li><a class="reference internal" href="#nur.registry.UnknownTaskError"><code class="docutils literal notranslate"><span class="pre">UnknownTaskError</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#execution-nur-execution">Execution (<code class="docutils literal notranslate">execution</span></code>)</a><ul>
+<li><a class="reference internal" href="#execution-nur-execution">Execution (<code class="docutils literal notranslate"><span class="pre">nur.execution</span></code>)</a><ul>
 <li><a class="reference internal" href="#nur.execution.ProcessRunner"><code class="docutils literal notranslate"><span class="pre">ProcessRunner</span></code></a></li>
 <li><a class="reference internal" href="#nur.execution.run_direct"><code class="docutils literal notranslate"><span class="pre">run_direct()</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#models-nur-models">Models (<code class="docutils literal notranslate">models</span></code>)</a><ul>
+<li><a class="reference internal" href="#models-nur-models">Models (<code class="docutils literal notranslate"><span class="pre">nur.models</span></code>)</a><ul>
 <li><a class="reference internal" href="#nur.models.Provider"><code class="docutils literal notranslate"><span class="pre">Provider</span></code></a></li>
 <li><a class="reference internal" href="#nur.models.Task"><code class="docutils literal notranslate"><span class="pre">Task</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#providers-nur-providers">Providers (<code class="docutils literal notranslate">providers</span></code>)</a><ul>
+<li><a class="reference internal" href="#providers-nur-providers">Providers (<code class="docutils literal notranslate"><span class="pre">nur.providers</span></code>)</a><ul>
 <li><a class="reference internal" href="#nur.providers.make.parse_targets"><code class="docutils literal notranslate"><span class="pre">parse_targets()</span></code></a></li>
 <li><a class="reference internal" href="#nur.providers.task.parse_taskfile"><code class="docutils literal notranslate"><span class="pre">parse_taskfile()</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#tui-nur-tui">TUI (<code class="docutils literal notranslate">tui</span></code>)</a><ul>
+<li><a class="reference internal" href="#tui-nur-tui">TUI (<code class="docutils literal notranslate"><span class="pre">nur.tui</span></code>)</a><ul>
 <li><a class="reference internal" href="#nur.tui.app.HeaderItem"><code class="docutils literal notranslate"><span class="pre">HeaderItem</span></code></a><ul>
-<li><a class="reference internal" href="#nur.tui.app.HeaderItem.can_focus"><code class="docutils literal notranslate">can_focus</span></code></a></li>
-<li><a class="reference internal" href="#nur.tui.app.HeaderItem.can_focus_children"><code class="docutils literal notranslate">can_focus_children</span></code></a></li>
+<li><a class="reference internal" href="#nur.tui.app.HeaderItem.can_focus"><code class="docutils literal notranslate"><span class="pre">HeaderItem.can_focus</span></code></a></li>
+<li><a class="reference internal" href="#nur.tui.app.HeaderItem.can_focus_children"><code class="docutils literal notranslate"><span class="pre">HeaderItem.can_focus_children</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#nur.tui.app.NurApp"><code class="docutils literal notranslate"><span class="pre">NurApp</span></code></a><ul>
-<li><a class="reference internal" href="#nur.tui.app.NurApp.CSS_PATH"><code class="docutils literal notranslate">CSS_PATH</span></code></a></li>
-<li><a class="reference internal" href="#nur.tui.app.NurApp.BINDINGS"><code class="docutils literal notranslate">BINDINGS</span></code></a></li>
-<li><a class="reference internal" href="#nur.tui.app.NurApp.compose"><code class="docutils literal notranslate">compose()</span></code></a></li>
-<li><a class="reference internal" href="#nur.tui.app.NurApp.action_quit"><code class="docutils literal notranslate">action_quit()</span></code></a></li>
+<li><a class="reference internal" href="#nur.tui.app.NurApp.CSS_PATH"><code class="docutils literal notranslate"><span class="pre">NurApp.CSS_PATH</span></code></a></li>
+<li><a class="reference internal" href="#nur.tui.app.NurApp.BINDINGS"><code class="docutils literal notranslate"><span class="pre">NurApp.BINDINGS</span></code></a></li>
+<li><a class="reference internal" href="#nur.tui.app.NurApp.compose"><code class="docutils literal notranslate"><span class="pre">NurApp.compose()</span></code></a></li>
+<li><a class="reference internal" href="#nur.tui.app.NurApp.action_quit"><code class="docutils literal notranslate"><span class="pre">NurApp.action_quit()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#nur.tui.app.TaskItem"><code class="docutils literal notranslate"><span class="pre">TaskItem</span></code></a><ul>
-<li><a class="reference internal" href="#nur.tui.app.TaskItem.can_focus"><code class="docutils literal notranslate">can_focus</span></code></a></li>
-<li><a class="reference internal" href="#nur.tui.app.TaskItem.can_focus_children"><code class="docutils literal notranslate">can_focus_children</span></code></a></li>
+<li><a class="reference internal" href="#nur.tui.app.TaskItem.can_focus"><code class="docutils literal notranslate"><span class="pre">TaskItem.can_focus</span></code></a></li>
+<li><a class="reference internal" href="#nur.tui.app.TaskItem.can_focus_children"><code class="docutils literal notranslate"><span class="pre">TaskItem.can_focus_children</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -158,16 +158,16 @@ data-aria-dark="Switch to auto color mode">
       <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
   <article class="yue" role="main">
           <section id="modules">
-<h1>Modules<a class="headerlink" href="#modules" title="Link to this heading">¶</a></h1>
+<h1>Modules<a class="headerlink" href="#modules" title="Link to this heading">#</a></h1>
 <p>An overview of the packages that make up <code class="docutils literal notranslate"><span class="pre">nur</span></code>.
 The API reference below is generated automatically from the source docstrings.</p>
 <section id="cli-nur-cli">
-<h2>CLI (<code class="docutils literal notranslate"><span class="pre">nur.cli</span></code>)<a class="headerlink" href="#cli-nur-cli" title="Link to this heading">¶</a></h2>
+<h2>CLI (<code class="docutils literal notranslate"><span class="pre">nur.cli</span></code>)<a class="headerlink" href="#cli-nur-cli" title="Link to this heading">#</a></h2>
 <p>Typer command-line interface: discovers project tasks and either runs one
 directly or launches the TUI.</p>
 <dl class="py function" id="module-nur.cli">
 <dt class="sig sig-object py" id="nur.cli.format_list">
-<span class="sig-prename descclassname"><span class="pre">nur.cli.</span></span><span class="sig-name descname"><span class="pre">format_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">registry</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/cli.html#format_list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.cli.format_list" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">nur.cli.</span></span><span class="sig-name descname"><span class="pre">format_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">registry</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/cli.html#format_list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.cli.format_list" title="Link to this definition">#</a></dt>
 <dd><p>Render the discovered tasks grouped by provider prefix.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -181,7 +181,7 @@ directly or launches the TUI.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="nur.cli.main">
-<span class="sig-prename descclassname"><span class="pre">nur.cli.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">argv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/cli.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.cli.main" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">nur.cli.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">argv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/cli.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.cli.main" title="Link to this definition">#</a></dt>
 <dd><p>Entry point: parse args with Typer, returning an int instead of exiting.</p>
 <p>Typer/Click raise <code class="docutils literal notranslate"><span class="pre">SystemExit</span></code> for help, version, and every command exit;
 catching it here keeps <code class="docutils literal notranslate"><span class="pre">main</span></code>’s int contract so it stays usable from tests
@@ -198,7 +198,7 @@ and embedders. Passthrough args are handed to the command via <code class="docut
 
 <dl class="py function">
 <dt class="sig sig-object py" id="nur.cli.split_passthrough">
-<span class="sig-prename descclassname"><span class="pre">nur.cli.</span></span><span class="sig-name descname"><span class="pre">split_passthrough</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">argv</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/cli.html#split_passthrough"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.cli.split_passthrough" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">nur.cli.</span></span><span class="sig-name descname"><span class="pre">split_passthrough</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">argv</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/cli.html#split_passthrough"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.cli.split_passthrough" title="Link to this definition">#</a></dt>
 <dd><p>Split argv on the first <code class="docutils literal notranslate"><span class="pre">--</span></code> into task args and passthrough args.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -212,17 +212,17 @@ and embedders. Passthrough args are handed to the command via <code class="docut
 
 </section>
 <section id="discovery-nur-discovery">
-<h2>Discovery (<code class="docutils literal notranslate"><span class="pre">nur.discovery</span></code>)<a class="headerlink" href="#discovery-nur-discovery" title="Link to this heading">¶</a></h2>
+<h2>Discovery (<code class="docutils literal notranslate"><span class="pre">nur.discovery</span></code>)<a class="headerlink" href="#discovery-nur-discovery" title="Link to this heading">#</a></h2>
 <p>Walks the working directory and builds the task registry from every supported
 source file.</p>
 </section>
 <section id="registry-nur-registry">
-<span id="module-nur.discovery"></span><h2>Registry (<code class="docutils literal notranslate"><span class="pre">nur.registry</span></code>)<a class="headerlink" href="#registry-nur-registry" title="Link to this heading">¶</a></h2>
+<span id="module-nur.discovery"></span><h2>Registry (<code class="docutils literal notranslate"><span class="pre">nur.registry</span></code>)<a class="headerlink" href="#registry-nur-registry" title="Link to this heading">#</a></h2>
 <p>Holds discovered tasks and resolves a query to a single task, with ambiguity
 and close-match handling.</p>
 <dl class="py exception" id="module-nur.registry">
 <dt class="sig sig-object py" id="nur.registry.AmbiguousTaskError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nur.registry.</span></span><span class="sig-name descname"><span class="pre">AmbiguousTaskError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/registry.html#AmbiguousTaskError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.registry.AmbiguousTaskError" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nur.registry.</span></span><span class="sig-name descname"><span class="pre">AmbiguousTaskError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/registry.html#AmbiguousTaskError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.registry.AmbiguousTaskError" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#nur.registry.ResolutionError" title="nur.registry.ResolutionError"><code class="xref py py-class docutils literal notranslate"><span class="pre">ResolutionError</span></code></a></p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -239,14 +239,14 @@ and close-match handling.</p>
 
 <dl class="py exception">
 <dt class="sig sig-object py" id="nur.registry.ResolutionError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nur.registry.</span></span><span class="sig-name descname"><span class="pre">ResolutionError</span></span><a class="reference internal" href="_modules/nur/registry.html#ResolutionError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.registry.ResolutionError" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nur.registry.</span></span><span class="sig-name descname"><span class="pre">ResolutionError</span></span><a class="reference internal" href="_modules/nur/registry.html#ResolutionError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.registry.ResolutionError" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#Exception" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
 <p>Base class for name-resolution failures.</p>
 </dd></dl>
 
 <dl class="py exception">
 <dt class="sig sig-object py" id="nur.registry.UnknownTaskError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nur.registry.</span></span><span class="sig-name descname"><span class="pre">UnknownTaskError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">suggestions</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/registry.html#UnknownTaskError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.registry.UnknownTaskError" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nur.registry.</span></span><span class="sig-name descname"><span class="pre">UnknownTaskError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">suggestions</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/registry.html#UnknownTaskError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.registry.UnknownTaskError" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#nur.registry.ResolutionError" title="nur.registry.ResolutionError"><code class="xref py py-class docutils literal notranslate"><span class="pre">ResolutionError</span></code></a></p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -263,11 +263,11 @@ and close-match handling.</p>
 
 </section>
 <section id="execution-nur-execution">
-<h2>Execution (<code class="docutils literal notranslate"><span class="pre">nur.execution</span></code>)<a class="headerlink" href="#execution-nur-execution" title="Link to this heading">¶</a></h2>
+<h2>Execution (<code class="docutils literal notranslate"><span class="pre">nur.execution</span></code>)<a class="headerlink" href="#execution-nur-execution" title="Link to this heading">#</a></h2>
 <p>Runs a resolved task’s command, propagating its exit code.</p>
 <dl class="py class" id="module-nur.execution">
 <dt class="sig sig-object py" id="nur.execution.ProcessRunner">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nur.execution.</span></span><span class="sig-name descname"><span class="pre">ProcessRunner</span></span><a class="reference internal" href="_modules/nur/execution.html#ProcessRunner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.execution.ProcessRunner" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nur.execution.</span></span><span class="sig-name descname"><span class="pre">ProcessRunner</span></span><a class="reference internal" href="_modules/nur/execution.html#ProcessRunner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.execution.ProcessRunner" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Runs a command with combined output captured and streamed line-by-line.</p>
 <p>Blocking; intended to be driven from a background thread by the TUI.</p>
@@ -277,7 +277,7 @@ and close-match handling.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="nur.execution.run_direct">
-<span class="sig-prename descclassname"><span class="pre">nur.execution.</span></span><span class="sig-name descname"><span class="pre">run_direct</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">task</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extra_args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cwd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/execution.html#run_direct"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.execution.run_direct" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">nur.execution.</span></span><span class="sig-name descname"><span class="pre">run_direct</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">task</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extra_args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cwd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/execution.html#run_direct"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.execution.run_direct" title="Link to this definition">#</a></dt>
 <dd><p>Run a task with inherited stdio; return the child’s exit code.</p>
 <p>A natively-parsed provider (npm/PDM/poe) can surface a task whose runner
 binary is not installed. Rather than letting <code class="docutils literal notranslate"><span class="pre">FileNotFoundError</span></code> escape
@@ -298,17 +298,17 @@ as a traceback, report a controlled error and return <code class="docutils liter
 
 </section>
 <section id="models-nur-models">
-<h2>Models (<code class="docutils literal notranslate"><span class="pre">nur.models</span></code>)<a class="headerlink" href="#models-nur-models" title="Link to this heading">¶</a></h2>
+<h2>Models (<code class="docutils literal notranslate"><span class="pre">nur.models</span></code>)<a class="headerlink" href="#models-nur-models" title="Link to this heading">#</a></h2>
 <p>Core data types shared across discovery, the registry, and execution.</p>
 <dl class="py class" id="module-nur.models">
 <dt class="sig sig-object py" id="nur.models.Provider">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nur.models.</span></span><span class="sig-name descname"><span class="pre">Provider</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/models.html#Provider"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.models.Provider" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nur.models.</span></span><span class="sig-name descname"><span class="pre">Provider</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/models.html#Provider"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.models.Provider" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Protocol" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Protocol</span></code></a></p>
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="nur.models.Task">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nur.models.</span></span><span class="sig-name descname"><span class="pre">Task</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">argv_base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'tuple[str,</span> <span class="pre">...]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">description</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str</span> <span class="pre">|</span> <span class="pre">None'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">definition</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_file</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">passthrough_prefix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'tuple[str,</span> <span class="pre">...]'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">()</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/models.html#Task"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.models.Task" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nur.models.</span></span><span class="sig-name descname"><span class="pre">Task</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">argv_base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'tuple[str,</span> <span class="pre">...]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">description</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str</span> <span class="pre">|</span> <span class="pre">None'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">definition</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_file</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">passthrough_prefix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'tuple[str,</span> <span class="pre">...]'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">()</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/models.html#Task"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.models.Task" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -327,11 +327,11 @@ as a traceback, report a controlled error and return <code class="docutils liter
 
 </section>
 <section id="providers-nur-providers">
-<h2>Providers (<code class="docutils literal notranslate"><span class="pre">nur.providers</span></code>)<a class="headerlink" href="#providers-nur-providers" title="Link to this heading">¶</a></h2>
+<h2>Providers (<code class="docutils literal notranslate"><span class="pre">nur.providers</span></code>)<a class="headerlink" href="#providers-nur-providers" title="Link to this heading">#</a></h2>
 <p>One module per supported task source (make, npm, just, taskfile, pdm, poe).</p>
 <dl class="py function" id="module-nur.providers.make">
 <dt class="sig sig-object py" id="nur.providers.make.parse_targets">
-<span class="sig-prename descclassname"><span class="pre">nur.providers.make.</span></span><span class="sig-name descname"><span class="pre">parse_targets</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/providers/make.html#parse_targets"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.providers.make.parse_targets" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">nur.providers.make.</span></span><span class="sig-name descname"><span class="pre">parse_targets</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/providers/make.html#parse_targets"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.providers.make.parse_targets" title="Link to this definition">#</a></dt>
 <dd><p>Extract target names from Makefile <em>text</em> without executing anything.</p>
 <p>Deliberately does NOT shell out to <code class="docutils literal notranslate"><span class="pre">make</span></code>: the database dump
 (<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">-pRrq</span></code>) still evaluates <code class="docutils literal notranslate"><span class="pre">$(shell</span> <span class="pre">...)</span></code> / <code class="docutils literal notranslate"><span class="pre">!=</span></code> assignments while
@@ -350,7 +350,7 @@ not resolving <code class="docutils literal notranslate"><span class="pre">inclu
 
 <dl class="py function" id="module-nur.providers.task">
 <span id="module-nur.providers.just"></span><span id="module-nur.providers.npm"></span><dt class="sig sig-object py" id="nur.providers.task.parse_taskfile">
-<span class="sig-prename descclassname"><span class="pre">nur.providers.task.</span></span><span class="sig-name descname"><span class="pre">parse_taskfile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Taskfile.yml'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/providers/task.html#parse_taskfile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.providers.task.parse_taskfile" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">nur.providers.task.</span></span><span class="sig-name descname"><span class="pre">parse_taskfile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Taskfile.yml'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/providers/task.html#parse_taskfile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.providers.task.parse_taskfile" title="Link to this definition">#</a></dt>
 <dd><p>Parse a Taskfile’s YAML <em>text</em> without executing anything.</p>
 <p>Deliberately does NOT run <code class="docutils literal notranslate"><span class="pre">task</span> <span class="pre">--list</span></code>: go-task evaluates dynamic <code class="docutils literal notranslate"><span class="pre">sh:</span></code>
 variables while loading/compiling the file, so listing could run
@@ -371,11 +371,11 @@ is safe, at the cost of not resolving <code class="docutils literal notranslate"
 
 </section>
 <section id="tui-nur-tui">
-<span id="module-nur.providers.poe"></span><span id="module-nur.providers.pdm"></span><h2>TUI (<code class="docutils literal notranslate"><span class="pre">nur.tui</span></code>)<a class="headerlink" href="#tui-nur-tui" title="Link to this heading">¶</a></h2>
+<span id="module-nur.providers.poe"></span><span id="module-nur.providers.pdm"></span><h2>TUI (<code class="docutils literal notranslate"><span class="pre">nur.tui</span></code>)<a class="headerlink" href="#tui-nur-tui" title="Link to this heading">#</a></h2>
 <p>Textual terminal user interface for browsing and running tasks.</p>
 <dl class="py class" id="module-nur.tui.app">
 <dt class="sig sig-object py" id="nur.tui.app.HeaderItem">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nur.tui.app.</span></span><span class="sig-name descname"><span class="pre">HeaderItem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prefix</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/tui/app.html#HeaderItem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.tui.app.HeaderItem" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nur.tui.app.</span></span><span class="sig-name descname"><span class="pre">HeaderItem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prefix</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/tui/app.html#HeaderItem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.tui.app.HeaderItem" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ListItem</span></code></p>
 <p>Initialize a Widget.</p>
 <dl class="field-list simple">
@@ -393,13 +393,13 @@ is safe, at the cost of not resolving <code class="docutils literal notranslate"
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="nur.tui.app.HeaderItem.can_focus">
-<span class="sig-name descname"><span class="pre">can_focus</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#nur.tui.app.HeaderItem.can_focus" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">can_focus</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#nur.tui.app.HeaderItem.can_focus" title="Link to this definition">#</a></dt>
 <dd><p>Widget may receive focus.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="nur.tui.app.HeaderItem.can_focus_children">
-<span class="sig-name descname"><span class="pre">can_focus_children</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#nur.tui.app.HeaderItem.can_focus_children" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">can_focus_children</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#nur.tui.app.HeaderItem.can_focus_children" title="Link to this definition">#</a></dt>
 <dd><p>Widget’s children may receive focus.</p>
 </dd></dl>
 
@@ -407,7 +407,7 @@ is safe, at the cost of not resolving <code class="docutils literal notranslate"
 
 <dl class="py class">
 <dt class="sig sig-object py" id="nur.tui.app.NurApp">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nur.tui.app.</span></span><span class="sig-name descname"><span class="pre">NurApp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cwd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/tui/app.html#NurApp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.tui.app.NurApp" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nur.tui.app.</span></span><span class="sig-name descname"><span class="pre">NurApp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cwd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/tui/app.html#NurApp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.tui.app.NurApp" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">App</span></code>[<a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>]</p>
 <p>Create an instance of an app.</p>
 <dl class="field-list simple">
@@ -431,19 +431,19 @@ you are using <cite>textual run</cite> with the <cite>dev</cite> switch.</p></li
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="nur.tui.app.NurApp.CSS_PATH">
-<span class="sig-name descname"><span class="pre">CSS_PATH</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">CSSPathType</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'app.tcss'</span></em><a class="headerlink" href="#nur.tui.app.NurApp.CSS_PATH" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">CSS_PATH</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">CSSPathType</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'app.tcss'</span></em><a class="headerlink" href="#nur.tui.app.NurApp.CSS_PATH" title="Link to this definition">#</a></dt>
 <dd><p>File paths to load CSS from.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="nur.tui.app.NurApp.BINDINGS">
-<span class="sig-name descname"><span class="pre">BINDINGS</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">BindingType</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[('q',</span> <span class="pre">'quit',</span> <span class="pre">'quit'),</span> <span class="pre">('escape',</span> <span class="pre">'quit',</span> <span class="pre">'quit'),</span> <span class="pre">('slash',</span> <span class="pre">'focus_filter',</span> <span class="pre">'filter'),</span> <span class="pre">('j',</span> <span class="pre">'next',</span> <span class="pre">'down'),</span> <span class="pre">('k',</span> <span class="pre">'prev',</span> <span class="pre">'up'),</span> <span class="pre">('r',</span> <span class="pre">'run',</span> <span class="pre">'run'),</span> <span class="pre">Binding(key='ctrl+c',</span> <span class="pre">action='interrupt',</span> <span class="pre">description='interrupt',</span> <span class="pre">show=True,</span> <span class="pre">key_display=None,</span> <span class="pre">priority=True,</span> <span class="pre">tooltip='',</span> <span class="pre">id=None,</span> <span class="pre">system=False,</span> <span class="pre">group=None),</span> <span class="pre">('question_mark',</span> <span class="pre">'toggle_help',</span> <span class="pre">'help')]</span></em><a class="headerlink" href="#nur.tui.app.NurApp.BINDINGS" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">BINDINGS</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">BindingType</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[('q',</span> <span class="pre">'quit',</span> <span class="pre">'quit'),</span> <span class="pre">('escape',</span> <span class="pre">'quit',</span> <span class="pre">'quit'),</span> <span class="pre">('slash',</span> <span class="pre">'focus_filter',</span> <span class="pre">'filter'),</span> <span class="pre">('j',</span> <span class="pre">'next',</span> <span class="pre">'down'),</span> <span class="pre">('k',</span> <span class="pre">'prev',</span> <span class="pre">'up'),</span> <span class="pre">('r',</span> <span class="pre">'run',</span> <span class="pre">'run'),</span> <span class="pre">Binding(key='ctrl+c',</span> <span class="pre">action='interrupt',</span> <span class="pre">description='interrupt',</span> <span class="pre">show=True,</span> <span class="pre">key_display=None,</span> <span class="pre">priority=True,</span> <span class="pre">tooltip='',</span> <span class="pre">id=None,</span> <span class="pre">system=False,</span> <span class="pre">group=None),</span> <span class="pre">('question_mark',</span> <span class="pre">'toggle_help',</span> <span class="pre">'help')]</span></em><a class="headerlink" href="#nur.tui.app.NurApp.BINDINGS" title="Link to this definition">#</a></dt>
 <dd><p>The default key bindings.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="nur.tui.app.NurApp.compose">
-<span class="sig-name descname"><span class="pre">compose</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/tui/app.html#NurApp.compose"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.tui.app.NurApp.compose" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">compose</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/tui/app.html#NurApp.compose"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.tui.app.NurApp.compose" title="Link to this definition">#</a></dt>
 <dd><p>Yield child widgets for a container.</p>
 <p>This method should be implemented in a subclass.</p>
 <dl class="field-list simple">
@@ -455,7 +455,7 @@ you are using <cite>textual run</cite> with the <cite>dev</cite> switch.</p></li
 
 <dl class="py method">
 <dt class="sig sig-object py" id="nur.tui.app.NurApp.action_quit">
-<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">action_quit</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/tui/app.html#NurApp.action_quit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.tui.app.NurApp.action_quit" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">action_quit</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/tui/app.html#NurApp.action_quit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.tui.app.NurApp.action_quit" title="Link to this definition">#</a></dt>
 <dd><p>An [action](/guide/actions) to quit the app as soon as possible.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -468,7 +468,7 @@ you are using <cite>textual run</cite> with the <cite>dev</cite> switch.</p></li
 
 <dl class="py class">
 <dt class="sig sig-object py" id="nur.tui.app.TaskItem">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nur.tui.app.</span></span><span class="sig-name descname"><span class="pre">TaskItem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">task</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/tui/app.html#TaskItem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.tui.app.TaskItem" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nur.tui.app.</span></span><span class="sig-name descname"><span class="pre">TaskItem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">task</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/tui/app.html#TaskItem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.tui.app.TaskItem" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ListItem</span></code></p>
 <p>Initialize a Widget.</p>
 <dl class="field-list simple">
@@ -486,13 +486,13 @@ you are using <cite>textual run</cite> with the <cite>dev</cite> switch.</p></li
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="nur.tui.app.TaskItem.can_focus">
-<span class="sig-name descname"><span class="pre">can_focus</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#nur.tui.app.TaskItem.can_focus" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">can_focus</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#nur.tui.app.TaskItem.can_focus" title="Link to this definition">#</a></dt>
 <dd><p>Widget may receive focus.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="nur.tui.app.TaskItem.can_focus_children">
-<span class="sig-name descname"><span class="pre">can_focus_children</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#nur.tui.app.TaskItem.can_focus_children" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">can_focus_children</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#nur.tui.app.TaskItem.can_focus_children" title="Link to this definition">#</a></dt>
 <dd><p>Widget’s children may receive focus.</p>
 </dd></dl>
 
@@ -530,9 +530,9 @@ you are using <cite>textual run</cite> with the <cite>dev</cite> switch.</p></li
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
