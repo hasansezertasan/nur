@@ -43,6 +43,11 @@ def test_detect_false_without_file(tmp_path) -> None:
     assert not MiseProvider().detect(tmp_path)
 
 
+def test_detect_false_on_empty_tasks_table(tmp_path) -> None:
+    _write(tmp_path, "[tasks]\n")
+    assert not MiseProvider().detect(tmp_path)
+
+
 def test_discover(tmp_path) -> None:
     _write(tmp_path, TOML)
     tasks = {t.name: t for t in MiseProvider().discover(tmp_path)}
@@ -106,5 +111,12 @@ def test_config_priority_prefers_local(tmp_path) -> None:
 
 def test_discover_malformed_returns_empty(tmp_path, caplog) -> None:
     _write(tmp_path, "not = = valid")
+    assert MiseProvider().discover(tmp_path) == []
+    assert any("mise.toml" in r.message for r in caplog.records)
+
+
+def test_discover_non_utf8_returns_empty(tmp_path, caplog) -> None:
+    # 0xe9 is not valid standalone UTF-8, so read_text raises UnicodeDecodeError.
+    (tmp_path / "mise.toml").write_bytes(b'[tasks]\nx = "caf\xe9"\n')
     assert MiseProvider().discover(tmp_path) == []
     assert any("mise.toml" in r.message for r in caplog.records)
