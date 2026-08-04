@@ -14,7 +14,20 @@ def test_providers_registry_order() -> None:
         "just",
         "task",
         "mise",
+        "xc",
     ]
+
+
+def test_discover_includes_xc_tasks(tmp_path) -> None:
+    (tmp_path / "README.md").write_text(
+        "# Demo\n\n## Tasks\n\n### build\n\n```sh\nuv build\n```\n"
+    )
+    (tmp_path / "package.json").write_text(json.dumps({"scripts": {"build": "vite"}}))
+    reg = discover(tmp_path)
+    names = {t.qualified_name for t in reg.all()}
+    assert {"xc:build", "npm:build"} <= names
+    # A name shared with another provider stays reachable when qualified.
+    assert reg.resolve("xc:build").argv_base == ("xc", "build")
 
 
 def test_discover_aggregates(tmp_path) -> None:
