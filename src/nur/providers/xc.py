@@ -15,9 +15,14 @@ __all__ = ["XcProvider", "parse_xc"]
 log = logging.getLogger("nur")
 
 
-MARKER_COMMENT = "<!-- xc-heading -->"
-HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
-FENCE = re.compile(r"^(`{3,}|~{3,})")
+# Markdown allows up to three leading spaces before a heading, fence, or HTML
+# block; a fourth makes the line an indented code block instead. Without that
+# bound, a README that shows indented xc examples would advertise phantom tasks.
+MARKER_COMMENT = re.compile(r"^ {0,3}<!-- xc-heading -->\s*$")
+HEADING = re.compile(r"^ {0,3}(#{1,6})\s+(.*)$")
+# The trailing group is a fence's info string. Only an opening fence may carry
+# one: a closing fence must have nothing but whitespace after its delimiter.
+FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 # Leading/trailing code-span and emphasis markers around a heading's text. `_`
 # and `~` are left alone: both are legal inside an xc task name.
 INLINE_MARKUP = re.compile(r"^[`*]+|[`*]+$")
@@ -34,21 +39,30 @@ def _fence_blocks(lines: list[str]) -> list[tuple[int, int]]:
     """Locate fenced code blocks as ``(opening line, closing line)`` indices.
 
     A fence closes on the next line opening with the same character repeated at
-    least as many times, which is what lets a ````-fenced block contain ``` lines
-    (as xc's own documentation does). An unclosed fence runs to the end of the
-    input, so its closing index is one past the last line.
+    least as many times and followed by nothing but whitespace. That is what
+    lets a ````-fenced block contain ``` lines (as xc's own documentation does),
+    and what keeps a script line such as ```not-a-close`` as script content
+    rather than a delimiter. An unclosed fence runs to the end of the input, so
+    its closing index is one past the last line.
     """
     blocks: list[tuple[int, int]] = []
     opener: str | None = None
     open_index = 0
     for index, line in enumerate(lines):
-        match = FENCE.match(line.strip())
+        match = FENCE.match(line)
         if opener is None:
             if match is not None:
                 opener, open_index = match.group(1), index
             continue
-        found = match.group(1) if match is not None else ""
-        if found[:1] == opener[0] and len(found) >= len(opener):
+        if match is None:
+            continue
+        delimiter, info = match.groups()
+        closes = (
+            delimiter[0] == opener[0]
+            and len(delimiter) >= len(opener)
+            and not info.strip()
+        )
+        if closes:
             blocks.append((open_index, index))
             opener = None
     if opener is not None:
@@ -70,7 +84,7 @@ def _code_lines(lines: list[str], blocks: list[tuple[int, int]]) -> set[int]:
 
 
 def _heading(line: str) -> tuple[int, str] | None:
-    match = HEADING.match(line.strip())
+    match = HEADING.match(line)
     if match is None:
         return None
     hashes, text = match.groups()
@@ -93,12 +107,11 @@ def _find_section(lines: list[str], code: set[int]) -> tuple[int, int] | None:
     for index, line in enumerate(lines):
         if index in code:
             continue
-        stripped = line.strip()
         heading = _heading(line)
         if heading is None:
-            if stripped == MARKER_COMMENT:
+            if MARKER_COMMENT.match(line):
                 marked = True
-            elif stripped:
+            elif line.strip():
                 marked = False  # only blank lines may sit between marker and heading
             continue
         if marked:

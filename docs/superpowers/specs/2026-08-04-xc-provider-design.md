@@ -130,15 +130,26 @@ For each task heading:
 ^(requires|req|dir|directory|env|environment|inputs|run|rundeps|interactive)\s*:
 ```
 
-**Fence state** — an opening fence is a line whose stripped content starts with
-three or more backticks or three or more tildes. It closes at the next line
-whose stripped content starts with the same character, repeated at least as many
-times as the opener. (The `≥` rule is what lets a ```` ```` ````-wrapped block
-contain ``` ``` ``` lines — as xc's own docs do.) An unclosed fence extends to
+**Indentation bound** — a heading, fence, or HTML block may carry at most three
+leading spaces; a fourth makes the line an *indented code block*. Every pattern
+below is therefore anchored with `^ {0,3}`, and none of them may be matched
+against a `strip()`ed line. Without this bound, a README that shows indented xc
+examples advertises tasks xc cannot run. *(Amendment: found in review — the
+first implementation matched stripped lines.)*
+
+**Fence state** — an opening fence is a line of three or more backticks or
+tildes, optionally followed by an info string. It closes at the next line with
+the same character, repeated at least as many times, **followed by nothing but
+whitespace**. The `≥` rule is what lets a ```` ```` ````-wrapped block contain
+``` ``` ``` lines (as xc's own docs do); the whitespace-only rule is what keeps
+a script line such as ``` ```not-a-close ``` as content. *(Amendment: found in
+review — accepting a delimiter with trailing text truncated the task's script
+and swallowed the following task, because the block's end shifted to the real
+closing fence and re-paired every fence after it.)* An unclosed fence extends to
 the end of the section.
 
-**ATX heading** — `^(#{1,6})\s+(.*)$` on the stripped line, outside a fence.
-Trailing closing hashes (`## Tasks ##`) are stripped from the text.
+**ATX heading** — `^ {0,3}(#{1,6})\s+(.*)$`, outside a fence. Trailing closing
+hashes (`## Tasks ##`) are stripped from the text.
 
 ### `XcProvider`
 
@@ -172,6 +183,9 @@ Registered last in `PROVIDERS`, after `MiseProvider()`.
 | Two `## Tasks` sections | only the first is read |
 | **`###` and `#` lines inside a shell code block** | not headings — no phantom tasks, section not truncated |
 | `~~~` fences, and a ```` ````-wrapped block containing ``` | closed at the right line |
+| A four-space-indented `## Tasks` / `### fake` example | an indented code block — no tasks at all |
+| A task heading indented by one to three spaces | still a task |
+| A script line of ``` ```not-a-close ``` | script content, not a closing fence |
 | Task heading with spaces (`### Build the docs`) | skipped |
 | Task with prose + `requires:`/`Env:`/`dir:` lines | attributes excluded from `description` |
 | Task with `requires:` and no code block | discovered, `definition == ""` |

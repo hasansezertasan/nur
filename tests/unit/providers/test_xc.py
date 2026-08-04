@@ -66,6 +66,14 @@ def test_marker_wins_over_a_later_tasks_heading() -> None:
     assert [t.name for t in parse_xc(text)] == ["style"]
 
 
+def test_marker_wins_over_an_earlier_tasks_heading() -> None:
+    text = (
+        "## Tasks\n\n### ignored\n\n```sh\necho no\n```\n\n"
+        "<!-- xc-heading -->\n## Dev\n\n### style\n\n```sh\ntox\n```\n"
+    )
+    assert [t.name for t in parse_xc(text)] == ["style"]
+
+
 def test_marker_tolerates_blank_lines_before_the_heading() -> None:
     text = "<!-- xc-heading -->\n\n\n## Dev\n\n### go\n\n```sh\necho hi\n```\n"
     assert [t.name for t in parse_xc(text)] == ["go"]
@@ -124,6 +132,46 @@ def test_longer_fence_wraps_shorter_one() -> None:
 def test_unclosed_fence_runs_to_the_end_of_the_section() -> None:
     text = "## Tasks\n\n### build\n\n```sh\nuv build\n"
     assert parse_xc(text)[0].definition == "uv build"
+
+
+def test_indented_example_is_a_code_block_not_a_task_list() -> None:
+    # Four spaces of indentation makes an indented code block, so xc's markdown
+    # parser sees no headings at all -- nur must not offer tasks xc cannot run.
+    text = (
+        "# Project\n\nExample:\n\n    ## Tasks\n\n    ### fake\n\n"
+        "    ```sh\n    echo no\n    ```\n"
+    )
+    assert parse_xc(text) == []
+
+
+def test_indented_heading_inside_a_task_body_is_not_a_task() -> None:
+    text = "## Tasks\n\n### build\n\n    ### indented-example\n\n```sh\nuv build\n```\n"
+    assert [t.name for t in parse_xc(text)] == ["build"]
+
+
+def test_heading_may_carry_up_to_three_leading_spaces() -> None:
+    # CommonMark allows an ATX heading to be indented by up to three spaces.
+    text = "  ## Tasks\n\n   ### build\n\n```sh\nuv build\n```\n"
+    assert [t.name for t in parse_xc(text)] == ["build"]
+
+
+def test_fence_delimiter_with_trailing_text_does_not_close_a_block() -> None:
+    # A closing fence may only be followed by whitespace, so this line is
+    # script content. Treating it as a close truncates `build` and swallows the
+    # task that follows.
+    text = (
+        "## Tasks\n\n### build\n\n```sh\n```not-a-close\nuv build\n```\n\n"
+        "### test\n\n```sh\npytest\n```\n"
+    )
+    tasks = parse_xc(text)
+    assert [t.name for t in tasks] == ["build", "test"]
+    assert tasks[0].definition == "```not-a-close\nuv build"
+    assert tasks[1].definition == "pytest"
+
+
+def test_indented_fence_still_opens_and_closes() -> None:
+    text = "## Tasks\n\n### build\n\n  ```sh\n  uv build\n  ```\n"
+    assert parse_xc(text)[0].definition == "  uv build"
 
 
 ATTRIBUTES = """\
