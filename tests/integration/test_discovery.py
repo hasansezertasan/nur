@@ -13,6 +13,7 @@ def test_providers_registry_order() -> None:
         "poe",
         "just",
         "task",
+        "mise",
     ]
 
 

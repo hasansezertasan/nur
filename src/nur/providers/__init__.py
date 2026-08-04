@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 from nur.providers.just import JustProvider
 from nur.providers.make import MakeProvider
+from nur.providers.mise import MiseProvider
 from nur.providers.npm import NpmProvider
 from nur.providers.pdm import PdmProvider
 from nur.providers.poe import PoeProvider
@@ -17,12 +18,14 @@ PROVIDERS: list[Provider] = [
     PoeProvider(),
     JustProvider(),
     TaskfileProvider(),
+    MiseProvider(),
 ]
 
 __all__ = [
     "PROVIDERS",
     "JustProvider",
     "MakeProvider",
+    "MiseProvider",
     "NpmProvider",
     "PdmProvider",
     "PoeProvider",
