@@ -116,7 +116,7 @@ def test_discover_malformed_returns_empty(tmp_path, caplog) -> None:
 
 
 def test_discover_non_utf8_returns_empty(tmp_path, caplog) -> None:
-    # 0xe9 is not valid standalone UTF-8, so read_text raises UnicodeDecodeError.
-    (tmp_path / "mise.toml").write_bytes(b'[tasks]\nx = "caf\xe9"\n')
+    # 0xff is never a valid UTF-8 byte, so read_text raises UnicodeDecodeError.
+    (tmp_path / "mise.toml").write_bytes(b'[tasks]\nx = "\xff"\n')
     assert MiseProvider().discover(tmp_path) == []
     assert any("mise.toml" in r.message for r in caplog.records)
