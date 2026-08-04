@@ -1,8 +1,15 @@
 import json
+import tomllib
+from pathlib import Path
 from typing import Never
 
 from nur.discovery import discover
 from nur.providers import PROVIDERS
+
+_ROOT = Path(__file__).resolve().parents[2]
+# Every provider's PyPI keyword equals its prefix, except the Taskfile provider,
+# whose keyword is spelled out.
+_KEYWORD_ALIASES = {"task": "taskfile"}
 
 
 def test_providers_registry_order() -> None:
@@ -16,6 +23,22 @@ def test_providers_registry_order() -> None:
         "mise",
         "xc",
     ]
+
+
+def test_every_provider_is_keyworded_and_documented() -> None:
+    # Guards the drift that left `mise` (and nearly `xc`) out of the PyPI
+    # keywords and the API reference: adding a provider must update both.
+    prefixes = {p.prefix for p in PROVIDERS}
+
+    metadata = tomllib.loads((_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    keywords = set(metadata["project"]["keywords"])
+    expected = {_KEYWORD_ALIASES.get(prefix, prefix) for prefix in prefixes}
+    assert expected <= keywords, f"missing PyPI keywords: {expected - keywords}"
+
+    modules = (_ROOT / "docs" / "modules.rst").read_text(encoding="utf-8")
+    for prefix in prefixes:
+        directive = f".. automodule:: nur.providers.{prefix}"
+        assert directive in modules, f"missing from docs/modules.rst: {directive}"
 
 
 def test_discover_includes_xc_tasks(tmp_path) -> None:

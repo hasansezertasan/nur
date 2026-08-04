@@ -174,6 +174,23 @@ def test_indented_fence_still_opens_and_closes() -> None:
     assert parse_xc(text)[0].definition == "  uv build"
 
 
+def test_marker_does_not_carry_across_a_fenced_block() -> None:
+    # Only blank lines may sit between a marker and its heading; a fenced block
+    # breaks that adjacency. With no `Tasks` fallback either, nothing matches.
+    text = (
+        "<!-- xc-heading -->\n\n```sh\necho x\n```\n\n"
+        "## Dev\n\n### go\n\n```sh\nhi\n```\n"
+    )
+    assert parse_xc(text) == []
+
+
+def test_indented_code_block_in_body_is_not_description() -> None:
+    # A four-space-indented block is code, not prose, so it must not surface as
+    # the task's description.
+    text = "## Tasks\n\n### build\n\n    indented sample\n\n```sh\nuv build\n```\n"
+    assert parse_xc(text)[0].description is None
+
+
 ATTRIBUTES = """\
 ## Tasks
 

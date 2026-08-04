@@ -14,6 +14,8 @@ __all__ = ["XcProvider", "parse_xc"]
 
 log = logging.getLogger("nur")
 
+SOURCE_FILE = "README.md"
+
 
 # Markdown allows up to three leading spaces before a heading, fence, or HTML
 # block; a fourth makes the line an indented code block instead. Without that
@@ -23,6 +25,9 @@ HEADING = re.compile(r"^ {0,3}(#{1,6})\s+(.*)$")
 # The trailing group is a fence's info string. Only an opening fence may carry
 # one: a closing fence must have nothing but whitespace after its delimiter.
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+# Four or more leading spaces (or a leading tab) is an indented code block, not
+# prose -- such lines must not be folded into a task's description.
+INDENTED_CODE = re.compile(r"^(?: {4,}|\t)")
 # Leading/trailing code-span and emphasis markers around a heading's text. `_`
 # and `~` are left alone: both are legal inside an xc task name.
 INLINE_MARKUP = re.compile(r"^[`*]+|[`*]+$")
@@ -106,6 +111,7 @@ def _find_section(lines: list[str], code: set[int]) -> tuple[int, int] | None:
     fallback: tuple[int, int] | None = None
     for index, line in enumerate(lines):
         if index in code:
+            marked = False  # a fenced block breaks marker-to-heading adjacency
             continue
         heading = _heading(line)
         if heading is None:
@@ -141,12 +147,14 @@ def _description(
     prose = [
         stripped
         for line in lines[start:limit]
-        if (stripped := line.strip()) and not ATTRIBUTE.match(stripped)
+        if (stripped := line.strip())
+        and not ATTRIBUTE.match(stripped)
+        and not INDENTED_CODE.match(line)
     ]
     return " ".join(prose) or None
 
 
-def parse_xc(text: str, source_file: str = "README.md") -> list[Task]:
+def parse_xc(text: str, source_file: str = SOURCE_FILE) -> list[Task]:
     """Parse xc tasks out of a markdown *text* without executing anything.
 
     Deliberately does NOT run ``xc -s``: xc executes task scripts, and listing
@@ -194,9 +202,6 @@ def parse_xc(text: str, source_file: str = "README.md") -> list[Task]:
             )
         )
     return tasks
-
-
-SOURCE_FILE = "README.md"
 
 
 def _load_tasks(cwd: Path) -> list[Task]:

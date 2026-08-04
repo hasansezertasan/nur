@@ -95,7 +95,8 @@ headings or markers. Track two candidates:
 
 - **Marker candidate:** the first ATX heading that follows a line whose stripped
   content is exactly `<!-- xc-heading -->`, ignoring blank lines between the
-  marker and the heading.
+  marker and the heading. Only blank lines may intervene — any prose or fenced
+  block between the marker and the heading breaks the association.
 - **`Tasks` candidate:** the first ATX heading whose text, stripped and
   lowercased, is exactly `tasks`.
 
@@ -118,8 +119,10 @@ For each task heading:
 - `definition` — the inner text of the **first** fenced code block in the body,
   fences excluded, lines joined with `\n`. `""` if the body has none.
 - `description` — the body's non-blank lines that appear *before* the first
-  fence and are not attribute lines, whitespace-collapsed and joined with a
-  single space. `None` if that leaves nothing.
+  fence and are neither attribute lines nor indented code blocks (four or more
+  leading spaces, or a leading tab), whitespace-collapsed and joined with a
+  single space. `None` if that leaves nothing. *(Amendment: found in review —
+  indented code was leaking into the description.)*
 - `prefix` — `"xc"`; `argv_base` — `("xc", name)`; `passthrough_prefix` — `()`
   (xc takes inputs as positional args: `xc greet Joe` — no `--` separator).
 - `source_file` — the `source_file` argument.
@@ -165,9 +168,11 @@ class XcProvider:
 `README.md` exists in nearly every repository, so file presence alone is not
 evidence of an xc project. `discover` reads with `encoding="utf-8"` and, on
 `OSError` or `UnicodeDecodeError`, logs `nur: skipping README.md (...)` at
-warning level and returns `[]` — the same shape as the other providers. To avoid
-parsing twice per discovery run, both methods go through one cached-per-call
-helper (`_load_tasks(cwd)`), as `mise.py` does.
+warning level and returns `[]` — the same shape as the other providers. Both
+methods delegate to one `_load_tasks(cwd)` helper, as `mise.py` does. Note this
+reads and parses `README.md` on each call, so a discovery run that invokes both
+`detect` and `discover` parses twice; that matches every existing provider and
+is not memoised here.
 
 Registered last in `PROVIDERS`, after `MiseProvider()`.
 
