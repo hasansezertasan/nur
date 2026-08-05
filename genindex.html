@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=e1a1ceaf" />
-    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=9454f7d5" />
+    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=9c3e77be" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
@@ -217,6 +217,8 @@ data-aria-dark="Switch to auto color mode">
 </li>
         <li><a href="modules.html#module-nur.providers.make">nur.providers.make</a>
 </li>
+        <li><a href="modules.html#module-nur.providers.mise">nur.providers.mise</a>
+</li>
         <li><a href="modules.html#module-nur.providers.npm">nur.providers.npm</a>
 </li>
         <li><a href="modules.html#module-nur.providers.pdm">nur.providers.pdm</a>
@@ -224,6 +226,8 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="modules.html#module-nur.providers.poe">nur.providers.poe</a>
 </li>
         <li><a href="modules.html#module-nur.providers.task">nur.providers.task</a>
+</li>
+        <li><a href="modules.html#module-nur.providers.xc">nur.providers.xc</a>
 </li>
         <li><a href="modules.html#module-nur.registry">nur.registry</a>
 </li>
@@ -284,6 +288,13 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="modules.html#module-nur.providers.make">module</a>
 </li>
       </ul></li>
+      <li>
+    nur.providers.mise
+
+      <ul>
+        <li><a href="modules.html#module-nur.providers.mise">module</a>
+</li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li>
@@ -315,6 +326,13 @@ data-aria-dark="Switch to auto color mode">
 </li>
       </ul></li>
       <li>
+    nur.providers.xc
+
+      <ul>
+        <li><a href="modules.html#module-nur.providers.xc">module</a>
+</li>
+      </ul></li>
+      <li>
     nur.registry
 
       <ul>
@@ -342,6 +360,8 @@ data-aria-dark="Switch to auto color mode">
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules.html#nur.providers.xc.parse_xc">parse_xc() (in module nur.providers.xc)</a>
+</li>
       <li><a href="modules.html#nur.execution.ProcessRunner">ProcessRunner (class in nur.execution)</a>
 </li>
       <li><a href="modules.html#nur.models.Provider">Provider (class in nur.models)</a>
@@ -416,9 +436,9 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
@@ -433,6 +453,5 @@ data-aria-dark="Switch to auto color mode">
       <script src="_static/togglebutton.js?v=b8b12719"></script>
       <script src="_static/design-tabs.js?v=f930bc37"></script>
       <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
-      <script src="_static/shibuya.js?v=50760d75"></script>
-      <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script></body>
+      <script src="_static/shibuya.js?v=50760d75"></script></body>
 </html>

@@ -32,14 +32,15 @@ You can either clone the public repository:
 
 .. code-block:: sh
 
-   git clone git://github.com/hasansezertasan/nur
+   git clone https://github.com/hasansezertasan/nur.git
 
 Or download the
-`tarball <https://github.com/hasansezertasan/nur/tarball/master>`_:
+`tarball <https://github.com/hasansezertasan/nur/tarball/main>`_:
 
 .. code-block:: sh
 
-   curl -OJL https://github.com/hasansezertasan/nur/tarball/master
+   mkdir nur
+   curl -fL https://github.com/hasansezertasan/nur/tarball/main | tar -xz --strip-components=1 -C nur
 
 Once you have a copy of the source, you can install it with:
 
