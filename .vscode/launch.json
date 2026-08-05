@@ -49,7 +49,7 @@
       "request": "launch",
       "justMyCode": true,
       "module": "uv",
-      "args": ["run", "nur-tui"]
+      "args": ["run", "nur"]
     },
     
     
