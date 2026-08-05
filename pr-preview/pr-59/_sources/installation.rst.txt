@@ -26,6 +26,21 @@ Or run it without installing:
 
    uvx nur
 
+On macOS/Linux, install it from the
+`Homebrew tap <https://github.com/hasansezertasan/homebrew-tap>`_:
+
+.. code-block:: sh
+
+   brew install hasansezertasan/tap/nur
+
+On Windows, install it from the
+`Scoop bucket <https://github.com/hasansezertasan/scoop-bucket>`_:
+
+.. code-block:: sh
+
+   scoop bucket add hasansezertasan https://github.com/hasansezertasan/scoop-bucket
+   scoop install nur
+
 From source
 -----------
 
