@@ -113,21 +113,22 @@ data-aria-dark="Switch to auto color mode">
   <article class="yue" role="main">
           <section id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h1>
-<p><code class="docutils literal notranslate"><span class="pre">nur</span></code> ships a single <code class="docutils literal notranslate"><span class="pre">nur</span></code> command; both the CLI and the TUI are launched
-through it. <code class="docutils literal notranslate"><span class="pre">typer</span></code> and <code class="docutils literal notranslate"><span class="pre">textual</span></code> are core dependencies, so there are no
-feature extras to choose from.</p>
+<p><code class="docutils literal notranslate"><span class="pre">nur</span></code> is an end-user command-line tool, not a library, so install it as a
+standalone application rather than as a project dependency. It ships a single
+<code class="docutils literal notranslate"><span class="pre">nur</span></code> command; both the CLI and the TUI are launched through it. <code class="docutils literal notranslate"><span class="pre">typer</span></code> and
+<code class="docutils literal notranslate"><span class="pre">textual</span></code> are core dependencies, so there are no feature extras to choose
+from.</p>
 <section id="stable-release">
 <h2>Stable release<a class="headerlink" href="#stable-release" title="Link to this heading">#</a></h2>
-<p>To install <code class="docutils literal notranslate"><span class="pre">nur</span></code> as a standalone tool, run this command in your terminal:</p>
+<p>Install <code class="docutils literal notranslate"><span class="pre">nur</span></code> into an isolated environment with your preferred tool installer:</p>
 <div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span data-line="1">uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>nur
 </span></pre></div>
 </div>
-<p>Or add it as a project dependency:</p>
-<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span data-line="1">uv<span class="w"> </span>add<span class="w"> </span>nur
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span data-line="1">pipx<span class="w"> </span>install<span class="w"> </span>nur
 </span></pre></div>
 </div>
-<p>Or if you prefer to use <code class="docutils literal notranslate"><span class="pre">pip</span></code>:</p>
-<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span data-line="1">pip<span class="w"> </span>install<span class="w"> </span>nur
+<p>Or run it without installing:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span data-line="1">uvx<span class="w"> </span>nur
 </span></pre></div>
 </div>
 </section>

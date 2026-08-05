@@ -1,30 +1,30 @@
 Installation
 ============
 
-``nur`` ships a single ``nur`` command; both the CLI and the TUI are launched
-through it. ``typer`` and ``textual`` are core dependencies, so there are no
-feature extras to choose from.
+``nur`` is an end-user command-line tool, not a library, so install it as a
+standalone application rather than as a project dependency. It ships a single
+``nur`` command; both the CLI and the TUI are launched through it. ``typer`` and
+``textual`` are core dependencies, so there are no feature extras to choose
+from.
 
 Stable release
 --------------
 
-To install ``nur`` as a standalone tool, run this command in your terminal:
+Install ``nur`` into an isolated environment with your preferred tool installer:
 
 .. code-block:: sh
 
    uv tool install nur
 
-Or add it as a project dependency:
+.. code-block:: sh
+
+   pipx install nur
+
+Or run it without installing:
 
 .. code-block:: sh
 
-   uv add nur
-
-Or if you prefer to use ``pip``:
-
-.. code-block:: sh
-
-   pip install nur
+   uvx nur
 
 From source
 -----------
