@@ -255,7 +255,7 @@ class NurApp(App[None]):
 
 
 def launch(cwd: Path) -> int:  # pragma: no cover
-    from nur.discovery import discover  # noqa: PLC0415
+    from nur.discovery import discover  # ruff: ignore[import-outside-top-level]
 
     app = NurApp(cwd, scan=lambda: discover(cwd))
     app.run()  # needs a real terminal; exercised manually, not in CI
