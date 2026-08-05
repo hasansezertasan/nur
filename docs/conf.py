@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 # -- Project information -----------------------------------------------------
 project = "nur"
 author = "Hasan Sezer Taşan"
-copyright = f"{datetime.now(tz=UTC):%Y}, Hasan Sezer Taşan"  # noqa: A001
+copyright = f"{datetime.now(tz=UTC):%Y}, Hasan Sezer Taşan"  # ruff: ignore[builtin-variable-shadowing]
 
 # -- General configuration ---------------------------------------------------
 extensions = [

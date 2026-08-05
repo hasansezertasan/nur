@@ -50,8 +50,8 @@ def _run(
     task: str | None = typer.Argument(
         None, help="task to run, e.g. 'test' or 'make:test'; 'list' to list"
     ),
-    version: bool = typer.Option(  # noqa: ARG001  (consumed by the eager callback)
-        False,  # noqa: FBT003
+    version: bool = typer.Option(  # ruff: ignore[unused-function-argument]  (consumed by the eager callback)
+        False,  # ruff: ignore[boolean-positional-value-in-call]
         "-V",
         "--version",
         help="print version and exit",
@@ -67,7 +67,7 @@ def _run(
     if task is None:
         # Launch the TUI immediately; it scans in the background. Do NOT call
         # discover() here — that is what used to block startup.
-        from nur.tui.app import launch  # noqa: PLC0415
+        from nur.tui.app import launch  # ruff: ignore[import-outside-top-level]
 
         raise typer.Exit(launch(cwd))
 

@@ -76,7 +76,7 @@ style = [
   "import-linter==2.13",
   "mypy==2.3.0",
   "pyrefly==1.2.0",
-  "ruff==0.15.19",
+  "ruff==0.16.1",
   "slotscheck==0.20.1",
   "sphinx-lint==1.0.2",
   "taplo==0.9.3",
@@ -340,20 +340,20 @@ skip-magic-trailing-comma = true
 [tool.ruff.lint]
 fixable = ["ALL"]
 ignore = [
-  "COM812",
+  "missing-trailing-comma",
   "CPY",
   "FIX",
   "TD",
   # Docstrings on every public symbol are not enforced yet; the ported source
   # was written to a lighter standard. Tracked as a follow-up, not a day-one gate.
-  "D100",
-  "D101",
-  "D102",
-  "D103",
-  "D104",
-  "D107",
-  "DOC201",
-  "DOC501",
+  "undocumented-public-module",
+  "undocumented-public-class",
+  "undocumented-public-method",
+  "undocumented-public-function",
+  "undocumented-public-package",
+  "undocumented-public-init",
+  "docstring-missing-returns",
+  "docstring-missing-exception",
 ]
 logger-objects = ["logging_setup.logger"]
 preview = true
@@ -394,51 +394,51 @@ convention = "pep257"
 "tests/**/*.py" = [
   "ANN",     # tests don't need type annotations on fixtures/helpers
   "D",       # tests don't need docstrings
-  "S101",    # asserts are the point of a test
-  "SLF001",  # white-box tests reach into package internals
+  "assert",    # asserts are the point of a test
+  "private-member-access",  # white-box tests reach into package internals
   "ARG",     # pytest fixtures/monkeypatch lambdas take unused args
-  "PLR2004", # magic values are fine in assertions
-  "PLR6301", # test methods needn't use self
-  "PLC0415", # local imports keep test isolation
-  "PLC1901", # explicit empty-string compares read clearer in tests
-  "PLC2701", # importing private members for testing
-  "DOC201",  # helper return values needn't be documented
+  "magic-value-comparison", # magic values are fine in assertions
+  "no-self-use", # test methods needn't use self
+  "import-outside-top-level", # local imports keep test isolation
+  "compare-to-empty-string", # explicit empty-string compares read clearer in tests
+  "import-private-name", # importing private members for testing
+  "docstring-missing-returns",  # helper return values needn't be documented
 ]
 # The __main__ smoke test runs `python -m nur` in a real subprocess (the only
 # faithful check that the module entry point is wired up); the subprocess
 # import/call are the point of the test, not a risk.
-"tests/smoke/test_main_module.py" = ["S404", "S603"]
+"tests/smoke/test_main_module.py" = ["suspicious-subprocess-import", "subprocess-without-shell-equals-true"]
 # The just provider test patches out the subprocess call; the import itself is
 # only used for monkeypatching/assertions, not to spawn a real subprocess.
-"tests/unit/providers/test_just.py" = ["S404"]
-"examples/*.py" = ["INP001"]
+"tests/unit/providers/test_just.py" = ["suspicious-subprocess-import"]
+"examples/*.py" = ["implicit-namespace-package"]
 # The Sphinx config is a standalone module, not part of an importable package.
-"docs/conf.py" = ["INP001"]
+"docs/conf.py" = ["implicit-namespace-package"]
 # Typer's declarative API puts function calls (Argument/Option) in argument
 # defaults by design, so B008 is expected here.
 # Typer's declarative API puts function calls (Argument/Option) in argument
 # defaults, and a boolean --version option is idiomatic, by design.
-"src/nur/cli.py" = ["B008", "FBT001"]
+"src/nur/cli.py" = ["function-call-in-default-argument", "boolean-type-hint-positional-argument"]
 # Discovery must not crash on one malformed source file: catching broadly and
 # skipping is deliberate robustness.
-"src/nur/discovery.py" = ["BLE001"]
+"src/nur/discovery.py" = ["blind-except"]
 # nur is a task runner: executing discovered project commands via subprocess is
 # the whole point, so the shell/subprocess-audit rules are intended here. The
 # assert narrows an Optional Popen handle for the type checkers. T201: it prints
 # a user-facing "runner not installed" error to stderr by design (do NOT let
 # ruff's preview/unsafe autofix delete the print).
-"src/nur/execution.py" = ["S101", "S404", "S603", "T201"]
+"src/nur/execution.py" = ["assert", "suspicious-subprocess-import", "subprocess-without-shell-equals-true", "print"]
 # The providers package intentionally builds the PROVIDERS registry in __init__.
-"src/nur/providers/__init__.py" = ["RUF067"]
+"src/nur/providers/__init__.py" = ["non-empty-init-module"]
 # Providers implement a shared Protocol (so detect()/_source_file() must stay
 # instance methods -> PLR6301), shell out to their runner by name (S404/S603/
 # S607), and parse tokens that trip the hardcoded-password heuristic (S105).
-"src/nur/providers/*.py" = ["PLR6301", "S404", "S603", "S607", "S105"]
+"src/nur/providers/*.py" = ["no-self-use", "suspicious-subprocess-import", "subprocess-without-shell-equals-true", "start-process-with-partial-path", "hardcoded-password-string"]
 # Textual invokes compose() as an instance method and stores BINDINGS as a
 # class-level list, both mandated by the framework. The assert in _matches()
 # narrows the post-scan Optional Registry for the type checker; _rebuild()
 # guarantees it's non-None before _matches() is ever called.
-"src/nur/tui/app.py" = ["PLR6301", "RUF012", "S101"]
+"src/nur/tui/app.py" = ["no-self-use", "mutable-class-default", "assert"]
 
 
 [tool.ruff.lint.pyupgrade]
