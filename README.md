@@ -45,7 +45,37 @@ directly from the command line. Discovery is limited to the current directory.
 
 ## Installation
 
-nur is not on PyPI yet. Install the latest from source:
+`nur` is a standalone command-line tool — install it into an isolated
+environment rather than as a project dependency:
+
+```console
+uv tool install nur
+```
+
+```console
+pipx install nur
+```
+
+Or run it without installing:
+
+```console
+uvx nur
+```
+
+On macOS/Linux via [Homebrew](https://github.com/hasansezertasan/homebrew-tap):
+
+```console
+brew install hasansezertasan/tap/nur
+```
+
+On Windows via [Scoop](https://github.com/hasansezertasan/scoop-bucket):
+
+```console
+scoop bucket add hasansezertasan https://github.com/hasansezertasan/scoop-bucket
+scoop install nur
+```
+
+To install the latest unreleased changes from source:
 
 ```console
 uv tool install git+https://github.com/hasansezertasan/nur
@@ -56,9 +86,6 @@ Or, from a clone:
 ```console
 uv tool install .
 ```
-
-Once published, `nur` will also be installable from PyPI (`pip install nur` /
-`uv tool install nur`), Homebrew, and Scoop.
 
 ## Usage
 
@@ -92,7 +119,7 @@ Debug nur in VS Code using the provided launch configurations:
 - **Current File**: Debug the currently open Python file.
 - **Tests**: Debug pytest runs.
 - **Attach**: Attach to a running process (with debugpy).
-- **CLI / TUI**: Debug the `nur` command-line and terminal-UI entry points.
+- **CLI / TUI**: Debug the `nur` entry point — with arguments (CLI) or with none, which opens the TUI.
 
 Select a configuration from the Run and Debug panel in VS Code.
 
