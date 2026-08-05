@@ -3,9 +3,7 @@ Installation
 
 ``nur`` is an end-user command-line tool, not a library, so install it as a
 standalone application rather than as a project dependency. It ships a single
-``nur`` command; both the CLI and the TUI are launched through it. ``typer`` and
-``textual`` are core dependencies, so there are no feature extras to choose
-from.
+``nur`` command that launches both the CLI and the TUI.
 
 Stable release
 --------------
