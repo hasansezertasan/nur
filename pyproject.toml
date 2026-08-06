@@ -21,6 +21,7 @@ keywords = [
   "poe",
   "mise",
   "cargo-make",
+  "deno",
   "xc",
 ]
 classifiers = [
