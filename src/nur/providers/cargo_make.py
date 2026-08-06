@@ -32,16 +32,18 @@ def _load_tasks(cwd: Path) -> dict[str, object] | None:
 
 
 def _script_body(script: object) -> str:
-    # A cargo-make `script` may be a single string, a list of shell lines, an
-    # external-file table (`{ file = "..." }`), or pre/main/post section tables.
+    # A cargo-make `script` may be a single/multi-line string, a list of shell
+    # lines, an external-file table (`{ file = "..." }`), or pre/main/post
+    # section tables. Everything is flattened to a single-line preview.
     if isinstance(script, list):
         return " && ".join(str(line) for line in script)
     if isinstance(script, str):
-        return script
+        lines = [line.strip() for line in script.splitlines() if line.strip()]
+        return " && ".join(lines)
     if isinstance(script, dict):
         file_val = script.get("file")
         if isinstance(file_val, str):
-            return file_val
+            return f"file: {file_val}"
         parts = [
             _script_body(script[key])
             for key in ("pre", "main", "post")
@@ -56,7 +58,7 @@ def _definition(value: dict[str, Any]) -> str:
     # may also be composite (only `dependencies`), in which case there is no
     # local command to show.
     command = value.get("command")
-    if isinstance(command, str):
+    if isinstance(command, str) and command:
         args = value.get("args")
         if isinstance(args, list):
             return " ".join([command, *(str(a) for a in args)])
@@ -78,8 +80,11 @@ class CargoMakeProvider:
         for name, value in tasks_table.items():
             if not isinstance(value, dict):
                 continue
-            # cargo-make hides `private = true` tasks from its task listing.
-            if value.get("private") is True:
+            # cargo-make hides `private = true` from its listing and treats
+            # `disabled = true` tasks as no-ops; skip both. Task `extend`,
+            # `alias`, and `condition` semantics are intentionally not resolved
+            # (see issue #76): nur delegates all execution to `cargo make <name>`.
+            if value.get("private") is True or value.get("disabled") is True:
                 continue
             description = value.get("description")
             tasks.append(
