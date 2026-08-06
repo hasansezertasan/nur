@@ -17,6 +17,11 @@ log = logging.getLogger("nur")
 
 def _load_tasks(cwd: Path) -> dict[str, object] | None:
     path = cwd / "Makefile.toml"
+    # Absence is the common case (the provider is globally registered): stay
+    # silent, mirroring the mise provider. Only warn on a present-but-unreadable
+    # or malformed file.
+    if not path.is_file():
+        return None
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
@@ -24,6 +29,26 @@ def _load_tasks(cwd: Path) -> dict[str, object] | None:
         return None
     tasks = data.get("tasks")
     return tasks if isinstance(tasks, dict) else None
+
+
+def _script_body(script: object) -> str:
+    # A cargo-make `script` may be a single string, a list of shell lines, an
+    # external-file table (`{ file = "..." }`), or pre/main/post section tables.
+    if isinstance(script, list):
+        return " && ".join(str(line) for line in script)
+    if isinstance(script, str):
+        return script
+    if isinstance(script, dict):
+        file_val = script.get("file")
+        if isinstance(file_val, str):
+            return file_val
+        parts = [
+            _script_body(script[key])
+            for key in ("pre", "main", "post")
+            if key in script
+        ]
+        return " && ".join(part for part in parts if part)
+    return ""
 
 
 def _definition(value: dict[str, Any]) -> str:
@@ -36,14 +61,7 @@ def _definition(value: dict[str, Any]) -> str:
         if isinstance(args, list):
             return " ".join([command, *(str(a) for a in args)])
         return command
-    script = value.get("script")
-    if isinstance(script, list):
-        # `script` is a list of sequential shell lines; join like the mise/npm
-        # providers do for multi-command tasks.
-        return " && ".join(str(line) for line in script)
-    if isinstance(script, str):
-        return script
-    return ""
+    return _script_body(value.get("script"))
 
 
 class CargoMakeProvider:

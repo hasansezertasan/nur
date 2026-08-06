@@ -82,6 +82,22 @@ def test_script_list_is_joined(tmp_path) -> None:
     assert tasks["format"].definition == "cargo fmt && cargo clippy"
 
 
+def test_script_file_table_definition(tmp_path) -> None:
+    _write(tmp_path, '[tasks.check]\nscript = { file = "scripts/check.sh" }\n')
+    tasks = {t.name: t for t in CargoMakeProvider().discover(tmp_path)}
+    assert tasks["check"].definition == "scripts/check.sh"
+
+
+def test_script_sections_table_definition(tmp_path) -> None:
+    _write(
+        tmp_path,
+        '[tasks.flow]\nscript = { pre = "echo a", '
+        'main = ["echo b", "echo c"], post = "echo d" }\n',
+    )
+    tasks = {t.name: t for t in CargoMakeProvider().discover(tmp_path)}
+    assert tasks["flow"].definition == "echo a && echo b && echo c && echo d"
+
+
 def test_task_without_command_has_empty_definition(tmp_path) -> None:
     _write(tmp_path, TOML)
     tasks = {t.name: t for t in CargoMakeProvider().discover(tmp_path)}
@@ -97,6 +113,15 @@ def test_private_tasks_are_skipped(tmp_path) -> None:
 
 def test_discover_empty_without_file(tmp_path) -> None:
     assert CargoMakeProvider().discover(tmp_path) == []
+
+
+def test_absent_file_emits_no_warning(tmp_path, caplog) -> None:
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="nur"):
+        assert not CargoMakeProvider().detect(tmp_path)
+        assert CargoMakeProvider().discover(tmp_path) == []
+    assert caplog.records == []
 
 
 def test_malformed_toml_returns_empty(tmp_path) -> None:
