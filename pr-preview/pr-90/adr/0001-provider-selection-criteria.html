@@ -87,6 +87,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#decision-drivers">Decision Drivers</a></li>
 <li><a class="reference internal" href="#considered-options">Considered Options</a></li>
 <li><a class="reference internal" href="#decision-outcome">Decision Outcome</a><ul>
+<li><a class="reference internal" href="#known-deviations-and-partial-support-current-state">Known deviations and partial support (current state)</a></li>
 <li><a class="reference internal" href="#current-provider-landscape">Current provider landscape</a></li>
 <li><a class="reference internal" href="#consequences">Consequences</a></li>
 </ul>
@@ -143,14 +144,17 @@ those formats cannot be supported without violating <code class="docutils litera
 <h2>Decision Drivers<a class="headerlink" href="#decision-drivers" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><strong>Safety / predictability</strong> — running <code class="docutils literal notranslate"><span class="pre">nur</span></code> to <em>list</em> tasks must never execute
-arbitrary project code. Discovery reads files; only the user’s explicit choice
-runs anything.</p></li>
-<li><p><strong>Reliability</strong> — a provider must enumerate tasks completely and correctly from
-the file alone, without a tool subprocess or network access.</p></li>
+the project’s own task code (recipe/target/script bodies) or otherwise run
+arbitrary project-controlled commands. Only the user’s explicit choice runs
+anything.</p></li>
+<li><p><strong>Reliability</strong> — a provider should enumerate tasks as completely and correctly
+as it can <em>without</em> violating the safety rule; where full enumeration would
+require executing project code or resolving remote state, a safe subset is
+acceptable.</p></li>
 <li><p><strong>Scope</strong> — discovery is limited to the current directory; providers parse a
 single well-known source file.</p></li>
 <li><p><strong>Value</strong> — real-world adoption and distinct ecosystem coverage, weighed
-<em>after</em> the hard constraints above, not before.</p></li>
+<em>after</em> the constraints above, not before.</p></li>
 </ul>
 </section>
 <section id="considered-options">
@@ -171,21 +175,46 @@ markdown/prose task definitions.</p></li>
 <p>Chosen option: <strong>“Static discovery only”</strong> (option 2).</p>
 <p>A candidate format becomes a provider <strong>only if all</strong> of the following hold:</p>
 <ol class="arabic simple">
-<li><p>Tasks are discoverable by <strong>statically parsing a single source file</strong> in the
-current directory.</p></li>
-<li><p>Discovery requires <strong>no code execution and no subprocess/network</strong> — the tool
-itself is never invoked to list tasks.</p></li>
+<li><p>Tasks are discoverable by <strong>parsing a source file</strong> in the current directory.</p></li>
+<li><p><strong>Hard rule — listing never executes the project’s task code.</strong> Discovery must
+not run recipe/target/script bodies or evaluate project-controlled expressions.
+Pure file parsing is the default and strongly preferred; invoking a runner’s
+own <em>parse-only</em> dump (e.g. <code class="docutils literal notranslate"><span class="pre">just</span> <span class="pre">--dump</span></code>) is tolerated only when it does not
+execute recipe bodies, and is treated as a deviation to be retired (see below).</p></li>
 <li><p>The file yields at least a task <strong>name</strong> and a <strong>run command</strong> (a description
-is a bonus).</p></li>
+is a bonus). Enumeration may be a <strong>safe subset</strong> — completeness yields to the
+hard rule.</p></li>
 </ol>
 <p>Formats that clear the bar are then prioritized by adoption and by covering an
 ecosystem <code class="docutils literal notranslate"><span class="pre">nur</span></code> does not yet reach. Markdown/prose formats are allowed (we already
-ship <code class="docutils literal notranslate"><span class="pre">xc</span></code>), so option 3 is rejected as too narrow. Option 1 is rejected outright:
-shelling out to enumerate tasks breaks driver #1 (safety) and #2 (reliability).</p>
+ship <code class="docutils literal notranslate"><span class="pre">xc</span></code>), so option 3 is rejected as too narrow. Option 1 is rejected as a
+general strategy: shelling out to <em>enumerate</em> tasks by executing project build
+logic (e.g. <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">-pRrq</span></code>, which evaluates <code class="docutils literal notranslate"><span class="pre">$(shell</span> <span class="pre">…)</span></code> while reading) breaks the
+hard rule — which is exactly why the <code class="docutils literal notranslate"><span class="pre">make</span></code> provider text-parses instead.</p>
+<section id="known-deviations-and-partial-support-current-state">
+<h3>Known deviations and partial support (current state)<a class="headerlink" href="#known-deviations-and-partial-support-current-state" title="Link to this heading">#</a></h3>
+<p>The rule above describes the target invariant. Two existing supported providers
+qualify it, and are recorded here so the ADR matches reality:</p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">just</span></code> shells out (grandfathered).</strong> <code class="docutils literal notranslate"><span class="pre">JustProvider.discover()</span></code> runs
+<code class="docutils literal notranslate"><span class="pre">just</span> <span class="pre">--dump</span> <span class="pre">--dump-format</span> <span class="pre">json</span></code> (a parse-only dump, with a 5s timeout that
+skips gracefully when <code class="docutils literal notranslate"><span class="pre">just</span></code> is absent) rather than parsing the <code class="docutils literal notranslate"><span class="pre">justfile</span></code>
+grammar itself. This satisfies the hard rule (recipe bodies are not executed)
+but violates the “pure file parse, no subprocess/tool dependency” preference.
+It is a <strong>candidate for future static parsing</strong>; new providers should not copy
+this pattern.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">make</span></code> is deliberately partial.</strong> <code class="docutils literal notranslate"><span class="pre">parse_targets()</span></code> text-parses the
+<code class="docutils literal notranslate"><span class="pre">Makefile</span></code> and, by design, does <strong>not</strong> resolve <code class="docutils literal notranslate"><span class="pre">include</span></code> directives or
+computed targets — it refuses to run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">-pRrq</span></code> because that would execute
+project code. This is the completeness-yields-to-safety trade-off in action;
+the same applies to <code class="docutils literal notranslate"><span class="pre">pre-commit</span></code> remote hooks, whose command lives upstream.</p></li>
+</ul>
 <p>Note the deliberate consequence: <strong>adoption alone never qualifies a format.</strong>
 High-popularity tools whose tasks live in imperative code or run remotely
 (Gradle, Maven, GitHub Actions, Rake, <code class="docutils literal notranslate"><span class="pre">nox</span></code>, cargo-xtask) are declined despite
-their reach, because they cannot satisfy constraints 1–2.</p>
+their reach, because enumerating their tasks would mean executing project code or
+resolving remote state — a breach of the hard rule.</p>
+</section>
 <section id="current-provider-landscape">
 <h3>Current provider landscape<a class="headerlink" href="#current-provider-landscape" title="Link to this heading">#</a></h3>
 <p>Supported today: <code class="docutils literal notranslate"><span class="pre">npm</span></code>, <code class="docutils literal notranslate"><span class="pre">make</span></code>, <code class="docutils literal notranslate"><span class="pre">pdm</span></code>, <code class="docutils literal notranslate"><span class="pre">poe</span></code>, <code class="docutils literal notranslate"><span class="pre">just</span></code>, <code class="docutils literal notranslate"><span class="pre">Taskfile</span></code>, <code class="docutils literal notranslate"><span class="pre">mise</span></code>, <code class="docutils literal notranslate"><span class="pre">xc</span></code>.</p>
