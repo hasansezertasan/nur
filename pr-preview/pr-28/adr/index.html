@@ -2,7 +2,7 @@
 <html lang="en" data-accent-color="amber" data-content_root="../">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Overview: module code - nur</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Architecture Decision Records - nur</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Provider selection criteria: static discovery, never execution" href="0001-provider-selection-criteria.html" /><link rel="prev" title="Modules" href="../modules.html" /><script>
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=e1a1ceaf" />
@@ -22,7 +22,7 @@
 }
 </style>
     
-  <meta property="og:type" content="website"/><meta property="og:title" content="Overview: module code"/>
+  <meta property="og:type" content="website"/><meta property="og:title" content="Architecture Decision Records"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -63,12 +63,12 @@ data-aria-dark="Switch to auto color mode">
     <div class="sy-lside-inner md:sticky">
       <div class="sy-scrollbar p-6">
         <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Contents</span></p>
-<ul>
+<ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../modules.html">Modules</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../adr/index.html">Architecture Decision Records</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../adr/0001-provider-selection-criteria.html">Provider selection criteria: static discovery, never execution</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Architecture Decision Records</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="0001-provider-selection-criteria.html">Provider selection criteria: static discovery, never execution</a></li>
 </ul>
 </li>
 </ul>
@@ -98,7 +98,7 @@ data-aria-dark="Switch to auto color mode">
         <span>/</span>
         <meta itemprop="position" content="1" />
       </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <strong itemprop="name">Overview: module code</strong>
+        <strong itemprop="name">Architecture Decision Records</strong>
         <meta itemprop="position" content="2" />
       </li></ol>
     <div class="xl:hidden ml-1">
@@ -111,22 +111,38 @@ data-aria-dark="Switch to auto color mode">
 </div><div class="flex flex-col break-words justify-between">
       <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
   <article class="yue" role="main">
-          <h1>All modules for which code is available</h1>
-<ul><li><a href="nur/cli.html">nur.cli</a></li>
-<li><a href="nur/execution.html">nur.execution</a></li>
-<li><a href="nur/models.html">nur.models</a></li>
-<li><a href="nur/providers/make.html">nur.providers.make</a></li>
-<li><a href="nur/providers/task.html">nur.providers.task</a></li>
-<li><a href="nur/providers/xc.html">nur.providers.xc</a></li>
-<li><a href="nur/registry.html">nur.registry</a></li>
-<li><a href="nur/tui/app.html">nur.tui.app</a></li>
+          <section id="architecture-decision-records">
+<h1>Architecture Decision Records<a class="headerlink" href="#architecture-decision-records" title="Link to this heading">#</a></h1>
+<p>This directory records significant architectural decisions for <code class="docutils literal notranslate"><span class="pre">nur</span></code> using the
+<a class="reference external" href="https://adr.github.io/madr/">MADR</a> format. Each file is numbered and immutable
+once accepted; supersede a decision with a new record rather than rewriting it.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="0001-provider-selection-criteria.html">Provider selection criteria: static discovery, never execution</a></li>
 </ul>
+</div>
+</section>
+
         </article><button class="back-to-top" type="button">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
     <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
   </svg>
   <span>Back to top</span>
-</button><div class="navigation flex print:hidden"></div></div>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="../modules.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Modules</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="0001-provider-selection-criteria.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">Provider selection criteria: static discovery, never execution</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
     </div>
   </main>
 </div>
