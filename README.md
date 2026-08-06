@@ -22,11 +22,11 @@
 
 -----
 
-Run `nur` in a project and it discovers tasks across npm (`package.json`),
-`Makefile`, PDM/poe (`pyproject.toml`), deno (`deno.json`/`deno.jsonc`),
-`justfile`, `Taskfile.yml`, mise (`mise.toml`), cargo-make (`Makefile.toml`),
-and xc (`README.md`), then lets you run them from a TUI picker or
-directly from the command line. Discovery is limited to the current directory.
+Run `nur` in a project and it discovers the tasks your project already defines —
+from npm, Make, deno, just, Taskfile, PDM/poe, mise, cargo-make, and xc — then
+lets you run them from a TUI picker or directly from the command line. Discovery
+is limited to the current directory. See [Features](#features) for the full list
+of source files.
 
 ## Table of Contents
 
@@ -138,15 +138,27 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 
 ## Features
 
-- **Zero-config discovery** across ten providers: `make`, `npm`, `deno`,
-  `just`, `task` (Taskfile), `pdm`, `poe`, `mise`, `cargo-make`, and `xc`.
-  deno is read from `deno.json`/`deno.jsonc`; cargo-make from `Makefile.toml`.
-  mise is read from the first
-  config file present, in priority order: `mise.local.toml`, `mise.toml`,
-  `.mise.local.toml`, `.mise.toml`, `.config/mise.toml`. xc is read from
-  `README.md`: tasks come from the section marked with an `<!-- xc-heading -->`
-  comment, or failing that from a heading named `Tasks` — which is how nur
-  discovers the tasks documented below in this very file.
+- **Zero-config discovery** across ten providers, each parsed from a single
+  source file in the current directory:
+
+  | Provider | Prefix | Source file |
+  | --- | --- | --- |
+  | npm | `npm` | `package.json` |
+  | deno | `deno` | `deno.json` / `deno.jsonc` |
+  | Make | `make` | `Makefile` |
+  | PDM | `pdm` | `pyproject.toml` (`[tool.pdm.scripts]`) |
+  | poe | `poe` | `pyproject.toml` (`[tool.poe.tasks]`) |
+  | just | `just` | `justfile` |
+  | Taskfile | `task` | `Taskfile.yml` |
+  | mise | `mise` | `mise.toml` (and variants — see below) |
+  | cargo-make | `cargo-make` | `Makefile.toml` |
+  | xc | `xc` | `README.md` (see below) |
+
+  `mise` reads the first config file present, in priority order:
+  `mise.local.toml`, `mise.toml`, `.mise.local.toml`, `.mise.toml`,
+  `.config/mise.toml`. `xc` reads its task section from `README.md` — the block
+  marked with an `<!-- xc-heading -->` comment, or failing that a heading named
+  `Tasks` (which is how nur discovers the tasks documented in this very file).
 - **CLI Application**: run any discovered task by name or qualified `prefix:name`, with `--` passthrough to the underlying runner.
 - **TUI Application**: interactive three-pane task picker built with Textual.
 - **Safe by default**: discovery parses files; it never shells out to a runner just to list tasks.
