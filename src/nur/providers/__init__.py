@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from nur.providers.cargo_make import CargoMakeProvider
+from nur.providers.deno import DenoProvider
 from nur.providers.just import JustProvider
 from nur.providers.make import MakeProvider
 from nur.providers.mise import MiseProvider
@@ -15,6 +16,7 @@ if TYPE_CHECKING:
 
 PROVIDERS: list[Provider] = [
     NpmProvider(),
+    DenoProvider(),
     MakeProvider(),
     PdmProvider(),
     PoeProvider(),
@@ -28,6 +30,7 @@ PROVIDERS: list[Provider] = [
 __all__ = [
     "PROVIDERS",
     "CargoMakeProvider",
+    "DenoProvider",
     "JustProvider",
     "MakeProvider",
     "MiseProvider",
