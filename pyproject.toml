@@ -20,6 +20,7 @@ keywords = [
   "pdm",
   "poe",
   "mise",
+  "cargo-make",
   "xc",
 ]
 classifiers = [

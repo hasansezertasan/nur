@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING
 
+from nur.providers.cargo_make import CargoMakeProvider
 from nur.providers.just import JustProvider
 from nur.providers.make import MakeProvider
 from nur.providers.mise import MiseProvider
@@ -20,11 +21,13 @@ PROVIDERS: list[Provider] = [
     JustProvider(),
     TaskfileProvider(),
     MiseProvider(),
+    CargoMakeProvider(),
     XcProvider(),
 ]
 
 __all__ = [
     "PROVIDERS",
+    "CargoMakeProvider",
     "JustProvider",
     "MakeProvider",
     "MiseProvider",
