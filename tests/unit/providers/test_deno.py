@@ -93,6 +93,17 @@ def test_comment_marker_inside_string_is_preserved(tmp_path) -> None:
     assert tasks["url"].definition == "curl https://x.dev // y"
 
 
+def test_escaped_characters_in_task_value(tmp_path) -> None:
+    _write(tmp_path, r'{"tasks": {"greet": "echo \"hi\""}}')
+    tasks = {t.name: t for t in DenoProvider().discover(tmp_path)}
+    assert tasks["greet"].definition == 'echo "hi"'
+
+
+def test_unterminated_string_returns_empty(tmp_path) -> None:
+    _write(tmp_path, '{"tasks": {"a": "oops')
+    assert DenoProvider().discover(tmp_path) == []
+
+
 def test_discover_empty_without_file(tmp_path) -> None:
     assert DenoProvider().discover(tmp_path) == []
 

@@ -19,51 +19,63 @@ log = logging.getLogger("nur")
 CONFIG_FILES = ("deno.json", "deno.jsonc")
 
 
+def _copy_string(text: str, start: int, out: list[str]) -> int:
+    """Copy a string literal (from its opening quote); return the index after it."""
+    out.append(text[start])
+    i, n = start + 1, len(text)
+    while i < n:
+        char = text[i]
+        out.append(char)
+        if char == "\\" and i + 1 < n:  # copy the escaped char verbatim
+            out.append(text[i + 1])
+            i += 2
+            continue
+        i += 1
+        if char == '"':
+            break
+    return i
+
+
+def _skip_comment(text: str, i: int) -> int | None:
+    """If a comment starts at ``i``, return the index past it; otherwise None."""
+    if text.startswith("//", i):
+        end = text.find("\n", i + 2)
+        return len(text) if end == -1 else end
+    if text.startswith("/*", i):
+        end = text.find("*/", i + 2)
+        return len(text) if end == -1 else end + 2
+    return None
+
+
+def _drop_trailing_comma(out: list[str]) -> None:
+    """Remove a trailing comma (and any whitespace) before a closing ``}``/``]``."""
+    j = len(out) - 1
+    while j >= 0 and out[j] in " \t\r\n":
+        j -= 1
+    if j >= 0 and out[j] == ",":
+        del out[j:]
+
+
 def _strip_jsonc(text: str) -> str:
     """Remove ``//``/``/* */`` comments and trailing commas from JSONC text.
 
     String-aware: comment markers and commas inside string literals are left
-    untouched, so ``tomllib``-free stdlib ``json.loads`` can parse the result.
+    untouched, so stdlib ``json.loads`` can parse the result.
     """
     out: list[str] = []
     i, n = 0, len(text)
-    in_string = False
     while i < n:
         char = text[i]
-        if in_string:
-            out.append(char)
-            if char == "\\" and i + 1 < n:  # copy the escaped char verbatim
-                out.append(text[i + 1])
-                i += 2
-                continue
-            if char == '"':
-                in_string = False
-            i += 1
-            continue
         if char == '"':
-            in_string = True
-            out.append(char)
-        elif char == "/" and i + 1 < n and text[i + 1] == "/":
-            i += 2
-            while i < n and text[i] != "\n":
-                i += 1
+            i = _copy_string(text, i, out)
             continue
-        elif char == "/" and i + 1 < n and text[i + 1] == "*":
-            i += 2
-            while i + 1 < n and not (text[i] == "*" and text[i + 1] == "/"):
-                i += 1
-            i += 2
+        skipped = _skip_comment(text, i)
+        if skipped is not None:
+            i = skipped
             continue
-        elif char in "}]":
-            # Drop a trailing comma (and any whitespace) before the close.
-            j = len(out) - 1
-            while j >= 0 and out[j] in " \t\r\n":
-                j -= 1
-            if j >= 0 and out[j] == ",":
-                del out[j:]
-            out.append(char)
-        else:
-            out.append(char)
+        if char in "}]":
+            _drop_trailing_comma(out)
+        out.append(char)
         i += 1
     return "".join(out)
 
