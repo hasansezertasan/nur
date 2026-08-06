@@ -23,14 +23,17 @@ those formats cannot be supported without violating `nur`'s core promise.
 ## Decision Drivers
 
 - **Safety / predictability** — running `nur` to *list* tasks must never execute
-  arbitrary project code. Discovery reads files; only the user's explicit choice
-  runs anything.
-- **Reliability** — a provider must enumerate tasks completely and correctly from
-  the file alone, without a tool subprocess or network access.
+  the project's own task code (recipe/target/script bodies) or otherwise run
+  arbitrary project-controlled commands. Only the user's explicit choice runs
+  anything.
+- **Reliability** — a provider should enumerate tasks as completely and correctly
+  as it can *without* violating the safety rule; where full enumeration would
+  require executing project code or resolving remote state, a safe subset is
+  acceptable.
 - **Scope** — discovery is limited to the current directory; providers parse a
   single well-known source file.
 - **Value** — real-world adoption and distinct ecosystem coverage, weighed
-  *after* the hard constraints above, not before.
+  *after* the constraints above, not before.
 
 ## Considered Options
 
@@ -49,22 +52,46 @@ Chosen option: **"Static discovery only"** (option 2).
 
 A candidate format becomes a provider **only if all** of the following hold:
 
-1. Tasks are discoverable by **statically parsing a single source file** in the
-   current directory.
-2. Discovery requires **no code execution and no subprocess/network** — the tool
-   itself is never invoked to list tasks.
+1. Tasks are discoverable by **parsing a source file** in the current directory.
+2. **Hard rule — listing never executes the project's task code.** Discovery must
+   not run recipe/target/script bodies or evaluate project-controlled expressions.
+   Pure file parsing is the default and strongly preferred; invoking a runner's
+   own *parse-only* dump (e.g. `just --dump`) is tolerated only when it does not
+   execute recipe bodies, and is treated as a deviation to be retired (see below).
 3. The file yields at least a task **name** and a **run command** (a description
-   is a bonus).
+   is a bonus). Enumeration may be a **safe subset** — completeness yields to the
+   hard rule.
 
 Formats that clear the bar are then prioritized by adoption and by covering an
 ecosystem `nur` does not yet reach. Markdown/prose formats are allowed (we already
-ship `xc`), so option 3 is rejected as too narrow. Option 1 is rejected outright:
-shelling out to enumerate tasks breaks driver #1 (safety) and #2 (reliability).
+ship `xc`), so option 3 is rejected as too narrow. Option 1 is rejected as a
+general strategy: shelling out to *enumerate* tasks by executing project build
+logic (e.g. `make -pRrq`, which evaluates `$(shell …)` while reading) breaks the
+hard rule — which is exactly why the `make` provider text-parses instead.
+
+### Known deviations and partial support (current state)
+
+The rule above describes the target invariant. Two existing supported providers
+qualify it, and are recorded here so the ADR matches reality:
+
+- **`just` shells out (grandfathered).** `JustProvider.discover()` runs
+  `just --dump --dump-format json` (a parse-only dump, with a 5s timeout that
+  skips gracefully when `just` is absent) rather than parsing the `justfile`
+  grammar itself. This satisfies the hard rule (recipe bodies are not executed)
+  but violates the "pure file parse, no subprocess/tool dependency" preference.
+  It is a **candidate for future static parsing**; new providers should not copy
+  this pattern.
+- **`make` is deliberately partial.** `parse_targets()` text-parses the
+  `Makefile` and, by design, does **not** resolve `include` directives or
+  computed targets — it refuses to run `make -pRrq` because that would execute
+  project code. This is the completeness-yields-to-safety trade-off in action;
+  the same applies to `pre-commit` remote hooks, whose command lives upstream.
 
 Note the deliberate consequence: **adoption alone never qualifies a format.**
 High-popularity tools whose tasks live in imperative code or run remotely
 (Gradle, Maven, GitHub Actions, Rake, `nox`, cargo-xtask) are declined despite
-their reach, because they cannot satisfy constraints 1–2.
+their reach, because enumerating their tasks would mean executing project code or
+resolving remote state — a breach of the hard rule.
 
 ### Current provider landscape
 
