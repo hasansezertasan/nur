@@ -104,6 +104,19 @@ def test_unterminated_string_returns_empty(tmp_path) -> None:
     assert DenoProvider().discover(tmp_path) == []
 
 
+def test_unterminated_block_comment_returns_empty(tmp_path) -> None:
+    _write(tmp_path, '{"tasks": {"a": "echo"}} /* oops', name="deno.jsonc")
+    assert DenoProvider().discover(tmp_path) == []
+
+
+def test_non_string_non_object_tasks_are_skipped(tmp_path) -> None:
+    _write(
+        tmp_path, '{"tasks": {"good": "echo", "num": 1, "arr": ["x"], "flag": true}}'
+    )
+    names = {t.name for t in DenoProvider().discover(tmp_path)}
+    assert names == {"good"}
+
+
 def test_discover_empty_without_file(tmp_path) -> None:
     assert DenoProvider().discover(tmp_path) == []
 

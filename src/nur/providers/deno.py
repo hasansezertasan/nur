@@ -43,7 +43,10 @@ def _skip_comment(text: str, i: int) -> int | None:
         return len(text) if end == -1 else end
     if text.startswith("/*", i):
         end = text.find("*/", i + 2)
-        return len(text) if end == -1 else end + 2
+        if end == -1:  # an unterminated block comment is malformed JSONC
+            msg = "unterminated block comment"
+            raise ValueError(msg)
+        return end + 2
     return None
 
 
@@ -94,14 +97,14 @@ def _load_tasks(cwd: Path) -> tuple[str, dict[str, object]] | None:
         return None
     try:
         data = json.loads(_strip_jsonc((cwd / name).read_text(encoding="utf-8")))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         log.warning("nur: skipping %s (%s)", name, exc)
         return None
     tasks = data.get("tasks") if isinstance(data, dict) else None
     return (name, tasks) if isinstance(tasks, dict) else None
 
 
-def _definition_and_help(value: object) -> tuple[str, str | None]:
+def _definition_and_help(value: str | dict[str, object]) -> tuple[str, str | None]:
     # A task is either a command string, or an object with a `command` field
     # plus an optional `description`.
     if isinstance(value, dict):
@@ -111,7 +114,7 @@ def _definition_and_help(value: object) -> tuple[str, str | None]:
             command if isinstance(command, str) else "",
             desc if isinstance(desc, str) else None,
         )
-    return str(value), None
+    return value, None
 
 
 class DenoProvider:
@@ -128,6 +131,11 @@ class DenoProvider:
         source_file, tasks_table = loaded
         tasks: list[Task] = []
         for name, value in tasks_table.items():
+            # A Deno task value is a command string or an object; skip anything
+            # else (numbers, arrays, booleans) as malformed rather than
+            # stringifying it into a bogus task.
+            if not isinstance(value, (str, dict)):
+                continue
             definition, help_text = _definition_and_help(value)
             tasks.append(
                 Task(
