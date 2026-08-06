@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.1](https://github.com/hasansezertasan/nur/compare/v0.2.0...v0.2.1) (2026-08-06)
+
+
+### 🐛 Bug Fixes
+
+* correct stale `nur-tui` references and pre-PyPI install docs ([#59](https://github.com/hasansezertasan/nur/issues/59)) ([0381e10](https://github.com/hasansezertasan/nur/commit/0381e10763084c07a988940606117bff3061b43b))
+* migrate suppression comments to ruff 0.16 structured syntax ([#66](https://github.com/hasansezertasan/nur/issues/66)) ([0b7469d](https://github.com/hasansezertasan/nur/commit/0b7469d6915e34b152e11191b724ef2df26c7b18))
+
+
+### 🛠 Build
+
+* **deps:** include all dependency groups in dev ([#60](https://github.com/hasansezertasan/nur/issues/60)) ([dd9f91b](https://github.com/hasansezertasan/nur/commit/dd9f91ba42776d11558d181b0f00113549259382))
+
 ## [0.2.0](https://github.com/hasansezertasan/nur/compare/v0.1.0...v0.2.0) (2026-08-05)
 
 
