@@ -24,7 +24,8 @@
 
 Run `nur` in a project and it discovers tasks across npm (`package.json`),
 `Makefile`, PDM/poe (`pyproject.toml`), `justfile`, `Taskfile.yml`, mise
-(`mise.toml`), and xc (`README.md`), then lets you run them from a TUI picker or
+(`mise.toml`), cargo-make (`Makefile.toml`), and xc (`README.md`), then lets you
+run them from a TUI picker or
 directly from the command line. Discovery is limited to the current directory.
 
 ## Table of Contents
@@ -137,8 +138,9 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 
 ## Features
 
-- **Zero-config discovery** across eight providers: `make`, `npm`, `just`,
-  `task` (Taskfile), `pdm`, `poe`, `mise`, and `xc`. mise is read from the first
+- **Zero-config discovery** across nine providers: `make`, `npm`, `just`,
+  `task` (Taskfile), `pdm`, `poe`, `mise`, `cargo-make`, and `xc`. cargo-make is
+  read from `Makefile.toml`. mise is read from the first
   config file present, in priority order: `mise.local.toml`, `mise.toml`,
   `.mise.local.toml`, `.mise.toml`, `.config/mise.toml`. xc is read from
   `README.md`: tasks come from the section marked with an `<!-- xc-heading -->`

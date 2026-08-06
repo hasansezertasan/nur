@@ -50,7 +50,7 @@ Providers (``nur.providers``)
 ---------------------------------
 
 One module per supported task source (make, npm, just, taskfile, pdm, poe, mise,
-xc).
+cargo-make, xc).
 
 .. automodule:: nur.providers.make
 
@@ -65,6 +65,8 @@ xc).
 .. automodule:: nur.providers.poe
 
 .. automodule:: nur.providers.mise
+
+.. automodule:: nur.providers.cargo_make
 
 .. automodule:: nur.providers.xc
 

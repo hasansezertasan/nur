@@ -10,6 +10,10 @@ _ROOT = Path(__file__).resolve().parents[2]
 # Every provider's PyPI keyword equals its prefix, except the Taskfile provider,
 # whose keyword is spelled out.
 _KEYWORD_ALIASES = {"task": "taskfile"}
+# A provider's module basename equals its prefix, except where the prefix
+# contains characters illegal in a Python module name (e.g. the hyphen in
+# ``cargo-make`` -> ``cargo_make``).
+_MODULE_ALIASES = {"cargo-make": "cargo_make"}
 
 
 def test_providers_registry_order() -> None:
@@ -21,6 +25,7 @@ def test_providers_registry_order() -> None:
         "just",
         "task",
         "mise",
+        "cargo-make",
         "xc",
     ]
 
@@ -37,7 +42,8 @@ def test_every_provider_is_keyworded_and_documented() -> None:
 
     modules = (_ROOT / "docs" / "modules.rst").read_text(encoding="utf-8")
     for prefix in prefixes:
-        directive = f".. automodule:: nur.providers.{prefix}"
+        module = _MODULE_ALIASES.get(prefix, prefix)
+        directive = f".. automodule:: nur.providers.{module}"
         assert directive in modules, f"missing from docs/modules.rst: {directive}"
 
 
