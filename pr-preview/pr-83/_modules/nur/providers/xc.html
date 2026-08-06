@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="amber" data-content_root="../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>nur.providers.xc - nur</title><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=e1a1ceaf" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx_paramlinks.css" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="nur.providers.xc"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../../../index.html">
+      
+      
+      <strong>nur</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials">
+  <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">Modules</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../index.html"><span itemprop="name">nur</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../index.html"><span itemprop="name">Module code</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">nur.providers.xc</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <h1>Source code for nur.providers.xc</h1><div class="highlight"><pre>
+<span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+</span><span data-line="4"><span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+</span><span data-line="5"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
+</span><span data-line="6">
+</span><span data-line="7"><span class="kn">from</span><span class="w"> </span><span class="nn">nur.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Task</span>
+</span><span data-line="8">
+</span><span data-line="9"><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+</span><span data-line="10">    <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+</span><span data-line="11">
+</span><span data-line="12"><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;XcProvider&quot;</span><span class="p">,</span> <span class="s2">&quot;parse_xc&quot;</span><span class="p">]</span>
+</span><span data-line="13">
+</span><span data-line="14">
+</span><span data-line="15"><span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;nur&quot;</span><span class="p">)</span>
+</span><span data-line="16">
+</span><span data-line="17"><span class="n">SOURCE_FILE</span> <span class="o">=</span> <span class="s2">&quot;README.md&quot;</span>
+</span><span data-line="18">
+</span><span data-line="19">
+</span><span data-line="20"><span class="c1"># Markdown allows up to three leading spaces before a heading, fence, or HTML</span>
+</span><span data-line="21"><span class="c1"># block; a fourth makes the line an indented code block instead. Without that</span>
+</span><span data-line="22"><span class="c1"># bound, a README that shows indented xc examples would advertise phantom tasks.</span>
+</span><span data-line="23"><span class="n">MARKER_COMMENT</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^ {0,3}&lt;!-- xc-heading --&gt;\s*$&quot;</span><span class="p">)</span>
+</span><span data-line="24"><span class="n">HEADING</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^ {0,3}(#{1,6})\s+(.*)$&quot;</span><span class="p">)</span>
+</span><span data-line="25"><span class="c1"># The trailing group is a fence&#39;s info string. Only an opening fence may carry</span>
+</span><span data-line="26"><span class="c1"># one: a closing fence must have nothing but whitespace after its delimiter.</span>
+</span><span data-line="27"><span class="n">FENCE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^ {0,3}(`{3,}|~{3,})(.*)$&quot;</span><span class="p">)</span>
+</span><span data-line="28"><span class="c1"># Four or more leading spaces (or a leading tab) is an indented code block, not</span>
+</span><span data-line="29"><span class="c1"># prose -- such lines must not be folded into a task&#39;s description.</span>
+</span><span data-line="30"><span class="n">INDENTED_CODE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^(?: {4,}|\t)&quot;</span><span class="p">)</span>
+</span><span data-line="31"><span class="c1"># Leading/trailing code-span and emphasis markers around a heading&#39;s text. `_`</span>
+</span><span data-line="32"><span class="c1"># and `~` are left alone: both are legal inside an xc task name.</span>
+</span><span data-line="33"><span class="n">INLINE_MARKUP</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^[`*]+|[`*]+$&quot;</span><span class="p">)</span>
+</span><span data-line="34"><span class="c1"># Attribute lines sit between a task heading and its script. nur does not</span>
+</span><span data-line="35"><span class="c1"># interpret them -- `xc &lt;name&gt;` applies them at run time -- but they must not</span>
+</span><span data-line="36"><span class="c1"># leak into the task description.</span>
+</span><span data-line="37"><span class="n">ATTRIBUTE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
+</span><span data-line="38">    <span class="sa">r</span><span class="s2">&quot;^(requires|req|dir|directory|env|environment|inputs|run|rundeps|interactive)\s*:&quot;</span><span class="p">,</span>
+</span><span data-line="39">    <span class="n">re</span><span class="o">.</span><span class="n">IGNORECASE</span><span class="p">,</span>
+</span><span data-line="40"><span class="p">)</span>
+</span><span data-line="41">
+</span><span data-line="42">
+</span><span data-line="43"><span class="k">def</span><span class="w"> </span><span class="nf">_fence_blocks</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+</span><span data-line="44"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Locate fenced code blocks as ``(opening line, closing line)`` indices.</span>
+</span><span data-line="45">
+</span><span data-line="46"><span class="sd">    A fence closes on the next line opening with the same character repeated at</span>
+</span><span data-line="47"><span class="sd">    least as many times and followed by nothing but whitespace. That is what</span>
+</span><span data-line="48"><span class="sd">    lets a ````-fenced block contain ``` lines (as xc&#39;s own documentation does),</span>
+</span><span data-line="49"><span class="sd">    and what keeps a script line such as ```not-a-close`` as script content</span>
+</span><span data-line="50"><span class="sd">    rather than a delimiter. An unclosed fence runs to the end of the input, so</span>
+</span><span data-line="51"><span class="sd">    its closing index is one past the last line.</span>
+</span><span data-line="52"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="53">    <span class="n">blocks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="54">    <span class="n">opener</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="55">    <span class="n">open_index</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="56">    <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
+</span><span data-line="57">        <span class="n">match</span> <span class="o">=</span> <span class="n">FENCE</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+</span><span data-line="58">        <span class="k">if</span> <span class="n">opener</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="59">            <span class="k">if</span> <span class="n">match</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="60">                <span class="n">opener</span><span class="p">,</span> <span class="n">open_index</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">index</span>
+</span><span data-line="61">            <span class="k">continue</span>
+</span><span data-line="62">        <span class="k">if</span> <span class="n">match</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="63">            <span class="k">continue</span>
+</span><span data-line="64">        <span class="n">delimiter</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
+</span><span data-line="65">        <span class="n">closes</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="66">            <span class="n">delimiter</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">opener</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="67">            <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">delimiter</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">opener</span><span class="p">)</span>
+</span><span data-line="68">            <span class="ow">and</span> <span class="ow">not</span> <span class="n">info</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+</span><span data-line="69">        <span class="p">)</span>
+</span><span data-line="70">        <span class="k">if</span> <span class="n">closes</span><span class="p">:</span>
+</span><span data-line="71">            <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">open_index</span><span class="p">,</span> <span class="n">index</span><span class="p">))</span>
+</span><span data-line="72">            <span class="n">opener</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="73">    <span class="k">if</span> <span class="n">opener</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="74">        <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">open_index</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">lines</span><span class="p">)))</span>
+</span><span data-line="75">    <span class="k">return</span> <span class="n">blocks</span>
+</span><span data-line="76">
+</span><span data-line="77">
+</span><span data-line="78"><span class="k">def</span><span class="w"> </span><span class="nf">_code_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">blocks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+</span><span data-line="79"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Collect the line indices belonging to a fenced block, fences included.</span>
+</span><span data-line="80">
+</span><span data-line="81"><span class="sd">    Headings and the ``&lt;!-- xc-heading --&gt;`` marker are only meaningful outside</span>
+</span><span data-line="82"><span class="sd">    these lines: a shell script full of ``# comment`` lines, or a README that</span>
+</span><span data-line="83"><span class="sd">    quotes xc syntax in an example block, must not be mistaken for structure.</span>
+</span><span data-line="84"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="85">    <span class="n">code</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+</span><span data-line="86">    <span class="k">for</span> <span class="n">open_index</span><span class="p">,</span> <span class="n">close_index</span> <span class="ow">in</span> <span class="n">blocks</span><span class="p">:</span>
+</span><span data-line="87">        <span class="n">code</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">open_index</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">close_index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">lines</span><span class="p">))))</span>
+</span><span data-line="88">    <span class="k">return</span> <span class="n">code</span>
+</span><span data-line="89">
+</span><span data-line="90">
+</span><span data-line="91"><span class="k">def</span><span class="w"> </span><span class="nf">_heading</span><span class="p">(</span><span class="n">line</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="92">    <span class="n">match</span> <span class="o">=</span> <span class="n">HEADING</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+</span><span data-line="93">    <span class="k">if</span> <span class="n">match</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="94">        <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="95">    <span class="n">hashes</span><span class="p">,</span> <span class="n">text</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
+</span><span data-line="96">    <span class="n">text</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;#&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+</span><span data-line="97">    <span class="c1"># xc reads heading text from the markdown AST, so a code span or emphasis</span>
+</span><span data-line="98">    <span class="c1"># around the name is markup, not part of it: ``### `build` `` is `build`.</span>
+</span><span data-line="99">    <span class="c1"># copier-pyproject writes every task heading as an inline code span.</span>
+</span><span data-line="100">    <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">hashes</span><span class="p">),</span> <span class="n">INLINE_MARKUP</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">text</span><span class="p">)</span>
+</span><span data-line="101">
+</span><span data-line="102">
+</span><span data-line="103"><span class="k">def</span><span class="w"> </span><span class="nf">_find_section</span><span class="p">(</span><span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">code</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="104"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return ``(section level, first body line)`` for the task-list heading.</span>
+</span><span data-line="105">
+</span><span data-line="106"><span class="sd">    xc&#39;s priority: a heading preceded by ``&lt;!-- xc-heading --&gt;`` wins over a</span>
+</span><span data-line="107"><span class="sd">    heading literally named ``Tasks``. Only the first match of either kind is</span>
+</span><span data-line="108"><span class="sd">    used -- xc ignores any later task-list section.</span>
+</span><span data-line="109"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="110">    <span class="n">marked</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="111">    <span class="n">fallback</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="112">    <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
+</span><span data-line="113">        <span class="k">if</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">code</span><span class="p">:</span>
+</span><span data-line="114">            <span class="n">marked</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># a fenced block breaks marker-to-heading adjacency</span>
+</span><span data-line="115">            <span class="k">continue</span>
+</span><span data-line="116">        <span class="n">heading</span> <span class="o">=</span> <span class="n">_heading</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+</span><span data-line="117">        <span class="k">if</span> <span class="n">heading</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="118">            <span class="k">if</span> <span class="n">MARKER_COMMENT</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">line</span><span class="p">):</span>
+</span><span data-line="119">                <span class="n">marked</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="120">            <span class="k">elif</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+</span><span data-line="121">                <span class="n">marked</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># only blank lines may sit between marker and heading</span>
+</span><span data-line="122">            <span class="k">continue</span>
+</span><span data-line="123">        <span class="k">if</span> <span class="n">marked</span><span class="p">:</span>
+</span><span data-line="124">            <span class="k">return</span> <span class="n">heading</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span>
+</span><span data-line="125">        <span class="k">if</span> <span class="n">fallback</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">heading</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;tasks&quot;</span><span class="p">:</span>
+</span><span data-line="126">            <span class="n">fallback</span> <span class="o">=</span> <span class="p">(</span><span class="n">heading</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+</span><span data-line="127">    <span class="k">return</span> <span class="n">fallback</span>
+</span><span data-line="128">
+</span><span data-line="129">
+</span><span data-line="130"><span class="k">def</span><span class="w"> </span><span class="nf">_definition</span><span class="p">(</span>
+</span><span data-line="131">    <span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">blocks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span> <span class="n">start</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">end</span><span class="p">:</span> <span class="nb">int</span>
+</span><span data-line="132"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span data-line="133"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the first fenced block in ``lines[start:end]``, fences excluded.&quot;&quot;&quot;</span>
+</span><span data-line="134">    <span class="k">for</span> <span class="n">open_index</span><span class="p">,</span> <span class="n">close_index</span> <span class="ow">in</span> <span class="n">blocks</span><span class="p">:</span>
+</span><span data-line="135">        <span class="k">if</span> <span class="n">start</span> <span class="o">&lt;=</span> <span class="n">open_index</span> <span class="o">&lt;</span> <span class="n">end</span><span class="p">:</span>
+</span><span data-line="136">            <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">[</span><span class="n">open_index</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:</span> <span class="nb">min</span><span class="p">(</span><span class="n">close_index</span><span class="p">,</span> <span class="n">end</span><span class="p">)])</span>
+</span><span data-line="137">    <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+</span><span data-line="138">
+</span><span data-line="139">
+</span><span data-line="140"><span class="k">def</span><span class="w"> </span><span class="nf">_description</span><span class="p">(</span>
+</span><span data-line="141">    <span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">blocks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span> <span class="n">start</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">end</span><span class="p">:</span> <span class="nb">int</span>
+</span><span data-line="142"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="143"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the prose between a task heading and its script, sans attributes.&quot;&quot;&quot;</span>
+</span><span data-line="144">    <span class="n">limit</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+</span><span data-line="145">        <span class="p">(</span><span class="n">open_index</span> <span class="k">for</span> <span class="n">open_index</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">blocks</span> <span class="k">if</span> <span class="n">start</span> <span class="o">&lt;=</span> <span class="n">open_index</span> <span class="o">&lt;</span> <span class="n">end</span><span class="p">),</span> <span class="n">end</span>
+</span><span data-line="146">    <span class="p">)</span>
+</span><span data-line="147">    <span class="n">prose</span> <span class="o">=</span> <span class="p">[</span>
+</span><span data-line="148">        <span class="n">stripped</span>
+</span><span data-line="149">        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">limit</span><span class="p">]</span>
+</span><span data-line="150">        <span class="k">if</span> <span class="p">(</span><span class="n">stripped</span> <span class="o">:=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+</span><span data-line="151">        <span class="ow">and</span> <span class="ow">not</span> <span class="n">ATTRIBUTE</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">stripped</span><span class="p">)</span>
+</span><span data-line="152">        <span class="ow">and</span> <span class="ow">not</span> <span class="n">INDENTED_CODE</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+</span><span data-line="153">    <span class="p">]</span>
+</span><span data-line="154">    <span class="k">return</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">prose</span><span class="p">)</span> <span class="ow">or</span> <span class="kc">None</span>
+</span><span data-line="155">
+</span><span data-line="156">
+<div class="viewcode-block" id="parse_xc">
+<a class="viewcode-back" href="../../../modules.html#nur.providers.xc.parse_xc">[docs]</a>
+</span><span data-line="157"><span class="k">def</span><span class="w"> </span><span class="nf">parse_xc</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">source_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">SOURCE_FILE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="158"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse xc tasks out of a markdown *text* without executing anything.</span>
+</span><span data-line="159">
+</span><span data-line="160"><span class="sd">    Deliberately does NOT run ``xc -s``: xc executes task scripts, and listing</span>
+</span><span data-line="161"><span class="sd">    should never be able to run repository-controlled commands. The grammar is</span>
+</span><span data-line="162"><span class="sd">    documented at https://xcfile.dev/task-syntax/task-list/.</span>
+</span><span data-line="163"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="164">    <span class="n">lines</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
+</span><span data-line="165">    <span class="n">blocks</span> <span class="o">=</span> <span class="n">_fence_blocks</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+</span><span data-line="166">    <span class="n">code</span> <span class="o">=</span> <span class="n">_code_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="n">blocks</span><span class="p">)</span>
+</span><span data-line="167">    <span class="n">section</span> <span class="o">=</span> <span class="n">_find_section</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="n">code</span><span class="p">)</span>
+</span><span data-line="168">    <span class="k">if</span> <span class="n">section</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="169">        <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="170">    <span class="n">section_level</span><span class="p">,</span> <span class="n">start</span> <span class="o">=</span> <span class="n">section</span>
+</span><span data-line="171">
+</span><span data-line="172">    <span class="n">end</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+</span><span data-line="173">    <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">lines</span><span class="p">)):</span>
+</span><span data-line="174">        <span class="n">heading</span> <span class="o">=</span> <span class="n">_heading</span><span class="p">(</span><span class="n">lines</span><span class="p">[</span><span class="n">index</span><span class="p">])</span> <span class="k">if</span> <span class="n">index</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">code</span> <span class="k">else</span> <span class="kc">None</span>
+</span><span data-line="175">        <span class="k">if</span> <span class="n">heading</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">heading</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">section_level</span><span class="p">:</span>
+</span><span data-line="176">            <span class="n">end</span> <span class="o">=</span> <span class="n">index</span>
+</span><span data-line="177">            <span class="k">break</span>
+</span><span data-line="178">
+</span><span data-line="179">    <span class="n">heads</span> <span class="o">=</span> <span class="p">[</span>
+</span><span data-line="180">        <span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">heading</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+</span><span data-line="181">        <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span>
+</span><span data-line="182">        <span class="k">if</span> <span class="n">index</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">code</span>
+</span><span data-line="183">        <span class="ow">and</span> <span class="p">(</span><span class="n">heading</span> <span class="o">:=</span> <span class="n">_heading</span><span class="p">(</span><span class="n">lines</span><span class="p">[</span><span class="n">index</span><span class="p">]))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="184">        <span class="ow">and</span> <span class="n">heading</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">section_level</span> <span class="o">+</span> <span class="mi">1</span>
+</span><span data-line="185">    <span class="p">]</span>
+</span><span data-line="186">
+</span><span data-line="187">    <span class="n">tasks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="188">    <span class="k">for</span> <span class="n">position</span><span class="p">,</span> <span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">heads</span><span class="p">):</span>
+</span><span data-line="189">        <span class="n">body_end</span> <span class="o">=</span> <span class="n">heads</span><span class="p">[</span><span class="n">position</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">position</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">heads</span><span class="p">)</span> <span class="k">else</span> <span class="n">end</span>
+</span><span data-line="190">        <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">char</span><span class="o">.</span><span class="n">isspace</span><span class="p">()</span> <span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">name</span><span class="p">):</span>
+</span><span data-line="191">            <span class="c1"># xc task names cannot contain whitespace, so this heading is prose.</span>
+</span><span data-line="192">            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;nur: skipping xc heading </span><span class="si">%r</span><span class="s2"> (not a valid task name)&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+</span><span data-line="193">            <span class="k">continue</span>
+</span><span data-line="194">        <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+</span><span data-line="195">            <span class="n">Task</span><span class="p">(</span>
+</span><span data-line="196">                <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+</span><span data-line="197">                <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;xc&quot;</span><span class="p">,</span>
+</span><span data-line="198">                <span class="n">argv_base</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;xc&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
+</span><span data-line="199">                <span class="n">description</span><span class="o">=</span><span class="n">_description</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="n">blocks</span><span class="p">,</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">body_end</span><span class="p">),</span>
+</span><span data-line="200">                <span class="n">definition</span><span class="o">=</span><span class="n">_definition</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="n">blocks</span><span class="p">,</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">body_end</span><span class="p">),</span>
+</span><span data-line="201">                <span class="n">source_file</span><span class="o">=</span><span class="n">source_file</span><span class="p">,</span>
+</span><span data-line="202">            <span class="p">)</span>
+</span><span data-line="203">        <span class="p">)</span>
+</span><span data-line="204">    <span class="k">return</span> <span class="n">tasks</span></div>
+
+</span><span data-line="205">
+</span><span data-line="206">
+</span><span data-line="207"><span class="k">def</span><span class="w"> </span><span class="nf">_load_tasks</span><span class="p">(</span><span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="208">    <span class="n">path</span> <span class="o">=</span> <span class="n">cwd</span> <span class="o">/</span> <span class="n">SOURCE_FILE</span>
+</span><span data-line="209">    <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+</span><span data-line="210">        <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="211">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="212">        <span class="n">text</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+</span><span data-line="213">    <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">UnicodeDecodeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="214">        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;nur: skipping </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">SOURCE_FILE</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+</span><span data-line="215">        <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="216">    <span class="k">return</span> <span class="n">parse_xc</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">SOURCE_FILE</span><span class="p">)</span>
+</span><span data-line="217">
+</span><span data-line="218">
+</span><span data-line="219"><span class="k">class</span><span class="w"> </span><span class="nc">XcProvider</span><span class="p">:</span>
+</span><span data-line="220">    <span class="n">prefix</span> <span class="o">=</span> <span class="s2">&quot;xc&quot;</span>
+</span><span data-line="221">
+</span><span data-line="222">    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="223">        <span class="c1"># A README exists in nearly every repository, so file presence alone is</span>
+</span><span data-line="224">        <span class="c1"># not evidence of an xc project -- require at least one parsed task.</span>
+</span><span data-line="225">        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">_load_tasks</span><span class="p">(</span><span class="n">cwd</span><span class="p">))</span>
+</span><span data-line="226">
+</span><span data-line="227">    <span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="228">        <span class="k">return</span> <span class="n">_load_tasks</span><span class="p">(</span><span class="n">cwd</span><span class="p">)</span>
+</span></pre></div>
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Hasan Sezer Taşan</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../_static/copybutton.js?v=f281be69"></script>
+      <script>let toggleHintShow = 'Click to show';</script>
+      <script>let toggleHintHide = 'Click to hide';</script>
+      <script>let toggleOpenOnPrint = 'true';</script>
+      <script src="../../../_static/togglebutton.js?v=b8b12719"></script>
+      <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+      <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
+</html>
