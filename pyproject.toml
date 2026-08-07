@@ -21,6 +21,7 @@ keywords = [
   "poe",
   "mise",
   "cargo-make",
+  "deno",
   "xc",
 ]
 classifiers = [
@@ -393,22 +394,25 @@ convention = "pep257"
 # Tests legitimately use asserts/magic values, reach into package internals, and
 # don't need return-value documentation on their fixtures and helpers.
 "tests/**/*.py" = [
-  "ANN",     # tests don't need type annotations on fixtures/helpers
-  "D",       # tests don't need docstrings
-  "assert",    # asserts are the point of a test
-  "private-member-access",  # white-box tests reach into package internals
-  "ARG",     # pytest fixtures/monkeypatch lambdas take unused args
-  "magic-value-comparison", # magic values are fine in assertions
-  "no-self-use", # test methods needn't use self
-  "import-outside-top-level", # local imports keep test isolation
-  "compare-to-empty-string", # explicit empty-string compares read clearer in tests
-  "import-private-name", # importing private members for testing
-  "docstring-missing-returns",  # helper return values needn't be documented
+  "ANN",                       # tests don't need type annotations on fixtures/helpers
+  "D",                         # tests don't need docstrings
+  "assert",                    # asserts are the point of a test
+  "private-member-access",     # white-box tests reach into package internals
+  "ARG",                       # pytest fixtures/monkeypatch lambdas take unused args
+  "magic-value-comparison",    # magic values are fine in assertions
+  "no-self-use",               # test methods needn't use self
+  "import-outside-top-level",  # local imports keep test isolation
+  "compare-to-empty-string",   # explicit empty-string compares read clearer in tests
+  "import-private-name",       # importing private members for testing
+  "docstring-missing-returns", # helper return values needn't be documented
 ]
 # The __main__ smoke test runs `python -m nur` in a real subprocess (the only
 # faithful check that the module entry point is wired up); the subprocess
 # import/call are the point of the test, not a risk.
-"tests/smoke/test_main_module.py" = ["suspicious-subprocess-import", "subprocess-without-shell-equals-true"]
+"tests/smoke/test_main_module.py" = [
+  "suspicious-subprocess-import",
+  "subprocess-without-shell-equals-true",
+]
 # The just provider test patches out the subprocess call; the import itself is
 # only used for monkeypatching/assertions, not to spawn a real subprocess.
 "tests/unit/providers/test_just.py" = ["suspicious-subprocess-import"]
@@ -419,7 +423,10 @@ convention = "pep257"
 # defaults by design, so B008 is expected here.
 # Typer's declarative API puts function calls (Argument/Option) in argument
 # defaults, and a boolean --version option is idiomatic, by design.
-"src/nur/cli.py" = ["function-call-in-default-argument", "boolean-type-hint-positional-argument"]
+"src/nur/cli.py" = [
+  "function-call-in-default-argument",
+  "boolean-type-hint-positional-argument",
+]
 # Discovery must not crash on one malformed source file: catching broadly and
 # skipping is deliberate robustness.
 "src/nur/discovery.py" = ["blind-except"]
@@ -428,13 +435,24 @@ convention = "pep257"
 # assert narrows an Optional Popen handle for the type checkers. T201: it prints
 # a user-facing "runner not installed" error to stderr by design (do NOT let
 # ruff's preview/unsafe autofix delete the print).
-"src/nur/execution.py" = ["assert", "suspicious-subprocess-import", "subprocess-without-shell-equals-true", "print"]
+"src/nur/execution.py" = [
+  "assert",
+  "suspicious-subprocess-import",
+  "subprocess-without-shell-equals-true",
+  "print",
+]
 # The providers package intentionally builds the PROVIDERS registry in __init__.
 "src/nur/providers/__init__.py" = ["non-empty-init-module"]
 # Providers implement a shared Protocol (so detect()/_source_file() must stay
 # instance methods -> PLR6301), shell out to their runner by name (S404/S603/
 # S607), and parse tokens that trip the hardcoded-password heuristic (S105).
-"src/nur/providers/*.py" = ["no-self-use", "suspicious-subprocess-import", "subprocess-without-shell-equals-true", "start-process-with-partial-path", "hardcoded-password-string"]
+"src/nur/providers/*.py" = [
+  "no-self-use",
+  "suspicious-subprocess-import",
+  "subprocess-without-shell-equals-true",
+  "start-process-with-partial-path",
+  "hardcoded-password-string",
+]
 # Textual invokes compose() as an instance method and stores BINDINGS as a
 # class-level list, both mandated by the framework. The assert in _matches()
 # narrows the post-scan Optional Registry for the type checker; _rebuild()
