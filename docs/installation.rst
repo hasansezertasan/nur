@@ -1,18 +1,30 @@
 Installation
 ============
 
+<<<<<<< before updating
 ``nur`` is an end-user command-line tool, not a library, so install it as a
 standalone application rather than as a project dependency. It ships a single
 ``nur`` command that launches both the CLI and the TUI.
+=======
+``nur`` is an end-user application, not a library, so install
+it as a standalone tool rather than as a project dependency. Its primary entry
+point is the ``nur`` command.
+>>>>>>> after updating
 
 Stable release
 --------------
 
+<<<<<<< before updating
 Install ``nur`` into an isolated environment with your preferred tool installer:
+=======
+Install ``nur`` into an isolated environment with your
+preferred tool installer:
+>>>>>>> after updating
 
 .. code-block:: sh
 
    uv tool install nur
+<<<<<<< before updating
 
 .. code-block:: sh
 
@@ -38,6 +50,18 @@ On Windows, install it from the
 
    scoop bucket add hasansezertasan https://github.com/hasansezertasan/scoop-bucket
    scoop install nur
+=======
+
+.. code-block:: sh
+
+   pipx install nur
+
+Or run it without installing:
+
+.. code-block:: sh
+
+   uvx nur
+>>>>>>> after updating
 
 From source
 -----------
@@ -64,4 +88,4 @@ Once you have a copy of the source, you can install it with:
 .. code-block:: sh
 
    cd nur
-   uv pip install .
+   uv tool install .

@@ -168,13 +168,36 @@ discovers and runs whatever task files exist in the current directory. The only
 prerequisites are Python 3.14+ and `uv`. A ready-to-use VS Code config (launch
 targets and recommended extensions) ships in `.vscode/`.
 
+### Debugging
+
+Debug in VS Code using the launch configurations shipped in `.vscode/launch.json`:
+
+- **Current File**: Debug the currently open Python file.
+- **Tests**: Debug pytest runs.
+- **Attach**: Attach to a running process (e.g., web app with debugpy).
+- **Web App/CLI/TUI/GUI**: Debug specific entry points (if enabled).
+- **With Profiling**: Debug while profiling with scalene (if profiling enabled).
+
+Select a configuration from the Run and Debug panel in VS Code.
+
 ### Improving The Documentation
 
+<<<<<<< before updating
 Documentation lives in `docs/` and is built with Sphinx. Preview it locally with
 a live-reloading server via `uv run --locked tox run -e docs-server`, or build
 the static site once with `uv run --locked tox run -e docs-build`. Module
 reference pages are generated from source docstrings (`docs/modules.rst`), so
 improving a docstring improves the docs.
+=======
+The documentation is built with [Sphinx](https://www.sphinx-doc.org/). Common
+documentation tasks:
+
+- `mise run docs-build` (or `uv run --locked tox run -e docs-build`) — build the HTML docs.
+- `mise run docs-serve` (or `uv run --locked tox run -e docs-server`) — serve them locally with live reload.
+- `uv run --locked tox run -e docs-linkcheck` — check for broken links (also runs weekly in CI).
+
+<!-- TODO @hasansezertasan: Updating, improving and correcting the documentation -->
+>>>>>>> after updating
 
 ## Styleguides
 
@@ -393,12 +416,30 @@ on them ([renovate#31600](https://github.com/renovatebot/renovate/issues/31600))
 so a copier PR can look mergeable while carrying conflicts. Reconcile before
 merging: keep your project identity, adopt the template's tooling/config changes.
 
+**10. Enable GitHub Discussions.** New repositories ship with Discussions
+disabled, but the community-health files point contributors there — `SUPPORT.md`,
+the issue-template chooser (`config.yml`), and the **Join The Project Team**
+section of this guide all link to the Discussions tab, so those links 404 until
+it is turned on:
+
+```sh
+gh api -X PATCH repos/hasansezertasan/nur -F has_discussions=true
+```
+
+(UI: **Settings → General → Features** — tick **Discussions**.)
+
 ## Join The Project Team
 
+<<<<<<< before updating
 nur is maintained by [@hasansezertasan](https://github.com/hasansezertasan).
 Regular, high-quality contributions are the surest path to a maintainer role —
 if you would like to help maintain the project, open a discussion to start the
 conversation.
+=======
+Interested in helping maintain nur? Open a
+[discussion](https://github.com/hasansezertasan/nur/discussions)
+or reach out after a few merged contributions.
+>>>>>>> after updating
 
 <!-- omit in toc -->
 ## Attribution

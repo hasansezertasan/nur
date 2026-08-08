@@ -53,11 +53,22 @@ environment rather than as a project dependency:
 uv tool install nur
 ```
 
+`nur` is a standalone end-user tool whose primary command is `nur`. Install it into an isolated environment:
+
 ```console
+<<<<<<< before updating
 pipx install nur
 ```
 
 Or run it without installing:
+=======
+uv tool install nur
+```
+
+Or run it without installing with `uvx nur`. See the [installation docs](https://hasansezertasan.github.io/nur/installation.html) for pipx and from-source options.
+
+## Usage
+>>>>>>> after updating
 
 ```console
 uvx nur
@@ -113,6 +124,7 @@ nur list            # print all discovered tasks
 nur --version
 ```
 
+<<<<<<< before updating
 ### Debugging
 
 Debug nur in VS Code using the provided launch configurations:
@@ -124,6 +136,8 @@ Debug nur in VS Code using the provided launch configurations:
 
 Select a configuration from the Run and Debug panel in VS Code.
 
+=======
+>>>>>>> after updating
 ## Support :heart:
 
 If you have any questions or need help, feel free to open an issue on the [GitHub repository][nur].
@@ -138,6 +152,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 
 ## Features
 
+<<<<<<< before updating
 - **Zero-config discovery** across nine providers: `make`, `npm`, `just`,
   `task` (Taskfile), `pdm`, `poe`, `mise`, `cargo-make`, and `xc`. cargo-make is
   read from `Makefile.toml`. mise is read from the first
@@ -157,6 +172,14 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 - **Security**: CodeQL, OpenSSF Scorecard, dependency review, secret scanning (gitleaks), dependency auditing (pip-audit), GitHub Actions static analysis (zizmor — a blocking prek/CI gate plus a Security-tab dashboard, over hardened least-privilege workflows), and a CycloneDX SBOM attached to every release.
 - **Managed `.gitignore`**: kept in sync with the upstream [github/gitignore](https://github.com/github/gitignore) templates by [cobo](https://github.com/hasansezertasan/cobo), with a weekly drift check.
 - **Modern Python**: uv for dependency management, hatch for building.
+=======
+- **CLI Application**: Command-line interface built with Typer
+- **TUI Application**: Terminal user interface built with Textual
+
+## About
+
+<!-- TODO @hasansezertasan: Add background/context about the project, or remove this section. -->
+>>>>>>> after updating
 
 ## Author :person_with_crown:
 
@@ -176,9 +199,9 @@ This project is maintained by [Hasan Sezer Taşan][author], It's me :wave:
 
 Any contributions are welcome! Please follow the [Contributing Guidelines](./.github/CONTRIBUTING.md) to contribute to this project.
 
-<!-- xc-heading -->
 ## Development :toolbox:
 
+<<<<<<< before updating
 Clone the repository and cd into the project directory:
 
 ```sh
@@ -233,6 +256,11 @@ Check the documentation for broken links (also runs weekly in CI):
 ```sh
 uv run --locked tox run -e docs-linkcheck
 ```
+=======
+See the [Contributing Guidelines](./.github/CONTRIBUTING.md#your-first-code-contribution)
+for local setup, the common development tasks (exposed via [mise](https://mise.jdx.dev)),
+building and previewing the documentation, and the VS Code debugging configurations.
+>>>>>>> after updating
 
 ## Releasing
 
