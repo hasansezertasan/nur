@@ -333,8 +333,8 @@ as a traceback, report a controlled error and return <code class="docutils liter
 </section>
 <section id="providers-nur-providers">
 <h2>Providers (<code class="docutils literal notranslate"><span class="pre">nur.providers</span></code>)<a class="headerlink" href="#providers-nur-providers" title="Link to this heading">#</a></h2>
-<p>One module per supported task source (make, npm, just, taskfile, pdm, poe, mise,
-cargo-make, xc).</p>
+<p>One module per supported task source (make, npm, deno, just, taskfile, pdm, poe,
+mise, cargo-make, xc).</p>
 <dl class="py function" id="module-nur.providers.make">
 <dt class="sig sig-object py" id="nur.providers.make.parse_targets">
 <span class="sig-prename descclassname"><span class="pre">nur.providers.make.</span></span><span class="sig-name descname"><span class="pre">parse_targets</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/providers/make.html#parse_targets"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.providers.make.parse_targets" title="Link to this definition">#</a></dt>
@@ -355,7 +355,7 @@ not resolving <code class="docutils literal notranslate"><span class="pre">inclu
 </dd></dl>
 
 <dl class="py function" id="module-nur.providers.task">
-<span id="module-nur.providers.just"></span><span id="module-nur.providers.npm"></span><dt class="sig sig-object py" id="nur.providers.task.parse_taskfile">
+<span id="module-nur.providers.just"></span><span id="module-nur.providers.deno"></span><span id="module-nur.providers.npm"></span><dt class="sig sig-object py" id="nur.providers.task.parse_taskfile">
 <span class="sig-prename descclassname"><span class="pre">nur.providers.task.</span></span><span class="sig-name descname"><span class="pre">parse_taskfile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Taskfile.yml'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/providers/task.html#parse_taskfile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.providers.task.parse_taskfile" title="Link to this definition">#</a></dt>
 <dd><p>Parse a Taskfile’s YAML <em>text</em> without executing anything.</p>
 <p>Deliberately does NOT run <code class="docutils literal notranslate"><span class="pre">task</span> <span class="pre">--list</span></code>: go-task evaluates dynamic <code class="docutils literal notranslate"><span class="pre">sh:</span></code>
