@@ -53,10 +53,6 @@ environment rather than as a project dependency:
 uv tool install nur
 ```
 
-```console
-pipx install nur
-```
-
 Or run it without installing:
 
 ```console
@@ -112,17 +108,6 @@ nur test -- --watch # pass extra args through to the underlying runner
 nur list            # print all discovered tasks
 nur --version
 ```
-
-### Debugging
-
-Debug nur in VS Code using the provided launch configurations:
-
-- **Current File**: Debug the currently open Python file.
-- **Tests**: Debug pytest runs.
-- **Attach**: Attach to a running process (with debugpy).
-- **CLI / TUI**: Debug the `nur` entry point — with arguments (CLI) or with none, which opens the TUI.
-
-Select a configuration from the Run and Debug panel in VS Code.
 
 ## Support :heart:
 

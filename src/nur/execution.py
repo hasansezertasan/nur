@@ -115,7 +115,9 @@ class ProcessRunner:
                 proc.send_signal(signal.CTRL_BREAK_EVENT)
         else:
             try:
-                os.killpg(os.getpgid(proc.pid), signal.SIGINT)
+                # os.killpg/getpgid are POSIX-only (guarded by the branch above);
+                # pylint's Windows `os` stub lacks them, so silence no-member there.
+                os.killpg(os.getpgid(proc.pid), signal.SIGINT)  # pylint: disable=no-member
             except OSError:
                 # Process already gone (ProcessLookupError), or the group could
                 # not be signalled (PermissionError) -- both subclass OSError;
