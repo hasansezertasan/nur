@@ -19,6 +19,7 @@ _MODULE_ALIASES = {"cargo-make": "cargo_make"}
 def test_providers_registry_order() -> None:
     assert [p.prefix for p in PROVIDERS] == [
         "npm",
+        "deno",
         "make",
         "pdm",
         "poe",
