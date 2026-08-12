@@ -16,61 +16,61 @@ directly or launches the TUI.
 
 .. automodule:: nur.cli
 
-Discovery (``nur.discovery``)
----------------------------------
+Discovery (``nur.core.discovery``)
+--------------------------------------
 
 Walks the working directory and builds the task registry from every supported
 source file.
 
-.. automodule:: nur.discovery
+.. automodule:: nur.core.discovery
 
-Registry (``nur.registry``)
--------------------------------
+Registry (``nur.core.registry``)
+------------------------------------
 
 Holds discovered tasks and resolves a query to a single task, with ambiguity
 and close-match handling.
 
-.. automodule:: nur.registry
+.. automodule:: nur.core.registry
 
-Execution (``nur.execution``)
----------------------------------
+Execution (``nur.core.execution``)
+--------------------------------------
 
 Runs a resolved task's command, propagating its exit code.
 
-.. automodule:: nur.execution
+.. automodule:: nur.core.execution
 
-Models (``nur.models``)
----------------------------
+Models (``nur.core.models``)
+--------------------------------
 
 Core data types shared across discovery, the registry, and execution.
 
-.. automodule:: nur.models
+.. automodule:: nur.core.models
 
-Providers (``nur.providers``)
----------------------------------
+Providers (``nur.core.providers``)
+--------------------------------------
 
 One module per supported task source (make, npm, deno, just, taskfile, pdm, poe,
 mise, cargo-make, xc).
 
-.. automodule:: nur.providers.make
+.. automodule:: nur.core.providers.make
 
-.. automodule:: nur.providers.npm
+.. automodule:: nur.core.providers.npm
 
-.. automodule:: nur.providers.deno
+.. automodule:: nur.core.providers.deno
 
-.. automodule:: nur.providers.just
+.. automodule:: nur.core.providers.just
 
-.. automodule:: nur.providers.task
+.. automodule:: nur.core.providers.task
 
-.. automodule:: nur.providers.pdm
+.. automodule:: nur.core.providers.pdm
 
-.. automodule:: nur.providers.poe
+.. automodule:: nur.core.providers.poe
 
-.. automodule:: nur.providers.mise
+.. automodule:: nur.core.providers.mise
 
-.. automodule:: nur.providers.cargo_make
+.. automodule:: nur.core.providers.cargo_make
 
-.. automodule:: nur.providers.xc
+.. automodule:: nur.core.providers.xc
 
 TUI (``nur.tui``)
 ---------------------------

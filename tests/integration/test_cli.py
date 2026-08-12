@@ -4,7 +4,7 @@ from typing import Never
 
 import nur
 from nur.cli import format_list, main, split_passthrough
-from nur.discovery import discover
+from nur.core.discovery import discover
 
 
 def test_split_passthrough() -> None:
@@ -33,7 +33,7 @@ def test_missing_runner_returns_127(tmp_path, monkeypatch) -> None:
     def fake_run(argv, **kwargs) -> Never:
         raise FileNotFoundError(argv[0])
 
-    monkeypatch.setattr("nur.execution.subprocess.run", fake_run)
+    monkeypatch.setattr("nur.core.execution.subprocess.run", fake_run)
     assert main(["npm:build"]) == 127
 
 

@@ -1,4 +1,4 @@
-from nur.providers.make import MakeProvider, parse_descriptions, parse_targets
+from nur.core.providers.make import MakeProvider, parse_descriptions, parse_targets
 
 MAKEFILE_TEXT = """\
 VERSION := 1.0

@@ -4,7 +4,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
-from nur.models import Task
+from nur.core.models import Task
 
 if TYPE_CHECKING:
     from pathlib import Path

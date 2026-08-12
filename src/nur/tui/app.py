@@ -9,14 +9,14 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import Input, ListItem, ListView, RichLog, Static
 from textual.worker import Worker, WorkerState
 
-from nur.execution import ProcessRunner
-from nur.registry import Registry
+from nur.core.execution import ProcessRunner
+from nur.core.registry import Registry
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-    from nur.models import Task
+    from nur.core.models import Task
 
 log = logging.getLogger("nur")
 
@@ -255,7 +255,7 @@ class NurApp(App[None]):
 
 
 def launch(cwd: Path) -> int:  # pragma: no cover
-    from nur.discovery import discover  # ruff: ignore[import-outside-top-level]
+    from nur.core.discovery import discover  # ruff: ignore[import-outside-top-level]
 
     app = NurApp(cwd, scan=lambda: discover(cwd))
     app.run()  # needs a real terminal; exercised manually, not in CI

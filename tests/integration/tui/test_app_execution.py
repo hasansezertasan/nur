@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from nur.models import Task
-from nur.registry import Registry
+from nur.core.models import Task
+from nur.core.registry import Registry
 from nur.tui.app import NurApp
 
 

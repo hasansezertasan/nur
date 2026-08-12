@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from nur.providers.cargo_make import CargoMakeProvider
+from nur.core.providers.cargo_make import CargoMakeProvider
 
 if TYPE_CHECKING:
     from pathlib import Path

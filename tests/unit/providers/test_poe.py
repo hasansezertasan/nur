@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from nur.providers.poe import PoeProvider
+from nur.core.providers.poe import PoeProvider
 
 if TYPE_CHECKING:
     from pathlib import Path

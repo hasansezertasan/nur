@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from nur.providers.mise import MiseProvider
+from nur.core.providers.mise import MiseProvider
 
 if TYPE_CHECKING:
     from pathlib import Path

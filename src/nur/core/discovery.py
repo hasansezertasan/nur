@@ -3,13 +3,13 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from nur.providers import PROVIDERS
-from nur.registry import Registry
+from nur.core.providers import PROVIDERS
+from nur.core.registry import Registry
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from nur.models import Provider, Task
+    from nur.core.models import Provider, Task
 
 __all__ = ["discover"]
 
