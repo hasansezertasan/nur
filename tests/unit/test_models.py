@@ -1,4 +1,4 @@
-from nur.models import Task
+from nur.core.models import Task
 
 
 def test_qualified_name() -> None:

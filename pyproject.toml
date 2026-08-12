@@ -317,9 +317,9 @@ type = "layers"
 layers = [
   "nur.cli",
   "nur.tui",
-  "nur.discovery",
-  "nur.providers | nur.execution | nur.registry",
-  "nur.models",
+  "nur.core.discovery",
+  "nur.core.providers | nur.core.execution | nur.core.registry",
+  "nur.core.models",
 ]
 
 
@@ -445,24 +445,24 @@ convention = "pep257"
 ]
 # Discovery must not crash on one malformed source file: catching broadly and
 # skipping is deliberate robustness.
-"src/nur/discovery.py" = ["blind-except"]
+"src/nur/core/discovery.py" = ["blind-except"]
 # nur is a task runner: executing discovered project commands via subprocess is
 # the whole point, so the shell/subprocess-audit rules are intended here. The
 # assert narrows an Optional Popen handle for the type checkers. T201: it prints
 # a user-facing "runner not installed" error to stderr by design (do NOT let
 # ruff's preview/unsafe autofix delete the print).
-"src/nur/execution.py" = [
+"src/nur/core/execution.py" = [
   "assert",
   "suspicious-subprocess-import",
   "subprocess-without-shell-equals-true",
   "print",
 ]
 # The providers package intentionally builds the PROVIDERS registry in __init__.
-"src/nur/providers/__init__.py" = ["non-empty-init-module"]
+"src/nur/core/providers/__init__.py" = ["non-empty-init-module"]
 # Providers implement a shared Protocol (so detect()/_source_file() must stay
 # instance methods -> PLR6301), shell out to their runner by name (S404/S603/
 # S607), and parse tokens that trip the hardcoded-password heuristic (S105).
-"src/nur/providers/*.py" = [
+"src/nur/core/providers/*.py" = [
   "no-self-use",
   "suspicious-subprocess-import",
   "subprocess-without-shell-equals-true",
@@ -537,7 +537,7 @@ reportImplicitOverride = false
 # so strict basedpyright reports every derived value as Unknown. Relax only the
 # Unknown-* reports here; mypy/ty/pyrefly still fully type-check these modules.
 [[tool.basedpyright.executionEnvironments]]
-root = "src/nur/providers"
+root = "src/nur/core/providers"
 reportUnknownMemberType = false
 reportUnknownVariableType = false
 reportUnknownArgumentType = false

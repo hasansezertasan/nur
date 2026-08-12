@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import yaml
 
-from nur.models import Task
+from nur.core.models import Task
 
 if TYPE_CHECKING:
     from pathlib import Path

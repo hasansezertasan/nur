@@ -1,7 +1,7 @@
 import json
 from typing import TYPE_CHECKING
 
-from nur.providers.npm import NpmProvider, resolve_pm
+from nur.core.providers.npm import NpmProvider, resolve_pm
 
 if TYPE_CHECKING:
     from pathlib import Path

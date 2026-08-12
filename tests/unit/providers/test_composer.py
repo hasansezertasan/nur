@@ -1,7 +1,7 @@
 import json
 from typing import TYPE_CHECKING
 
-from nur.providers.composer import ComposerProvider
+from nur.core.providers.composer import ComposerProvider
 
 if TYPE_CHECKING:
     from pathlib import Path

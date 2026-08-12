@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from nur.providers.deno import DenoProvider
+from nur.core.providers.deno import DenoProvider
 
 if TYPE_CHECKING:
     from pathlib import Path

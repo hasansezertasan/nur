@@ -3,8 +3,8 @@ import time
 
 import pytest
 
-from nur.execution import RUNNER_NOT_FOUND, ProcessRunner, run_direct
-from nur.models import Task
+from nur.core.execution import RUNNER_NOT_FOUND, ProcessRunner, run_direct
+from nur.core.models import Task
 
 
 def test_run_direct_returns_exit_code(tmp_path) -> None:

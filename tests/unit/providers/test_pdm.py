@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from nur.providers.pdm import PdmProvider
+from nur.core.providers.pdm import PdmProvider
 
 if TYPE_CHECKING:
     from pathlib import Path
