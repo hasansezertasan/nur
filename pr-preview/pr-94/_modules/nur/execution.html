@@ -238,13 +238,15 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="115">                <span class="n">proc</span><span class="o">.</span><span class="n">send_signal</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">CTRL_BREAK_EVENT</span><span class="p">)</span>
 </span><span data-line="116">        <span class="k">else</span><span class="p">:</span>
 </span><span data-line="117">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="118">                <span class="n">os</span><span class="o">.</span><span class="n">killpg</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getpgid</span><span class="p">(</span><span class="n">proc</span><span class="o">.</span><span class="n">pid</span><span class="p">),</span> <span class="n">signal</span><span class="o">.</span><span class="n">SIGINT</span><span class="p">)</span>
-</span><span data-line="119">            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
-</span><span data-line="120">                <span class="c1"># Process already gone (ProcessLookupError), or the group could</span>
-</span><span data-line="121">                <span class="c1"># not be signalled (PermissionError) -- both subclass OSError;</span>
-</span><span data-line="122">                <span class="c1"># fall back to signalling the process directly.</span>
-</span><span data-line="123">                <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">ProcessLookupError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
-</span><span data-line="124">                    <span class="n">proc</span><span class="o">.</span><span class="n">send_signal</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">SIGINT</span><span class="p">)</span></div>
+</span><span data-line="118">                <span class="c1"># os.killpg/getpgid are POSIX-only (guarded by the branch above);</span>
+</span><span data-line="119">                <span class="c1"># pylint&#39;s Windows `os` stub lacks them, so silence no-member there.</span>
+</span><span data-line="120">                <span class="n">os</span><span class="o">.</span><span class="n">killpg</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getpgid</span><span class="p">(</span><span class="n">proc</span><span class="o">.</span><span class="n">pid</span><span class="p">),</span> <span class="n">signal</span><span class="o">.</span><span class="n">SIGINT</span><span class="p">)</span>  <span class="c1"># pylint: disable=no-member</span>
+</span><span data-line="121">            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+</span><span data-line="122">                <span class="c1"># Process already gone (ProcessLookupError), or the group could</span>
+</span><span data-line="123">                <span class="c1"># not be signalled (PermissionError) -- both subclass OSError;</span>
+</span><span data-line="124">                <span class="c1"># fall back to signalling the process directly.</span>
+</span><span data-line="125">                <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">ProcessLookupError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
+</span><span data-line="126">                    <span class="n">proc</span><span class="o">.</span><span class="n">send_signal</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">SIGINT</span><span class="p">)</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">
