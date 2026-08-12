@@ -45,7 +45,7 @@ def _version_callback(value: bool) -> None:
 
 
 @app.command()
-def _run(
+def _run(  # pylint: disable=unused-argument  # `version` is consumed by the eager --version callback
     ctx: typer.Context,
     task: str | None = typer.Argument(
         None, help="task to run, e.g. 'test' or 'make:test'; 'list' to list"
