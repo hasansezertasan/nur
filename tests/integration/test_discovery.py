@@ -20,6 +20,7 @@ def test_providers_registry_order() -> None:
     assert [p.prefix for p in PROVIDERS] == [
         "npm",
         "deno",
+        "composer",
         "make",
         "pdm",
         "poe",
