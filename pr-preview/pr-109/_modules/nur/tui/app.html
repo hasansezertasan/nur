@@ -127,14 +127,14 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="9"><span class="kn">from</span><span class="w"> </span><span class="nn">textual.widgets</span><span class="w"> </span><span class="kn">import</span> <span class="n">Input</span><span class="p">,</span> <span class="n">ListItem</span><span class="p">,</span> <span class="n">ListView</span><span class="p">,</span> <span class="n">RichLog</span><span class="p">,</span> <span class="n">Static</span>
 </span><span data-line="10"><span class="kn">from</span><span class="w"> </span><span class="nn">textual.worker</span><span class="w"> </span><span class="kn">import</span> <span class="n">Worker</span><span class="p">,</span> <span class="n">WorkerState</span>
 </span><span data-line="11">
-</span><span data-line="12"><span class="kn">from</span><span class="w"> </span><span class="nn">nur.execution</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessRunner</span>
-</span><span data-line="13"><span class="kn">from</span><span class="w"> </span><span class="nn">nur.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">Registry</span>
+</span><span data-line="12"><span class="kn">from</span><span class="w"> </span><span class="nn">nur.core.execution</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessRunner</span>
+</span><span data-line="13"><span class="kn">from</span><span class="w"> </span><span class="nn">nur.core.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">Registry</span>
 </span><span data-line="14">
 </span><span data-line="15"><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
 </span><span data-line="16">    <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
 </span><span data-line="17">    <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 </span><span data-line="18">
-</span><span data-line="19">    <span class="kn">from</span><span class="w"> </span><span class="nn">nur.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Task</span>
+</span><span data-line="19">    <span class="kn">from</span><span class="w"> </span><span class="nn">nur.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Task</span>
 </span><span data-line="20">
 </span><span data-line="21"><span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;nur&quot;</span><span class="p">)</span>
 </span><span data-line="22">
@@ -388,7 +388,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="255">
 </span><span data-line="256">
 </span><span data-line="257"><span class="k">def</span><span class="w"> </span><span class="nf">launch</span><span class="p">(</span><span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
-</span><span data-line="258">    <span class="kn">from</span><span class="w"> </span><span class="nn">nur.discovery</span><span class="w"> </span><span class="kn">import</span> <span class="n">discover</span>  <span class="c1"># ruff: ignore[import-outside-top-level]</span>
+</span><span data-line="258">    <span class="kn">from</span><span class="w"> </span><span class="nn">nur.core.discovery</span><span class="w"> </span><span class="kn">import</span> <span class="n">discover</span>  <span class="c1"># ruff: ignore[import-outside-top-level]</span>
 </span><span data-line="259">
 </span><span data-line="260">    <span class="n">app</span> <span class="o">=</span> <span class="n">NurApp</span><span class="p">(</span><span class="n">cwd</span><span class="p">,</span> <span class="n">scan</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">discover</span><span class="p">(</span><span class="n">cwd</span><span class="p">))</span>
 </span><span data-line="261">    <span class="n">app</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>  <span class="c1"># needs a real terminal; exercised manually, not in CI</span>
