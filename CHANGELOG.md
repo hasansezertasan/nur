@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.3.0](https://github.com/hasansezertasan/nur/compare/v0.2.1...v0.3.0) (2026-08-12)
+
+
+### 🚀 Features
+
+* add cargo-make provider for task discovery ([#92](https://github.com/hasansezertasan/nur/issues/92)) ([6ccd6b1](https://github.com/hasansezertasan/nur/commit/6ccd6b12884055cf8e0698907eaef2e40d397dbe))
+* add composer provider for task discovery ([#109](https://github.com/hasansezertasan/nur/issues/109)) ([c0882b4](https://github.com/hasansezertasan/nur/commit/c0882b49dcd29c520151b623931677e41aeae02c))
+* add deno provider for task discovery ([#93](https://github.com/hasansezertasan/nur/issues/93)) ([ee096f7](https://github.com/hasansezertasan/nur/commit/ee096f76066a2c72e5a1428ae4c0d8e48f2fd283))
+
+
+### 🐛 Bug Fixes
+
+* **renovate:** resolve copier template git-tags lookup failure ([#85](https://github.com/hasansezertasan/nur/issues/85)) ([b4eb59f](https://github.com/hasansezertasan/nur/commit/b4eb59f758cf93f6a27aa7bb020613ad80bd325d))
+
+
+### ♻️ Refactoring
+
+* adopt the template's src/nur/core/ package layout ([#107](https://github.com/hasansezertasan/nur/issues/107)) ([3ff5afa](https://github.com/hasansezertasan/nur/commit/3ff5afa29f27c9096c5afe8e17a021d3b869418f))
+
+
+### 📝 Documentation
+
+* add ADR-0001 provider selection criteria ([#90](https://github.com/hasansezertasan/nur/issues/90)) ([0c76d8f](https://github.com/hasansezertasan/nur/commit/0c76d8f3a0a1ceb7a948d3d0f7de31f8f5ef9f0b))
+
 ## [0.2.1](https://github.com/hasansezertasan/nur/compare/v0.2.0...v0.2.1) (2026-08-06)
 
 
