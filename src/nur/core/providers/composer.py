@@ -79,8 +79,10 @@ def _definition(value: object) -> str:
     # A script entry is either a single string or an array of entries run in
     # sequence (each a CLI command, a PHP static-method callback, or an
     # ``@``-reference/directive). nur can't meaningfully render callbacks or
-    # ``@``-tokens as a shell command, so entries are surfaced verbatim: strings
-    # joined with ` && `, opaque values left as-is.
+    # ``@``-tokens as a shell command, so string entries are surfaced verbatim
+    # and joined with ` && `. A bare string is returned as-is; any non-string
+    # array entries are dropped; a non-string, non-array value has no rendering
+    # and yields "".
     if isinstance(value, str):
         return value
     if isinstance(value, list):
@@ -122,6 +124,10 @@ class ComposerProvider:
                     description=desc if isinstance(desc, str) else None,
                     definition=_definition(value),
                     source_file=CONFIG_FILE,
+                    # Composer parses `run-script <name> -- <args>`: the `--`
+                    # separator stops it from swallowing option-like passthrough
+                    # args (e.g. `--filter`) as its own options.
+                    passthrough_prefix=("--",),
                 )
             )
         return tasks

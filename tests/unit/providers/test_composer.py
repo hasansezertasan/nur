@@ -60,6 +60,21 @@ def test_discover_string_script(tmp_path) -> None:
     assert tasks["test"].prefix == "composer"
 
 
+def test_passthrough_inserts_composer_separator(tmp_path) -> None:
+    _write(tmp_path, MANIFEST)
+    tasks = {t.name: t for t in ComposerProvider().discover(tmp_path)}
+    assert tasks["test"].run_argv(["--filter", "unit"]) == [
+        "composer",
+        "run-script",
+        "test",
+        "--",
+        "--filter",
+        "unit",
+    ]
+    # No separator is emitted when there is nothing to forward.
+    assert tasks["test"].run_argv() == ["composer", "run-script", "test"]
+
+
 def test_discover_array_script_joined_with_and(tmp_path) -> None:
     _write(tmp_path, MANIFEST)
     tasks = {t.name: t for t in ComposerProvider().discover(tmp_path)}
