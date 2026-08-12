@@ -169,7 +169,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="45">
 </span><span data-line="46">
 </span><span data-line="47"><span class="nd">@app</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
-</span><span data-line="48"><span class="k">def</span><span class="w"> </span><span class="nf">_run</span><span class="p">(</span>
+</span><span data-line="48"><span class="k">def</span><span class="w"> </span><span class="nf">_run</span><span class="p">(</span>  <span class="c1"># pylint: disable=unused-argument  # `version` is consumed by the eager --version callback</span>
 </span><span data-line="49">    <span class="n">ctx</span><span class="p">:</span> <span class="n">typer</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span>
 </span><span data-line="50">    <span class="n">task</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">typer</span><span class="o">.</span><span class="n">Argument</span><span class="p">(</span>
 </span><span data-line="51">        <span class="kc">None</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;task to run, e.g. &#39;test&#39; or &#39;make:test&#39;; &#39;list&#39; to list&quot;</span>
