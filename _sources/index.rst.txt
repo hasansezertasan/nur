@@ -10,6 +10,7 @@ A script discovery and execution engine for your project's tasks.
    installation
    usage
    modules
+   adr/index
 
 Indices and tables
 ==================

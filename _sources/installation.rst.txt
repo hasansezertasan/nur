@@ -64,4 +64,4 @@ Once you have a copy of the source, you can install it with:
 .. code-block:: sh
 
    cd nur
-   uv pip install .
+   uv tool install .

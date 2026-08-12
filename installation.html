@@ -67,6 +67,10 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules.html">Modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adr/index.html">Architecture Decision Records</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="adr/0001-provider-selection-criteria.html">Provider selection criteria: static discovery, never execution</a></li>
+</ul>
+</li>
 </ul>
 
         </div>
@@ -157,7 +161,7 @@ standalone application rather than as a project dependency. It ships a single
 </div>
 <p>Once you have a copy of the source, you can install it with:</p>
 <div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nb">cd</span><span class="w"> </span>nur
-</span><span data-line="2">uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>.
+</span><span data-line="2">uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>.
 </span></pre></div>
 </div>
 </section>

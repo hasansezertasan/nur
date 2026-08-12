@@ -67,6 +67,10 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules.html">Modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adr/index.html">Architecture Decision Records</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="adr/0001-provider-selection-criteria.html">Provider selection criteria: static discovery, never execution</a></li>
+</ul>
+</li>
 </ul>
 
         </div>
@@ -117,7 +121,8 @@ data-aria-dark="Switch to auto color mode">
           <section id="usage">
 <h1>Usage<a class="headerlink" href="#usage" title="Link to this heading">#</a></h1>
 <p><code class="docutils literal notranslate"><span class="pre">nur</span></code> discovers the runnable tasks in your project (from <code class="docutils literal notranslate"><span class="pre">Makefile</span></code>,
-<code class="docutils literal notranslate"><span class="pre">package.json</span></code>, <code class="docutils literal notranslate"><span class="pre">justfile</span></code>, <code class="docutils literal notranslate"><span class="pre">Taskfile</span></code>, <code class="docutils literal notranslate"><span class="pre">mise.toml</span></code>, the xc task section
+<code class="docutils literal notranslate"><span class="pre">package.json</span></code>, <code class="docutils literal notranslate"><span class="pre">deno.json</span></code>/<code class="docutils literal notranslate"><span class="pre">deno.jsonc</span></code>, <code class="docutils literal notranslate"><span class="pre">composer.json</span></code>, <code class="docutils literal notranslate"><span class="pre">justfile</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Taskfile</span></code>, <code class="docutils literal notranslate"><span class="pre">mise.toml</span></code>, <code class="docutils literal notranslate"><span class="pre">Makefile.toml</span></code> (cargo-make), the xc task section
 of <code class="docutils literal notranslate"><span class="pre">README.md</span></code>, and the <code class="docutils literal notranslate"><span class="pre">pdm</span></code>/<code class="docutils literal notranslate"><span class="pre">poe</span></code> tables in <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>) and runs
 them from one entry point.</p>
 <section id="launch-the-tui">
@@ -133,8 +138,9 @@ discovered tasks in an interactive terminal UI:</p>
 <div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span data-line="1">nur<span class="w"> </span>list
 </span></pre></div>
 </div>
-<p>Tasks are grouped by their provider prefix (<code class="docutils literal notranslate"><span class="pre">make</span></code>, <code class="docutils literal notranslate"><span class="pre">npm</span></code>, <code class="docutils literal notranslate"><span class="pre">just</span></code>,
-<code class="docutils literal notranslate"><span class="pre">task</span></code>, <code class="docutils literal notranslate"><span class="pre">pdm</span></code>, <code class="docutils literal notranslate"><span class="pre">poe</span></code>, <code class="docutils literal notranslate"><span class="pre">mise</span></code>, <code class="docutils literal notranslate"><span class="pre">xc</span></code>).</p>
+<p>Tasks are grouped by their provider prefix (<code class="docutils literal notranslate"><span class="pre">make</span></code>, <code class="docutils literal notranslate"><span class="pre">npm</span></code>, <code class="docutils literal notranslate"><span class="pre">deno</span></code>,
+<code class="docutils literal notranslate"><span class="pre">composer</span></code>, <code class="docutils literal notranslate"><span class="pre">just</span></code>, <code class="docutils literal notranslate"><span class="pre">task</span></code>, <code class="docutils literal notranslate"><span class="pre">pdm</span></code>, <code class="docutils literal notranslate"><span class="pre">poe</span></code>, <code class="docutils literal notranslate"><span class="pre">mise</span></code>, <code class="docutils literal notranslate"><span class="pre">cargo-make</span></code>,
+<code class="docutils literal notranslate"><span class="pre">xc</span></code>).</p>
 </section>
 <section id="run-a-task">
 <h2>Run a task<a class="headerlink" href="#run-a-task" title="Link to this heading">#</a></h2>
