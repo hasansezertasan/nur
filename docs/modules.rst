@@ -49,14 +49,16 @@ Core data types shared across discovery, the registry, and execution.
 Providers (``nur.providers``)
 ---------------------------------
 
-One module per supported task source (make, npm, deno, just, taskfile, pdm, poe,
-mise, cargo-make, xc).
+One module per supported task source (make, npm, deno, composer, just, taskfile,
+pdm, poe, mise, cargo-make, xc).
 
 .. automodule:: nur.providers.make
 
 .. automodule:: nur.providers.npm
 
 .. automodule:: nur.providers.deno
+
+.. automodule:: nur.providers.composer
 
 .. automodule:: nur.providers.just
 

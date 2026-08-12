@@ -23,10 +23,10 @@
 -----
 
 Run `nur` in a project and it discovers the tasks your project already defines —
-from npm, Make, deno, just, Taskfile, PDM/poe, mise, cargo-make, and xc — then
-lets you run them from a TUI picker or directly from the command line. Discovery
-is limited to the current directory. See [Features](#features) for the full list
-of source files.
+from npm, Make, deno, composer, just, Taskfile, PDM/poe, mise, cargo-make, and
+xc — then lets you run them from a TUI picker or directly from the command line.
+Discovery is limited to the current directory. See [Features](#features) for the
+full list of source files.
 
 ## Table of Contents
 
@@ -123,13 +123,14 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 
 ## Features
 
-- **Zero-config discovery** across ten providers, each parsed from a single
+- **Zero-config discovery** across eleven providers, each parsed from a single
   source file in the current directory:
 
   | Provider | Prefix | Source file |
   | --- | --- | --- |
   | npm | `npm` | `package.json` |
   | deno | `deno` | `deno.json` / `deno.jsonc` |
+  | composer | `composer` | `composer.json` |
   | Make | `make` | `Makefile` |
   | PDM | `pdm` | `pyproject.toml` (`[tool.pdm.scripts]`) |
   | poe | `poe` | `pyproject.toml` (`[tool.poe.tasks]`) |
@@ -144,6 +145,10 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   `.config/mise.toml`. `xc` reads its task section from `README.md` — the block
   marked with an `<!-- xc-heading -->` comment, or failing that a heading named
   `Tasks` (which is how nur discovers the tasks documented in this very file).
+  `composer` reads the top-level `scripts` object from `composer.json`, surfacing
+  only user-defined custom scripts (Composer's reserved lifecycle hooks like
+  `post-install-cmd` are filtered out) and taking descriptions from the
+  `scripts-descriptions` table when present.
 - **CLI Application**: run any discovered task by name or qualified `prefix:name`, with `--` passthrough to the underlying runner.
 - **TUI Application**: interactive three-pane task picker built with Textual.
 - **Safe by default**: discovery parses files; it never shells out to a runner just to list tasks.
