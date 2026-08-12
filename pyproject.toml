@@ -78,7 +78,7 @@ style = [
   "editorconfig-checker==3.11.1",
   "import-linter==2.13",
   "mypy==2.3.0",
-  "pylint==4.0.6",
+  "pylint==4.0.7",
   "pyrefly==1.2.0",
   "ruff==0.16.2",
   "slotscheck==0.20.1",
