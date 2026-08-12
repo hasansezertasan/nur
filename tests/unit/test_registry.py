@@ -1,7 +1,7 @@
 import pytest
 
-from nur.models import Task
-from nur.registry import AmbiguousTaskError, Registry, UnknownTaskError
+from nur.core.models import Task
+from nur.core.registry import AmbiguousTaskError, Registry, UnknownTaskError
 
 
 def _t(name, prefix):
@@ -69,7 +69,7 @@ def test_resolve_unknown_prefix_with_colon_raises() -> None:
 def test_resolve_known_prefix_unknown_name_raises_unknown() -> None:
     import pytest
 
-    from nur.registry import UnknownTaskError
+    from nur.core.registry import UnknownTaskError
 
     reg = Registry([_t("build", "make")])
     with pytest.raises(UnknownTaskError):

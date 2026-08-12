@@ -1,4 +1,4 @@
-from nur.providers.task import TaskfileProvider, parse_taskfile
+from nur.core.providers.task import TaskfileProvider, parse_taskfile
 
 TASKFILE = """
 version: '3'

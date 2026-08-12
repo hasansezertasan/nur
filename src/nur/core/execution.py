@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-    from nur.models import Task
+    from nur.core.models import Task
 
 __all__ = ["ProcessRunner", "run_direct"]
 

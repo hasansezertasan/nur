@@ -6,9 +6,9 @@ from pathlib import Path
 import typer
 
 import nur
-from nur.discovery import discover
-from nur.execution import run_direct
-from nur.registry import AmbiguousTaskError, Registry, UnknownTaskError
+from nur.core.discovery import discover
+from nur.core.execution import run_direct
+from nur.core.registry import AmbiguousTaskError, Registry, UnknownTaskError
 
 __all__ = ["format_list", "main", "split_passthrough"]
 

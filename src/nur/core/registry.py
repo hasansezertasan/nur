@@ -4,7 +4,7 @@ import difflib
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from nur.models import Task
+    from nur.core.models import Task
 
 __all__ = ["AmbiguousTaskError", "Registry", "ResolutionError", "UnknownTaskError"]
 

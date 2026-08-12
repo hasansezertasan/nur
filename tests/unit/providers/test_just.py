@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 from typing import Never
 
-from nur.providers.just import JustProvider, parse_dump
+from nur.core.providers.just import JustProvider, parse_dump
 
 DUMP = """
 {
@@ -38,7 +38,7 @@ def test_discover_tool_missing_returns_empty(tmp_path, monkeypatch, caplog) -> N
         msg = "just"
         raise FileNotFoundError(msg)
 
-    monkeypatch.setattr("nur.providers.just.subprocess.run", boom)
+    monkeypatch.setattr("nur.core.providers.just.subprocess.run", boom)
     assert JustProvider().discover(tmp_path) == []
     assert any("just" in r.message for r in caplog.records)
 
@@ -49,7 +49,9 @@ def test_discover_uses_dump(tmp_path, monkeypatch) -> None:
     class FakeProc:
         stdout = DUMP
 
-    monkeypatch.setattr("nur.providers.just.subprocess.run", lambda *a, **k: FakeProc())
+    monkeypatch.setattr(
+        "nur.core.providers.just.subprocess.run", lambda *a, **k: FakeProc()
+    )
     names = {t.name for t in JustProvider().discover(tmp_path)}
     assert names == {"build", "test"}
 
@@ -60,7 +62,9 @@ def test_discover_malformed_json_returns_empty(tmp_path, monkeypatch, caplog) ->
     class FakeProc:
         stdout = "invalid json"
 
-    monkeypatch.setattr("nur.providers.just.subprocess.run", lambda *a, **k: FakeProc())
+    monkeypatch.setattr(
+        "nur.core.providers.just.subprocess.run", lambda *a, **k: FakeProc()
+    )
     assert JustProvider().discover(tmp_path) == []
     assert any("skipping justfile" in r.message for r in caplog.records)
 

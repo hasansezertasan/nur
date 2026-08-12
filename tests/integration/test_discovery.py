@@ -3,8 +3,8 @@ import tomllib
 from pathlib import Path
 from typing import Never
 
-from nur.discovery import discover
-from nur.providers import PROVIDERS
+from nur.core.discovery import discover
+from nur.core.providers import PROVIDERS
 
 _ROOT = Path(__file__).resolve().parents[2]
 # Every provider's PyPI keyword equals its prefix, except the Taskfile provider,
@@ -44,7 +44,7 @@ def test_every_provider_is_keyworded_and_documented() -> None:
     modules = (_ROOT / "docs" / "modules.rst").read_text(encoding="utf-8")
     for prefix in prefixes:
         module = _MODULE_ALIASES.get(prefix, prefix)
-        directive = f".. automodule:: nur.providers.{module}"
+        directive = f".. automodule:: nur.core.providers.{module}"
         assert directive in modules, f"missing from docs/modules.rst: {directive}"
 
 

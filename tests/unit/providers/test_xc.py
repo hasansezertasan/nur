@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from nur.providers.xc import XcProvider, parse_xc
+from nur.core.providers.xc import XcProvider, parse_xc
 
 REPO_README = Path(__file__).resolve().parents[3] / "README.md"
 
