@@ -141,76 +141,114 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="23"><span class="c1"># A ``[doc(&#39;text&#39;)]`` attribute (single or double quotes), possibly among others</span>
 </span><span data-line="24"><span class="c1"># inside one bracket group, e.g. ``[private, doc(&quot;Internal helper&quot;)]``.</span>
 </span><span data-line="25"><span class="n">_DOC_ATTR_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;&quot;&quot;doc\(\s*[&#39;&quot;](.*?)[&#39;&quot;]\s*\)&quot;&quot;&quot;</span><span class="p">)</span>
-</span><span data-line="26">
-</span><span data-line="27">
+</span><span data-line="26"><span class="c1"># Delimiters that open a *multiline* literal in just: triple-quoted strings and</span>
+</span><span data-line="27"><span class="c1"># triple-backtick expressions. Lines inside such a literal can be unindented and</span>
+</span><span data-line="28"><span class="c1"># look like recipe headers (``phantom:``), so they must be skipped.</span>
+</span><span data-line="29"><span class="n">_MULTILINE_DELIMS</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;&quot;&quot;&quot;&#39;</span><span class="p">,</span> <span class="s2">&quot;&#39;&#39;&#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;```&quot;</span><span class="p">)</span>
+</span><span data-line="30">
+</span><span data-line="31">
+</span><span data-line="32"><span class="k">def</span><span class="w"> </span><span class="nf">_advance_multiline</span><span class="p">(</span><span class="n">line</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="33"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the open multiline delimiter after scanning *line* left to right.</span>
+</span><span data-line="34">
+</span><span data-line="35"><span class="sd">    *state* is the delimiter open at the line&#39;s start (``None`` if not inside a</span>
+</span><span data-line="36"><span class="sd">    literal). Toggling is intentionally naive — single-quote escaping is not</span>
+</span><span data-line="37"><span class="sd">    modelled — which is adequate for keeping recipe-like lines inside triple</span>
+</span><span data-line="38"><span class="sd">    literals from being mistaken for recipes.</span>
+</span><span data-line="39"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="40">    <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="41">    <span class="k">while</span> <span class="n">index</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="p">):</span>
+</span><span data-line="42">        <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="43">            <span class="n">opener</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+</span><span data-line="44">                <span class="p">(</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">_MULTILINE_DELIMS</span> <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">index</span><span class="p">)),</span> <span class="kc">None</span>
+</span><span data-line="45">            <span class="p">)</span>
+</span><span data-line="46">            <span class="k">if</span> <span class="n">opener</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="47">                <span class="n">state</span> <span class="o">=</span> <span class="n">opener</span>
+</span><span data-line="48">                <span class="n">index</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">opener</span><span class="p">)</span>
+</span><span data-line="49">                <span class="k">continue</span>
+</span><span data-line="50">        <span class="k">elif</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">index</span><span class="p">):</span>
+</span><span data-line="51">            <span class="n">index</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+</span><span data-line="52">            <span class="n">state</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="53">            <span class="k">continue</span>
+</span><span data-line="54">        <span class="n">index</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="55">    <span class="k">return</span> <span class="n">state</span>
+</span><span data-line="56">
+</span><span data-line="57">
 <div class="viewcode-block" id="parse_justfile">
 <a class="viewcode-back" href="../../../../modules.html#nur.core.providers.just.parse_justfile">[docs]</a>
-</span><span data-line="28"><span class="k">def</span><span class="w"> </span><span class="nf">parse_justfile</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">source_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;justfile&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
-</span><span data-line="29"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract recipes from ``justfile`` *text* without executing anything.</span>
-</span><span data-line="30">
-</span><span data-line="31"><span class="sd">    Deliberately does NOT shell out to ``just --dump``: a pure text parse needs no</span>
-</span><span data-line="32"><span class="sd">    ``just`` binary on PATH and cannot run recipe bodies. Descriptions come from the</span>
-</span><span data-line="33"><span class="sd">    comment immediately preceding a recipe (skipping any attribute lines) or from an</span>
-</span><span data-line="34"><span class="sd">    explicit ``[doc(&#39;...&#39;)]`` attribute. Grammar fidelity is intentionally partial:</span>
-</span><span data-line="35"><span class="sd">    imports, string interpolation, and computed names are not resolved (see</span>
-</span><span data-line="36"><span class="sd">    docs/adr/0001).</span>
-</span><span data-line="37"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="38">    <span class="n">tasks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="39">    <span class="n">seen</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-</span><span data-line="40">    <span class="n">pending_comment</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="41">    <span class="n">attr_doc</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="42">    <span class="k">for</span> <span class="n">raw</span> <span class="ow">in</span> <span class="n">text</span><span class="o">.</span><span class="n">splitlines</span><span class="p">():</span>
-</span><span data-line="43">        <span class="k">if</span> <span class="ow">not</span> <span class="n">raw</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
-</span><span data-line="44">            <span class="n">pending_comment</span> <span class="o">=</span> <span class="n">attr_doc</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="45">            <span class="k">continue</span>
-</span><span data-line="46">        <span class="k">if</span> <span class="n">raw</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="s2">&quot; </span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">:</span>
-</span><span data-line="47">            <span class="c1"># Indented: a recipe body or dependency continuation; never a header.</span>
-</span><span data-line="48">            <span class="k">continue</span>
-</span><span data-line="49">        <span class="n">stripped</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-</span><span data-line="50">        <span class="k">if</span> <span class="n">stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;#&quot;</span><span class="p">):</span>
-</span><span data-line="51">            <span class="n">pending_comment</span> <span class="o">=</span> <span class="n">stripped</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="ow">or</span> <span class="kc">None</span>
-</span><span data-line="52">            <span class="k">continue</span>
-</span><span data-line="53">        <span class="k">if</span> <span class="n">stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;[&quot;</span><span class="p">):</span>
-</span><span data-line="54">            <span class="n">match</span> <span class="o">=</span> <span class="n">_DOC_ATTR_RE</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">stripped</span><span class="p">)</span>
-</span><span data-line="55">            <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
-</span><span data-line="56">                <span class="n">attr_doc</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-</span><span data-line="57">            <span class="c1"># Attributes sit between a doc comment and its recipe; keep the comment.</span>
-</span><span data-line="58">            <span class="k">continue</span>
-</span><span data-line="59">        <span class="n">match</span> <span class="o">=</span> <span class="n">_RECIPE_RE</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
-</span><span data-line="60">        <span class="k">if</span> <span class="n">match</span> <span class="ow">and</span> <span class="p">(</span><span class="n">name</span> <span class="o">:=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
-</span><span data-line="61">            <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-</span><span data-line="62">            <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-</span><span data-line="63">                <span class="n">Task</span><span class="p">(</span>
-</span><span data-line="64">                    <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
-</span><span data-line="65">                    <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;just&quot;</span><span class="p">,</span>
-</span><span data-line="66">                    <span class="n">argv_base</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;just&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
-</span><span data-line="67">                    <span class="n">description</span><span class="o">=</span><span class="n">attr_doc</span> <span class="ow">or</span> <span class="n">pending_comment</span><span class="p">,</span>
-</span><span data-line="68">                    <span class="n">source_file</span><span class="o">=</span><span class="n">source_file</span><span class="p">,</span>
-</span><span data-line="69">                <span class="p">)</span>
-</span><span data-line="70">            <span class="p">)</span>
-</span><span data-line="71">        <span class="c1"># Any unindented, non-comment, non-attribute line ends the doc scope.</span>
-</span><span data-line="72">        <span class="n">pending_comment</span> <span class="o">=</span> <span class="n">attr_doc</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="73">    <span class="k">return</span> <span class="n">tasks</span></div>
+</span><span data-line="58"><span class="k">def</span><span class="w"> </span><span class="nf">parse_justfile</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">source_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;justfile&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="59"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract recipes from ``justfile`` *text* without executing anything.</span>
+</span><span data-line="60">
+</span><span data-line="61"><span class="sd">    Deliberately does NOT shell out to ``just --dump``: a pure text parse needs no</span>
+</span><span data-line="62"><span class="sd">    ``just`` binary on PATH and cannot run recipe bodies. Descriptions come from the</span>
+</span><span data-line="63"><span class="sd">    comment immediately preceding a recipe (skipping any attribute lines) or from an</span>
+</span><span data-line="64"><span class="sd">    explicit ``[doc(&#39;...&#39;)]`` attribute. Grammar fidelity is intentionally partial:</span>
+</span><span data-line="65"><span class="sd">    imports, string interpolation, and computed names are not resolved (see</span>
+</span><span data-line="66"><span class="sd">    docs/adr/0001).</span>
+</span><span data-line="67"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="68">    <span class="n">tasks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="69">    <span class="n">seen</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+</span><span data-line="70">    <span class="n">pending_comment</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="71">    <span class="n">attr_doc</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="72">    <span class="n">in_delim</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="73">    <span class="k">for</span> <span class="n">raw</span> <span class="ow">in</span> <span class="n">text</span><span class="o">.</span><span class="n">splitlines</span><span class="p">():</span>
+</span><span data-line="74">        <span class="k">if</span> <span class="n">in_delim</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="75">            <span class="c1"># Inside a multiline literal; its lines are never recipe headers.</span>
+</span><span data-line="76">            <span class="n">in_delim</span> <span class="o">=</span> <span class="n">_advance_multiline</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">in_delim</span><span class="p">)</span>
+</span><span data-line="77">            <span class="k">continue</span>
+</span><span data-line="78">        <span class="k">if</span> <span class="ow">not</span> <span class="n">raw</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+</span><span data-line="79">            <span class="n">pending_comment</span> <span class="o">=</span> <span class="n">attr_doc</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="80">            <span class="k">continue</span>
+</span><span data-line="81">        <span class="k">if</span> <span class="n">raw</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="s2">&quot; </span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">:</span>
+</span><span data-line="82">            <span class="c1"># Indented: a recipe body or dependency continuation; never a header.</span>
+</span><span data-line="83">            <span class="k">continue</span>
+</span><span data-line="84">        <span class="n">stripped</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+</span><span data-line="85">        <span class="k">if</span> <span class="n">stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;#&quot;</span><span class="p">):</span>
+</span><span data-line="86">            <span class="n">pending_comment</span> <span class="o">=</span> <span class="n">stripped</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="ow">or</span> <span class="kc">None</span>
+</span><span data-line="87">            <span class="k">continue</span>
+</span><span data-line="88">        <span class="k">if</span> <span class="n">stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;[&quot;</span><span class="p">):</span>
+</span><span data-line="89">            <span class="n">match</span> <span class="o">=</span> <span class="n">_DOC_ATTR_RE</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">stripped</span><span class="p">)</span>
+</span><span data-line="90">            <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+</span><span data-line="91">                <span class="n">attr_doc</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="92">            <span class="c1"># Attributes sit between a doc comment and its recipe; keep the comment.</span>
+</span><span data-line="93">            <span class="k">continue</span>
+</span><span data-line="94">        <span class="n">match</span> <span class="o">=</span> <span class="n">_RECIPE_RE</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+</span><span data-line="95">        <span class="k">if</span> <span class="n">match</span> <span class="ow">and</span> <span class="p">(</span><span class="n">name</span> <span class="o">:=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+</span><span data-line="96">            <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="97">            <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+</span><span data-line="98">                <span class="n">Task</span><span class="p">(</span>
+</span><span data-line="99">                    <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+</span><span data-line="100">                    <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;just&quot;</span><span class="p">,</span>
+</span><span data-line="101">                    <span class="n">argv_base</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;just&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
+</span><span data-line="102">                    <span class="n">description</span><span class="o">=</span><span class="n">attr_doc</span> <span class="ow">or</span> <span class="n">pending_comment</span><span class="p">,</span>
+</span><span data-line="103">                    <span class="n">source_file</span><span class="o">=</span><span class="n">source_file</span><span class="p">,</span>
+</span><span data-line="104">                <span class="p">)</span>
+</span><span data-line="105">            <span class="p">)</span>
+</span><span data-line="106">        <span class="c1"># Any unindented, non-comment, non-attribute line ends the doc scope. It</span>
+</span><span data-line="107">        <span class="c1"># may also open a multiline literal (e.g. ``x := \&quot;\&quot;\&quot;``) whose body must</span>
+</span><span data-line="108">        <span class="c1"># not be scanned for recipes.</span>
+</span><span data-line="109">        <span class="n">pending_comment</span> <span class="o">=</span> <span class="n">attr_doc</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="110">        <span class="n">in_delim</span> <span class="o">=</span> <span class="n">_advance_multiline</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="111">    <span class="k">return</span> <span class="n">tasks</span></div>
 
-</span><span data-line="74">
-</span><span data-line="75">
-</span><span data-line="76"><span class="k">class</span><span class="w"> </span><span class="nc">JustProvider</span><span class="p">:</span>
-</span><span data-line="77">    <span class="n">prefix</span> <span class="o">=</span> <span class="s2">&quot;just&quot;</span>
-</span><span data-line="78">
-</span><span data-line="79">    <span class="k">def</span><span class="w"> </span><span class="nf">_source_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span data-line="80">        <span class="k">return</span> <span class="s2">&quot;justfile&quot;</span> <span class="k">if</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="s2">&quot;justfile&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;Justfile&quot;</span>
-</span><span data-line="81">
-</span><span data-line="82">    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span data-line="83">        <span class="k">return</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="s2">&quot;justfile&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="ow">or</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="s2">&quot;Justfile&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span>
-</span><span data-line="84">
-</span><span data-line="85">    <span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
-</span><span data-line="86">        <span class="n">source_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source_file</span><span class="p">(</span><span class="n">cwd</span><span class="p">)</span>
-</span><span data-line="87">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="88">            <span class="n">text</span> <span class="o">=</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">source_file</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
-</span><span data-line="89">        <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span data-line="90">            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;nur: skipping justfile (</span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
-</span><span data-line="91">            <span class="k">return</span> <span class="p">[]</span>
-</span><span data-line="92">        <span class="k">return</span> <span class="n">parse_justfile</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">source_file</span><span class="p">)</span>
+</span><span data-line="112">
+</span><span data-line="113">
+</span><span data-line="114"><span class="k">class</span><span class="w"> </span><span class="nc">JustProvider</span><span class="p">:</span>
+</span><span data-line="115">    <span class="n">prefix</span> <span class="o">=</span> <span class="s2">&quot;just&quot;</span>
+</span><span data-line="116">
+</span><span data-line="117">    <span class="k">def</span><span class="w"> </span><span class="nf">_source_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span data-line="118">        <span class="k">return</span> <span class="s2">&quot;justfile&quot;</span> <span class="k">if</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="s2">&quot;justfile&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;Justfile&quot;</span>
+</span><span data-line="119">
+</span><span data-line="120">    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="121">        <span class="k">return</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="s2">&quot;justfile&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="ow">or</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="s2">&quot;Justfile&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span>
+</span><span data-line="122">
+</span><span data-line="123">    <span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="124">        <span class="n">source_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source_file</span><span class="p">(</span><span class="n">cwd</span><span class="p">)</span>
+</span><span data-line="125">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="126">            <span class="n">text</span> <span class="o">=</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">source_file</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+</span><span data-line="127">        <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="128">            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;nur: skipping justfile (</span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+</span><span data-line="129">            <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="130">        <span class="k">return</span> <span class="n">parse_justfile</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">source_file</span><span class="p">)</span>
 </span></pre></div>
         </article><button class="back-to-top" type="button">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">

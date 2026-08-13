@@ -110,6 +110,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#nur.core.providers.make.parse_targets"><code class="docutils literal notranslate"><span class="pre">parse_targets()</span></code></a></li>
 <li><a class="reference internal" href="#nur.core.providers.just.parse_justfile"><code class="docutils literal notranslate"><span class="pre">parse_justfile()</span></code></a></li>
 <li><a class="reference internal" href="#nur.core.providers.task.parse_taskfile"><code class="docutils literal notranslate"><span class="pre">parse_taskfile()</span></code></a></li>
+<li><a class="reference internal" href="#nur.core.providers.moon.parse_moon"><code class="docutils literal notranslate"><span class="pre">parse_moon()</span></code></a></li>
 <li><a class="reference internal" href="#nur.core.providers.xc.parse_xc"><code class="docutils literal notranslate"><span class="pre">parse_xc()</span></code></a></li>
 </ul>
 </li>
@@ -335,7 +336,7 @@ as a traceback, report a controlled error and return <code class="docutils liter
 <section id="providers-nur-core-providers">
 <h2>Providers (<code class="docutils literal notranslate"><span class="pre">nur.core.providers</span></code>)<a class="headerlink" href="#providers-nur-core-providers" title="Link to this heading">#</a></h2>
 <p>One module per supported task source (make, npm, deno, composer, just, taskfile,
-pdm, poe, mise, cargo-make, xc).</p>
+pdm, poe, mise, cargo-make, moon, xc).</p>
 <dl class="py function" id="module-nur.core.providers.make">
 <dt class="sig sig-object py" id="nur.core.providers.make.parse_targets">
 <span class="sig-prename descclassname"><span class="pre">nur.core.providers.make.</span></span><span class="sig-name descname"><span class="pre">parse_targets</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/core/providers/make.html#parse_targets"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.core.providers.make.parse_targets" title="Link to this definition">#</a></dt>
@@ -399,8 +400,30 @@ is safe, at the cost of not resolving <code class="docutils literal notranslate"
 </dl>
 </dd></dl>
 
+<dl class="py function" id="module-nur.core.providers.moon">
+<span id="module-nur.core.providers.cargo_make"></span><span id="module-nur.core.providers.mise"></span><span id="module-nur.core.providers.poe"></span><span id="module-nur.core.providers.pdm"></span><dt class="sig sig-object py" id="nur.core.providers.moon.parse_moon">
+<span class="sig-prename descclassname"><span class="pre">nur.core.providers.moon.</span></span><span class="sig-name descname"><span class="pre">parse_moon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'moon.yml'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/core/providers/moon.html#parse_moon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.core.providers.moon.parse_moon" title="Link to this definition">#</a></dt>
+<dd><p>Parse a moon project’s <code class="docutils literal notranslate"><span class="pre">moon.yml</span></code> <em>text</em> without executing anything.</p>
+<p>Deliberately does NOT run <code class="docutils literal notranslate"><span class="pre">moon</span> <span class="pre">query</span> <span class="pre">tasks</span></code>: enumerating tasks that way
+boots moon’s toolchain and resolves inherited config, which can run
+repository-controlled commands during discovery. Reading the YAML directly
+is safe, at the cost of not resolving inherited tasks from <code class="docutils literal notranslate"><span class="pre">.moon/</span></code> or
+project-qualified <code class="docutils literal notranslate"><span class="pre">&lt;project&gt;:&lt;task&gt;</span></code> addressing across the monorepo.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>text</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>source_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>[<a class="reference internal" href="#nur.core.models.Task" title="nur.core.models.Task"><em>Task</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py function" id="module-nur.core.providers.xc">
-<span id="module-nur.core.providers.cargo_make"></span><span id="module-nur.core.providers.mise"></span><span id="module-nur.core.providers.poe"></span><span id="module-nur.core.providers.pdm"></span><dt class="sig sig-object py" id="nur.core.providers.xc.parse_xc">
+<dt class="sig sig-object py" id="nur.core.providers.xc.parse_xc">
 <span class="sig-prename descclassname"><span class="pre">nur.core.providers.xc.</span></span><span class="sig-name descname"><span class="pre">parse_xc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'README.md'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/core/providers/xc.html#parse_xc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.core.providers.xc.parse_xc" title="Link to this definition">#</a></dt>
 <dd><p>Parse xc tasks out of a markdown <em>text</em> without executing anything.</p>
 <p>Deliberately does NOT run <code class="docutils literal notranslate"><span class="pre">xc</span> <span class="pre">-s</span></code>: xc executes task scripts, and listing
