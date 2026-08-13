@@ -6,6 +6,7 @@ from nur.core.providers.deno import DenoProvider
 from nur.core.providers.just import JustProvider
 from nur.core.providers.make import MakeProvider
 from nur.core.providers.mise import MiseProvider
+from nur.core.providers.moon import MoonProvider
 from nur.core.providers.npm import NpmProvider
 from nur.core.providers.pdm import PdmProvider
 from nur.core.providers.poe import PoeProvider
@@ -26,6 +27,7 @@ PROVIDERS: list[Provider] = [
     TaskfileProvider(),
     MiseProvider(),
     CargoMakeProvider(),
+    MoonProvider(),
     XcProvider(),
 ]
 
@@ -37,6 +39,7 @@ __all__ = [
     "JustProvider",
     "MakeProvider",
     "MiseProvider",
+    "MoonProvider",
     "NpmProvider",
     "PdmProvider",
     "PoeProvider",
