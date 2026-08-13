@@ -1,28 +1,149 @@
 from __future__ import annotations
 
-import subprocess
-from pathlib import Path
-from typing import Never
+from nur.core.providers.just import JustProvider, parse_justfile
 
-from nur.core.providers.just import JustProvider, parse_dump
+JUSTFILE = """\
+# Build the project
+build:
+    cargo build
 
-DUMP = """
-{
-  "recipes": {
-    "build": {"name": "build", "doc": "Build the project"},
-    "test": {"name": "test", "doc": null}
-  },
-  "settings": {}
-}
+# Run the tests
+[group('ci')]
+test *args:
+    cargo test {{args}}
+
+# not a doc
+
+deploy env='prod': build test
+    ./deploy.sh {{env}}
+
+alias b := build
+export VERSION := "1.0"
+set shell := ["bash", "-c"]
+
+@quiet:
+    echo hi
+
+[private]
+[doc('Internal helper')]
+_helper:
+    echo secret
 """
 
 
-def test_parse_dump() -> None:
-    tasks = {t.name: t for t in parse_dump(DUMP)}
-    assert tasks["build"].argv_base == ("just", "build")
+def test_parse_justfile_extracts_recipe_names() -> None:
+    names = {t.name for t in parse_justfile(JUSTFILE)}
+    assert names == {"build", "test", "deploy", "quiet", "_helper"}
+
+
+def test_parse_justfile_uses_leading_comment_as_description() -> None:
+    tasks = {t.name: t for t in parse_justfile(JUSTFILE)}
     assert tasks["build"].description == "Build the project"
+    assert tasks["test"].description == "Run the tests"
+
+
+def test_parse_justfile_ignores_comment_separated_by_blank_line() -> None:
+    tasks = {t.name: t for t in parse_justfile(JUSTFILE)}
+    assert tasks["deploy"].description is None
+
+
+def test_parse_justfile_reads_doc_attribute() -> None:
+    tasks = {t.name: t for t in parse_justfile(JUSTFILE)}
+    assert tasks["_helper"].description == "Internal helper"
+
+
+def test_parse_justfile_skips_attributes_over_comment() -> None:
+    # The `[group(...)]` attribute sits between the comment and the recipe;
+    # the comment must still resolve as the doc.
+    tasks = {t.name: t for t in parse_justfile(JUSTFILE)}
+    assert tasks["test"].description == "Run the tests"
+
+
+def test_parse_justfile_ignores_assignments_and_settings() -> None:
+    names = {t.name for t in parse_justfile(JUSTFILE)}
+    assert "VERSION" not in names
+    assert "shell" not in names
+    assert "set" not in names
+    assert "alias" not in names
+    assert "export" not in names
+
+
+def test_parse_justfile_handles_at_prefix() -> None:
+    tasks = {t.name: t for t in parse_justfile(JUSTFILE)}
+    assert tasks["quiet"].argv_base == ("just", "quiet")
+
+
+def test_parse_justfile_sets_argv_and_prefix() -> None:
+    tasks = {t.name: t for t in parse_justfile(JUSTFILE)}
+    assert tasks["build"].argv_base == ("just", "build")
     assert tasks["build"].prefix == "just"
-    assert tasks["test"].description is None
+
+
+def test_parse_justfile_honors_source_file() -> None:
+    tasks = parse_justfile(JUSTFILE, source_file="Justfile")
+    assert tasks
+    assert all(t.source_file == "Justfile" for t in tasks)
+
+
+def test_parse_justfile_empty_text_returns_empty() -> None:
+    assert parse_justfile("") == []
+
+
+def test_parse_justfile_ignores_recipe_like_lines_in_multiline_string() -> None:
+    text = '''\
+message := """
+phantom:
+    not a recipe
+"""
+
+real:
+    echo hi
+'''
+    names = {t.name for t in parse_justfile(text)}
+    assert names == {"real"}
+
+
+def test_parse_justfile_ignores_recipe_like_lines_in_backtick_block() -> None:
+    text = """\
+result := ```
+fake:
+    echo nope
+```
+
+build:
+    echo hi
+"""
+    names = {t.name for t in parse_justfile(text)}
+    assert names == {"build"}
+
+
+def test_parse_justfile_recovers_after_multiline_literal() -> None:
+    text = '''\
+first:
+    echo 1
+
+blob := """
+inside:
+"""
+
+second:
+    echo 2
+'''
+    names = {t.name for t in parse_justfile(text)}
+    assert names == {"first", "second"}
+
+
+def test_parse_justfile_doc_substring_in_other_attribute_is_ignored() -> None:
+    # `doc('api')` appears inside the confirm prompt, not as a doc attribute.
+    text = "[confirm(\"Regenerate doc('api')?\")]\nbuild:\n    echo hi\n"
+    tasks = {t.name: t for t in parse_justfile(text)}
+    assert tasks["build"].description is None
+
+
+def test_parse_justfile_ignores_shebang_as_description() -> None:
+    text = "#!/usr/bin/env just --justfile\nbuild:\n    echo hi\n"
+    tasks = {t.name: t for t in parse_justfile(text)}
+    assert tasks["build"].description is None
 
 
 def test_detect(tmp_path) -> None:
@@ -31,56 +152,31 @@ def test_detect(tmp_path) -> None:
     assert not JustProvider().detect(tmp_path / "nope")
 
 
-def test_discover_tool_missing_returns_empty(tmp_path, monkeypatch, caplog) -> None:
-    (tmp_path / "justfile").write_text("build:\n  echo hi\n")
+def test_discover_parses_file(tmp_path) -> None:
+    (tmp_path / "justfile").write_text("# Build\nbuild:\n    echo hi\n")
+    tasks = {t.name: t for t in JustProvider().discover(tmp_path)}
+    assert tasks["build"].description == "Build"
+    assert tasks["build"].source_file == "justfile"
 
-    def boom(*a, **k) -> Never:
-        msg = "just"
-        raise FileNotFoundError(msg)
 
-    monkeypatch.setattr("nur.core.providers.just.subprocess.run", boom)
+def test_discover_missing_file_returns_empty(tmp_path, caplog) -> None:
     assert JustProvider().discover(tmp_path) == []
-    assert any("just" in r.message for r in caplog.records)
 
 
-def test_discover_uses_dump(tmp_path, monkeypatch) -> None:
-    (tmp_path / "justfile").write_text("build:\n  echo hi\n")
-
-    class FakeProc:
-        stdout = DUMP
-
-    monkeypatch.setattr(
-        "nur.core.providers.just.subprocess.run", lambda *a, **k: FakeProc()
-    )
-    names = {t.name for t in JustProvider().discover(tmp_path)}
-    assert names == {"build", "test"}
-
-
-def test_discover_malformed_json_returns_empty(tmp_path, monkeypatch, caplog) -> None:
-    (tmp_path / "justfile").write_text("build:\n  echo hi\n")
-
-    class FakeProc:
-        stdout = "invalid json"
-
-    monkeypatch.setattr(
-        "nur.core.providers.just.subprocess.run", lambda *a, **k: FakeProc()
-    )
+def test_discover_undecodable_file_returns_empty(tmp_path, caplog) -> None:
+    # Bytes invalid as UTF-8 must be handled like other providers: warn + [].
+    (tmp_path / "justfile").write_bytes(b"build:\n\txxx \xff\xfe\n")
     assert JustProvider().discover(tmp_path) == []
     assert any("skipping justfile" in r.message for r in caplog.records)
 
 
-def test_parse_dump_honors_source_file() -> None:
-    # `discover()` passes the detected filename through; on case-insensitive
-    # filesystems the capital-vs-lowercase variant can't be distinguished, so
-    # verify the parameterization directly on the pure function.
-    tasks = parse_dump(DUMP, source_file="Justfile")
-    assert tasks
-    assert all(t.source_file == "Justfile" for t in tasks)
+def test_discover_unreadable_file_returns_empty(tmp_path, monkeypatch, caplog) -> None:
+    (tmp_path / "justfile").write_text("build:\n    echo hi\n")
 
+    def boom(*_a, **_k) -> str:
+        msg = "nope"
+        raise OSError(msg)
 
-def test_discover_returns_empty_on_timeout(monkeypatch) -> None:
-    def _raise_timeout(*args, **kwargs):
-        raise subprocess.TimeoutExpired(cmd="just", timeout=5.0)
-
-    monkeypatch.setattr(subprocess, "run", _raise_timeout)
-    assert JustProvider().discover(Path()) == []
+    monkeypatch.setattr("pathlib.Path.read_text", boom)
+    assert JustProvider().discover(tmp_path) == []
+    assert any("skipping justfile" in r.message for r in caplog.records)

@@ -431,9 +431,6 @@ convention = "pep257"
   "suspicious-subprocess-import",
   "subprocess-without-shell-equals-true",
 ]
-# The just provider test patches out the subprocess call; the import itself is
-# only used for monkeypatching/assertions, not to spawn a real subprocess.
-"tests/unit/providers/test_just.py" = ["suspicious-subprocess-import"]
 # The Sphinx config is a standalone module, not part of an importable package.
 "docs/conf.py" = ["implicit-namespace-package"]
 # Typer's declarative API puts function calls (Argument/Option) in argument

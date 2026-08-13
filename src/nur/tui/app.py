@@ -92,7 +92,7 @@ class NurApp(App[None]):
         # Focus the list (not the Input) so '/', 'j', 'k', 'r', 'q' fire as
         # app bindings instead of being typed into the filter box.
         self.query_one("#tasks", ListView).focus()
-        # Discovery may spawn subprocesses (e.g. `just --dump`), so run it off
+        # Discovery does blocking file I/O across many providers, so run it off
         # the UI thread. It lives in its own "scan" worker group, so the
         # exclusive `task-run` worker (default group) can never cancel it.
         # exit_on_error=False: a scan failure is handled by the ERROR branch
