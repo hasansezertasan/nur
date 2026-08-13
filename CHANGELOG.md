@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/hasansezertasan/nur/compare/v0.3.0...v0.4.0) (2026-08-13)
+
+
+### 🚀 Features
+
+* add moon (moonrepo) provider for task discovery ([#121](https://github.com/hasansezertasan/nur/issues/121)) ([9fb4302](https://github.com/hasansezertasan/nur/commit/9fb4302969e3c2f0d4124ad537bcf51e719f2437))
+
+
+### ♻️ Refactoring
+
+* **just:** parse justfile statically instead of shelling out ([#122](https://github.com/hasansezertasan/nur/issues/122)) ([0362df9](https://github.com/hasansezertasan/nur/commit/0362df9ff0e4f100d0e537c0da6fc50d5c46a531))
+
 ## [0.3.0](https://github.com/hasansezertasan/nur/compare/v0.2.1...v0.3.0) (2026-08-12)
 
 
