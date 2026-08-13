@@ -28,6 +28,7 @@ def test_providers_registry_order() -> None:
         "task",
         "mise",
         "cargo-make",
+        "moon",
         "xc",
     ]
 

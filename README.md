@@ -23,8 +23,8 @@
 -----
 
 Run `nur` in a project and it discovers the tasks your project already defines —
-from npm, Make, deno, composer, just, Taskfile, PDM/poe, mise, cargo-make, and
-xc — then lets you run them from a TUI picker or directly from the command line.
+from npm, Make, deno, composer, just, Taskfile, PDM/poe, mise, cargo-make, moon,
+and xc — then lets you run them from a TUI picker or directly from the command line.
 Discovery is limited to the current directory. See [Features](#features) for the
 full list of source files.
 
@@ -123,7 +123,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 
 ## Features
 
-- **Zero-config discovery** across eleven providers, each parsed from a single
+- **Zero-config discovery** across twelve providers, each parsed from a single
   source file in the current directory:
 
   | Provider | Prefix | Source file |
@@ -138,6 +138,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   | Taskfile | `task` | `Taskfile.yml` |
   | mise | `mise` | `mise.toml` (and variants — see below) |
   | cargo-make | `cargo-make` | `Makefile.toml` |
+  | moon | `moon` | `moon.yml` |
   | xc | `xc` | `README.md` (see below) |
 
   `mise` reads the first config file present, in priority order:
