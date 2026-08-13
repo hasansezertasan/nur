@@ -21,8 +21,11 @@ log = logging.getLogger("nur")
 # first token is matched as a name but the ``:=`` fails the lookahead.
 _RECIPE_RE = re.compile(r"^@?([a-zA-Z_][a-zA-Z0-9_-]*)(?:\s+[^:]*?)?\s*:(?!=)")
 # A ``[doc('text')]`` attribute (single or double quotes), possibly among others
-# inside one bracket group, e.g. ``[private, doc("Internal helper")]``.
-_DOC_ATTR_RE = re.compile(r"""doc\(\s*['"](.*?)['"]\s*\)""")
+# inside one bracket group, e.g. ``[private, doc("Internal helper")]``. The
+# leading ``[`` or ``,`` anchors ``doc(`` to an actual attribute position, so a
+# ``doc('...')`` substring inside another attribute's string argument (e.g.
+# ``[confirm("... doc('x') ...")]``) is not mistaken for the description.
+_DOC_ATTR_RE = re.compile(r"""[\[,]\s*doc\(\s*['"](.*?)['"]\s*\)""")
 # Delimiters that open a *multiline* literal in just: triple-quoted strings and
 # triple-backtick expressions. Lines inside such a literal can be unindented and
 # look like recipe headers (``phantom:``), so they must be skipped.
@@ -83,7 +86,11 @@ def parse_justfile(text: str, source_file: str = "justfile") -> list[Task]:
             continue
         stripped = raw.strip()
         if stripped.startswith("#"):
-            pending_comment = stripped[1:].strip() or None
+            # A ``#!`` shebang is not a doc comment; drop it so it can't leak in
+            # as the following recipe's description.
+            pending_comment = (
+                None if stripped.startswith("#!") else stripped[1:].strip() or None
+            )
             continue
         if stripped.startswith("["):
             match = _DOC_ATTR_RE.search(stripped)
@@ -123,8 +130,8 @@ class JustProvider:
     def discover(self, cwd: Path) -> list[Task]:
         source_file = self._source_file(cwd)
         try:
-            text = (cwd / source_file).read_text()
-        except OSError as exc:
+            text = (cwd / source_file).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
             log.warning("nur: skipping justfile (%s)", exc)
             return []
         return parse_justfile(text, source_file)

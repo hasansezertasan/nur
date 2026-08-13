@@ -133,6 +133,19 @@ second:
     assert names == {"first", "second"}
 
 
+def test_parse_justfile_doc_substring_in_other_attribute_is_ignored() -> None:
+    # `doc('api')` appears inside the confirm prompt, not as a doc attribute.
+    text = "[confirm(\"Regenerate doc('api')?\")]\nbuild:\n    echo hi\n"
+    tasks = {t.name: t for t in parse_justfile(text)}
+    assert tasks["build"].description is None
+
+
+def test_parse_justfile_ignores_shebang_as_description() -> None:
+    text = "#!/usr/bin/env just --justfile\nbuild:\n    echo hi\n"
+    tasks = {t.name: t for t in parse_justfile(text)}
+    assert tasks["build"].description is None
+
+
 def test_detect(tmp_path) -> None:
     (tmp_path / "justfile").write_text("build:\n  echo hi\n")
     assert JustProvider().detect(tmp_path)
@@ -148,6 +161,13 @@ def test_discover_parses_file(tmp_path) -> None:
 
 def test_discover_missing_file_returns_empty(tmp_path, caplog) -> None:
     assert JustProvider().discover(tmp_path) == []
+
+
+def test_discover_undecodable_file_returns_empty(tmp_path, caplog) -> None:
+    # Bytes invalid as UTF-8 must be handled like other providers: warn + [].
+    (tmp_path / "justfile").write_bytes(b"build:\n\txxx \xff\xfe\n")
+    assert JustProvider().discover(tmp_path) == []
+    assert any("skipping justfile" in r.message for r in caplog.records)
 
 
 def test_discover_unreadable_file_returns_empty(tmp_path, monkeypatch, caplog) -> None:
