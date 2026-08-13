@@ -56,8 +56,8 @@ A candidate format becomes a provider **only if all** of the following hold:
 2. **Hard rule — listing never executes the project's task code.** Discovery must
    not run recipe/target/script bodies or evaluate project-controlled expressions.
    Pure file parsing is the default and strongly preferred; invoking a runner's
-   own *parse-only* dump (e.g. `just --dump`) is tolerated only when it does not
-   execute recipe bodies, and is treated as a deviation to be retired (see below).
+   own *parse-only* dump (e.g. `just --dump`) is tolerated only as a temporary
+   deviation, to be retired in favour of pure file parsing (see below).
 3. The file yields at least a task **name** and a **run command** (a description
    is a bonus). Enumeration may be a **safe subset** — completeness yields to the
    hard rule.
@@ -71,21 +71,21 @@ hard rule — which is exactly why the `make` provider text-parses instead.
 
 ### Known deviations and partial support (current state)
 
-The rule above describes the target invariant. Two existing supported providers
-qualify it, and are recorded here so the ADR matches reality:
+The rule above describes the target invariant. One existing supported provider
+qualifies it, and is recorded here so the ADR matches reality:
 
-- **`just` shells out (grandfathered).** `JustProvider.discover()` runs
-  `just --dump --dump-format json` (a parse-only dump, with a 5s timeout that
-  skips gracefully when `just` is absent) rather than parsing the `justfile`
-  grammar itself. This satisfies the hard rule (recipe bodies are not executed)
-  but violates the "pure file parse, no subprocess/tool dependency" preference.
-  It is a **candidate for future static parsing**; new providers should not copy
-  this pattern.
 - **`make` is deliberately partial.** `parse_targets()` text-parses the
   `Makefile` and, by design, does **not** resolve `include` directives or
   computed targets — it refuses to run `make -pRrq` because that would execute
   project code. This is the completeness-yields-to-safety trade-off in action;
   the same applies to `pre-commit` remote hooks, whose command lives upstream.
+
+**Retired deviation:** `just` previously shelled out to
+`just --dump --dump-format json`. As of #91 `JustProvider.discover()` text-parses
+the `justfile` directly (`parse_justfile()`), needing no `just` binary and no
+subprocess — bringing it in line with the pure-file-parse preference. Grammar
+coverage is intentionally partial (imports and computed names are not resolved),
+consistent with the completeness-yields-to-safety trade-off above.
 
 Note the deliberate consequence: **adoption alone never qualifies a format.**
 High-popularity tools whose tasks live in imperative code or run remotely
