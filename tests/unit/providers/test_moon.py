@@ -37,6 +37,14 @@ def test_parse_moon() -> None:
     assert tasks["build"].source_file == "moon.yml"
 
 
+def test_parse_moon_forwards_args_after_separator() -> None:
+    build = {t.name: t for t in parse_moon(MOON_YML)}["build"]
+    # moon requires `moon run <task> -- <args>` to reach the underlying task.
+    assert build.run_argv(["--watch"]) == ["moon", "run", "build", "--", "--watch"]
+    # with no extra args the separator is omitted.
+    assert build.run_argv() == ["moon", "run", "build"]
+
+
 def test_parse_moon_command_and_args_forms() -> None:
     tasks = {t.name: t for t in parse_moon(MOON_YML)}
     # string command + list args

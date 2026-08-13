@@ -69,6 +69,9 @@ def parse_moon(text: str, source_file: str = "moon.yml") -> list[Task]:
                 description=description if isinstance(description, str) else None,
                 definition=_definition(body),
                 source_file=source_file,
+                # moon consumes args after `moon run <task>` as its own options
+                # / additional targets; forward passthrough args after a `--`.
+                passthrough_prefix=("--",),
             )
         )
     return tasks
