@@ -89,6 +89,50 @@ def test_parse_justfile_empty_text_returns_empty() -> None:
     assert parse_justfile("") == []
 
 
+def test_parse_justfile_ignores_recipe_like_lines_in_multiline_string() -> None:
+    text = '''\
+message := """
+phantom:
+    not a recipe
+"""
+
+real:
+    echo hi
+'''
+    names = {t.name for t in parse_justfile(text)}
+    assert names == {"real"}
+
+
+def test_parse_justfile_ignores_recipe_like_lines_in_backtick_block() -> None:
+    text = """\
+result := ```
+fake:
+    echo nope
+```
+
+build:
+    echo hi
+"""
+    names = {t.name for t in parse_justfile(text)}
+    assert names == {"build"}
+
+
+def test_parse_justfile_recovers_after_multiline_literal() -> None:
+    text = '''\
+first:
+    echo 1
+
+blob := """
+inside:
+"""
+
+second:
+    echo 2
+'''
+    names = {t.name for t in parse_justfile(text)}
+    assert names == {"first", "second"}
+
+
 def test_detect(tmp_path) -> None:
     (tmp_path / "justfile").write_text("build:\n  echo hi\n")
     assert JustProvider().detect(tmp_path)

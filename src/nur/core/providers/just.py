@@ -23,6 +23,36 @@ _RECIPE_RE = re.compile(r"^@?([a-zA-Z_][a-zA-Z0-9_-]*)(?:\s+[^:]*?)?\s*:(?!=)")
 # A ``[doc('text')]`` attribute (single or double quotes), possibly among others
 # inside one bracket group, e.g. ``[private, doc("Internal helper")]``.
 _DOC_ATTR_RE = re.compile(r"""doc\(\s*['"](.*?)['"]\s*\)""")
+# Delimiters that open a *multiline* literal in just: triple-quoted strings and
+# triple-backtick expressions. Lines inside such a literal can be unindented and
+# look like recipe headers (``phantom:``), so they must be skipped.
+_MULTILINE_DELIMS = ('"""', "'''", "```")
+
+
+def _advance_multiline(line: str, state: str | None) -> str | None:
+    """Return the open multiline delimiter after scanning *line* left to right.
+
+    *state* is the delimiter open at the line's start (``None`` if not inside a
+    literal). Toggling is intentionally naive — single-quote escaping is not
+    modelled — which is adequate for keeping recipe-like lines inside triple
+    literals from being mistaken for recipes.
+    """
+    index = 0
+    while index < len(line):
+        if state is None:
+            opener = next(
+                (d for d in _MULTILINE_DELIMS if line.startswith(d, index)), None
+            )
+            if opener is not None:
+                state = opener
+                index += len(opener)
+                continue
+        elif line.startswith(state, index):
+            index += len(state)
+            state = None
+            continue
+        index += 1
+    return state
 
 
 def parse_justfile(text: str, source_file: str = "justfile") -> list[Task]:
@@ -39,7 +69,12 @@ def parse_justfile(text: str, source_file: str = "justfile") -> list[Task]:
     seen: set[str] = set()
     pending_comment: str | None = None
     attr_doc: str | None = None
+    in_delim: str | None = None
     for raw in text.splitlines():
+        if in_delim is not None:
+            # Inside a multiline literal; its lines are never recipe headers.
+            in_delim = _advance_multiline(raw, in_delim)
+            continue
         if not raw.strip():
             pending_comment = attr_doc = None
             continue
@@ -68,8 +103,11 @@ def parse_justfile(text: str, source_file: str = "justfile") -> list[Task]:
                     source_file=source_file,
                 )
             )
-        # Any unindented, non-comment, non-attribute line ends the doc scope.
+        # Any unindented, non-comment, non-attribute line ends the doc scope. It
+        # may also open a multiline literal (e.g. ``x := \"\"\"``) whose body must
+        # not be scanned for recipes.
         pending_comment = attr_doc = None
+        in_delim = _advance_multiline(raw, None)
     return tasks
 
 
