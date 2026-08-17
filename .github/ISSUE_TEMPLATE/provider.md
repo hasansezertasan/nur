@@ -1,7 +1,7 @@
 ---
 name: Provider Request
 about: Propose a new task-discovery provider for a specific file format
-title: 'Provider: add <format> provider for task discovery'
+title: 'Provider: '
 labels: enhancement
 assignees: 'hasansezertasan'
 ---
@@ -74,7 +74,7 @@ Parsing complexity you intend to leave out initially, so the boundary is explici
 Optional but encouraged: pseudocode of discovery → parse → emit Task(...).
 -->
 
-```
+```text
 ```
 
 ## Adoption
