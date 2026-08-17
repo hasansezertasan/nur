@@ -25,18 +25,25 @@ What is the format, and where does its config live?
 ## Static-discovery check (required)
 
 <!--
-nur's core guarantee: tasks are found by parsing, NEVER by running code.
-A format that only reveals its tasks at runtime (imperative build scripts,
-`@task` decorators, remote CI runners, arbitrary Ruby/Python/Groovy) does
-NOT qualify. Be honest here — this determines whether the provider can exist.
+The deciding rule (ADR 0001, docs/adr/0001-provider-selection-criteria.md) is
+the SAFETY invariant, not completeness: listing tasks must NEVER execute the
+project's own task code or evaluate project-controlled expressions. Enumeration
+may be a *safe subset* — completeness yields to the hard rule (e.g. the `make`
+provider text-parses and skips `include`/computed targets; `pre-commit` skips
+remote hooks). What disqualifies a format is that discovering *any* useful
+runnable task would require running project code (imperative build scripts,
+`@task` decorators, arbitrary Ruby/Python/Groovy) or resolving remote state
+(e.g. GitHub Actions runners).
 -->
 
-- **Can every task be enumerated by parsing the file alone (no evaluation)?** <!-- Yes / No -->
-- **Are the discovered tasks locally runnable commands?** <!-- Yes / No — remote-runner or interpolated formats don't count -->
-- **Must nur ever shell out to enumerate tasks (e.g. `tool -l`)?** <!-- Must be No -->
+- **Does listing tasks avoid executing project task code / project-controlled expressions?** <!-- Must be Yes — this is the hard rule -->
+- **Can a useful subset of runnable tasks (name + run command) be parsed from the file without evaluation?** <!-- Yes / No — a safe subset is enough; full coverage is a bonus -->
+- **Does discovery avoid shelling out to enumerate tasks (e.g. `tool -l`)?** <!-- Yes preferred; a parse-only dump like `just --dump` is tolerated as a temporary deviation only -->
+- **If enumeration is partial, what is deliberately not resolved, and why is that the safety trade-off?** <!-- e.g. include directives, computed names, remote hooks -->
 
-> If any answer above disqualifies the format, it belongs on the deferred /
-> excluded tracking issue, not here.
+> If the first answer is No — any useful discovery would require executing
+> project code or resolving remote state — the format belongs on the deferred /
+> excluded tracking issue (#78), not here.
 
 ## Task-model mapping
 
