@@ -221,7 +221,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="92">        <span class="c1"># Focus the list (not the Input) so &#39;/&#39;, &#39;j&#39;, &#39;k&#39;, &#39;r&#39;, &#39;q&#39; fire as</span>
 </span><span data-line="93">        <span class="c1"># app bindings instead of being typed into the filter box.</span>
 </span><span data-line="94">        <span class="bp">self</span><span class="o">.</span><span class="n">query_one</span><span class="p">(</span><span class="s2">&quot;#tasks&quot;</span><span class="p">,</span> <span class="n">ListView</span><span class="p">)</span><span class="o">.</span><span class="n">focus</span><span class="p">()</span>
-</span><span data-line="95">        <span class="c1"># Discovery may spawn subprocesses (e.g. `just --dump`), so run it off</span>
+</span><span data-line="95">        <span class="c1"># Discovery does blocking file I/O across many providers, so run it off</span>
 </span><span data-line="96">        <span class="c1"># the UI thread. It lives in its own &quot;scan&quot; worker group, so the</span>
 </span><span data-line="97">        <span class="c1"># exclusive `task-run` worker (default group) can never cancel it.</span>
 </span><span data-line="98">        <span class="c1"># exit_on_error=False: a scan failure is handled by the ERROR branch</span>

@@ -179,8 +179,8 @@ markdown/prose task definitions.</p></li>
 <li><p><strong>Hard rule — listing never executes the project’s task code.</strong> Discovery must
 not run recipe/target/script bodies or evaluate project-controlled expressions.
 Pure file parsing is the default and strongly preferred; invoking a runner’s
-own <em>parse-only</em> dump (e.g. <code class="docutils literal notranslate"><span class="pre">just</span> <span class="pre">--dump</span></code>) is tolerated only when it does not
-execute recipe bodies, and is treated as a deviation to be retired (see below).</p></li>
+own <em>parse-only</em> dump (e.g. <code class="docutils literal notranslate"><span class="pre">just</span> <span class="pre">--dump</span></code>) is tolerated only as a temporary
+deviation, to be retired in favour of pure file parsing (see below).</p></li>
 <li><p>The file yields at least a task <strong>name</strong> and a <strong>run command</strong> (a description
 is a bonus). Enumeration may be a <strong>safe subset</strong> — completeness yields to the
 hard rule.</p></li>
@@ -193,22 +193,21 @@ logic (e.g. <code class="docutils literal notranslate"><span class="pre">make</s
 hard rule — which is exactly why the <code class="docutils literal notranslate"><span class="pre">make</span></code> provider text-parses instead.</p>
 <section id="known-deviations-and-partial-support-current-state">
 <h3>Known deviations and partial support (current state)<a class="headerlink" href="#known-deviations-and-partial-support-current-state" title="Link to this heading">#</a></h3>
-<p>The rule above describes the target invariant. Two existing supported providers
-qualify it, and are recorded here so the ADR matches reality:</p>
+<p>The rule above describes the target invariant. One existing supported provider
+qualifies it, and is recorded here so the ADR matches reality:</p>
 <ul class="simple">
-<li><p><strong><code class="docutils literal notranslate"><span class="pre">just</span></code> shells out (grandfathered).</strong> <code class="docutils literal notranslate"><span class="pre">JustProvider.discover()</span></code> runs
-<code class="docutils literal notranslate"><span class="pre">just</span> <span class="pre">--dump</span> <span class="pre">--dump-format</span> <span class="pre">json</span></code> (a parse-only dump, with a 5s timeout that
-skips gracefully when <code class="docutils literal notranslate"><span class="pre">just</span></code> is absent) rather than parsing the <code class="docutils literal notranslate"><span class="pre">justfile</span></code>
-grammar itself. This satisfies the hard rule (recipe bodies are not executed)
-but violates the “pure file parse, no subprocess/tool dependency” preference.
-It is a <strong>candidate for future static parsing</strong>; new providers should not copy
-this pattern.</p></li>
 <li><p><strong><code class="docutils literal notranslate"><span class="pre">make</span></code> is deliberately partial.</strong> <code class="docutils literal notranslate"><span class="pre">parse_targets()</span></code> text-parses the
 <code class="docutils literal notranslate"><span class="pre">Makefile</span></code> and, by design, does <strong>not</strong> resolve <code class="docutils literal notranslate"><span class="pre">include</span></code> directives or
 computed targets — it refuses to run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">-pRrq</span></code> because that would execute
 project code. This is the completeness-yields-to-safety trade-off in action;
 the same applies to <code class="docutils literal notranslate"><span class="pre">pre-commit</span></code> remote hooks, whose command lives upstream.</p></li>
 </ul>
+<p><strong>Retired deviation:</strong> <code class="docutils literal notranslate"><span class="pre">just</span></code> previously shelled out to
+<code class="docutils literal notranslate"><span class="pre">just</span> <span class="pre">--dump</span> <span class="pre">--dump-format</span> <span class="pre">json</span></code>. As of #91 <code class="docutils literal notranslate"><span class="pre">JustProvider.discover()</span></code> text-parses
+the <code class="docutils literal notranslate"><span class="pre">justfile</span></code> directly (<code class="docutils literal notranslate"><span class="pre">parse_justfile()</span></code>), needing no <code class="docutils literal notranslate"><span class="pre">just</span></code> binary and no
+subprocess — bringing it in line with the pure-file-parse preference. Grammar
+coverage is intentionally partial (imports and computed names are not resolved),
+consistent with the completeness-yields-to-safety trade-off above.</p>
 <p>Note the deliberate consequence: <strong>adoption alone never qualifies a format.</strong>
 High-popularity tools whose tasks live in imperative code or run remotely
 (Gradle, Maven, GitHub Actions, Rake, <code class="docutils literal notranslate"><span class="pre">nox</span></code>, cargo-xtask) are declined despite
