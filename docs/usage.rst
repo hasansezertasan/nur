@@ -36,6 +36,7 @@ Pass a task name. Use the bare name when it is unambiguous, or the
 
 .. code-block:: sh
 
+<<<<<<< before updating
    nur test
    nur make:test
 
@@ -62,3 +63,6 @@ The package exposes its version for programmatic use:
    import nur
 
    nur.__version__
+=======
+   nur interactive
+>>>>>>> after updating

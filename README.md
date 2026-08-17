@@ -93,7 +93,11 @@ Run `nur` from the root of a project that contains any supported task file.
 Run with no arguments to open the interactive picker:
 
 ```bash
+<<<<<<< before updating
 nur
+=======
+nur interactive
+>>>>>>> after updating
 ```
 
 Browse and run the discovered tasks in a three-pane Textual UI. Press `q` to
@@ -240,7 +244,7 @@ uv run --locked tox run -e docs-linkcheck
 
 ## Releasing
 
-Versioning and releases are automated with [release-please](https://github.com/googleapis/release-please), driven by [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) PR titles squash-merged into `main`. release-please maintains a release PR that bumps the version and `CHANGELOG.md`; merging it tags the release and publishes to PyPI. See the [Contributing Guidelines](./.github/CONTRIBUTING.md#releasing) for the commit conventions and the one-time [Repository setup](./.github/CONTRIBUTING.md#repository-setup-one-time) (squash-merge settings, Actions permissions, release immutability, and PyPI trusted publishing).
+Versioning and releases are automated with [release-please](https://github.com/googleapis/release-please), driven by [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) PR titles squash-merged into `main`. release-please maintains a release PR that bumps the version and `CHANGELOG.md`; merging it tags the release and publishes to PyPI. See the [Contributing Guidelines](./.github/CONTRIBUTING.md#releasing) for the commit conventions, and the one-time [Repository setup](./docs/maintaining/setup.rst) guide (squash-merge settings, Actions permissions, release immutability, and PyPI trusted publishing) for maintainers.
 
 ## Credits
 

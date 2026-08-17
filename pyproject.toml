@@ -59,7 +59,13 @@ releasenotes = "https://github.com/hasansezertasan/nur/releases"
 source = "https://github.com/hasansezertasan/nur.git"
 
 [project.scripts]
+<<<<<<< before updating
 nur = "nur.cli:main"
+=======
+nur = "nur.__main__:main"
+
+
+>>>>>>> after updating
 
 
 [dependency-groups]
@@ -309,12 +315,21 @@ name = "Layered architecture with independent components"
 type = "layers"
 # Layers are listed high -> low: a layer may import lower layers but never a
 # higher one. Modules joined by ` | ` on one line are independent SIBLINGS that
+<<<<<<< before updating
 # may not import each other. `cli` is the orchestrator layer — it drives
 # discovery/execution and launches the `tui` via a lazy import — so it sits ABOVE
 # the `tui`, which sits above `discovery`. `discovery` composes the independent
 # `providers | execution | registry` group, which all sit above the leaf
 # `models` data types. `__init__`, `__main__`, and `_version` are left outside
 # the contract as unconstrained foundations.
+=======
+# may not import each other. `cli` is the orchestrator layer — the
+# `nur` console root, whose subcommands launch the other
+# components (web/gui/tui/mcp/worker) via lazy imports — so it sits ABOVE the
+# independent component group, which sits above `core`, which sits above the leaf
+# `utils`. `__metadata__` is left outside the contract as an unconstrained
+# foundation.
+>>>>>>> after updating
 layers = [
   "nur.cli",
   "nur.tui",

@@ -12,6 +12,12 @@ A script discovery and execution engine for your project's tasks.
    modules
    adr/index
 
+.. toctree::
+   :maxdepth: 2
+   :caption: Maintainer guide
+
+   maintaining/setup
+
 Indices and tables
 ==================
 
