@@ -44,11 +44,13 @@ NOT qualify. Be honest here — this determines whether the provider can exist.
 How do the format's concepts map onto nur's Task model?
 -->
 
+- `prefix` ← <!-- the provider's stable namespace, e.g. "tox" (used for qualified_name `prefix:name`) -->
 - `name` ← <!-- e.g. environment / target name -->
 - `argv_base` ← <!-- e.g. ("tox", "-e", <name>) -->
 - `description` ← <!-- where the human-readable description comes from, if any -->
 - `definition` ← <!-- the underlying command(s); how multiple commands are joined -->
 - `source_file` ← <!-- the file that was parsed -->
+- `passthrough_prefix` ← <!-- optional: tokens inserted before forwarded args, e.g. ("--",) for npm-style `run <script> -- <args>`; omit if not needed -->
 
 ## Parsing edge cases
 
