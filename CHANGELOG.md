@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/hasansezertasan/nur/compare/v0.4.0...v0.5.0) (2026-08-21)
+
+
+### 🚀 Features
+
+* **templates:** add provider issue template for task-discovery formats ([#137](https://github.com/hasansezertasan/nur/issues/137)) ([e02af44](https://github.com/hasansezertasan/nur/commit/e02af44e23a2a19f21eaf417b8a01fa256843380))
+
 ## [0.4.0](https://github.com/hasansezertasan/nur/compare/v0.3.0...v0.4.0) (2026-08-13)
 
 
