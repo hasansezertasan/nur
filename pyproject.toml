@@ -65,7 +65,7 @@ nur = "nur.cli:main"
 [dependency-groups]
 dev = [
   "nur[all]",
-  "tox==4.61.2",
+  "tox==4.61.4",
   "tox-uv==1.36.0",
   "debugpy==1.8.21",
   { include-group = "style" },
@@ -106,7 +106,7 @@ test = [
   # Pinned to match main (Renovate-managed): coverage 7.13+ changed subprocess
   # signal patching, which hangs the SIGINT interrupt tests under subprocess
   # coverage on Linux/Windows. Let Renovate bump this separately.
-  "coverage[toml]==7.11.0",
+  "coverage[toml]==7.16.0",
   "pytest-mock==3.15.1",
   "pytest-rerunfailures==16.6.1",
   "pytest-xdist[psutil]==3.8.0",
