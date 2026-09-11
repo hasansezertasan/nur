@@ -1,6 +1,34 @@
 """Enable ``python -m nur`` as an alias for the ``nur`` console script."""
 
+<<<<<<< before updating
 from __future__ import annotations
+=======
+This is the single runnable entrypoint used by ``python -m nur``
+and by every standalone-executable build (PyCrucible launcher, PyInstaller
+freezer, Nuitka compiler — see ADR-007). The build tools all target this file,
+so the component-selection logic lives here and nowhere else.
+
+When a ``nur`` console root exists (``include_console_root`` —
+the CLI, or ≥2 components sharing a launcher; see ADR-019), ``main()`` runs it,
+which dispatches to the primary component by default and to each secondary via a
+subcommand. Otherwise the single enabled component with the highest precedence —
+CLI > GUI > TUI > web > MCP > worker — is wired to ``main()`` directly at
+template-generation time (via the Jinja conditionals below). To change the
+default entrypoint, re-render with a different component enabled or edit the
+import/``main`` binding here directly. With no runnable component enabled,
+``main()`` exits non-zero with an explanatory message.
+"""
+
+from nur.cli import app
+
+
+# The dispatchers below carry `# pragma: no cover`: invoking them launches the
+# blocking component (CLI loop, GUI mainloop, server, ...), which cannot run
+# under headless CI. tests/test_main.py pins the import wiring and callability.
+def main() -> None:  # pragma: no cover
+    """Run the nur console root (primary + component subcommands)."""
+    app()
+>>>>>>> after updating
 
 from nur.cli import main
 
