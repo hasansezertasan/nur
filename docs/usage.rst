@@ -7,6 +7,7 @@ Usage
 task section of ``README.md``, and the ``pdm``/``poe`` tables in
 ``pyproject.toml``) and runs them from one entry point.
 
+<<<<<<< before updating
 Launch the TUI
 --------------
 
@@ -14,6 +15,22 @@ Run ``nur`` with no arguments in a project directory to browse and run the
 discovered tasks in an interactive terminal UI:
 
 .. code-block:: sh
+=======
+Look up the installed distribution version:
+
+.. literalinclude:: examples/version_lookup.py
+   :language: python
+   :caption: examples/version_lookup.py
+
+For short interactive snippets embedded in prose, the ``docs-doctest`` task
+executes ``>>>`` blocks too:
+
+.. doctest::
+
+   >>> from nur.__metadata__ import PROJECT_NAME
+   >>> PROJECT_NAME
+   'nur'
+>>>>>>> after updating
 
    nur
 
@@ -28,14 +45,26 @@ Tasks are grouped by their provider prefix (``make``, ``npm``, ``deno``,
 ``composer``, ``just``, ``task``, ``pdm``, ``poe``, ``mise``, ``cargo-make``,
 ``moon``, ``xc``).
 
+<<<<<<< before updating
 Run a task
 ----------
+=======
+Or invoke it programmatically from Python:
+
+.. literalinclude:: examples/cli_usage.py
+   :language: python
+   :caption: examples/cli_usage.py
+
+As a TUI
+--------
+>>>>>>> after updating
 
 Pass a task name. Use the bare name when it is unambiguous, or the
 ``prefix:name`` form to disambiguate across providers:
 
 .. code-block:: sh
 
+<<<<<<< before updating
    nur test
    nur make:test
 
@@ -62,3 +91,12 @@ The package exposes its version for programmatic use:
    import nur
 
    nur.__version__
+=======
+   nur interactive
+
+Retrieve the info message without starting the TUI:
+
+.. literalinclude:: examples/tui_usage.py
+   :language: python
+   :caption: examples/tui_usage.py
+>>>>>>> after updating
