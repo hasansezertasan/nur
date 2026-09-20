@@ -17,6 +17,7 @@ keywords = [
   "npm",
   "just",
   "taskfile",
+  "pre-commit",
   "pdm",
   "poe",
   "mise",

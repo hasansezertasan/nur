@@ -10,6 +10,7 @@ from nur.core.providers.moon import MoonProvider
 from nur.core.providers.npm import NpmProvider
 from nur.core.providers.pdm import PdmProvider
 from nur.core.providers.poe import PoeProvider
+from nur.core.providers.pre_commit import PreCommitProvider
 from nur.core.providers.task import TaskfileProvider
 from nur.core.providers.xc import XcProvider
 
@@ -25,6 +26,7 @@ PROVIDERS: list[Provider] = [
     PoeProvider(),
     JustProvider(),
     TaskfileProvider(),
+    PreCommitProvider(),
     MiseProvider(),
     CargoMakeProvider(),
     MoonProvider(),
@@ -43,6 +45,7 @@ __all__ = [
     "NpmProvider",
     "PdmProvider",
     "PoeProvider",
+    "PreCommitProvider",
     "TaskfileProvider",
     "XcProvider",
 ]

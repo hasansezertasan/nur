@@ -13,7 +13,7 @@ _KEYWORD_ALIASES = {"task": "taskfile"}
 # A provider's module basename equals its prefix, except where the prefix
 # contains characters illegal in a Python module name (e.g. the hyphen in
 # ``cargo-make`` -> ``cargo_make``).
-_MODULE_ALIASES = {"cargo-make": "cargo_make"}
+_MODULE_ALIASES = {"cargo-make": "cargo_make", "pre-commit": "pre_commit"}
 
 
 def test_providers_registry_order() -> None:
@@ -26,6 +26,7 @@ def test_providers_registry_order() -> None:
         "poe",
         "just",
         "task",
+        "pre-commit",
         "mise",
         "cargo-make",
         "moon",
