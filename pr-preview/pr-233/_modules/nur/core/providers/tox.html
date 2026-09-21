@@ -729,102 +729,106 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="611">                <span class="n">prefix</span><span class="o">=</span><span class="s2">"tox"</span><span class="p">,</span>
 </span><span data-line="612">                <span class="n">argv_base</span><span class="o">=</span><span class="p">(</span><span class="s2">"tox"</span><span class="p">,</span> <span class="s2">"-e"</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
 </span><span data-line="613">                <span class="n">passthrough_prefix</span><span class="o">=</span><span class="p">(</span><span class="s2">"--"</span><span class="p">,),</span>
-</span><span data-line="614">                <span class="n">description</span><span class="o">=</span><span class="n">description</span><span class="p">,</span>
-</span><span data-line="615">                <span class="n">definition</span><span class="o">=</span><span class="n">_render_command_groups</span><span class="p">(</span>
-</span><span data-line="616">                    <span class="n">_filter_ini_commands</span><span class="p">(</span><span class="n">commands_pre</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
-</span><span data-line="617">                    <span class="n">_filter_ini_commands</span><span class="p">(</span><span class="n">commands</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
-</span><span data-line="618">                    <span class="n">_filter_ini_commands</span><span class="p">(</span><span class="n">commands_post</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
-</span><span data-line="619">                <span class="p">),</span>
-</span><span data-line="620">                <span class="n">source_file</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-</span><span data-line="621">            <span class="p">)</span>
-</span><span data-line="622">        <span class="p">)</span>
-</span><span data-line="623">    <span class="k">return</span> <span class="n">tasks</span>
-</span><span data-line="624">
-</span><span data-line="625">
-</span><span data-line="626"><span class="k">def</span><span class="w"> </span><span class="nf">_toml_tasks</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">_Config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
-</span><span data-line="627"><span class="w">    </span><span class="sd">"""Build tasks from a native TOML tox configuration table."""</span>
-</span><span data-line="628">    <span class="n">tox</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">data</span>
-</span><span data-line="629">    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tox</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-</span><span data-line="630">        <span class="k">return</span> <span class="p">[]</span>
-</span><span data-line="631">    <span class="k">if</span> <span class="s2">"env_list"</span> <span class="ow">in</span> <span class="n">tox</span><span class="p">:</span>
-</span><span data-line="632">        <span class="n">raw_env_list</span> <span class="o">=</span> <span class="n">tox</span><span class="p">[</span><span class="s2">"env_list"</span><span class="p">]</span>
-</span><span data-line="633">    <span class="k">elif</span> <span class="s2">"envlist"</span> <span class="ow">in</span> <span class="n">tox</span><span class="p">:</span>
-</span><span data-line="634">        <span class="n">raw_env_list</span> <span class="o">=</span> <span class="n">tox</span><span class="p">[</span><span class="s2">"envlist"</span><span class="p">]</span>
-</span><span data-line="635">    <span class="k">else</span><span class="p">:</span>
-</span><span data-line="636">        <span class="n">raw_env_list</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"py"</span><span class="p">]</span>
-</span><span data-line="637">
-</span><span data-line="638">    <span class="n">names</span> <span class="o">=</span> <span class="p">(</span>
-</span><span data-line="639">        <span class="n">_toml_env_list</span><span class="p">(</span><span class="n">raw_env_list</span><span class="p">)</span>
-</span><span data-line="640">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw_env_list</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
-</span><span data-line="641">        <span class="k">else</span> <span class="p">[</span>
-</span><span data-line="642">            <span class="n">name</span>
-</span><span data-line="643">            <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">_split_envlist</span><span class="p">(</span><span class="n">raw_env_list</span><span class="p">)</span>
-</span><span data-line="644">            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_expand_env_name</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
-</span><span data-line="645">        <span class="p">]</span>
-</span><span data-line="646">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw_env_list</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
-</span><span data-line="647">        <span class="k">else</span> <span class="p">[]</span>
-</span><span data-line="648">    <span class="p">)</span>
-</span><span data-line="649">    <span class="n">envs</span> <span class="o">=</span> <span class="n">tox</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"env"</span><span class="p">)</span>
-</span><span data-line="650">    <span class="n">envs</span> <span class="o">=</span> <span class="n">envs</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">envs</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="p">{}</span>
-</span><span data-line="651">    <span class="n">labels</span> <span class="o">=</span> <span class="n">tox</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"labels"</span><span class="p">)</span>
-</span><span data-line="652">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-</span><span data-line="653">        <span class="k">for</span> <span class="n">members</span> <span class="ow">in</span> <span class="n">labels</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
-</span><span data-line="654">            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">members</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-</span><span data-line="655">                <span class="n">names</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">member</span> <span class="k">for</span> <span class="n">member</span> <span class="ow">in</span> <span class="n">members</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="nb">str</span><span class="p">))</span>
-</span><span data-line="656">            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">members</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-</span><span data-line="657">                <span class="n">names</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">_split_envlist</span><span class="p">(</span><span class="n">members</span><span class="p">))</span>
-</span><span data-line="658">    <span class="n">explicit</span> <span class="o">=</span> <span class="p">[</span>
-</span><span data-line="659">        <span class="n">name</span>
-</span><span data-line="660">        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">envs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-</span><span data-line="661">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
-</span><span data-line="662">    <span class="p">]</span>
-</span><span data-line="663">    <span class="n">internal_envs</span> <span class="o">=</span> <span class="n">_configured_internal_envs_toml</span><span class="p">(</span><span class="n">tox</span><span class="p">)</span>
-</span><span data-line="664">    <span class="n">names</span> <span class="o">=</span> <span class="n">_without_provisioning</span><span class="p">([</span><span class="o">*</span><span class="n">names</span><span class="p">,</span> <span class="o">*</span><span class="n">explicit</span><span class="p">],</span> <span class="n">internal_envs</span><span class="p">)</span>
-</span><span data-line="665">    <span class="n">tasks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="666">    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
-</span><span data-line="667">        <span class="n">section</span> <span class="o">=</span> <span class="n">envs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-</span><span data-line="668">        <span class="n">section</span> <span class="o">=</span> <span class="n">section</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">section</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="p">{}</span>
-</span><span data-line="669">        <span class="n">desc</span> <span class="o">=</span> <span class="n">_toml_env_setting</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">section</span><span class="p">,</span> <span class="s2">"description"</span><span class="p">,</span> <span class="n">tox</span><span class="p">)</span>
-</span><span data-line="670">        <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-</span><span data-line="671">            <span class="n">Task</span><span class="p">(</span>
-</span><span data-line="672">                <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
-</span><span data-line="673">                <span class="n">prefix</span><span class="o">=</span><span class="s2">"tox"</span><span class="p">,</span>
-</span><span data-line="674">                <span class="n">argv_base</span><span class="o">=</span><span class="p">(</span><span class="s2">"tox"</span><span class="p">,</span> <span class="s2">"-e"</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
-</span><span data-line="675">                <span class="n">passthrough_prefix</span><span class="o">=</span><span class="p">(</span><span class="s2">"--"</span><span class="p">,),</span>
-</span><span data-line="676">                <span class="n">description</span><span class="o">=</span><span class="n">desc</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">desc</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="677">                <span class="n">definition</span><span class="o">=</span><span class="n">_render_command_groups</span><span class="p">(</span>
-</span><span data-line="678">                    <span class="n">_toml_env_setting</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">section</span><span class="p">,</span> <span class="s2">"commands_pre"</span><span class="p">,</span> <span class="n">tox</span><span class="p">),</span>
-</span><span data-line="679">                    <span class="n">_toml_env_setting</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">section</span><span class="p">,</span> <span class="s2">"commands"</span><span class="p">,</span> <span class="n">tox</span><span class="p">),</span>
-</span><span data-line="680">                    <span class="n">_toml_env_setting</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">section</span><span class="p">,</span> <span class="s2">"commands_post"</span><span class="p">,</span> <span class="n">tox</span><span class="p">),</span>
-</span><span data-line="681">                <span class="p">),</span>
-</span><span data-line="682">                <span class="n">source_file</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-</span><span data-line="683">            <span class="p">)</span>
-</span><span data-line="684">        <span class="p">)</span>
-</span><span data-line="685">    <span class="k">return</span> <span class="n">tasks</span>
-</span><span data-line="686">
-</span><span data-line="687">
+</span><span data-line="614">                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+</span><span data-line="615">                    <span class="n">_filter_ini_commands</span><span class="p">(</span><span class="n">description</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+</span><span data-line="616">                    <span class="k">if</span> <span class="n">description</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="617">                    <span class="k">else</span> <span class="kc">None</span>
+</span><span data-line="618">                <span class="p">),</span>
+</span><span data-line="619">                <span class="n">definition</span><span class="o">=</span><span class="n">_render_command_groups</span><span class="p">(</span>
+</span><span data-line="620">                    <span class="n">_filter_ini_commands</span><span class="p">(</span><span class="n">commands_pre</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
+</span><span data-line="621">                    <span class="n">_filter_ini_commands</span><span class="p">(</span><span class="n">commands</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
+</span><span data-line="622">                    <span class="n">_filter_ini_commands</span><span class="p">(</span><span class="n">commands_post</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
+</span><span data-line="623">                <span class="p">),</span>
+</span><span data-line="624">                <span class="n">source_file</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+</span><span data-line="625">            <span class="p">)</span>
+</span><span data-line="626">        <span class="p">)</span>
+</span><span data-line="627">    <span class="k">return</span> <span class="n">tasks</span>
+</span><span data-line="628">
+</span><span data-line="629">
+</span><span data-line="630"><span class="k">def</span><span class="w"> </span><span class="nf">_toml_tasks</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">_Config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="631"><span class="w">    </span><span class="sd">"""Build tasks from a native TOML tox configuration table."""</span>
+</span><span data-line="632">    <span class="n">tox</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">data</span>
+</span><span data-line="633">    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tox</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+</span><span data-line="634">        <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="635">    <span class="k">if</span> <span class="s2">"env_list"</span> <span class="ow">in</span> <span class="n">tox</span><span class="p">:</span>
+</span><span data-line="636">        <span class="n">raw_env_list</span> <span class="o">=</span> <span class="n">tox</span><span class="p">[</span><span class="s2">"env_list"</span><span class="p">]</span>
+</span><span data-line="637">    <span class="k">elif</span> <span class="s2">"envlist"</span> <span class="ow">in</span> <span class="n">tox</span><span class="p">:</span>
+</span><span data-line="638">        <span class="n">raw_env_list</span> <span class="o">=</span> <span class="n">tox</span><span class="p">[</span><span class="s2">"envlist"</span><span class="p">]</span>
+</span><span data-line="639">    <span class="k">else</span><span class="p">:</span>
+</span><span data-line="640">        <span class="n">raw_env_list</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"py"</span><span class="p">]</span>
+</span><span data-line="641">
+</span><span data-line="642">    <span class="n">names</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="643">        <span class="n">_toml_env_list</span><span class="p">(</span><span class="n">raw_env_list</span><span class="p">)</span>
+</span><span data-line="644">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw_env_list</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
+</span><span data-line="645">        <span class="k">else</span> <span class="p">[</span>
+</span><span data-line="646">            <span class="n">name</span>
+</span><span data-line="647">            <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">_split_envlist</span><span class="p">(</span><span class="n">raw_env_list</span><span class="p">)</span>
+</span><span data-line="648">            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_expand_env_name</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+</span><span data-line="649">        <span class="p">]</span>
+</span><span data-line="650">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw_env_list</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+</span><span data-line="651">        <span class="k">else</span> <span class="p">[]</span>
+</span><span data-line="652">    <span class="p">)</span>
+</span><span data-line="653">    <span class="n">envs</span> <span class="o">=</span> <span class="n">tox</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"env"</span><span class="p">)</span>
+</span><span data-line="654">    <span class="n">envs</span> <span class="o">=</span> <span class="n">envs</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">envs</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="p">{}</span>
+</span><span data-line="655">    <span class="n">labels</span> <span class="o">=</span> <span class="n">tox</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"labels"</span><span class="p">)</span>
+</span><span data-line="656">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+</span><span data-line="657">        <span class="k">for</span> <span class="n">members</span> <span class="ow">in</span> <span class="n">labels</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+</span><span data-line="658">            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">members</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+</span><span data-line="659">                <span class="n">names</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">member</span> <span class="k">for</span> <span class="n">member</span> <span class="ow">in</span> <span class="n">members</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="nb">str</span><span class="p">))</span>
+</span><span data-line="660">            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">members</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+</span><span data-line="661">                <span class="n">names</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">_split_envlist</span><span class="p">(</span><span class="n">members</span><span class="p">))</span>
+</span><span data-line="662">    <span class="n">explicit</span> <span class="o">=</span> <span class="p">[</span>
+</span><span data-line="663">        <span class="n">name</span>
+</span><span data-line="664">        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">envs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+</span><span data-line="665">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+</span><span data-line="666">    <span class="p">]</span>
+</span><span data-line="667">    <span class="n">internal_envs</span> <span class="o">=</span> <span class="n">_configured_internal_envs_toml</span><span class="p">(</span><span class="n">tox</span><span class="p">)</span>
+</span><span data-line="668">    <span class="n">names</span> <span class="o">=</span> <span class="n">_without_provisioning</span><span class="p">([</span><span class="o">*</span><span class="n">names</span><span class="p">,</span> <span class="o">*</span><span class="n">explicit</span><span class="p">],</span> <span class="n">internal_envs</span><span class="p">)</span>
+</span><span data-line="669">    <span class="n">tasks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="670">    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
+</span><span data-line="671">        <span class="n">section</span> <span class="o">=</span> <span class="n">envs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="672">        <span class="n">section</span> <span class="o">=</span> <span class="n">section</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">section</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="p">{}</span>
+</span><span data-line="673">        <span class="n">desc</span> <span class="o">=</span> <span class="n">_toml_env_setting</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">section</span><span class="p">,</span> <span class="s2">"description"</span><span class="p">,</span> <span class="n">tox</span><span class="p">)</span>
+</span><span data-line="674">        <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+</span><span data-line="675">            <span class="n">Task</span><span class="p">(</span>
+</span><span data-line="676">                <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+</span><span data-line="677">                <span class="n">prefix</span><span class="o">=</span><span class="s2">"tox"</span><span class="p">,</span>
+</span><span data-line="678">                <span class="n">argv_base</span><span class="o">=</span><span class="p">(</span><span class="s2">"tox"</span><span class="p">,</span> <span class="s2">"-e"</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
+</span><span data-line="679">                <span class="n">passthrough_prefix</span><span class="o">=</span><span class="p">(</span><span class="s2">"--"</span><span class="p">,),</span>
+</span><span data-line="680">                <span class="n">description</span><span class="o">=</span><span class="n">desc</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">desc</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="681">                <span class="n">definition</span><span class="o">=</span><span class="n">_render_command_groups</span><span class="p">(</span>
+</span><span data-line="682">                    <span class="n">_toml_env_setting</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">section</span><span class="p">,</span> <span class="s2">"commands_pre"</span><span class="p">,</span> <span class="n">tox</span><span class="p">),</span>
+</span><span data-line="683">                    <span class="n">_toml_env_setting</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">section</span><span class="p">,</span> <span class="s2">"commands"</span><span class="p">,</span> <span class="n">tox</span><span class="p">),</span>
+</span><span data-line="684">                    <span class="n">_toml_env_setting</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">section</span><span class="p">,</span> <span class="s2">"commands_post"</span><span class="p">,</span> <span class="n">tox</span><span class="p">),</span>
+</span><span data-line="685">                <span class="p">),</span>
+</span><span data-line="686">                <span class="n">source_file</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+</span><span data-line="687">            <span class="p">)</span>
+</span><span data-line="688">        <span class="p">)</span>
+</span><span data-line="689">    <span class="k">return</span> <span class="n">tasks</span>
+</span><span data-line="690">
+</span><span data-line="691">
 <div class="viewcode-block" id="ToxProvider">
 <a class="viewcode-back" href="../../../../modules.html#nur.core.providers.tox.ToxProvider">[docs]</a>
-</span><span data-line="688"><span class="k">class</span><span class="w"> </span><span class="nc">ToxProvider</span><span class="p">:</span>
-</span><span data-line="689"><span class="w">    </span><span class="sd">"""Task provider for tox test automation configurations."""</span>
-</span><span data-line="690">
-</span><span data-line="691">    <span class="n">prefix</span> <span class="o">=</span> <span class="s2">"tox"</span>
-</span><span data-line="692">
+</span><span data-line="692"><span class="k">class</span><span class="w"> </span><span class="nc">ToxProvider</span><span class="p">:</span>
+</span><span data-line="693"><span class="w">    </span><span class="sd">"""Task provider for tox test automation configurations."""</span>
+</span><span data-line="694">
+</span><span data-line="695">    <span class="n">prefix</span> <span class="o">=</span> <span class="s2">"tox"</span>
+</span><span data-line="696">
 <div class="viewcode-block" id="ToxProvider.detect">
 <a class="viewcode-back" href="../../../../modules.html#nur.core.providers.tox.ToxProvider.detect">[docs]</a>
-</span><span data-line="693">    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span data-line="694"><span class="w">        </span><span class="sd">"""Check whether a supported tox configuration exists in the directory."""</span>
-</span><span data-line="695">        <span class="k">return</span> <span class="n">_find_config</span><span class="p">(</span><span class="n">cwd</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span></div>
+</span><span data-line="697">    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="698"><span class="w">        </span><span class="sd">"""Check whether a supported tox configuration exists in the directory."""</span>
+</span><span data-line="699">        <span class="k">return</span> <span class="n">_find_config</span><span class="p">(</span><span class="n">cwd</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span></div>
 
-</span><span data-line="696">
+</span><span data-line="700">
 <div class="viewcode-block" id="ToxProvider.discover">
 <a class="viewcode-back" href="../../../../modules.html#nur.core.providers.tox.ToxProvider.discover">[docs]</a>
-</span><span data-line="697">    <span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
-</span><span data-line="698"><span class="w">        </span><span class="sd">"""Discover runnable tox environments as tasks from configuration."""</span>
-</span><span data-line="699">        <span class="n">config</span> <span class="o">=</span> <span class="n">_find_config</span><span class="p">(</span><span class="n">cwd</span><span class="p">)</span>
-</span><span data-line="700">        <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="701">            <span class="k">return</span> <span class="p">[]</span>
-</span><span data-line="702">        <span class="k">return</span> <span class="n">_ini_tasks</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">"ini"</span> <span class="k">else</span> <span class="n">_toml_tasks</span><span class="p">(</span><span class="n">config</span><span class="p">)</span></div>
+</span><span data-line="701">    <span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="702"><span class="w">        </span><span class="sd">"""Discover runnable tox environments as tasks from configuration."""</span>
+</span><span data-line="703">        <span class="n">config</span> <span class="o">=</span> <span class="n">_find_config</span><span class="p">(</span><span class="n">cwd</span><span class="p">)</span>
+</span><span data-line="704">        <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="705">            <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="706">        <span class="k">return</span> <span class="n">_ini_tasks</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">"ini"</span> <span class="k">else</span> <span class="n">_toml_tasks</span><span class="p">(</span><span class="n">config</span><span class="p">)</span></div>
 </div>
 
 </span></pre></div>
