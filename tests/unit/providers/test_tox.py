@@ -94,7 +94,8 @@ def test_toml_renders_posargs_replacement_objects(tmp_path) -> None:
         """
 env_list = ["test", "cli"]
 [env.test]
-commands = [["pytest", { replace = "posargs", default = ["tests", "-v"], extend = true }]]
+commands = [["pytest", { replace = "posargs", default = ["tests", "-v"], """
+        """extend = true }]]
 [env.cli]
 commands = [["nur", { replace = "posargs", default = [], extend = true }]]
 """,
@@ -114,7 +115,8 @@ env_list = ["publish"]
 commands = [[
   "twine",
   "upload",
-  { replace = "glob", pattern = "dist/*.whl", default = ["fallback.whl"], extend = true },
+  { replace = "glob", pattern = "dist/*.whl", default = ["fallback.whl"], """
+        """extend = true },
   { replace = "env", name = "REPOSITORY", default = "testpypi" },
   { replace = "ref", env = "publish", key = "package" },
 ]]
@@ -145,7 +147,7 @@ commands = [
 
 
 def test_pyproject_and_setup_cfg_are_detected(tmp_path) -> None:
-    _write(tmp_path, "pyproject.toml", "[tool.tox]\nenv_list = [\"test\"]\n")
+    _write(tmp_path, "pyproject.toml", '[tool.tox]\nenv_list = ["test"]\n')
     assert {task.name for task in ToxProvider().discover(tmp_path)} == {"test"}
     (tmp_path / "pyproject.toml").unlink()
     _write(
@@ -158,7 +160,7 @@ def test_pyproject_and_setup_cfg_are_detected(tmp_path) -> None:
 
 def test_first_matching_config_wins(tmp_path) -> None:
     _write(tmp_path, "tox.ini", "[tox]\nenvlist = ini\n")
-    _write(tmp_path, "tox.toml", "env_list = [\"toml\"]\n")
+    _write(tmp_path, "tox.toml", 'env_list = ["toml"]\n')
     assert {task.name for task in ToxProvider().discover(tmp_path)} == {"ini"}
 
 

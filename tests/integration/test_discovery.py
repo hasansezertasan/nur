@@ -24,6 +24,7 @@ def test_providers_registry_order() -> None:
         "make",
         "pdm",
         "poe",
+        "tox",
         "just",
         "task",
         "pre-commit",

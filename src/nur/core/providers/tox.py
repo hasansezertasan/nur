@@ -4,13 +4,13 @@ import configparser
 import logging
 import re
 import tomllib
-from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from nur.core.models import Task
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from pathlib import Path
 
 __all__ = ["ToxProvider"]
@@ -67,7 +67,9 @@ def _expand_env_name(value: str) -> list[str]:
         first, last = (int(part) for part in match.groups())
         width = max(len(part) for part in match.groups())
         step = 1 if first <= last else -1
-        options = [str(number).zfill(width) for number in range(first, last + step, step)]
+        options = [
+            str(number).zfill(width) for number in range(first, last + step, step)
+        ]
     else:
         options = contents.split(",")
     expanded: list[str] = []
@@ -76,7 +78,7 @@ def _expand_env_name(value: str) -> list[str]:
     return expanded
 
 
-def _command_argument(value: object) -> str:
+def _command_argument(value: object) -> str:  # pylint: disable=too-many-return-statements  # noqa: PLR0911
     """Render a TOML command argument in tox's familiar INI notation."""
     if not isinstance(value, dict):
         return str(value)
@@ -110,40 +112,39 @@ def _command_argument(value: object) -> str:
     return "{" + str(replacement or "...") + "}"
 
 
+def _command_strings(command: object) -> list[str]:
+    if isinstance(command, str):
+        return [command]
+    if isinstance(command, list):
+        return [" ".join(_command_argument(argument) for argument in command)]
+    if not isinstance(command, dict):
+        return []
+    default = command.get("default")
+    if command.get("replace") != "posargs" or not isinstance(default, list):
+        return [_command_argument(command)]
+    return [
+        " ".join(_command_argument(argument) for argument in default_command)
+        if isinstance(default_command, list)
+        else default_command
+        for default_command in default
+        if isinstance(default_command, (list, str))
+    ]
+
+
 def _command_definition(value: object) -> str:
     """Render tox's command forms without trying to evaluate substitutions."""
     if isinstance(value, str):
-        commands = [line.strip() for line in value.splitlines() if line.strip()]
-    elif isinstance(value, list):
-        commands = []
-        for command in value:
-            if isinstance(command, str):
-                commands.append(command)
-            elif isinstance(command, list):
-                commands.append(" ".join(_command_argument(argument) for argument in command))
-            elif isinstance(command, dict):
-                default = command.get("default")
-                if command.get("replace") == "posargs" and isinstance(default, list):
-                    for default_command in default:
-                        if isinstance(default_command, list):
-                            commands.append(
-                                " ".join(
-                                    _command_argument(argument)
-                                    for argument in default_command
-                                )
-                            )
-                        elif isinstance(default_command, str):
-                            commands.append(default_command)
-                else:
-                    commands.append(_command_argument(command))
-    else:
-        commands = []
-    return " && ".join(commands)
+        return " && ".join(line.strip() for line in value.splitlines() if line.strip())
+    if not isinstance(value, list):
+        return ""
+    return " && ".join(
+        rendered for command in value for rendered in _command_strings(command)
+    )
 
 
 def _toml_tox_table(path: Path) -> dict[str, Any] | None:
     try:
-        data = tomllib.loads(path.read_text())
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError) as exc:
         log.warning("nur: skipping %s (%s)", path.name, exc)
         return None
@@ -158,7 +159,7 @@ def _toml_tox_table(path: Path) -> dict[str, Any] | None:
 def _ini_config(path: Path) -> configparser.ConfigParser | None:
     parser = configparser.ConfigParser(interpolation=None)
     try:
-        with path.open() as stream:
+        with path.open(encoding="utf-8") as stream:
             parser.read_file(stream)
     except (OSError, configparser.Error) as exc:
         log.warning("nur: skipping %s (%s)", path.name, exc)
@@ -186,12 +187,15 @@ def _find_config(cwd: Path) -> _Config | None:
 
 def _without_provisioning(names: Iterable[str]) -> list[str]:
     """Remove tox's internal packaging/provisioning environments."""
-    return list(dict.fromkeys(name for name in names if name and name not in _PROVISIONING_ENVS))
+    return list(
+        dict.fromkeys(name for name in names if name and name not in _PROVISIONING_ENVS)
+    )
 
 
 def _ini_tasks(config: _Config) -> list[Task]:
     parser = config.data
-    assert isinstance(parser, configparser.ConfigParser)
+    if not isinstance(parser, configparser.ConfigParser):
+        return []
     tox_section = "tox:tox" if config.path.name == "setup.cfg" else "tox"
     envlist = (
         parser.get(
@@ -202,7 +206,9 @@ def _ini_tasks(config: _Config) -> list[Task]:
         if parser.has_section(tox_section)
         else ""
     )
-    names = [name for item in _split_envlist(envlist) for name in _expand_env_name(item)]
+    names = [
+        name for item in _split_envlist(envlist) for name in _expand_env_name(item)
+    ]
     generative_sections: dict[str, configparser.SectionProxy] = {}
     explicit: list[str] = []
     for section_name in parser.sections():
@@ -219,10 +225,14 @@ def _ini_tasks(config: _Config) -> list[Task]:
         section = (
             parser[exact_section]
             if parser.has_section(exact_section)
-            else generative_sections.get(name, {})
+            else generative_sections.get(name)
         )
-        description = section.get("description") or base.get("description")
-        commands = section.get("commands") or base.get("commands")
+        description = (section.get("description") if section else None) or base.get(
+            "description"
+        )
+        commands = (section.get("commands") if section else None) or base.get(
+            "commands"
+        )
         tasks.append(
             Task(
                 name=name,
@@ -238,9 +248,14 @@ def _ini_tasks(config: _Config) -> list[Task]:
 
 def _toml_tasks(config: _Config) -> list[Task]:
     tox = config.data
-    assert isinstance(tox, dict)
+    if not isinstance(tox, dict):
+        return []
     env_list = tox.get("env_list", tox.get("envlist", []))
-    names = [name for name in env_list if isinstance(name, str)] if isinstance(env_list, list) else []
+    names = (
+        [name for name in env_list if isinstance(name, str)]
+        if isinstance(env_list, list)
+        else []
+    )
     envs = tox.get("env")
     envs = envs if isinstance(envs, dict) else {}
     explicit = [
