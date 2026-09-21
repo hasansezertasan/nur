@@ -1,3 +1,4 @@
+import sys
 from typing import TYPE_CHECKING
 
 from nur.core.providers.tox import ToxProvider
@@ -499,8 +500,11 @@ commands = echo base
 description = custom base description
 commands = echo custom
 
+[base]
+sections = testenv:custom_base
+
 [testenv:foo]
-base = testenv:custom_base
+base = {[base]sections}
 
 [testenv:no_base]
 base =
@@ -678,6 +682,21 @@ def test_ini_preserves_empty_brace_alternatives(tmp_path) -> None:
     }
 
 
+def test_ini_expands_open_numeric_ranges(tmp_path) -> None:
+    _write(tmp_path, "tox.ini", "[tox]\nenvlist = py3{10-}, legacy3{-13}\n")
+    assert {task.name for task in ToxProvider().discover(tmp_path)} == {
+        "py310",
+        "py311",
+        "py312",
+        "py313",
+        "py314",
+        "legacy310",
+        "legacy311",
+        "legacy312",
+        "legacy313",
+    }
+
+
 def test_toml_resolves_env_list_replacements(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("TOX_ENV_LIST", "py312, lint")
     _write(
@@ -847,6 +866,9 @@ def test_tox_coverage_edge_cases(tmp_path):
         r"C:\tools\python.exe -m pytest"
     )
     assert _filter_ini_commands("pytest \\\n tests/unit", "py39") == "pytest tests/unit"
+    assert _filter_ini_commands("linux: pytest", "py39") == (
+        "pytest" if sys.platform == "linux" else ""
+    )
 
     # 109-111: ref with 'of'
     assert (

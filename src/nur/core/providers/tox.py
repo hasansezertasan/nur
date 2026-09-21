@@ -4,6 +4,8 @@ import configparser
 import logging
 import os
 import re
+import sys
+import sysconfig
 import textwrap
 import tomllib
 from dataclasses import dataclass
@@ -21,8 +23,22 @@ __all__ = ["ToxProvider"]
 log = logging.getLogger("nur")
 
 _CONFIG_NAMES = ("tox.ini", "setup.cfg", "pyproject.toml", "tox.toml")
-_RANGE = re.compile(r"^(\d+)-(\d+)$")
+_RANGE = re.compile(r"^(\d*)-(\d*)$")
 _PROVISIONING_ENVS = frozenset({".pkg", ".tox"})
+_KNOWN_ARCHITECTURES = frozenset({
+    "arm64",
+    "loongarch64",
+    "ppc",
+    "ppc64",
+    "ppc64le",
+    "riscv64",
+    "s390x",
+    "sparc64",
+    "x86",
+    "x86_64",
+})
+_PYTHON_MINOR_MIN = 10
+_PYTHON_MINOR_MAX = 14
 _FACTOR_LINE = re.compile(r"^([a-zA-Z0-9_!{},.-]+):\s+(.*)$")
 _MISSING = object()
 
@@ -95,9 +111,10 @@ def _find_matching_brace(value: str, start: int) -> int:
 def _expand_brace_options(contents: str) -> list[str]:
     """Expand numeric ranges or comma-separated alternatives inside braces."""
     match = _RANGE.fullmatch(contents)
-    if match:
+    if match and any(match.groups()):
         first_text, last_text = match.groups()
-        first, last = int(first_text), int(last_text)
+        first = int(first_text) if first_text else _PYTHON_MINOR_MIN
+        last = int(last_text) if last_text else _PYTHON_MINOR_MAX
         width = (
             max(len(first_text), len(last_text))
             if first_text.startswith("0") or last_text.startswith("0")
@@ -192,6 +209,37 @@ def _has_balanced_braces(value: str) -> bool:
     return depth == 0
 
 
+def _normalize_isa(value: str) -> str:
+    """Normalize common machine architecture aliases to tox's factor names."""
+    normalized = value.lower()
+    return {
+        "amd64": "x86_64",
+        "aarch64": "arm64",
+        "i386": "x86",
+        "i486": "x86",
+        "i586": "x86",
+        "i686": "x86",
+        "powerpc": "ppc",
+        "powerpc64": "ppc64",
+        "powerpc64le": "ppc64le",
+        "sparcv9": "sparc64",
+    }.get(normalized, normalized)
+
+
+def _environment_factors(env_name: str) -> set[str]:
+    """Return explicit and host-specific factors available to tox."""
+    factors = set(env_name.split("-"))
+    current = {*factors, sys.platform}
+    platform_parts = sysconfig.get_platform().rsplit("-", 1)
+    if len(platform_parts) > 1:
+        machine_isa = _normalize_isa(platform_parts[-1])
+        if not factors.intersection(_KNOWN_ARCHITECTURES) and not any(
+            _normalize_isa(factor) == machine_isa for factor in factors
+        ):
+            current.add(machine_isa)
+    return current
+
+
 def _command_lines(value: str) -> list[str]:
     """Return non-empty command lines with backslash continuations coalesced."""
     lines: list[str] = []
@@ -215,7 +263,7 @@ def _filter_ini_commands(value: object, env_name: str) -> str:
     """Filter INI command lines matching the current environment's factors."""
     if not isinstance(value, str):
         return ""
-    env_factors = set(env_name.split("-"))
+    env_factors = _environment_factors(env_name)
     kept: list[str] = []
     for line in _command_lines(value):
         match = _FACTOR_LINE.match(line)
@@ -463,7 +511,15 @@ def _resolve_ini_setting(
     seen.add(sec_name)
     if section is not None and "base" in section:
         base_val = _filter_ini_commands(section["base"], env_name).strip()
-        bases = _split_envlist(base_val) if base_val else []
+        bases = (
+            [
+                name
+                for item in _split_envlist(base_val)
+                for name in _expand_env_name(item, parser)
+            ]
+            if base_val
+            else []
+        )
     elif sec_name != "testenv" and parser.has_section("testenv"):
         bases = ["testenv"]
     else:
