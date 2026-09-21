@@ -111,6 +111,11 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#nur.core.providers.just.parse_justfile"><code class="docutils literal notranslate"><span class="pre">parse_justfile()</span></code></a></li>
 <li><a class="reference internal" href="#nur.core.providers.task.parse_taskfile"><code class="docutils literal notranslate"><span class="pre">parse_taskfile()</span></code></a></li>
 <li><a class="reference internal" href="#nur.core.providers.pre_commit.parse_pre_commit_config"><code class="docutils literal notranslate"><span class="pre">parse_pre_commit_config()</span></code></a></li>
+<li><a class="reference internal" href="#nur.core.providers.tox.ToxProvider"><code class="docutils literal notranslate"><span class="pre">ToxProvider</span></code></a><ul>
+<li><a class="reference internal" href="#nur.core.providers.tox.ToxProvider.detect"><code class="docutils literal notranslate"><span class="pre">ToxProvider.detect()</span></code></a></li>
+<li><a class="reference internal" href="#nur.core.providers.tox.ToxProvider.discover"><code class="docutils literal notranslate"><span class="pre">ToxProvider.discover()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#nur.core.providers.moon.parse_moon"><code class="docutils literal notranslate"><span class="pre">parse_moon()</span></code></a></li>
 <li><a class="reference internal" href="#nur.core.providers.xc.parse_xc"><code class="docutils literal notranslate"><span class="pre">parse_xc()</span></code></a></li>
 </ul>
@@ -421,8 +426,43 @@ configuration.</p>
 </dl>
 </dd></dl>
 
+<dl class="py class" id="module-nur.core.providers.tox">
+<span id="module-nur.core.providers.poe"></span><span id="module-nur.core.providers.pdm"></span><dt class="sig sig-object py" id="nur.core.providers.tox.ToxProvider">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">nur.core.providers.tox.</span></span><span class="sig-name descname"><span class="pre">ToxProvider</span></span><a class="reference internal" href="_modules/nur/core/providers/tox.html#ToxProvider"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.core.providers.tox.ToxProvider" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Task provider for tox test automation configurations.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="nur.core.providers.tox.ToxProvider.detect">
+<span class="sig-name descname"><span class="pre">detect</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cwd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/core/providers/tox.html#ToxProvider.detect"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.core.providers.tox.ToxProvider.detect" title="Link to this definition">#</a></dt>
+<dd><p>Check whether a supported tox configuration exists in the directory.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>cwd</strong> (<em>Path</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nur.core.providers.tox.ToxProvider.discover">
+<span class="sig-name descname"><span class="pre">discover</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cwd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/core/providers/tox.html#ToxProvider.discover"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.core.providers.tox.ToxProvider.discover" title="Link to this definition">#</a></dt>
+<dd><p>Discover runnable tox environments as tasks from configuration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>cwd</strong> (<em>Path</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.14)">list</a>[<a class="reference internal" href="#nur.core.models.Task" title="nur.core.models.Task">Task</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 <dl class="py function" id="module-nur.core.providers.moon">
-<span id="module-nur.core.providers.cargo_make"></span><span id="module-nur.core.providers.mise"></span><span id="module-nur.core.providers.tox"></span><span id="module-nur.core.providers.poe"></span><span id="module-nur.core.providers.pdm"></span><dt class="sig sig-object py" id="nur.core.providers.moon.parse_moon">
+<span id="module-nur.core.providers.cargo_make"></span><span id="module-nur.core.providers.mise"></span><dt class="sig sig-object py" id="nur.core.providers.moon.parse_moon">
 <span class="sig-prename descclassname"><span class="pre">nur.core.providers.moon.</span></span><span class="sig-name descname"><span class="pre">parse_moon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'moon.yml'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/core/providers/moon.html#parse_moon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.core.providers.moon.parse_moon" title="Link to this definition">#</a></dt>
 <dd><p>Parse a moon project’s <code class="docutils literal notranslate"><span class="pre">moon.yml</span></code> <em>text</em> without executing anything.</p>
 <p>Deliberately does NOT run <code class="docutils literal notranslate"><span class="pre">moon</span> <span class="pre">query</span> <span class="pre">tasks</span></code>: enumerating tasks that way
