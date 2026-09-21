@@ -134,7 +134,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   | Make | `make` | `Makefile` |
   | PDM | `pdm` | `pyproject.toml` (`[tool.pdm.scripts]`) |
   | poe | `poe` | `pyproject.toml` (`[tool.poe.tasks]`) |
-  | tox | `tox` | `tox.ini`, `tox.toml`, `pyproject.toml`, or `setup.cfg` |
+  | tox | `tox` | `tox.ini`, `setup.cfg`, `pyproject.toml`, or `tox.toml` |
   | just | `just` | `justfile` |
   | Taskfile | `task` | `Taskfile.yml` |
   | pre-commit | `pre-commit` | `.pre-commit-config.yaml` |
@@ -144,8 +144,8 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   | xc | `xc` | `README.md` (see below) |
 
   `tox` reads the first applicable config file present, in priority order:
-  `tox.ini`, `tox.toml`, `pyproject.toml` (`[tool.tox]`), then `setup.cfg`
-  (`[tox:tox]`). It statically parses environments and never runs `tox` during
+  `tox.ini`, `setup.cfg` (`[tox:tox]`), `pyproject.toml` (`[tool.tox]`), then
+  `tox.toml`. It statically parses environments and never runs `tox` during
   discovery. `mise` reads the first config file present, in priority order:
   `mise.local.toml`, `mise.toml`, `.mise.local.toml`, `.mise.toml`,
   `.config/mise.toml`. `xc` reads its task section from `README.md` — the block

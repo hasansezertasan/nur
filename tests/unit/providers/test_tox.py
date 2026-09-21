@@ -319,6 +319,128 @@ commands = []
     assert tasks["empty_env"].definition == ""
 
 
+def test_default_py_env_discovered_when_envlist_omitted(tmp_path) -> None:
+    _write(
+        tmp_path,
+        "tox.ini",
+        """
+[testenv]
+description = run tests
+commands = pytest
+""",
+    )
+    tasks = {task.name: task for task in ToxProvider().discover(tmp_path)}
+    assert set(tasks) == {"py"}
+    assert tasks["py"].description == "run tests"
+    assert tasks["py"].definition == "pytest"
+
+    (tmp_path / "tox.ini").unlink()
+    _write(
+        tmp_path,
+        "tox.toml",
+        """
+[env_run_base]
+description = "toml base tests"
+commands = [["pytest"]]
+""",
+    )
+    toml_tasks = {task.name: task for task in ToxProvider().discover(tmp_path)}
+    assert set(toml_tasks) == {"py"}
+    assert toml_tasks["py"].description == "toml base tests"
+    assert toml_tasks["py"].definition == "pytest"
+
+
+def test_explicit_empty_envlist_yields_no_tasks(tmp_path) -> None:
+    _write(
+        tmp_path,
+        "tox.ini",
+        """
+[tox]
+envlist =
+[testenv]
+commands = pytest
+""",
+    )
+    assert ToxProvider().discover(tmp_path) == []
+
+    (tmp_path / "tox.ini").unlink()
+    _write(
+        tmp_path,
+        "tox.toml",
+        """
+env_list = []
+[env_run_base]
+commands = [["pytest"]]
+""",
+    )
+    assert ToxProvider().discover(tmp_path) == []
+
+
+def test_commands_pre_and_post_ordering_and_inheritance(tmp_path) -> None:
+    _write(
+        tmp_path,
+        "tox.ini",
+        """
+[tox]
+envlist = full,override_pre,no_pre
+[testenv]
+commands_pre = echo "pre"
+commands = echo "main"
+commands_post = echo "post"
+
+[testenv:full]
+description = full env
+
+[testenv:override_pre]
+commands_pre = echo "custom pre"
+commands = echo "custom main"
+
+[testenv:no_pre]
+commands_pre =
+commands = echo "no pre"
+""",
+    )
+    tasks = {task.name: task for task in ToxProvider().discover(tmp_path)}
+    assert tasks["full"].definition == 'echo "pre" && echo "main" && echo "post"'
+    assert (
+        tasks["override_pre"].definition
+        == 'echo "custom pre" && echo "custom main" && echo "post"'
+    )
+    assert tasks["no_pre"].definition == 'echo "no pre" && echo "post"'
+
+    (tmp_path / "tox.ini").unlink()
+    _write(
+        tmp_path,
+        "tox.toml",
+        """
+env_list = ["full", "override_pre", "no_pre"]
+
+[env_run_base]
+commands_pre = [["echo", "pre"]]
+commands = [["echo", "main"]]
+commands_post = [["echo", "post"]]
+
+[env.full]
+description = "full env"
+
+[env.override_pre]
+commands_pre = [["echo", "custom pre"]]
+commands = [["echo", "custom main"]]
+
+[env.no_pre]
+commands_pre = []
+commands = [["echo", "no pre"]]
+""",
+    )
+    toml_tasks = {task.name: task for task in ToxProvider().discover(tmp_path)}
+    assert toml_tasks["full"].definition == "echo pre && echo main && echo post"
+    assert (
+        toml_tasks["override_pre"].definition
+        == "echo custom pre && echo custom main && echo post"
+    )
+    assert toml_tasks["no_pre"].definition == "echo no pre && echo post"
+
+
 def test_unrelated_files_and_malformed_configs_are_ignored(tmp_path, caplog) -> None:
     _write(tmp_path, "pyproject.toml", "[tool.pdm.scripts]\ntest = 'pytest'\n")
     assert not ToxProvider().detect(tmp_path)
@@ -370,8 +492,18 @@ def test_tox_coverage_edge_cases(tmp_path):
     # 198: _ini_tasks wrong type
     assert _ini_tasks(_Config(Path("x.ini"), "ini", {})) == []
 
-    # 254: _toml_tasks wrong type
+    # 254: _toml_tasks wrong type and envlist fallback
     assert _toml_tasks(_Config(Path("x.toml"), "toml", 123)) == []
+    assert [
+        t.name
+        for t in _toml_tasks(_Config(Path("x.toml"), "toml", {"envlist": ["toml_env"]}))
+    ] == ["toml_env"]
+    assert [
+        t.name
+        for t in _toml_tasks(
+            _Config(Path("x.toml"), "toml", {"env_list": "str_env1, str_env2"})
+        )
+    ] == ["str_env1", "str_env2"]
 
     # 180: _find_config missing tox:tox in setup.cfg
     (tmp_path / "setup.cfg").write_text("[other]\nfoo=bar\n")

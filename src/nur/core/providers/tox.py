@@ -146,6 +146,12 @@ def _command_definition(value: object) -> str:
     )
 
 
+def _render_command_groups(*groups: object) -> str:
+    """Render and combine pre-, main, and post-command groups in order."""
+    rendered = [_command_definition(group) for group in groups]
+    return " && ".join(part for part in rendered if part)
+
+
 def _toml_tox_table(path: Path) -> dict[str, Any] | None:
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -211,18 +217,20 @@ def _ini_tasks(config: _Config) -> list[Task]:
     if not isinstance(parser, configparser.ConfigParser):
         return []
     tox_section = "tox:tox" if config.path.name == "setup.cfg" else "tox"
-    envlist = (
-        parser.get(
+    has_envlist = parser.has_section(tox_section) and (
+        "envlist" in parser[tox_section] or "env_list" in parser[tox_section]
+    )
+    if has_envlist:
+        envlist = parser.get(
             tox_section,
             "envlist",
             fallback=parser.get(tox_section, "env_list", fallback=""),
         )
-        if parser.has_section(tox_section)
-        else ""
-    )
-    names = [
-        name for item in _split_envlist(envlist) for name in _expand_env_name(item)
-    ]
+        names = [
+            name for item in _split_envlist(envlist) for name in _expand_env_name(item)
+        ]
+    else:
+        names = ["py"]
     generative_sections: dict[str, configparser.SectionProxy] = {}
     explicit: list[str] = []
     for section_name in parser.sections():
@@ -249,10 +257,20 @@ def _ini_tasks(config: _Config) -> list[Task]:
             else base.get("description")
         )
         description = description if isinstance(description, str) else None
+        commands_pre = (
+            section["commands_pre"]
+            if section is not None and "commands_pre" in section
+            else base.get("commands_pre")
+        )
         commands = (
             section["commands"]
             if section is not None and "commands" in section
             else base.get("commands")
+        )
+        commands_post = (
+            section["commands_post"]
+            if section is not None and "commands_post" in section
+            else base.get("commands_post")
         )
         tasks.append(
             Task(
@@ -261,7 +279,9 @@ def _ini_tasks(config: _Config) -> list[Task]:
                 argv_base=("tox", "-e", name),
                 passthrough_prefix=("--",),
                 description=description,
-                definition=_command_definition(commands),
+                definition=_render_command_groups(
+                    commands_pre, commands, commands_post
+                ),
                 source_file=config.path.name,
             )
         )
@@ -272,10 +292,22 @@ def _toml_tasks(config: _Config) -> list[Task]:
     tox = config.data
     if not isinstance(tox, dict):
         return []
-    env_list = tox.get("env_list", tox.get("envlist", []))
+    if "env_list" in tox:
+        raw_env_list = tox["env_list"]
+    elif "envlist" in tox:
+        raw_env_list = tox["envlist"]
+    else:
+        raw_env_list = ["py"]
+
     names = (
-        [name for name in env_list if isinstance(name, str)]
-        if isinstance(env_list, list)
+        [name for name in raw_env_list if isinstance(name, str)]
+        if isinstance(raw_env_list, list)
+        else [
+            name
+            for item in _split_envlist(raw_env_list)
+            for name in _expand_env_name(item)
+        ]
+        if isinstance(raw_env_list, str)
         else []
     )
     envs = tox.get("env")
@@ -298,8 +330,18 @@ def _toml_tasks(config: _Config) -> list[Task]:
             else base.get("description")
         )
         description = description if isinstance(description, str) else None
+        commands_pre = (
+            section["commands_pre"]
+            if "commands_pre" in section
+            else base.get("commands_pre")
+        )
         commands = (
             section["commands"] if "commands" in section else base.get("commands")
+        )
+        commands_post = (
+            section["commands_post"]
+            if "commands_post" in section
+            else base.get("commands_post")
         )
         tasks.append(
             Task(
@@ -308,7 +350,9 @@ def _toml_tasks(config: _Config) -> list[Task]:
                 argv_base=("tox", "-e", name),
                 passthrough_prefix=("--",),
                 description=description,
-                definition=_command_definition(commands),
+                definition=_render_command_groups(
+                    commands_pre, commands, commands_post
+                ),
                 source_file=config.path.name,
             )
         )
