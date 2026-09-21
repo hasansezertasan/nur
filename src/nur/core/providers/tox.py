@@ -341,6 +341,8 @@ def _configured_internal_envs_ini(
             if val and val.strip():
                 internal.add(val.strip())
     for s_name in parser.sections():
+        if s_name != "testenv" and not s_name.startswith("testenv:"):
+            continue
         s = parser[s_name]
         for key in ("package_env", "isolated_build_env", "wheel_build_env"):
             val = s.get(key)

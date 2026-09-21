@@ -565,6 +565,21 @@ commands = [["echo", "wheel"]]
     assert set(tasks_toml) == {"test"}
 
 
+def test_setup_cfg_ignores_internal_env_keys_in_unrelated_sections(tmp_path) -> None:
+    _write(
+        tmp_path,
+        "setup.cfg",
+        """
+[tox:tox]
+envlist = lint
+[unrelated]
+package_env = lint
+wheel_build_env = lint
+""",
+    )
+    assert {task.name for task in ToxProvider().discover(tmp_path)} == {"lint"}
+
+
 def test_ini_substitutions_in_envlist(tmp_path, monkeypatch) -> None:
     _write(
         tmp_path,
