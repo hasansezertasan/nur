@@ -23,8 +23,8 @@
 -----
 
 Run `nur` in a project and it discovers the tasks your project already defines —
-from npm, Make, deno, composer, just, Taskfile, PDM/poe, mise, cargo-make, moon,
-and xc — then lets you run them from a TUI picker or directly from the command line.
+from npm, Make, deno, composer, just, Taskfile, pre-commit, PDM/poe, mise,
+cargo-make, moon, and xc — then lets you run them from a TUI picker or directly from the command line.
 Discovery is limited to the current directory. See [Features](#features) for the
 full list of source files.
 
@@ -123,7 +123,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 
 ## Features
 
-- **Zero-config discovery** across twelve providers, each parsed from a single
+- **Zero-config discovery** across thirteen providers, each parsed from a single
   source file in the current directory:
 
   | Provider | Prefix | Source file |
@@ -136,6 +136,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   | poe | `poe` | `pyproject.toml` (`[tool.poe.tasks]`) |
   | just | `just` | `justfile` |
   | Taskfile | `task` | `Taskfile.yml` |
+  | pre-commit | `pre-commit` | `.pre-commit-config.yaml` |
   | mise | `mise` | `mise.toml` (and variants — see below) |
   | cargo-make | `cargo-make` | `Makefile.toml` |
   | moon | `moon` | `moon.yml` |
@@ -150,6 +151,8 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   only user-defined custom scripts (Composer's reserved lifecycle hooks like
   `post-install-cmd` are filtered out) and taking descriptions from the
   `scripts-descriptions` table when present.
+  `pre-commit` reads only `repos[].hooks[]` and runs a selected hook with
+  `pre-commit run <id> --all-files`; it never invokes `pre-commit` during discovery.
 - **CLI Application**: run any discovered task by name or qualified `prefix:name`, with `--` passthrough to the underlying runner.
 - **TUI Application**: interactive three-pane task picker built with Textual.
 - **Safe by default**: discovery parses files; it never shells out to a runner just to list tasks.
