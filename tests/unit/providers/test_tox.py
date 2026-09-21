@@ -632,6 +632,31 @@ def test_ini_preserves_empty_brace_alternatives(tmp_path) -> None:
         "py311",
         "py311-django42",
     }
+    _write(tmp_path, "tox.ini", "[tox]\nenvlist = py{,39}-django\n")
+    assert {task.name for task in ToxProvider().discover(tmp_path)} == {
+        "py-django",
+        "py39-django",
+    }
+
+
+def test_toml_resolves_env_list_replacements(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("TOX_ENV_LIST", "py312, lint")
+    _write(
+        tmp_path,
+        "tox.toml",
+        """
+env_list = [
+  { replace = "env", name = "TOX_ENV_LIST", default = ["py311"], extend = true },
+  { replace = "env", name = "MISSING", default = ["type", "docs"], extend = true },
+]
+""",
+    )
+    assert {task.name for task in ToxProvider().discover(tmp_path)} == {
+        "py312",
+        "lint",
+        "type",
+        "docs",
+    }
 
 
 def test_ini_multiline_base_chain(tmp_path) -> None:

@@ -133,7 +133,10 @@ def _expand_env_name(
     for option in _expand_brace_options(contents):
         prefix = value[:start]
         suffix = value[end + 1 :]
-        if not option:
+        whole_factor = (not prefix or prefix.endswith("-")) and (
+            not suffix or suffix.startswith("-")
+        )
+        if not option and whole_factor:
             if prefix.endswith("-"):
                 prefix = prefix[:-1]
             elif suffix.startswith("-"):
@@ -486,6 +489,26 @@ def _toml_env_setting(
     return val if val is not _MISSING else None
 
 
+def _toml_env_list(value: object) -> list[str]:
+    """Resolve string entries and environment replacements in a TOML env list."""
+    if not isinstance(value, list):
+        return []
+    names: list[str] = []
+    for item in value:
+        if isinstance(item, str):
+            names.append(item)
+            continue
+        if not isinstance(item, dict) or item.get("replace") != "env":
+            continue
+        env_value = os.environ.get(str(item.get("name")))
+        replacement = env_value if env_value is not None else item.get("default")
+        if isinstance(replacement, str):
+            names.extend(_split_envlist(replacement))
+        elif isinstance(replacement, list):
+            names.extend(name for name in replacement if isinstance(name, str))
+    return names
+
+
 def _ini_tasks(config: _Config) -> list[Task]:
     """Build tasks from an INI-based tox configuration file."""
     parser = config.data
@@ -570,7 +593,7 @@ def _toml_tasks(config: _Config) -> list[Task]:
         raw_env_list = ["py"]
 
     names = (
-        [name for name in raw_env_list if isinstance(name, str)]
+        _toml_env_list(raw_env_list)
         if isinstance(raw_env_list, list)
         else [
             name
