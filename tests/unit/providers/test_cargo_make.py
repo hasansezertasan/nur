@@ -155,8 +155,10 @@ def test_malformed_toml_returns_empty(tmp_path) -> None:
     _write(tmp_path, "[tasks.build\ncommand = ")
     assert CargoMakeProvider().discover(tmp_path) == []
 
+
 def test_cargo_make_coverage_edge_cases(tmp_path):
     from nur.core.providers.cargo_make import CargoMakeProvider
+
     (tmp_path / "Makefile.toml").write_text("[tasks]\nfoo = 'bar'\n")
     tasks = CargoMakeProvider().discover(tmp_path)
     assert not tasks
