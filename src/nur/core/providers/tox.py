@@ -444,18 +444,19 @@ def _ini_label_envs(parser: configparser.ConfigParser, tox_section: str) -> list
 
 
 def _resolve_ini_setting(
-    sec_name: str,
     section: configparser.SectionProxy | None,
     key: str,
+    env_name: str,
     parser: configparser.ConfigParser,
     seen: set[str],
 ) -> str | None:
     """Recursively resolve a setting through an INI section's declared base chain."""
     if section is not None and key in section:
         return section[key]
+    sec_name = section.name if section is not None else ""
     seen.add(sec_name)
     if section is not None and "base" in section:
-        base_val = section["base"].strip()
+        base_val = _filter_ini_commands(section["base"], env_name).strip()
         bases = _split_envlist(base_val) if base_val else []
     elif sec_name != "testenv" and parser.has_section("testenv"):
         bases = ["testenv"]
@@ -473,7 +474,7 @@ def _resolve_ini_setting(
             else None
         )
         if base_sec is not None:
-            val = _resolve_ini_setting(base_name, base_sec, key, parser, seen)
+            val = _resolve_ini_setting(base_sec, key, env_name, parser, seen)
             if val is not None:
                 return val
     return None
@@ -590,17 +591,13 @@ def _ini_tasks(config: _Config) -> list[Task]:
             if parser.has_section(exact_section)
             else generative_sections.get(name)
         )
-        description = _resolve_ini_setting(
-            exact_section, section, "description", parser, set()
-        )
+        description = _resolve_ini_setting(section, "description", name, parser, set())
         commands_pre = _resolve_ini_setting(
-            exact_section, section, "commands_pre", parser, set()
+            section, "commands_pre", name, parser, set()
         )
-        commands = _resolve_ini_setting(
-            exact_section, section, "commands", parser, set()
-        )
+        commands = _resolve_ini_setting(section, "commands", name, parser, set())
         commands_post = _resolve_ini_setting(
-            exact_section, section, "commands_post", parser, set()
+            section, "commands_post", name, parser, set()
         )
         tasks.append(
             Task(

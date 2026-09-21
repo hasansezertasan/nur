@@ -509,6 +509,36 @@ commands = echo bar
     assert tasks["bar"].definition == "echo bar"
 
 
+def test_ini_factor_conditional_base_chain(tmp_path) -> None:
+    _write(
+        tmp_path,
+        "tox.ini",
+        """
+[tox]
+envlist = py39, py310
+
+[testenv:legacy]
+commands = pytest tests/legacy
+
+[testenv:modern]
+commands = pytest tests/modern
+
+[testenv:py39]
+base =
+    py39: testenv:legacy
+    py310: testenv:modern
+
+[testenv:py310]
+base =
+    py39: testenv:legacy
+    py310: testenv:modern
+""",
+    )
+    tasks = {task.name: task for task in ToxProvider().discover(tmp_path)}
+    assert tasks["py39"].definition == "pytest tests/legacy"
+    assert tasks["py310"].definition == "pytest tests/modern"
+
+
 def test_ini_and_toml_exclude_configured_internal_environments(tmp_path) -> None:
     _write(
         tmp_path,
@@ -850,13 +880,10 @@ def test_tox_coverage_edge_cases(tmp_path):
     )
 
     # _resolve_ini_setting & _resolve_toml_setting edge cases
-    assert _resolve_ini_setting("testenv", None, "desc", cp, set()) is None
+    assert _resolve_ini_setting(None, "desc", "py", cp, set()) is None
     cycle = configparser.ConfigParser()
     cycle.read_string("[testenv:a]\nbase = testenv:a\n")
-    assert (
-        _resolve_ini_setting("testenv:a", cycle["testenv:a"], "desc", cycle, set())
-        is None
-    )
+    assert _resolve_ini_setting(cycle["testenv:a"], "desc", "a", cycle, set()) is None
     assert _resolve_toml_setting("unknown", {}, "desc", {}, set()) is _MISSING
     assert (
         _resolve_toml_setting(
