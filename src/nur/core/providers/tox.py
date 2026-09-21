@@ -23,7 +23,7 @@ log = logging.getLogger("nur")
 _CONFIG_NAMES = ("tox.ini", "setup.cfg", "pyproject.toml", "tox.toml")
 _RANGE = re.compile(r"^(\d+)-(\d+)$")
 _PROVISIONING_ENVS = frozenset({".pkg", ".tox"})
-_FACTOR_LINE = re.compile(r"^([a-zA-Z0-9_!{},.-]+):\s*(.*)$")
+_FACTOR_LINE = re.compile(r"^([a-zA-Z0-9_!{},.-]+):\s+(.*)$")
 _MISSING = object()
 
 
@@ -96,10 +96,18 @@ def _expand_brace_options(contents: str) -> list[str]:
     """Expand numeric ranges or comma-separated alternatives inside braces."""
     match = _RANGE.fullmatch(contents)
     if match:
-        first, last = (int(part) for part in match.groups())
-        width = max(len(part) for part in match.groups())
+        first_text, last_text = match.groups()
+        first, last = int(first_text), int(last_text)
+        width = (
+            max(len(first_text), len(last_text))
+            if first_text.startswith("0") or last_text.startswith("0")
+            else 0
+        )
         step = 1 if first <= last else -1
-        return [str(number).zfill(width) for number in range(first, last + step, step)]
+        return [
+            str(number).zfill(width) if width else str(number)
+            for number in range(first, last + step, step)
+        ]
     if "," in contents:
         return [option.strip() for option in contents.split(",")]
     return [option.strip() for option in _split_envlist(contents)]
@@ -184,16 +192,32 @@ def _has_balanced_braces(value: str) -> bool:
     return depth == 0
 
 
+def _command_lines(value: str) -> list[str]:
+    """Return non-empty command lines with backslash continuations coalesced."""
+    lines: list[str] = []
+    continued = ""
+    for raw_line in value.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        continued = f"{continued} {line}".strip()
+        if continued.endswith("\\"):
+            continued = continued[:-1].rstrip()
+        else:
+            lines.append(continued)
+            continued = ""
+    if continued:
+        lines.append(continued)
+    return lines
+
+
 def _filter_ini_commands(value: object, env_name: str) -> str:
     """Filter INI command lines matching the current environment's factors."""
     if not isinstance(value, str):
         return ""
     env_factors = set(env_name.split("-"))
     kept: list[str] = []
-    for raw_line in value.splitlines():
-        line = raw_line.strip()
-        if not line:
-            continue
+    for line in _command_lines(value):
         match = _FACTOR_LINE.match(line)
         if not match:
             kept.append(line)
@@ -270,7 +294,7 @@ def _command_strings(command: object) -> list[str]:
 def _command_definition(value: object) -> str:
     """Render tox's command forms without trying to evaluate substitutions."""
     if isinstance(value, str):
-        return " && ".join(line.strip() for line in value.splitlines() if line.strip())
+        return " && ".join(_command_lines(value))
     if not isinstance(value, list):
         return ""
     return " && ".join(

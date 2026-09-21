@@ -792,6 +792,8 @@ def test_tox_coverage_edge_cases(tmp_path):
     assert _expand_env_name("{[nonexistent]missing}") == []
     assert _expand_env_name("py{39 310}") == ["py39", "py310"]
     assert _expand_env_name("{,py}-django") == ["django", "py-django"]
+    assert _expand_env_name("py{8-10}") == ["py8", "py9", "py10"]
+    assert _expand_env_name("py{08-10}") == ["py08", "py09", "py10"]
 
     # _expand_simple_factors edge cases
     assert _expand_simple_factors("a{b") == ["a{b"]
@@ -802,6 +804,10 @@ def test_tox_coverage_edge_cases(tmp_path):
         "{py39,py310: pytest"
     )
     assert _filter_ini_commands("py39}: pytest", "py39") == "py39}: pytest"
+    assert _filter_ini_commands(r"C:\tools\python.exe -m pytest", "py39") == (
+        r"C:\tools\python.exe -m pytest"
+    )
+    assert _filter_ini_commands("pytest \\\n tests/unit", "py39") == "pytest tests/unit"
 
     # 109-111: ref with 'of'
     assert (
