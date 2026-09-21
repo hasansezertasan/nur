@@ -441,6 +441,205 @@ commands = [["echo", "no pre"]]
     assert toml_tasks["no_pre"].definition == "echo no pre && echo post"
 
 
+def test_toml_base_chain_resolution(tmp_path) -> None:
+    _write(
+        tmp_path,
+        "tox.toml",
+        """
+env_list = ["foo", "no_base", "bar"]
+[env_run_base]
+description = "base description"
+commands = [["echo", "base"]]
+
+[env.custom_base]
+description = "custom base description"
+commands = [["echo", "custom"]]
+
+[env.foo]
+base = ["custom_base"]
+
+[env.no_base]
+base = []
+
+[env.bar]
+commands = [["echo", "bar"]]
+""",
+    )
+    tasks = {task.name: task for task in ToxProvider().discover(tmp_path)}
+    assert tasks["foo"].description == "custom base description"
+    assert tasks["foo"].definition == "echo custom"
+    assert tasks["no_base"].description is None
+    assert tasks["no_base"].definition == ""
+    assert tasks["bar"].description == "base description"
+    assert tasks["bar"].definition == "echo bar"
+
+
+def test_ini_base_chain_resolution(tmp_path) -> None:
+    _write(
+        tmp_path,
+        "tox.ini",
+        """
+[tox]
+envlist = foo, no_base, bar
+
+[testenv]
+description = base description
+commands = echo base
+
+[testenv:custom_base]
+description = custom base description
+commands = echo custom
+
+[testenv:foo]
+base = testenv:custom_base
+
+[testenv:no_base]
+base =
+
+[testenv:bar]
+commands = echo bar
+""",
+    )
+    tasks = {task.name: task for task in ToxProvider().discover(tmp_path)}
+    assert tasks["foo"].description == "custom base description"
+    assert tasks["foo"].definition == "echo custom"
+    assert tasks["no_base"].description is None
+    assert tasks["no_base"].definition == ""
+    assert tasks["bar"].description == "base description"
+    assert tasks["bar"].definition == "echo bar"
+
+
+def test_ini_and_toml_exclude_configured_internal_environments(tmp_path) -> None:
+    _write(
+        tmp_path,
+        "tox.ini",
+        """
+[tox]
+envlist = py310
+provision_tox_env = my_prov
+package_env = my_pkg
+
+[testenv:py310]
+commands = pytest
+
+[testenv:my_prov]
+commands = echo prov
+
+[testenv:my_pkg]
+commands = echo pkg
+""",
+    )
+    tasks = {task.name: task for task in ToxProvider().discover(tmp_path)}
+    assert set(tasks) == {"py310"}
+
+    # TOML configured internals
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    _write(
+        subdir,
+        "tox.toml",
+        """
+env_list = ["test"]
+provision_tox_env = "my_toml_prov"
+package_env = "my_toml_pkg"
+
+[env.test]
+commands = [["pytest"]]
+
+[env.my_toml_prov]
+commands = [["echo", "prov"]]
+
+[env.my_toml_pkg]
+commands = [["echo", "pkg"]]
+""",
+    )
+    tasks_toml = {task.name: task for task in ToxProvider().discover(subdir)}
+    assert set(tasks_toml) == {"test"}
+
+
+def test_ini_substitutions_in_envlist(tmp_path, monkeypatch) -> None:
+    _write(
+        tmp_path,
+        "tox.ini",
+        """
+[tox]
+envlist =
+    {env:TOXENV_SET:py_default},
+    {env:TOXENV_UNSET:py_fallback},
+    {env:UNSET_NO_DEFAULT},
+    {[testenv]custom_env},
+    py310
+
+[testenv]
+custom_env = py_custom
+commands = pytest
+
+[testenv:py_override]
+commands = pytest
+
+[testenv:py_fallback]
+commands = pytest
+
+[testenv:py_custom]
+commands = pytest
+
+[testenv:py310]
+commands = pytest
+""",
+    )
+    monkeypatch.setenv("TOXENV_SET", "py_override")
+    monkeypatch.delenv("TOXENV_UNSET", raising=False)
+    monkeypatch.delenv("UNSET_NO_DEFAULT", raising=False)
+
+    tasks = {task.name: task for task in ToxProvider().discover(tmp_path)}
+    assert set(tasks) == {"py_override", "py_fallback", "py_custom", "py310"}
+
+
+def test_ini_commands_factor_conditions(tmp_path) -> None:
+    _write(
+        tmp_path,
+        "tox.ini",
+        """
+[tox]
+envlist = py39, py310, py310-django, py39-django
+
+[testenv]
+commands_pre =
+    py39: echo pre39
+    py310: echo pre310
+commands =
+    py39: pytest tests/legacy
+    py310: pytest tests/current
+    {py39,py310}-django: pytest tests/django
+    !py39: pytest tests/non_py39
+    echo common
+commands_post =
+    py39: echo post39
+    py310: echo post310
+""",
+    )
+    tasks = {task.name: task for task in ToxProvider().discover(tmp_path)}
+    assert (
+        tasks["py39"].definition
+        == "echo pre39 && pytest tests/legacy && echo common && echo post39"
+    )
+    expected_310 = (
+        "echo pre310 && pytest tests/current && pytest tests/non_py39 "
+        "&& echo common && echo post310"
+    )
+    assert tasks["py310"].definition == expected_310
+    expected_39_django = (
+        "echo pre39 && pytest tests/legacy && pytest tests/django "
+        "&& echo common && echo post39"
+    )
+    assert tasks["py39-django"].definition == expected_39_django
+    expected_310_django = (
+        "echo pre310 && pytest tests/current && pytest tests/django "
+        "&& pytest tests/non_py39 && echo common && echo post310"
+    )
+    assert tasks["py310-django"].definition == expected_310_django
+
+
 def test_unrelated_files_and_malformed_configs_are_ignored(tmp_path, caplog) -> None:
     _write(tmp_path, "pyproject.toml", "[tool.pdm.scripts]\ntest = 'pytest'\n")
     assert not ToxProvider().detect(tmp_path)
@@ -450,16 +649,24 @@ def test_unrelated_files_and_malformed_configs_are_ignored(tmp_path, caplog) -> 
 
 
 def test_tox_coverage_edge_cases(tmp_path):
+    import configparser
     from pathlib import Path
 
     from nur.core.providers.tox import (
+        _MISSING,
         _command_argument,
         _command_definition,
         _command_strings,
         _Config,
+        _configured_internal_envs_ini,
+        _configured_internal_envs_toml,
         _expand_env_name,
+        _expand_simple_factors,
+        _filter_ini_commands,
         _find_config,
         _ini_tasks,
+        _resolve_ini_setting,
+        _resolve_toml_setting,
         _split_envlist,
         _toml_tasks,
     )
@@ -469,6 +676,14 @@ def test_tox_coverage_edge_cases(tmp_path):
 
     # 63: _expand_env_name missing closing brace
     assert _expand_env_name("a{b") == ["a{b"]
+    assert _expand_env_name("{env:UNSET_EMPTY}") == []
+    assert _expand_env_name("{[nonexistent]missing}") == []
+
+    # _expand_simple_factors edge cases
+    assert _expand_simple_factors("a{b") == ["a{b"]
+    assert _expand_simple_factors("{a,b}") == ["a", "b"]
+    assert _filter_ini_commands(123, "py39") == ""
+    assert _filter_ini_commands("   \n", "py39") == ""
 
     # 109-111: ref with 'of'
     assert (
@@ -491,6 +706,39 @@ def test_tox_coverage_edge_cases(tmp_path):
 
     # 198: _ini_tasks wrong type
     assert _ini_tasks(_Config(Path("x.ini"), "ini", {})) == []
+
+    # _configured_internal_envs_ini & _toml edge cases
+    cp = configparser.ConfigParser()
+    cp.read_string(
+        "[tox]\n"
+        "isolated_build_env = iso\n"
+        "[testenv:sub]\n"
+        "package_env = pkg\n"
+        "isolated_build_env = iso2\n"
+    )
+    assert {"iso", "pkg", "iso2"}.issubset(_configured_internal_envs_ini(cp, "tox"))
+    assert {"t_iso", "t_base_pkg"}.issubset(
+        _configured_internal_envs_toml({
+            "isolated_build_env": "t_iso",
+            "env_run_base": {"package_env": "t_base_pkg"},
+            "env": {"extra": {"package_env": "extra_pkg"}},
+        })
+    )
+
+    # _resolve_ini_setting & _resolve_toml_setting edge cases
+    assert _resolve_ini_setting("testenv", None, "desc", cp, set()) is None
+    assert _resolve_toml_setting("unknown", {}, "desc", {}, set()) is _MISSING
+    assert _resolve_toml_setting("env1", {"base": 123}, "desc", {}, set()) is _MISSING
+    assert (
+        _resolve_toml_setting(
+            "env1",
+            {"base": "b1"},
+            "description",
+            {"env": {"b1": {"description": "b1_desc"}}},
+            set(),
+        )
+        == "b1_desc"
+    )
 
     # 254: _toml_tasks wrong type and envlist fallback
     assert _toml_tasks(_Config(Path("x.toml"), "toml", 123)) == []
