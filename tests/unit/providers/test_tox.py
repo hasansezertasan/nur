@@ -175,6 +175,12 @@ def test_first_matching_config_wins(tmp_path) -> None:
     assert {task.name for task in ToxProvider().discover(tmp_path)} == {"toml"}
 
 
+def test_malformed_higher_priority_toml_stops_discovery(tmp_path) -> None:
+    _write(tmp_path, "pyproject.toml", "[tool.tox\nenv_list = ['broken']\n")
+    _write(tmp_path, "tox.toml", 'env_list = ["fallback"]\n')
+    assert ToxProvider().discover(tmp_path) == []
+
+
 def test_ini_brace_alternatives_strip_whitespace(tmp_path) -> None:
     _write(
         tmp_path,
@@ -716,7 +722,7 @@ def test_ini_and_toml_include_label_only_environments(tmp_path) -> None:
 [tox]
 envlist =
 labels =
-    test = py310, py311
+    test = py{310,311}
 """,
     )
     assert {task.name for task in ToxProvider().discover(tmp_path)} == {

@@ -7,7 +7,7 @@ import re
 import textwrap
 import tomllib
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from nur.core.models import Task
 
@@ -311,13 +311,13 @@ def _render_command_groups(*groups: object) -> str:
     return " && ".join(part for part in rendered if part)
 
 
-def _toml_tox_table(path: Path) -> dict[str, Any] | None:
+def _toml_tox_table(path: Path) -> object:
     """Parse and return the tox configuration table from a TOML file."""
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
         log.warning("nur: skipping %s (%s)", path.name, exc)
-        return None
+        return _MISSING
     if path.name == "pyproject.toml":
         tool = data.get("tool")
         tox = tool.get("tox") if isinstance(tool, dict) else None
@@ -352,7 +352,9 @@ def _find_config(cwd: Path) -> _Config | None:
                 continue
             return _Config(path, "ini", parser)
         table = _toml_tox_table(path)
-        if table is not None:
+        if table is _MISSING:
+            break
+        if isinstance(table, dict):
             if name == "pyproject.toml" and isinstance(
                 table.get("legacy_tox_ini"), str
             ):
@@ -439,7 +441,11 @@ def _ini_label_envs(parser: configparser.ConfigParser, tox_section: str) -> list
     for line in parser[tox_section]["labels"].splitlines():
         _, separator, members = line.partition("=")
         if separator:
-            names.extend(_split_envlist(members))
+            names.extend(
+                name
+                for member in _split_envlist(members)
+                for name in _expand_env_name(member, parser)
+            )
     return names
 
 
