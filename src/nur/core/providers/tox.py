@@ -218,7 +218,9 @@ def _ini_tasks(config: _Config) -> list[Task]:
             explicit.append(name)
             generative_sections.setdefault(name, parser[section_name])
     names = _without_provisioning([*names, *explicit])
-    base = parser["testenv"] if parser.has_section("testenv") else {}
+    base: configparser.SectionProxy | dict[str, Any] = (
+        parser["testenv"] if parser.has_section("testenv") else {}
+    )
     tasks: list[Task] = []
     for name in names:
         exact_section = f"testenv:{name}"
