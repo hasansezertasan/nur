@@ -656,11 +656,14 @@ labels =
 
     (tmp_path / "tox.ini").unlink()
     _write(
-        tmp_path, "tox.toml", 'env_list = []\nlabels = { test = ["py310", "py311"] }\n'
+        tmp_path,
+        "tox.toml",
+        'env_list = []\nlabels = { test = ["py310", "py311"], lint = "ruff" }\n',
     )
     assert {task.name for task in ToxProvider().discover(tmp_path)} == {
         "py310",
         "py311",
+        "ruff",
     }
 
 
@@ -747,6 +750,8 @@ def test_tox_coverage_edge_cases(tmp_path):
     assert _expand_env_name("a{b") == ["a{b"]
     assert _expand_env_name("{env:UNSET_EMPTY}") == []
     assert _expand_env_name("{[nonexistent]missing}") == []
+    assert _expand_env_name("py{39 310}") == ["py39", "py310"]
+    assert _expand_env_name("{,py}-django") == ["django", "py-django"]
 
     # _expand_simple_factors edge cases
     assert _expand_simple_factors("a{b") == ["a{b"]
@@ -796,7 +801,19 @@ def test_tox_coverage_edge_cases(tmp_path):
 
     # _resolve_ini_setting & _resolve_toml_setting edge cases
     assert _resolve_ini_setting("testenv", None, "desc", cp, set()) is None
+    cycle = configparser.ConfigParser()
+    cycle.read_string("[testenv:a]\nbase = testenv:a\n")
+    assert (
+        _resolve_ini_setting("testenv:a", cycle["testenv:a"], "desc", cycle, set())
+        is None
+    )
     assert _resolve_toml_setting("unknown", {}, "desc", {}, set()) is _MISSING
+    assert (
+        _resolve_toml_setting(
+            "a", {"base": "a"}, "desc", {"env": {"a": {"base": "a"}}}, set()
+        )
+        is _MISSING
+    )
     assert _resolve_toml_setting("env1", {"base": 123}, "desc", {}, set()) is _MISSING
     assert (
         _resolve_toml_setting(
