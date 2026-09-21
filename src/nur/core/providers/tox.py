@@ -171,6 +171,19 @@ def _factor_group_matches(group: str, env_factors: set[str]) -> bool:
     return True
 
 
+def _has_balanced_braces(value: str) -> bool:
+    """Return whether braces are balanced and correctly ordered."""
+    depth = 0
+    for char in value:
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth < 0:
+                return False
+    return depth == 0
+
+
 def _filter_ini_commands(value: object, env_name: str) -> str:
     """Filter INI command lines matching the current environment's factors."""
     if not isinstance(value, str):
@@ -186,6 +199,9 @@ def _filter_ini_commands(value: object, env_name: str) -> str:
             kept.append(line)
             continue
         factor_expr, cmd = match.groups()
+        if not _has_balanced_braces(factor_expr):
+            kept.append(line)
+            continue
         if (
             any(
                 _factor_group_matches(grp, env_factors)

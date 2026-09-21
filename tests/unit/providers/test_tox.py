@@ -798,6 +798,10 @@ def test_tox_coverage_edge_cases(tmp_path):
     assert _expand_simple_factors("{a,b}") == ["a", "b"]
     assert _filter_ini_commands(123, "py39") == ""
     assert _filter_ini_commands("   \n", "py39") == ""
+    assert _filter_ini_commands("{py39,py310: pytest", "py39") == (
+        "{py39,py310: pytest"
+    )
+    assert _filter_ini_commands("py39}: pytest", "py39") == "py39}: pytest"
 
     # 109-111: ref with 'of'
     assert (
