@@ -23,7 +23,7 @@
 -----
 
 Run `nur` in a project and it discovers the tasks your project already defines —
-from npm, Make, deno, composer, just, Taskfile, pre-commit, PDM/poe, mise,
+from npm, Make, deno, composer, just, Taskfile, pre-commit, PDM/poe, tox, mise,
 cargo-make, moon, and xc — then lets you run them from a TUI picker or directly from the command line.
 Discovery is limited to the current directory. See [Features](#features) for the
 full list of source files.
@@ -116,14 +116,14 @@ If you have any questions or need help, feel free to open an issue on the [GitHu
 ## Motivation
 
 Every project speaks a different task dialect — `make test`, `npm run test`,
-`just test`, `task test`, `pdm run test`, `poe test`, `mise run test`, `xc test`. nur gives
+`just test`, `task test`, `pdm run test`, `poe test`, `tox -e test`, `mise run test`, `xc test`. nur gives
 you one command that discovers whatever a project already uses and runs it, with no config and
 no need to remember which runner lives where. Discovery is pure text/JSON/TOML
 parsing, so listing tasks never executes anything (no `make -pRrq` side effects).
 
 ## Features
 
-- **Zero-config discovery** across thirteen providers, each parsed from a single
+- **Zero-config discovery** across fourteen providers, each parsed from a single
   source file in the current directory:
 
   | Provider | Prefix | Source file |
@@ -134,6 +134,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   | Make | `make` | `Makefile` |
   | PDM | `pdm` | `pyproject.toml` (`[tool.pdm.scripts]`) |
   | poe | `poe` | `pyproject.toml` (`[tool.poe.tasks]`) |
+  | tox | `tox` | `tox.ini`, `tox.toml`, `pyproject.toml`, or `setup.cfg` |
   | just | `just` | `justfile` |
   | Taskfile | `task` | `Taskfile.yml` |
   | pre-commit | `pre-commit` | `.pre-commit-config.yaml` |
@@ -142,7 +143,10 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   | moon | `moon` | `moon.yml` |
   | xc | `xc` | `README.md` (see below) |
 
-  `mise` reads the first config file present, in priority order:
+  `tox` reads the first applicable config file present, in priority order:
+  `tox.ini`, `tox.toml`, `pyproject.toml` (`[tool.tox]`), then `setup.cfg`
+  (`[tox:tox]`). It statically parses environments and never runs `tox` during
+  discovery. `mise` reads the first config file present, in priority order:
   `mise.local.toml`, `mise.toml`, `.mise.local.toml`, `.mise.toml`,
   `.config/mise.toml`. `xc` reads its task section from `README.md` — the block
   marked with an `<!-- xc-heading -->` comment, or failing that a heading named

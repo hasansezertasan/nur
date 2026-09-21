@@ -20,6 +20,7 @@ keywords = [
   "pre-commit",
   "pdm",
   "poe",
+  "tox",
   "mise",
   "cargo-make",
   "moon",

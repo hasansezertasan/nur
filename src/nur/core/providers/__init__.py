@@ -12,6 +12,7 @@ from nur.core.providers.pdm import PdmProvider
 from nur.core.providers.poe import PoeProvider
 from nur.core.providers.pre_commit import PreCommitProvider
 from nur.core.providers.task import TaskfileProvider
+from nur.core.providers.tox import ToxProvider
 from nur.core.providers.xc import XcProvider
 
 if TYPE_CHECKING:
@@ -24,6 +25,7 @@ PROVIDERS: list[Provider] = [
     MakeProvider(),
     PdmProvider(),
     PoeProvider(),
+    ToxProvider(),
     JustProvider(),
     TaskfileProvider(),
     PreCommitProvider(),
@@ -47,5 +49,6 @@ __all__ = [
     "PoeProvider",
     "PreCommitProvider",
     "TaskfileProvider",
+    "ToxProvider",
     "XcProvider",
 ]
