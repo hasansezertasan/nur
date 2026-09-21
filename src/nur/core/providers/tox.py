@@ -3,6 +3,7 @@ from __future__ import annotations
 import configparser
 import logging
 import re
+import textwrap
 import tomllib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -18,7 +19,7 @@ __all__ = ["ToxProvider"]
 
 log = logging.getLogger("nur")
 
-_CONFIG_NAMES = ("tox.ini", "tox.toml", "pyproject.toml", "setup.cfg")
+_CONFIG_NAMES = ("tox.ini", "setup.cfg", "pyproject.toml", "tox.toml")
 _RANGE = re.compile(r"^(\d+)-(\d+)$")
 _PROVISIONING_ENVS = frozenset({".pkg", ".tox"})
 
@@ -71,7 +72,7 @@ def _expand_env_name(value: str) -> list[str]:
             str(number).zfill(width) for number in range(first, last + step, step)
         ]
     else:
-        options = contents.split(",")
+        options = [option.strip() for option in contents.split(",")]
     expanded: list[str] = []
     for option in options:
         expanded.extend(_expand_env_name(value[:start] + option + value[end + 1 :]))
@@ -138,14 +139,17 @@ def _command_definition(value: object) -> str:
     if not isinstance(value, list):
         return ""
     return " && ".join(
-        rendered for command in value for rendered in _command_strings(command)
+        rendered
+        for command in value
+        for rendered in _command_strings(command)
+        if rendered
     )
 
 
 def _toml_tox_table(path: Path) -> dict[str, Any] | None:
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
         log.warning("nur: skipping %s (%s)", path.name, exc)
         return None
     if path.name == "pyproject.toml":
@@ -161,7 +165,7 @@ def _ini_config(path: Path) -> configparser.ConfigParser | None:
     try:
         with path.open(encoding="utf-8") as stream:
             parser.read_file(stream)
-    except (OSError, configparser.Error) as exc:
+    except (OSError, UnicodeDecodeError, configparser.Error) as exc:
         log.warning("nur: skipping %s (%s)", path.name, exc)
         return None
     return parser
@@ -181,6 +185,16 @@ def _find_config(cwd: Path) -> _Config | None:
             return _Config(path, "ini", parser)
         table = _toml_tox_table(path)
         if table is not None:
+            if name == "pyproject.toml" and isinstance(
+                table.get("legacy_tox_ini"), str
+            ):
+                parser = configparser.ConfigParser(interpolation=None)
+                try:
+                    parser.read_string(textwrap.dedent(table["legacy_tox_ini"]))
+                except configparser.Error as exc:
+                    log.warning("nur: skipping %s (%s)", path.name, exc)
+                    return None
+                return _Config(path, "ini", parser)
             return _Config(path, "toml", table)
     return None
 
@@ -229,17 +243,23 @@ def _ini_tasks(config: _Config) -> list[Task]:
             if parser.has_section(exact_section)
             else generative_sections.get(name)
         )
-        description = (section.get("description") if section else None) or base.get(
-            "description"
+        description = (
+            section["description"]
+            if section is not None and "description" in section
+            else base.get("description")
         )
-        commands = (section.get("commands") if section else None) or base.get(
-            "commands"
+        description = description if isinstance(description, str) else None
+        commands = (
+            section["commands"]
+            if section is not None and "commands" in section
+            else base.get("commands")
         )
         tasks.append(
             Task(
                 name=name,
                 prefix="tox",
                 argv_base=("tox", "-e", name),
+                passthrough_prefix=("--",),
                 description=description,
                 definition=_command_definition(commands),
                 source_file=config.path.name,
@@ -272,14 +292,21 @@ def _toml_tasks(config: _Config) -> list[Task]:
     for name in names:
         section = envs.get(name)
         section = section if isinstance(section, dict) else {}
-        description = section.get("description") or base.get("description")
+        description = (
+            section["description"]
+            if "description" in section
+            else base.get("description")
+        )
         description = description if isinstance(description, str) else None
-        commands = section.get("commands") or base.get("commands")
+        commands = (
+            section["commands"] if "commands" in section else base.get("commands")
+        )
         tasks.append(
             Task(
                 name=name,
                 prefix="tox",
                 argv_base=("tox", "-e", name),
+                passthrough_prefix=("--",),
                 description=description,
                 definition=_command_definition(commands),
                 source_file=config.path.name,

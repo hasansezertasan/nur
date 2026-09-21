@@ -160,8 +160,163 @@ def test_pyproject_and_setup_cfg_are_detected(tmp_path) -> None:
 
 def test_first_matching_config_wins(tmp_path) -> None:
     _write(tmp_path, "tox.ini", "[tox]\nenvlist = ini\n")
+    _write(tmp_path, "setup.cfg", "[tox:tox]\nenvlist = cfg\n")
+    _write(tmp_path, "pyproject.toml", '[tool.tox]\nenv_list = ["pyproject"]\n')
     _write(tmp_path, "tox.toml", 'env_list = ["toml"]\n')
     assert {task.name for task in ToxProvider().discover(tmp_path)} == {"ini"}
+
+    (tmp_path / "tox.ini").unlink()
+    assert {task.name for task in ToxProvider().discover(tmp_path)} == {"cfg"}
+
+    (tmp_path / "setup.cfg").unlink()
+    assert {task.name for task in ToxProvider().discover(tmp_path)} == {"pyproject"}
+
+    (tmp_path / "pyproject.toml").unlink()
+    assert {task.name for task in ToxProvider().discover(tmp_path)} == {"toml"}
+
+
+def test_ini_brace_alternatives_strip_whitespace(tmp_path) -> None:
+    _write(
+        tmp_path,
+        "tox.ini",
+        """
+[tox]
+envlist = py{39, 310}
+[testenv:py{39, 310}]
+commands = pytest
+""",
+    )
+    tasks = {task.name: task for task in ToxProvider().discover(tmp_path)}
+    assert set(tasks) == {"py39", "py310"}
+
+
+def test_toml_ignores_empty_command_groups(tmp_path) -> None:
+    _write(
+        tmp_path,
+        "tox.toml",
+        """
+env_list = ["test"]
+[env.test]
+commands = [[], ["pytest"]]
+""",
+    )
+    task = ToxProvider().discover(tmp_path)[0]
+    assert task.definition == "pytest"
+
+
+def test_tasks_include_passthrough_prefix(tmp_path) -> None:
+    _write(tmp_path, "tox.ini", "[tox]\nenvlist = lint\n")
+    ini_task = ToxProvider().discover(tmp_path)[0]
+    assert ini_task.passthrough_prefix == ("--",)
+    assert ini_task.run_argv(["--watch"]) == ["tox", "-e", "lint", "--", "--watch"]
+    assert ini_task.run_argv() == ["tox", "-e", "lint"]
+
+    (tmp_path / "tox.ini").unlink()
+    _write(tmp_path, "tox.toml", 'env_list = ["test"]\n')
+    toml_task = ToxProvider().discover(tmp_path)[0]
+    assert toml_task.passthrough_prefix == ("--",)
+    assert toml_task.run_argv(["--watch"]) == ["tox", "-e", "test", "--", "--watch"]
+    assert toml_task.run_argv() == ["tox", "-e", "test"]
+
+
+def test_pyproject_legacy_tox_ini_is_discovered(tmp_path) -> None:
+    _write(
+        tmp_path,
+        "pyproject.toml",
+        """[tool.tox]
+legacy_tox_ini = '''
+[tox]
+envlist = py39, py310
+
+[testenv]
+commands = pytest
+'''
+""",
+    )
+    provider = ToxProvider()
+    assert provider.detect(tmp_path)
+    tasks = {task.name: task for task in provider.discover(tmp_path)}
+    assert set(tasks) == {"py39", "py310"}
+    assert tasks["py39"].definition == "pytest"
+    assert tasks["py39"].source_file == "pyproject.toml"
+
+
+def test_pyproject_malformed_legacy_tox_ini_is_ignored(tmp_path, caplog) -> None:
+    _write(
+        tmp_path,
+        "pyproject.toml",
+        """[tool.tox]
+legacy_tox_ini = '''
+[tox
+envlist = py39
+'''
+""",
+    )
+    provider = ToxProvider()
+    assert not provider.detect(tmp_path)
+    assert provider.discover(tmp_path) == []
+    assert any("pyproject.toml" in record.message for record in caplog.records)
+
+
+def test_non_utf8_config_is_ignored(tmp_path, caplog) -> None:
+    (tmp_path / "tox.ini").write_bytes(b"\xff\xfe[tox]\nenvlist = broken\n")
+    provider = ToxProvider()
+    assert not provider.detect(tmp_path)
+    assert provider.discover(tmp_path) == []
+    assert any("tox.ini" in record.message for record in caplog.records)
+
+    (tmp_path / "tox.ini").unlink()
+    (tmp_path / "tox.toml").write_bytes(b"\xff\xfeenv_list = ['broken']\n")
+    assert not provider.detect(tmp_path)
+    assert provider.discover(tmp_path) == []
+    assert any("tox.toml" in record.message for record in caplog.records)
+
+
+def test_ini_preserves_explicit_empty_overrides(tmp_path) -> None:
+    _write(
+        tmp_path,
+        "tox.ini",
+        """
+[tox]
+envlist = base_env, empty_env
+
+[testenv]
+description = base description
+commands = pytest
+
+[testenv:empty_env]
+description =
+commands =
+""",
+    )
+    tasks = {task.name: task for task in ToxProvider().discover(tmp_path)}
+    assert tasks["base_env"].description == "base description"
+    assert tasks["base_env"].definition == "pytest"
+    assert tasks["empty_env"].description == ""
+    assert tasks["empty_env"].definition == ""
+
+
+def test_toml_preserves_explicit_empty_overrides(tmp_path) -> None:
+    _write(
+        tmp_path,
+        "tox.toml",
+        """
+env_list = ["base_env", "empty_env"]
+
+[env_run_base]
+description = "base description"
+commands = [["pytest"]]
+
+[env.empty_env]
+description = ""
+commands = []
+""",
+    )
+    tasks = {task.name: task for task in ToxProvider().discover(tmp_path)}
+    assert tasks["base_env"].description == "base description"
+    assert tasks["base_env"].definition == "pytest"
+    assert tasks["empty_env"].description == ""
+    assert tasks["empty_env"].definition == ""
 
 
 def test_unrelated_files_and_malformed_configs_are_ignored(tmp_path, caplog) -> None:
