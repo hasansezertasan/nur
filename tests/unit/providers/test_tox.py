@@ -171,44 +171,50 @@ def test_unrelated_files_and_malformed_configs_are_ignored(tmp_path, caplog) -> 
     assert ToxProvider().discover(tmp_path) == []
     assert any("tox.ini" in record.message for record in caplog.records)
 
+
 def test_tox_coverage_edge_cases(tmp_path):
-    from nur.core.providers.tox import (
-        _split_envlist,
-        _expand_env_name,
-        _command_argument,
-        _command_strings,
-        _command_definition,
-        _ini_tasks,
-        _toml_tasks,
-        _Config,
-        _find_config,
-    )
     from pathlib import Path
-    
+
+    from nur.core.providers.tox import (
+        _command_argument,
+        _command_definition,
+        _command_strings,
+        _Config,
+        _expand_env_name,
+        _find_config,
+        _ini_tasks,
+        _split_envlist,
+        _toml_tasks,
+    )
+
     # 51-53: _split_envlist trailing empty
     assert _split_envlist("a, b, ") == ["a", "b"]
-    
+
     # 63: _expand_env_name missing closing brace
     assert _expand_env_name("a{b") == ["a{b"]
-    
+
     # 109-111: ref with 'of'
-    assert _command_argument({"replace": "ref", "of": ["foo", "bar"]}) == "{ref:foo.bar}"
+    assert (
+        _command_argument({"replace": "ref", "of": ["foo", "bar"]}) == "{ref:foo.bar}"
+    )
     assert _command_argument({"replace": "env"}) == "{env:None}"
 
     # 117, 121, 124
     assert _command_strings("just_string") == ["just_string"]
     assert _command_strings(123) == []
     assert _command_strings({"replace": "other"}) == ["{other}"]
-    assert _command_strings({"replace": "posargs", "default": "not_list"}) == ["{posargs:not_list}"]
-    
+    assert _command_strings({"replace": "posargs", "default": "not_list"}) == [
+        "{posargs:not_list}"
+    ]
+
     # 148-150
     assert _command_definition([123, "cmd"]) == "cmd"
     assert _command_definition(123) == ""
     assert _command_definition("line1\nline2\n \nline3") == "line1 && line2 && line3"
-    
+
     # 198: _ini_tasks wrong type
     assert _ini_tasks(_Config(Path("x.ini"), "ini", {})) == []
-    
+
     # 254: _toml_tasks wrong type
     assert _toml_tasks(_Config(Path("x.toml"), "toml", 123)) == []
 
@@ -216,6 +222,5 @@ def test_tox_coverage_edge_cases(tmp_path):
     (tmp_path / "setup.cfg").write_text("[other]\nfoo=bar\n")
     assert _find_config(tmp_path) is None
 
-
-    (tmp_path / 'pyproject.toml').write_text('bad toml [\n')
+    (tmp_path / "pyproject.toml").write_text("bad toml [\n")
     assert _find_config(tmp_path) is None
