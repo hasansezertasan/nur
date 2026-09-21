@@ -518,6 +518,7 @@ def test_ini_and_toml_exclude_configured_internal_environments(tmp_path) -> None
 envlist = py310
 provision_tox_env = my_prov
 package_env = my_pkg
+wheel_build_env = my_wheel
 
 [testenv:py310]
 commands = pytest
@@ -527,6 +528,9 @@ commands = echo prov
 
 [testenv:my_pkg]
 commands = echo pkg
+
+[testenv:my_wheel]
+commands = echo wheel
 """,
     )
     tasks = {task.name: task for task in ToxProvider().discover(tmp_path)}
@@ -542,6 +546,7 @@ commands = echo pkg
 env_list = ["test"]
 provision_tox_env = "my_toml_prov"
 package_env = "my_toml_pkg"
+wheel_build_env = "my_toml_wheel"
 
 [env.test]
 commands = [["pytest"]]
@@ -551,6 +556,9 @@ commands = [["echo", "prov"]]
 
 [env.my_toml_pkg]
 commands = [["echo", "pkg"]]
+
+[env.my_toml_wheel]
+commands = [["echo", "wheel"]]
 """,
     )
     tasks_toml = {task.name: task for task in ToxProvider().discover(subdir)}
@@ -587,12 +595,73 @@ commands = pytest
 commands = pytest
 """,
     )
-    monkeypatch.setenv("TOXENV_SET", "py_override")
+    monkeypatch.setenv("TOXENV_SET", "py_override, py_extra")
     monkeypatch.delenv("TOXENV_UNSET", raising=False)
     monkeypatch.delenv("UNSET_NO_DEFAULT", raising=False)
 
     tasks = {task.name: task for task in ToxProvider().discover(tmp_path)}
-    assert set(tasks) == {"py_override", "py_fallback", "py_custom", "py310"}
+    assert set(tasks) == {
+        "py_override",
+        "py_extra",
+        "py_fallback",
+        "py_custom",
+        "py310",
+    }
+
+
+def test_ini_preserves_empty_brace_alternatives(tmp_path) -> None:
+    _write(tmp_path, "tox.ini", "[tox]\nenvlist = py{310,311}-{,django42}\n")
+    assert {task.name for task in ToxProvider().discover(tmp_path)} == {
+        "py310",
+        "py310-django42",
+        "py311",
+        "py311-django42",
+    }
+
+
+def test_ini_multiline_base_chain(tmp_path) -> None:
+    _write(
+        tmp_path,
+        "tox.ini",
+        """
+[tox]
+envlist = child
+[testenv:shared]
+description = inherited
+[testenv:child]
+base =
+    testenv:missing
+    testenv:shared
+""",
+    )
+    task = ToxProvider().discover(tmp_path)[0]
+    assert task.description == "inherited"
+
+
+def test_ini_and_toml_include_label_only_environments(tmp_path) -> None:
+    _write(
+        tmp_path,
+        "tox.ini",
+        """
+[tox]
+envlist =
+labels =
+    test = py310, py311
+""",
+    )
+    assert {task.name for task in ToxProvider().discover(tmp_path)} == {
+        "py310",
+        "py311",
+    }
+
+    (tmp_path / "tox.ini").unlink()
+    _write(
+        tmp_path, "tox.toml", 'env_list = []\nlabels = { test = ["py310", "py311"] }\n'
+    )
+    assert {task.name for task in ToxProvider().discover(tmp_path)} == {
+        "py310",
+        "py311",
+    }
 
 
 def test_ini_commands_factor_conditions(tmp_path) -> None:

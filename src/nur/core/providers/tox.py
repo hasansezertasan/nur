@@ -100,6 +100,8 @@ def _expand_brace_options(contents: str) -> list[str]:
         width = max(len(part) for part in match.groups())
         step = 1 if first <= last else -1
         return [str(number).zfill(width) for number in range(first, last + step, step)]
+    if "," in contents:
+        return [option.strip() for option in contents.split(",")]
     return [option.strip() for option in _split_envlist(contents)]
 
 
@@ -119,13 +121,24 @@ def _expand_env_name(
         resolved = _resolve_substitution(contents, parser)
         if not resolved or not resolved.strip():
             return []
-        return _expand_env_name(value[:start] + resolved + value[end + 1 :], parser)
+        return [
+            name
+            for item in _split_envlist(resolved)
+            for name in _expand_env_name(
+                value[:start] + item + value[end + 1 :], parser
+            )
+        ]
 
     expanded: list[str] = []
     for option in _expand_brace_options(contents):
-        expanded.extend(
-            _expand_env_name(value[:start] + option + value[end + 1 :], parser)
-        )
+        prefix = value[:start]
+        suffix = value[end + 1 :]
+        if not option:
+            if prefix.endswith("-"):
+                prefix = prefix[:-1]
+            elif suffix.startswith("-"):
+                suffix = suffix[1:]
+        expanded.extend(_expand_env_name(prefix + option + suffix, parser))
     return expanded
 
 
@@ -318,13 +331,18 @@ def _configured_internal_envs_ini(
     internal = set(_PROVISIONING_ENVS)
     if parser.has_section(tox_section):
         sec = parser[tox_section]
-        for key in ("provision_tox_env", "package_env", "isolated_build_env"):
+        for key in (
+            "provision_tox_env",
+            "package_env",
+            "isolated_build_env",
+            "wheel_build_env",
+        ):
             val = sec.get(key)
             if val and val.strip():
                 internal.add(val.strip())
     for s_name in parser.sections():
         s = parser[s_name]
-        for key in ("package_env", "isolated_build_env"):
+        for key in ("package_env", "isolated_build_env", "wheel_build_env"):
             val = s.get(key)
             if val and val.strip():
                 internal.add(val.strip())
@@ -346,7 +364,7 @@ def _collect_envs_from_mapping(
 def _configured_internal_envs_toml(tox: dict[str, object]) -> set[str]:
     """Collect default and configured internal tox environment names from TOML."""
     internal = set(_PROVISIONING_ENVS)
-    keys = ("provision_tox_env", "package_env", "isolated_build_env")
+    keys = ("provision_tox_env", "package_env", "isolated_build_env", "wheel_build_env")
     internal.update(_collect_envs_from_mapping(tox, keys))
     base = tox.get("env_run_base")
     if isinstance(base, dict):
@@ -368,6 +386,18 @@ def _without_provisioning(
     )
 
 
+def _ini_label_envs(parser: configparser.ConfigParser, tox_section: str) -> list[str]:
+    """Collect environment names referenced by INI labels."""
+    if not parser.has_section(tox_section) or "labels" not in parser[tox_section]:
+        return []
+    names: list[str] = []
+    for line in parser[tox_section]["labels"].splitlines():
+        _, separator, members = line.partition("=")
+        if separator:
+            names.extend(_split_envlist(members))
+    return names
+
+
 def _resolve_ini_setting(
     sec_name: str,
     section: configparser.SectionProxy | None,
@@ -381,9 +411,7 @@ def _resolve_ini_setting(
     seen.add(sec_name)
     if section is not None and "base" in section:
         base_val = section["base"].strip()
-        bases = (
-            [b.strip() for b in base_val.split(",") if b.strip()] if base_val else []
-        )
+        bases = _split_envlist(base_val) if base_val else []
     elif sec_name != "testenv" and parser.has_section("testenv"):
         bases = ["testenv"]
     else:
@@ -478,6 +506,7 @@ def _ini_tasks(config: _Config) -> list[Task]:
         ]
     else:
         names = ["py"]
+    names.extend(_ini_label_envs(parser, tox_section))
     generative_sections: dict[str, configparser.SectionProxy] = {}
     explicit: list[str] = []
     for section_name in parser.sections():
@@ -551,6 +580,13 @@ def _toml_tasks(config: _Config) -> list[Task]:
     )
     envs = tox.get("env")
     envs = envs if isinstance(envs, dict) else {}
+    labels = tox.get("labels")
+    if isinstance(labels, dict):
+        for members in labels.values():
+            if isinstance(members, list):
+                names.extend(member for member in members if isinstance(member, str))
+            elif isinstance(members, str):
+                names.extend(_split_envlist(members))
     explicit = [
         name
         for name, value in envs.items()
