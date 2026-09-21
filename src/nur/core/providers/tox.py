@@ -611,7 +611,11 @@ def _ini_tasks(config: _Config) -> list[Task]:
                 prefix="tox",
                 argv_base=("tox", "-e", name),
                 passthrough_prefix=("--",),
-                description=description,
+                description=(
+                    _filter_ini_commands(description, name)
+                    if description is not None
+                    else None
+                ),
                 definition=_render_command_groups(
                     _filter_ini_commands(commands_pre, name),
                     _filter_ini_commands(commands, name),

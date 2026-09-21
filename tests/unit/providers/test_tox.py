@@ -55,13 +55,16 @@ def test_ini_expands_generative_sections_and_uses_their_metadata(tmp_path) -> No
 envlist = py39,py310
 
 [testenv:py{39,310}]
-description = run supported Python versions
+description =
+    py39: run Python 3.9 tests
+    py310: run Python 3.10 tests
 commands = pytest
 """,
     )
     tasks = {task.name: task for task in ToxProvider().discover(tmp_path)}
     assert set(tasks) == {"py39", "py310"}
-    assert tasks["py39"].description == "run supported Python versions"
+    assert tasks["py39"].description == "run Python 3.9 tests"
+    assert tasks["py310"].description == "run Python 3.10 tests"
     assert tasks["py310"].definition == "pytest"
 
 
