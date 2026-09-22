@@ -77,7 +77,7 @@ dev = [
   { include-group = "prek" },
 ]
 style = [
-  "actionlint-py==1.7.12.24",
+  "actionlint-py==1.7.12.25",
   "basedpyright==1.40.1",
   "editorconfig-checker==3.11.1",
   "import-linter==2.15",
