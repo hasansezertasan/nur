@@ -19,6 +19,17 @@ def test_run_direct_appends_extra_args(tmp_path) -> None:
     assert run_direct(t, ["a", "b"], tmp_path) == 2
 
 
+def test_run_direct_executes_shell_task_syntax(tmp_path) -> None:
+    task = Task(
+        name="shell",
+        prefix="test",
+        argv_base=("printf", "ok", ">", "marker"),
+        run_in_shell=True,
+    )
+    assert run_direct(task, [], tmp_path) == 0
+    assert (tmp_path / "marker").read_text() == "ok"
+
+
 def test_process_runner_streams_lines_and_returns_code(tmp_path) -> None:
     lines: list[str] = []
     runner = ProcessRunner()

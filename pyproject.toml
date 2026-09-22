@@ -26,7 +26,8 @@ keywords = [
   "moon",
   "deno",
   "composer",
-  "xc",
+    "xc",
+    "vscode",
 ]
 classifiers = [
   "Development Status :: 4 - Beta",

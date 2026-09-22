@@ -17,6 +17,7 @@ class Task:
     description: str | None = None
     definition: str = ""
     source_file: str = ""
+    run_in_shell: bool = False
     # Tokens inserted before passthrough args when (and only when) extra args
     # are forwarded, e.g. npm requires `npm run <script> -- <args>`.
     passthrough_prefix: tuple[str, ...] = ()

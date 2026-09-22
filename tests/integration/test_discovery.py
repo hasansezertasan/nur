@@ -32,6 +32,7 @@ def test_providers_registry_order() -> None:
         "cargo-make",
         "moon",
         "xc",
+        "vscode",
     ]
 
 

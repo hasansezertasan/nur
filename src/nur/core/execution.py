@@ -8,11 +8,11 @@ import sys
 import threading
 from typing import TYPE_CHECKING
 
+from nur.core.models import Task
+
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
-
-    from nur.core.models import Task
 
 __all__ = ["ProcessRunner", "run_direct"]
 
@@ -29,8 +29,11 @@ def run_direct(task: Task, extra_args: list[str], cwd: Path) -> int:
     as a traceback, report a controlled error and return ``127``.
     """
     argv = task.run_argv(extra_args)
+    command = " ".join(argv) if task.run_in_shell else argv
     try:
-        completed = subprocess.run(argv, cwd=cwd, check=False)
+        completed = subprocess.run(
+            command, cwd=cwd, check=False, shell=task.run_in_shell
+        )
     except FileNotFoundError:
         print(
             f"nur: runner '{argv[0]}' is not installed "
@@ -51,7 +54,9 @@ class ProcessRunner:
         self._proc: subprocess.Popen[str] | None = None
         self._lock = threading.Lock()
 
-    def run(self, argv: list[str], cwd: Path, on_line: Callable[[str], None]) -> int:
+    def run(
+        self, argv: list[str] | Task, cwd: Path, on_line: Callable[[str], None]
+    ) -> int:
         # Put the child in its own process group so an interrupt can signal the
         # whole tree (e.g. npm -> node, make -> sh), not just the runner PID:
         # start_new_session on POSIX, CREATE_NEW_PROCESS_GROUP on Windows. Each
@@ -64,9 +69,17 @@ class ProcessRunner:
             start_new_session = True
         # Not a `with` block: the process is stored on self and outlives this
         # method so interrupt() can signal it; cleanup happens in the finally.
+        if isinstance(argv, Task):
+            task_argv = argv.run_argv()
+            command = " ".join(task_argv) if argv.run_in_shell else task_argv
+            run_in_shell = argv.run_in_shell
+        else:
+            task_argv = argv
+            command = argv
+            run_in_shell = False
         try:
             proc = subprocess.Popen(  # pylint: disable=consider-using-with
-                argv,
+                command,
                 cwd=cwd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -75,11 +88,12 @@ class ProcessRunner:
                 bufsize=1,
                 creationflags=creationflags,
                 start_new_session=start_new_session,
+                shell=run_in_shell,
             )
         except FileNotFoundError:
             # Natively-discovered task whose runner isn't installed: surface a
             # message in the output pane instead of an empty pane + exited(1).
-            on_line(f"nur: runner '{argv[0]}' is not installed.\n")
+            on_line(f"nur: runner '{task_argv[0]}' is not installed.\n")
             return RUNNER_NOT_FOUND
         with self._lock:
             self._proc = proc

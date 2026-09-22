@@ -48,7 +48,7 @@ def _strip_jsonc(text: str) -> str:  # noqa: C901, PLR0912
         elif character == "/" and following == "*":
             index = text.find("*/", index + 2)
             if index < 0:
-                break
+                raise ValueError("unterminated block comment")  # noqa: EM101, TRY003
             index += 1
         elif character in "}]":
             whitespace_start = len(result)
@@ -63,16 +63,16 @@ def _strip_jsonc(text: str) -> str:  # noqa: C901, PLR0912
     return "".join(result)
 
 
-def _platform_value(value: object) -> object:
-    if not isinstance(value, dict):
-        return value
+def _platform_entry(entry: dict[str, object]) -> dict[str, object]:
     platform = {"darwin": "osx", "win32": "windows"}.get(sys.platform, "linux")
-    return value.get(platform, value.get("value"))
+    override = entry.get(platform)
+    return {**entry, **override} if isinstance(override, dict) else entry
 
 
 def _command_and_args(entry: dict[str, object]) -> tuple[str, tuple[str, ...]] | None:
-    command = _platform_value(entry.get("command"))
-    raw_args = _platform_value(entry.get("args", []))
+    platform_entry = _platform_entry(entry)
+    command = platform_entry.get("command")
+    raw_args = platform_entry.get("args", [])
     if not isinstance(command, str) or not isinstance(raw_args, list):
         return None
     arguments: list[str] = []
@@ -90,7 +90,7 @@ def _load_tasks(cwd: Path) -> list[dict[str, object]] | None:
         return None
     try:
         document = json.loads(_strip_jsonc(path.read_text(encoding="utf-8")))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         log.warning("nur: skipping %s (%s)", _SOURCE_FILE, exc)
         return None
     if not isinstance(document, dict) or document.get("version") != "2.0.0":
@@ -121,6 +121,8 @@ class VsCodeProvider:
                 "process",
             }:
                 continue
+            if entry.get("hide") is True or "dependsOn" in entry:
+                continue
             label = entry.get("label")
             command_args = _command_and_args(entry)
             if not isinstance(label, str) or not label or command_args is None:
@@ -135,5 +137,6 @@ class VsCodeProvider:
                 description=detail if isinstance(detail, str) else None,
                 definition=" ".join(argv_base),
                 source_file=_SOURCE_FILE,
+                run_in_shell=entry.get("type") != "process",
             )
         return list(tasks_by_label.values())
