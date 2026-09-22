@@ -13,6 +13,7 @@ from nur.core.providers.poe import PoeProvider
 from nur.core.providers.pre_commit import PreCommitProvider
 from nur.core.providers.task import TaskfileProvider
 from nur.core.providers.tox import ToxProvider
+from nur.core.providers.vscode import VsCodeProvider
 from nur.core.providers.xc import XcProvider
 
 if TYPE_CHECKING:
@@ -33,6 +34,7 @@ PROVIDERS: list[Provider] = [
     CargoMakeProvider(),
     MoonProvider(),
     XcProvider(),
+    VsCodeProvider(),
 ]
 
 __all__ = [
@@ -50,5 +52,6 @@ __all__ = [
     "PreCommitProvider",
     "TaskfileProvider",
     "ToxProvider",
+    "VsCodeProvider",
     "XcProvider",
 ]
