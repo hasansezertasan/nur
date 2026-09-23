@@ -159,7 +159,9 @@ class VsCodeProvider:
     def discover(self, cwd: Path) -> list[Task]:
         """Discover shell and process tasks nur can run as VS Code would."""
         document = _load_document(cwd)
-        if document is None or not _supported_options(document.get("options"), cwd):
+        if document is None or not _supported_options(
+            _platform_entry(document).get("options"), cwd
+        ):
             return []
         tasks_by_label: dict[str, Task] = {}
         for raw_entry in cast("list[object]", document["tasks"]):

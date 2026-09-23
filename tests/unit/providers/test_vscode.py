@@ -178,3 +178,13 @@ def test_block_comments_do_not_fuse_adjacent_tokens(tmp_path, caplog) -> None:
     )
     assert VsCodeProvider().discover(tmp_path) == []
     assert any(".vscode/tasks.json" in record.message for record in caplog.records)
+
+
+def test_document_platform_options_apply_to_every_task(tmp_path) -> None:
+    platform = {"darwin": "osx", "win32": "windows"}.get(sys.platform, "linux")
+    _write_tasks(
+        tmp_path,
+        f"""{{"version": "2.0.0", "{platform}": {{"options": {{"cwd": "sub"}}}},
+  "tasks": [{{"label": "test", "command": "pytest"}}]}}""",
+    )
+    assert VsCodeProvider().discover(tmp_path) == []
