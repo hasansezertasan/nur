@@ -154,3 +154,27 @@ def test_ignores_legacy_and_malformed_documents(tmp_path, caplog) -> None:
         '{"version": "2.0.0", "tasks": []} /*'
     )
     assert provider.discover(tmp_path) == []
+
+
+def test_object_form_command_runs_as_a_process(tmp_path) -> None:
+    _write_tasks(
+        tmp_path,
+        """{"version": "2.0.0", "tasks": [{
+  "label": "tool", "type": "shell",
+  "command": {"value": "${workspaceFolder}/my tool", "quoting": "strong"},
+  "args": ["x"]
+}]}""",
+    )
+    task = VsCodeProvider().discover(tmp_path)[0]
+    assert task.argv_base == (f"{tmp_path}/my tool", "x")
+    assert not task.run_in_shell
+
+
+def test_block_comments_do_not_fuse_adjacent_tokens(tmp_path, caplog) -> None:
+    _write_tasks(
+        tmp_path,
+        """{"version": "2.0.0", "junk": 1/*comment*/2,
+  "tasks": [{"label": "test", "command": "pytest"}]}""",
+    )
+    assert VsCodeProvider().discover(tmp_path) == []
+    assert any(".vscode/tasks.json" in record.message for record in caplog.records)

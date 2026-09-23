@@ -49,10 +49,12 @@ def _strip_jsonc(text: str) -> str:  # noqa: C901, PLR0912
                 break
             result.append("\n")
         elif character == "/" and following == "*":
-            index = text.find("*/", index + 2)
-            if index < 0:
+            end = text.find("*/", index + 2)
+            if end < 0:
                 raise ValueError("unterminated block comment")  # noqa: EM101, TRY003
-            index += 1
+            # Blank the comment rather than drop it so adjacent tokens stay apart.
+            result.append(" " + "\n" * text.count("\n", index, end))
+            index = end + 1
         elif character in "}]":
             whitespace_start = len(result)
             while whitespace_start and result[whitespace_start - 1].isspace():
@@ -106,20 +108,21 @@ def _supported_options(options: object, cwd: Path) -> bool:
     return resolved is not None and (cwd / resolved).resolve() == cwd.resolve()
 
 
+def _value(item: object) -> object:
+    # Commands and args may be plain strings or {"value": ..., "quoting": ...}.
+    return item.get("value") if isinstance(item, dict) else item
+
+
 def _command_and_args(
     entry: dict[str, object], cwd: Path
 ) -> tuple[str, tuple[str, ...]] | None:
-    command = entry.get("command")
     raw_args = entry.get("args", [])
-    if not isinstance(command, str) or not isinstance(raw_args, list):
+    if not isinstance(raw_args, list):
         return None
-    values: list[str] = [command]
-    for argument in raw_args:
-        value = argument.get("value") if isinstance(argument, dict) else argument
-        if not isinstance(value, str):
-            return None
-        values.append(value)
-    resolved = [_resolve_variables(value, cwd) for value in values]
+    values = [_value(entry.get("command")), *map(_value, raw_args)]
+    if not all(isinstance(value, str) for value in values):
+        return None
+    resolved = [_resolve_variables(value, cwd) for value in cast("list[str]", values)]
     if None in resolved:
         return None
     command, *arguments = cast("list[str]", resolved)
@@ -190,5 +193,8 @@ class VsCodeProvider:
             description=detail if isinstance(detail, str) else None,
             definition=" ".join(argv_base),
             source_file=_SOURCE_FILE,
-            run_in_shell=entry.get("type") != "process",
+            # An object-form command is a quoted literal, and args always are, so
+            # such a task holds no shell syntax and runs directly as a process.
+            run_in_shell=entry.get("type") != "process"
+            and not isinstance(entry.get("command"), dict),
         )
