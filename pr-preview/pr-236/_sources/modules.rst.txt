@@ -39,6 +39,13 @@ Runs a resolved task's command, propagating its exit code.
 
 .. automodule:: nur.core.execution
 
+Shell (``nur.core.shell``)
+------------------------------
+
+Quotes literal arguments for the shell that runs shell tasks.
+
+.. automodule:: nur.core.shell
+
 Models (``nur.core.models``)
 --------------------------------
 

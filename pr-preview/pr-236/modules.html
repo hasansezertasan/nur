@@ -101,6 +101,11 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#nur.core.execution.run_direct"><code class="docutils literal notranslate"><span class="pre">run_direct()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#shell-nur-core-shell">Shell (<code class="docutils literal notranslate"><span class="pre">nur.core.shell</span></code>)</a><ul>
+<li><a class="reference internal" href="#nur.core.shell.quote"><code class="docutils literal notranslate"><span class="pre">quote()</span></code></a></li>
+<li><a class="reference internal" href="#nur.core.shell.quote_for_cmd"><code class="docutils literal notranslate"><span class="pre">quote_for_cmd()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#models-nur-core-models">Models (<code class="docutils literal notranslate"><span class="pre">nur.core.models</span></code>)</a><ul>
 <li><a class="reference internal" href="#nur.core.models.Provider"><code class="docutils literal notranslate"><span class="pre">Provider</span></code></a></li>
 <li><a class="reference internal" href="#nur.core.models.Task"><code class="docutils literal notranslate"><span class="pre">Task</span></code></a></li>
@@ -310,6 +315,33 @@ as a traceback, report a controlled error and return <code class="docutils liter
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="shell-nur-core-shell">
+<h2>Shell (<code class="docutils literal notranslate"><span class="pre">nur.core.shell</span></code>)<a class="headerlink" href="#shell-nur-core-shell" title="Link to this heading">#</a></h2>
+<p>Quotes literal arguments for the shell that runs shell tasks.</p>
+<dl class="py function" id="module-nur.core.shell">
+<dt class="sig sig-object py" id="nur.core.shell.quote">
+<span class="sig-prename descclassname"><span class="pre">nur.core.shell.</span></span><span class="sig-name descname"><span class="pre">quote</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/shlex.html#quote"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.core.shell.quote" title="Link to this definition">#</a></dt>
+<dd><p>Return a shell-escaped version of the string <em>s</em>.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="nur.core.shell.quote_for_cmd">
+<span class="sig-prename descclassname"><span class="pre">nur.core.shell.</span></span><span class="sig-name descname"><span class="pre">quote_for_cmd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">argument</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/core/shell.html#quote_for_cmd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.core.shell.quote_for_cmd" title="Link to this definition">#</a></dt>
+<dd><p>Quote one argument for cmd.exe and the MSVC argv parser, only if needed.</p>
+<p>Plain tokens stay bare, since cmd.exe built-ins such as <code class="docutils literal notranslate"><span class="pre">echo</span></code> print
+quotes verbatim. Anything with whitespace, quotes, or cmd.exe operators
+such as <code class="docutils literal notranslate"><span class="pre">&amp;</span></code> or <code class="docutils literal notranslate"><span class="pre">&gt;</span></code> is double-quoted so it stays one literal token.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>argument</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)">str</a></p>
 </dd>
 </dl>
 </dd></dl>
