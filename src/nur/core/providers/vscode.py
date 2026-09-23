@@ -96,7 +96,11 @@ def _load_tasks(cwd: Path) -> list[dict[str, object]] | None:
     if not isinstance(document, dict) or document.get("version") != "2.0.0":
         return None
     tasks = document.get("tasks")
-    return tasks if isinstance(tasks, list) else None
+    return (
+        [entry for entry in tasks if isinstance(entry, dict)]
+        if isinstance(tasks, list)
+        else None
+    )
 
 
 class VsCodeProvider:
@@ -115,7 +119,7 @@ class VsCodeProvider:
             return []
         tasks_by_label: dict[str, Task] = {}
         for entry in entries:
-            if not isinstance(entry, dict) or entry.get("type") not in {
+            if entry.get("type") not in {
                 None,
                 "shell",
                 "process",
