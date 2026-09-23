@@ -17,10 +17,12 @@ class Task:
     description: str | None = None
     definition: str = ""
     source_file: str = ""
-    run_in_shell: bool = False
     # Tokens inserted before passthrough args when (and only when) extra args
     # are forwarded, e.g. npm requires `npm run <script> -- <args>`.
     passthrough_prefix: tuple[str, ...] = ()
+    # Shell tasks pass argv_base[0] to the platform shell verbatim, so it may use
+    # shell syntax; every later token is quoted as a single literal argument.
+    run_in_shell: bool = False
 
     @property
     def qualified_name(self) -> str:

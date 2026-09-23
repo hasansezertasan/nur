@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import contextlib
 import os
+import re
+import shlex
 import signal
 import subprocess
 import sys
@@ -21,6 +23,33 @@ __all__ = ["ProcessRunner", "run_direct"]
 RUNNER_NOT_FOUND = 127
 
 
+def _quote_for_cmd(argument: str) -> str:
+    """Double-quote one argument for cmd.exe and the MSVC argv parser.
+
+    Unlike ``subprocess.list2cmdline``, this always quotes, so cmd.exe
+    operators such as ``&`` or ``>`` in a literal argument stay literal.
+    """
+    escaped = re.sub(r'(\\*)"', r'\1\1\\"', argument)
+    escaped = re.sub(r"(\\+)$", r"\1\1", escaped)
+    return f'"{escaped}"'
+
+
+# Match the shell subprocess picks for shell=True: cmd.exe or /bin/sh.
+_quote = _quote_for_cmd if os.name == "nt" else shlex.quote
+
+
+def _command(task: Task, extra_args: list[str] | None = None) -> str | list[str]:
+    """Build the value handed to ``subprocess`` for ``task``.
+
+    A shell task keeps its command text verbatim so operators such as
+    redirection still work, while each literal argument stays a single token.
+    """
+    argv = task.run_argv(extra_args)
+    if not task.run_in_shell:
+        return argv
+    return " ".join([argv[0], *map(_quote, argv[1:])])
+
+
 def run_direct(task: Task, extra_args: list[str], cwd: Path) -> int:
     """Run a task with inherited stdio; return the child's exit code.
 
@@ -28,15 +57,13 @@ def run_direct(task: Task, extra_args: list[str], cwd: Path) -> int:
     binary is not installed. Rather than letting ``FileNotFoundError`` escape
     as a traceback, report a controlled error and return ``127``.
     """
-    argv = task.run_argv(extra_args)
-    command = " ".join(argv) if task.run_in_shell else argv
     try:
         completed = subprocess.run(
-            command, cwd=cwd, check=False, shell=task.run_in_shell
+            _command(task, extra_args), cwd=cwd, check=False, shell=task.run_in_shell
         )
     except FileNotFoundError:
         print(
-            f"nur: runner '{argv[0]}' is not installed "
+            f"nur: runner '{task.argv_base[0]}' is not installed "
             f"(needed to run {task.qualified_name}).",
             file=sys.stderr,
         )
@@ -70,13 +97,10 @@ class ProcessRunner:
         # Not a `with` block: the process is stored on self and outlives this
         # method so interrupt() can signal it; cleanup happens in the finally.
         if isinstance(argv, Task):
-            task_argv = argv.run_argv()
-            command = " ".join(task_argv) if argv.run_in_shell else task_argv
-            run_in_shell = argv.run_in_shell
+            command, run_in_shell = _command(argv), argv.run_in_shell
+            runner = argv.argv_base[0]
         else:
-            task_argv = argv
-            command = argv
-            run_in_shell = False
+            command, run_in_shell, runner = argv, False, argv[0]
         try:
             proc = subprocess.Popen(  # pylint: disable=consider-using-with
                 command,
@@ -93,7 +117,7 @@ class ProcessRunner:
         except FileNotFoundError:
             # Natively-discovered task whose runner isn't installed: surface a
             # message in the output pane instead of an empty pane + exited(1).
-            on_line(f"nur: runner '{task_argv[0]}' is not installed.\n")
+            on_line(f"nur: runner '{runner}' is not installed.\n")
             return RUNNER_NOT_FOUND
         with self._lock:
             self._proc = proc

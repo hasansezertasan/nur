@@ -1,9 +1,16 @@
+import os
+import shlex
 import sys
 import time
 
 import pytest
 
-from nur.core.execution import RUNNER_NOT_FOUND, ProcessRunner, run_direct
+from nur.core.execution import (
+    RUNNER_NOT_FOUND,
+    ProcessRunner,
+    _quote_for_cmd,
+    run_direct,
+)
 from nur.core.models import Task
 
 
@@ -19,15 +26,67 @@ def test_run_direct_appends_extra_args(tmp_path) -> None:
     assert run_direct(t, ["a", "b"], tmp_path) == 2
 
 
-def test_run_direct_executes_shell_task_syntax(tmp_path) -> None:
-    task = Task(
-        name="shell",
+_shell_quote = _quote_for_cmd if os.name == "nt" else shlex.quote
+
+
+@pytest.mark.parametrize(
+    ("argument", "expected"),
+    [
+        ("plain", '"plain"'),
+        ("one file", '"one file"'),
+        ("a&b>c", '"a&b>c"'),
+        ('say "hi"', '"say \\"hi\\""'),
+        ('back\\"slash', '"back\\\\\\"slash"'),
+        ("dir\\", '"dir\\\\"'),
+    ],
+)
+def test_quote_for_cmd(argument: str, expected: str) -> None:
+    assert _quote_for_cmd(argument) == expected
+
+
+def _write_argv_task() -> Task:
+    # Shell command text, then literal args that must each stay one token.
+    script = "import pathlib, sys; [pathlib.Path(a).touch() for a in sys.argv[1:]]"
+    command = f"{_shell_quote(sys.executable)} -c {_shell_quote(script)}"
+    return Task(
+        name="touch",
         prefix="test",
-        argv_base=("printf", "ok", ">", "marker"),
+        argv_base=(command, "one file", "semi;colon"),
         run_in_shell=True,
     )
+
+
+def test_run_direct_executes_shell_task_syntax(tmp_path) -> None:
+    task = Task(
+        name="shell", prefix="test", argv_base=("echo ok> marker",), run_in_shell=True
+    )
     assert run_direct(task, [], tmp_path) == 0
-    assert (tmp_path / "marker").read_text() == "ok"
+    assert (tmp_path / "marker").read_text().strip() == "ok"
+
+
+def test_run_direct_quotes_shell_task_literal_arguments(tmp_path) -> None:
+    assert run_direct(_write_argv_task(), ["extra arg"], tmp_path) == 0
+    assert sorted(path.name for path in tmp_path.iterdir()) == [
+        "extra arg",
+        "one file",
+        "semi;colon",
+    ]
+
+
+def test_process_runner_runs_shell_task(tmp_path) -> None:
+    code = ProcessRunner().run(_write_argv_task(), tmp_path, on_line=lambda _l: None)
+    assert code == 0
+    assert sorted(path.name for path in tmp_path.iterdir()) == [
+        "one file",
+        "semi;colon",
+    ]
+
+
+def test_process_runner_runs_process_task(tmp_path) -> None:
+    lines: list[str] = []
+    task = Task(name="x", prefix="py", argv_base=(sys.executable, "-c", "print('hi')"))
+    assert ProcessRunner().run(task, tmp_path, on_line=lines.append) == 0
+    assert [line.rstrip("\n") for line in lines] == ["hi"]
 
 
 def test_process_runner_streams_lines_and_returns_code(tmp_path) -> None:
