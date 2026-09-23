@@ -4,8 +4,8 @@ Usage
 ``nur`` discovers the runnable tasks in your project (from ``Makefile``,
 ``package.json``, ``deno.json``/``deno.jsonc``, ``composer.json``, ``justfile``,
 ``Taskfile``, ``mise.toml``, ``Makefile.toml`` (cargo-make), ``moon.yml``, the xc
-task section of ``README.md``, and the ``pdm``/``poe`` tables in
-``pyproject.toml``) and runs them from one entry point.
+task section of ``README.md``, ``.vscode/tasks.json``, and the ``pdm``/``poe``
+tables in ``pyproject.toml``) and runs them from one entry point.
 
 Launch the TUI
 --------------
@@ -26,7 +26,7 @@ List the discovered tasks
 
 Tasks are grouped by their provider prefix (``make``, ``npm``, ``deno``,
 ``composer``, ``just``, ``task``, ``pdm``, ``poe``, ``mise``, ``cargo-make``,
-``moon``, ``xc``).
+``moon``, ``xc``, ``vscode``).
 
 Run a task
 ----------
@@ -57,8 +57,20 @@ As a library
 
 The package exposes its version for programmatic use:
 
-.. code-block:: python
+.. doctest::
 
-   import nur
+   >>> import nur
+   >>> isinstance(nur.__version__, str)
+   True
 
-   nur.__version__
+Look up the installed distribution version:
+
+.. literalinclude:: examples/version_lookup.py
+   :language: python
+   :caption: examples/version_lookup.py
+
+Or run nur itself from Python:
+
+.. literalinclude:: examples/cli_usage.py
+   :language: python
+   :caption: examples/cli_usage.py
