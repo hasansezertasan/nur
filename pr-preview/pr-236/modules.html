@@ -335,7 +335,10 @@ as a traceback, report a controlled error and return <code class="docutils liter
 <dd><p>Quote one argument for cmd.exe and the MSVC argv parser, only if needed.</p>
 <p>Plain tokens stay bare, since cmd.exe built-ins such as <code class="docutils literal notranslate"><span class="pre">echo</span></code> print
 quotes verbatim. Anything with whitespace, quotes, or cmd.exe operators
-such as <code class="docutils literal notranslate"><span class="pre">&amp;</span></code> or <code class="docutils literal notranslate"><span class="pre">&gt;</span></code> is double-quoted so it stays one literal token.</p>
+such as <code class="docutils literal notranslate"><span class="pre">&amp;</span></code> or <code class="docutils literal notranslate"><span class="pre">&gt;</span></code> is double-quoted so it stays one literal token.
+cmd.exe expands <code class="docutils literal notranslate"><span class="pre">%NAME%</span></code> even inside quotes, so each <code class="docutils literal notranslate"><span class="pre">%</span></code> is emitted as
+<code class="docutils literal notranslate"><span class="pre">^%</span></code> between quoted pieces: the caret keeps it literal, and the quote
+characters around it stop the text from naming a real variable.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>argument</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p>
