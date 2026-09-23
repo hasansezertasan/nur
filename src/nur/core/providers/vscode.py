@@ -8,6 +8,7 @@ import sys
 from typing import TYPE_CHECKING, cast
 
 from nur.core.models import Task
+from nur.core.shell import quote
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -186,6 +187,11 @@ class VsCodeProvider:
         if not isinstance(label, str) or not label or command_args is None:
             return None
         command, arguments = command_args
+        run_in_shell = entry.get("type") != "process"
+        if run_in_shell and isinstance(entry.get("command"), dict):
+            # The object form marks the command as a literal token to quote; it
+            # still runs through the shell, so builtins keep working.
+            command = quote(command)
         argv_base = (command, *arguments)
         detail = entry.get("detail")
         return Task(
@@ -195,8 +201,5 @@ class VsCodeProvider:
             description=detail if isinstance(detail, str) else None,
             definition=" ".join(argv_base),
             source_file=_SOURCE_FILE,
-            # An object-form command is a quoted literal, and args always are, so
-            # such a task holds no shell syntax and runs directly as a process.
-            run_in_shell=entry.get("type") != "process"
-            and not isinstance(entry.get("command"), dict),
+            run_in_shell=run_in_shell,
         )

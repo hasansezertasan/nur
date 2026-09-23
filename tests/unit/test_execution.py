@@ -5,14 +5,9 @@ import time
 
 import pytest
 
-from nur.core.execution import (
-    RUNNER_NOT_FOUND,
-    ProcessRunner,
-    _command,
-    _quote_for_cmd,
-    run_direct,
-)
+from nur.core.execution import RUNNER_NOT_FOUND, ProcessRunner, _command, run_direct
 from nur.core.models import Task
+from nur.core.shell import quote_for_cmd
 
 
 def test_run_direct_returns_exit_code(tmp_path) -> None:
@@ -27,7 +22,7 @@ def test_run_direct_appends_extra_args(tmp_path) -> None:
     assert run_direct(t, ["a", "b"], tmp_path) == 2
 
 
-_shell_quote = _quote_for_cmd if os.name == "nt" else shlex.quote
+_shell_quote = quote_for_cmd if os.name == "nt" else shlex.quote
 
 
 @pytest.mark.parametrize(
@@ -44,8 +39,8 @@ _shell_quote = _quote_for_cmd if os.name == "nt" else shlex.quote
         ("my dir\\", '"my dir\\\\"'),
     ],
 )
-def test_quote_for_cmd(argument: str, expected: str) -> None:
-    assert _quote_for_cmd(argument) == expected
+def testquote_for_cmd(argument: str, expected: str) -> None:
+    assert quote_for_cmd(argument) == expected
 
 
 def _write_argv_task() -> Task:

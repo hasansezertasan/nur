@@ -165,7 +165,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   skipped: hidden tasks, tasks with `dependsOn`, other variables, or `options`
   setting `env`, `shell`, or a `cwd` other than the project root. Shell tasks run
   through `$SHELL -c` on POSIX (falling back to `/bin/sh`) and `cmd.exe` on
-  Windows; a task whose `command` uses the object form runs directly as a process.
+  Windows; an object-form `command` is quoted as a single literal token.
 - **CLI Application**: run any discovered task by name or qualified `prefix:name`, with `--` passthrough to the underlying runner.
 - **TUI Application**: interactive three-pane task picker built with Textual.
 - **Safe by default**: discovery parses files; it never shells out to a runner just to list tasks.

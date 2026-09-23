@@ -2,6 +2,7 @@ import os
 import sys
 
 from nur.core.providers.vscode import VsCodeProvider
+from nur.core.shell import quote
 
 
 def _write_tasks(tmp_path, contents: str) -> None:
@@ -156,18 +157,24 @@ def test_ignores_legacy_and_malformed_documents(tmp_path, caplog) -> None:
     assert provider.discover(tmp_path) == []
 
 
-def test_object_form_command_runs_as_a_process(tmp_path) -> None:
+def test_object_form_command_is_quoted_for_the_shell(tmp_path) -> None:
     _write_tasks(
         tmp_path,
-        """{"version": "2.0.0", "tasks": [{
-  "label": "tool", "type": "shell",
-  "command": {"value": "${workspaceFolder}/my tool", "quoting": "strong"},
-  "args": ["x"]
-}]}""",
+        """{"version": "2.0.0", "tasks": [
+  {"label": "tool", "type": "shell",
+   "command": {"value": "${workspaceFolder}/my tool", "quoting": "strong"},
+   "args": ["x"]},
+  {"label": "builtin", "type": "shell", "command": {"value": "echo"}},
+  {"label": "process", "type": "process", "command": {"value": "my tool"}}
+]}""",
     )
-    task = VsCodeProvider().discover(tmp_path)[0]
-    assert task.argv_base == (f"{tmp_path}/my tool", "x")
-    assert not task.run_in_shell
+    tasks = {task.name: task for task in VsCodeProvider().discover(tmp_path)}
+    assert tasks["tool"].argv_base == (quote(f"{tmp_path}/my tool"), "x")
+    assert tasks["tool"].run_in_shell
+    assert tasks["builtin"].argv_base == ("echo",)
+    assert tasks["builtin"].run_in_shell
+    assert tasks["process"].argv_base == ("my tool",)
+    assert not tasks["process"].run_in_shell
 
 
 def test_block_comments_do_not_fuse_adjacent_tokens(tmp_path, caplog) -> None:
