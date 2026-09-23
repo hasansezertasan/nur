@@ -79,13 +79,15 @@ def _platform_entry(entry: dict[str, object]) -> dict[str, object]:
 def _resolve_variables(value: str, cwd: Path) -> str | None:
     """Substitute the VS Code variables nur can know; ``None`` if any remain."""
     unresolved: list[str] = []
+    # VS Code substitutes an absolute path, so a relative cwd must not leak in.
+    workspace = cwd.resolve()
 
     def replace(match: re.Match[str]) -> str:
         name = match.group(1)
         if name in {"workspaceFolder", "workspaceRoot"}:
-            return str(cwd)
+            return str(workspace)
         if name == "workspaceFolderBasename":
-            return cwd.name
+            return workspace.name
         if name in {"pathSeparator", "/"}:
             return os.sep
         if name.startswith("env:"):

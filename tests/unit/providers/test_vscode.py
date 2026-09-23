@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 
 from nur.core.providers.vscode import VsCodeProvider
 from nur.core.shell import quote
@@ -67,7 +68,7 @@ def test_skips_unsupported_and_non_runnable_tasks(tmp_path) -> None:
     )
     tasks = VsCodeProvider().discover(tmp_path)
     assert [(task.name, task.argv_base) for task in tasks] == [
-        ("valid", ("echo", str(tmp_path)))
+        ("valid", ("echo", str(tmp_path.resolve())))
     ]
 
 
@@ -84,8 +85,8 @@ def test_resolves_static_variables(tmp_path, monkeypatch) -> None:
     )
     task = VsCodeProvider().discover(tmp_path)[0]
     assert task.argv_base == (
-        f"{tmp_path}{os.sep}run",
-        tmp_path.name,
+        f"{tmp_path.resolve()}{os.sep}run",
+        tmp_path.resolve().name,
         os.sep,
         "value",
         "",
@@ -169,7 +170,7 @@ def test_object_form_command_is_quoted_for_the_shell(tmp_path) -> None:
 ]}""",
     )
     tasks = {task.name: task for task in VsCodeProvider().discover(tmp_path)}
-    assert tasks["tool"].argv_base == (quote(f"{tmp_path}/my tool"), "x")
+    assert tasks["tool"].argv_base == (quote(f"{tmp_path.resolve()}/my tool"), "x")
     assert tasks["tool"].run_in_shell
     assert tasks["builtin"].argv_base == ("echo",)
     assert tasks["builtin"].run_in_shell
@@ -245,3 +246,18 @@ def test_document_env_still_applies_under_task_options(tmp_path) -> None:
 ]}""",
     )
     assert VsCodeProvider().discover(tmp_path) == []
+
+
+def test_relative_workspace_resolves_to_an_absolute_path(tmp_path, monkeypatch) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    _write_tasks(
+        project,
+        """{"version": "2.0.0", "tasks": [{
+  "label": "build", "command": "${workspaceFolder}/build",
+  "args": ["${workspaceFolderBasename}"], "options": {"cwd": "${workspaceFolder}"}
+}]}""",
+    )
+    monkeypatch.chdir(tmp_path)
+    task = VsCodeProvider().discover(Path("project"))[0]
+    assert task.argv_base == (f"{project.resolve()}/build", "project")
