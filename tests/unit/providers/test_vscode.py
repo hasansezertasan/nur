@@ -261,3 +261,14 @@ def test_relative_workspace_resolves_to_an_absolute_path(tmp_path, monkeypatch) 
     monkeypatch.chdir(tmp_path)
     task = VsCodeProvider().discover(Path("project"))[0]
     assert task.argv_base == (f"{project.resolve()}/build", "project")
+
+
+def test_empty_dependency_lists_do_not_block_a_task(tmp_path) -> None:
+    _write_tasks(
+        tmp_path,
+        """{"version": "2.0.0", "tasks": [
+  {"label": "none", "command": "pytest", "dependsOn": []},
+  {"label": "some", "command": "pytest", "dependsOn": ["build"]}
+]}""",
+    )
+    assert [task.name for task in VsCodeProvider().discover(tmp_path)] == ["none"]

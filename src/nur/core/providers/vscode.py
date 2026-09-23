@@ -198,7 +198,7 @@ class VsCodeProvider:
         if (
             entry.get("type") not in {None, "shell", "process"}
             or entry.get("hide") is True
-            or "dependsOn" in entry
+            or entry.get("dependsOn")
             or not _supported_options(entry.get("options"), cwd)
         ):
             return None

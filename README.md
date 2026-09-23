@@ -162,7 +162,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   `shell` and `process` tasks with a `command`, applying the current platform's
   overrides and resolving `${workspaceFolder}`, `${workspaceFolderBasename}`,
   `${pathSeparator}`, and `${env:NAME}`. Tasks nur cannot run faithfully are
-  skipped: hidden tasks, tasks with `dependsOn`, other variables, or `options`
+  skipped: hidden tasks, tasks with a non-empty `dependsOn`, other variables, or `options`
   setting `env`, `shell`, or a `cwd` other than the project root. Shell tasks run
   through `$SHELL -c` on POSIX (falling back to `/bin/sh`) and `cmd.exe` on
   Windows; an object-form `command` is quoted as a single literal token.
