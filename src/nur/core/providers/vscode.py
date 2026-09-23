@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import re
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from nur.core.models import Task
 
@@ -16,6 +18,7 @@ __all__ = ["VsCodeProvider"]
 log = logging.getLogger("nur")
 
 _SOURCE_FILE = ".vscode/tasks.json"
+_VARIABLE = re.compile(r"\$\{([^}]*)\}")
 
 
 def _strip_jsonc(text: str) -> str:  # noqa: C901, PLR0912
@@ -69,22 +72,61 @@ def _platform_entry(entry: dict[str, object]) -> dict[str, object]:
     return {**entry, **override} if isinstance(override, dict) else entry
 
 
-def _command_and_args(entry: dict[str, object]) -> tuple[str, tuple[str, ...]] | None:
-    platform_entry = _platform_entry(entry)
-    command = platform_entry.get("command")
-    raw_args = platform_entry.get("args", [])
+def _resolve_variables(value: str, cwd: Path) -> str | None:
+    """Substitute the VS Code variables nur can know; ``None`` if any remain."""
+    unresolved: list[str] = []
+
+    def replace(match: re.Match[str]) -> str:
+        name = match.group(1)
+        if name in {"workspaceFolder", "workspaceRoot"}:
+            return str(cwd)
+        if name == "workspaceFolderBasename":
+            return cwd.name
+        if name in {"pathSeparator", "/"}:
+            return os.sep
+        if name.startswith("env:"):
+            return os.environ.get(name.removeprefix("env:"), "")
+        unresolved.append(name)
+        return match.group(0)
+
+    resolved = _VARIABLE.sub(replace, value)
+    return None if unresolved else resolved
+
+
+def _supported_options(options: object, cwd: Path) -> bool:
+    """Accept only options nur can honor: none, or a cwd equal to the project."""
+    if options is None:
+        return True
+    if not isinstance(options, dict) or options.get("env") or "shell" in options:
+        return False
+    work_dir = options.get("cwd")
+    if work_dir is None:
+        return True
+    resolved = _resolve_variables(work_dir, cwd) if isinstance(work_dir, str) else None
+    return resolved is not None and (cwd / resolved).resolve() == cwd.resolve()
+
+
+def _command_and_args(
+    entry: dict[str, object], cwd: Path
+) -> tuple[str, tuple[str, ...]] | None:
+    command = entry.get("command")
+    raw_args = entry.get("args", [])
     if not isinstance(command, str) or not isinstance(raw_args, list):
         return None
-    arguments: list[str] = []
+    values: list[str] = [command]
     for argument in raw_args:
         value = argument.get("value") if isinstance(argument, dict) else argument
         if not isinstance(value, str):
             return None
-        arguments.append(value)
+        values.append(value)
+    resolved = [_resolve_variables(value, cwd) for value in values]
+    if None in resolved:
+        return None
+    command, *arguments = cast("list[str]", resolved)
     return command, tuple(arguments)
 
 
-def _load_tasks(cwd: Path) -> list[dict[str, object]] | None:
+def _load_document(cwd: Path) -> dict[str, object] | None:
     path = cwd / _SOURCE_FILE
     if not path.is_file():
         return None
@@ -93,14 +135,13 @@ def _load_tasks(cwd: Path) -> list[dict[str, object]] | None:
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         log.warning("nur: skipping %s (%s)", _SOURCE_FILE, exc)
         return None
-    if not isinstance(document, dict) or document.get("version") != "2.0.0":
+    if (
+        not isinstance(document, dict)
+        or document.get("version") != "2.0.0"
+        or not isinstance(document.get("tasks"), list)
+    ):
         return None
-    tasks = document.get("tasks")
-    return (
-        [entry for entry in tasks if isinstance(entry, dict)]
-        if isinstance(tasks, list)
-        else None
-    )
+    return document
 
 
 class VsCodeProvider:
@@ -110,33 +151,44 @@ class VsCodeProvider:
 
     def detect(self, cwd: Path) -> bool:
         """Check whether a supported VS Code tasks file exists."""
-        return _load_tasks(cwd) is not None
+        return _load_document(cwd) is not None
 
     def discover(self, cwd: Path) -> list[Task]:
-        """Discover directly runnable shell and process tasks."""
-        entries = _load_tasks(cwd)
-        if entries is None:
+        """Discover shell and process tasks nur can run as VS Code would."""
+        document = _load_document(cwd)
+        if document is None or not _supported_options(document.get("options"), cwd):
             return []
         tasks_by_label: dict[str, Task] = {}
-        for entry in entries:
-            if entry.get("type") not in {None, "shell", "process"}:
+        for raw_entry in cast("list[object]", document["tasks"]):
+            if not isinstance(raw_entry, dict):
                 continue
-            if entry.get("hide") is True or "dependsOn" in entry:
-                continue
-            label = entry.get("label")
-            command_args = _command_and_args(entry)
-            if not isinstance(label, str) or not label or command_args is None:
-                continue
-            command, arguments = command_args
-            argv_base = (command, *arguments)
-            detail = entry.get("detail")
-            tasks_by_label[label] = Task(
-                name=label,
-                prefix=self.prefix,
-                argv_base=argv_base,
-                description=detail if isinstance(detail, str) else None,
-                definition=" ".join(argv_base),
-                source_file=_SOURCE_FILE,
-                run_in_shell=entry.get("type") != "process",
-            )
+            task = self._task(_platform_entry(raw_entry), cwd)
+            if task is not None:
+                tasks_by_label[task.name] = task
         return list(tasks_by_label.values())
+
+    def _task(self, entry: dict[str, object], cwd: Path) -> Task | None:
+        # Tasks with prerequisites are skipped: nur runs no dependency graph.
+        if (
+            entry.get("type") not in {None, "shell", "process"}
+            or entry.get("hide") is True
+            or "dependsOn" in entry
+            or not _supported_options(entry.get("options"), cwd)
+        ):
+            return None
+        label = entry.get("label")
+        command_args = _command_and_args(entry, cwd)
+        if not isinstance(label, str) or not label or command_args is None:
+            return None
+        command, arguments = command_args
+        argv_base = (command, *arguments)
+        detail = entry.get("detail")
+        return Task(
+            name=label,
+            prefix=self.prefix,
+            argv_base=argv_base,
+            description=detail if isinstance(detail, str) else None,
+            definition=" ".join(argv_base),
+            source_file=_SOURCE_FILE,
+            run_in_shell=entry.get("type") != "process",
+        )

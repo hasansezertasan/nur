@@ -1,3 +1,4 @@
+import os
 import sys
 
 from nur.core.providers.vscode import VsCodeProvider
@@ -14,11 +15,13 @@ def test_discovers_jsonc_shell_process_and_untyped_tasks(tmp_path) -> None:
         tmp_path,
         """{
   // VS Code permits comments and trailing commas.
+  /* block
+     comment */
   "version": "2.0.0",
   "tasks": [
     {
       "label": "test", "type": "shell", "command": "pytest", "args": ["-q"],
-      "detail": "Run tests"
+      "detail": "Run \\"tests\\" // not a comment"
     },
     {
       "label": "build", "type": "process", "command": "python",
@@ -33,7 +36,7 @@ def test_discovers_jsonc_shell_process_and_untyped_tasks(tmp_path) -> None:
     assert provider.detect(tmp_path)
     tasks = {task.name: task for task in provider.discover(tmp_path)}
     assert tasks["test"].argv_base == ("pytest", "-q")
-    assert tasks["test"].description == "Run tests"
+    assert tasks["test"].description == 'Run "tests" // not a comment'
     assert tasks["test"].run_in_shell
     assert tasks["build"].definition == "python build.py"
     assert not tasks["build"].run_in_shell
@@ -49,26 +52,70 @@ def test_skips_unsupported_and_non_runnable_tasks(tmp_path) -> None:
   {"label": "dependent", "command": "build", "dependsOn": "test"},
   {"label": "hidden", "command": "secret", "hide": true},
   {"label": "invalid", "type": "shell", "command": 42},
-  {"label": "valid", "command": "echo", "args": ["${workspaceFolder}"]}
-]}""",
+  {"label": "editor-variable", "command": "echo", "args": ["${file}"]},
+  {"label": "env", "command": "env", "options": {"env": {"A": "1"}}},
+  {"label": "custom-shell", "command": "ls", "options": {"shell": {}}},
+  {"label": "subdirectory", "command": "ls", "options": {"cwd": "sub"}},
+  {"label": "bad-cwd", "command": "ls", "options": {"cwd": 1}},
+  {"label": "bad-options", "command": "ls", "options": []},
+  {"label": "bad-args", "command": "ls", "args": "-l"},
+  "not-a-task",
+  {"label": "valid", "command": "echo", "args": ["${workspaceFolder}"],
+   "options": {"cwd": "${workspaceFolder}"}}
+]} // trailing comment without newline""",
     )
     tasks = VsCodeProvider().discover(tmp_path)
     assert [(task.name, task.argv_base) for task in tasks] == [
-        ("valid", ("echo", "${workspaceFolder}"))
+        ("valid", ("echo", str(tmp_path)))
     ]
 
 
-def test_resolves_current_platform_command_and_args(tmp_path) -> None:
+def test_resolves_static_variables(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("NUR_VSCODE_TEST", "value")
     _write_tasks(
         tmp_path,
         """{"version": "2.0.0", "tasks": [{
-  "label": "platform", "command": "base-command", "args": ["base-argument"],
-  "windows": {"command": "windows-command", "args": ["windows-argument"]},
-  "linux": {"command": "linux-command", "args": ["linux-argument"]},
-  "osx": {"command": "mac-command", "args": ["mac-argument"]}
+  "label": "variables", "command": "${workspaceRoot}${/}run",
+  "args": ["${workspaceFolderBasename}", "${pathSeparator}",
+           "${env:NUR_VSCODE_TEST}", "${env:NUR_VSCODE_UNSET_XYZ}"],
+  "options": {}
 }]}""",
     )
     task = VsCodeProvider().discover(tmp_path)[0]
+    assert task.argv_base == (
+        f"{tmp_path}{os.sep}run",
+        tmp_path.name,
+        os.sep,
+        "value",
+        "",
+    )
+
+
+def test_unsupported_global_options_skip_every_task(tmp_path) -> None:
+    _write_tasks(
+        tmp_path,
+        """{"version": "2.0.0", "options": {"env": {"A": "1"}},
+  "tasks": [{"label": "test", "command": "pytest"}]}""",
+    )
+    provider = VsCodeProvider()
+    assert provider.detect(tmp_path)
+    assert provider.discover(tmp_path) == []
+
+
+def test_resolves_current_platform_overrides(tmp_path) -> None:
+    _write_tasks(
+        tmp_path,
+        """{"version": "2.0.0", "tasks": [{
+  "label": "platform", "type": "process",
+  "command": "base-command", "args": ["base-argument"],
+  "windows": {"type": "shell", "command": "windows-command",
+              "args": ["windows-argument"]},
+  "linux": {"type": "shell", "command": "linux-command", "args": ["linux-argument"]},
+  "osx": {"type": "shell", "command": "mac-command", "args": ["mac-argument"]}
+}]}""",
+    )
+    task = VsCodeProvider().discover(tmp_path)[0]
+    assert task.run_in_shell
     expected = (
         ("mac-command", "mac-argument")
         if sys.platform == "darwin"
