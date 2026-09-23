@@ -159,8 +159,10 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   `pre-commit` reads only `repos[].hooks[]` and runs a selected hook with
   `pre-commit run <id> --all-files`; it never invokes `pre-commit` during discovery.
   `vscode` reads version `2.0.0` `.vscode/tasks.json` (JSONC) and surfaces
-  `shell` and `process` tasks with a `command`, applying the current platform's
-  overrides and resolving `${workspaceFolder}`, `${workspaceFolderBasename}`,
+  `shell` and `process` tasks with a `command` (an untyped task runs as a
+  process, as in VS Code), applying the current platform's overrides, inheriting
+  the document-level `type` and, for tasks without their own `command`, its
+  `command` and `args`, and resolving `${workspaceFolder}`, `${workspaceFolderBasename}`,
   `${pathSeparator}`, and `${env:NAME}`. Tasks nur cannot run faithfully are
   skipped: hidden tasks, tasks with a non-empty `dependsOn`, other variables, or `options`
   setting `env`, `shell`, or a `cwd` other than the project root. Shell tasks run

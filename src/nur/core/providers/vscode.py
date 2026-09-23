@@ -20,7 +20,6 @@ log = logging.getLogger("nur")
 
 _SOURCE_FILE = ".vscode/tasks.json"
 _VARIABLE = re.compile(r"\$\{([^}]*)\}")
-_INHERITED_KEYS = ("type", "command", "args")
 
 
 def _strip_jsonc(text: str) -> str:  # noqa: C901, PLR0912
@@ -129,6 +128,29 @@ def _effective_options(root: object, task: object) -> object:
     return merged
 
 
+def _with_global_command(
+    entry: dict[str, object], root: dict[str, object]
+) -> dict[str, object]:
+    """Fill a commandless task from the document's command, as VS Code does.
+
+    The task takes the global command and runs it with the global args, the
+    task name (only when ``suppressTaskName`` is false), then its own args. A
+    task with its own command keeps its own args only, and a commandless task
+    that declares ``dependsOn`` inherits nothing.
+    """
+    if "command" in entry or "dependsOn" in entry or "command" not in root:
+        return entry
+    global_args, task_args = root.get("args", []), entry.get("args", [])
+    if not isinstance(global_args, list) or not isinstance(task_args, list):
+        return {**entry, "args": None}  # Rejected by _command_and_args.
+    label = entry.get("label")
+    suppress = entry.get("suppressTaskName", root.get("suppressTaskName", True))
+    selector = entry.get("taskSelector", root.get("taskSelector", ""))
+    name_args = [f"{selector}{label}"] if not suppress and label else []
+    args = [*global_args, *name_args, *task_args]
+    return {**entry, "command": root["command"], "args": args}
+
+
 def _command_and_args(
     entry: dict[str, object], cwd: Path
 ) -> tuple[str, tuple[str, ...]] | None:
@@ -178,13 +200,13 @@ class VsCodeProvider:
         if document is None:
             return []
         root = _platform_entry(document)
-        # Tasks inherit these document-level properties unless they set their own.
-        defaults = {key: root[key] for key in _INHERITED_KEYS if key in root}
         tasks_by_label: dict[str, Task] = {}
         for raw_entry in cast("list[object]", document["tasks"]):
             if not isinstance(raw_entry, dict):
                 continue
-            entry = {**defaults, **_platform_entry(raw_entry)}
+            entry = _with_global_command(_platform_entry(raw_entry), root)
+            if "type" not in entry and "type" in root:
+                entry["type"] = root["type"]
             entry["options"] = _effective_options(
                 root.get("options"), entry.get("options")
             )
@@ -207,7 +229,8 @@ class VsCodeProvider:
         if not isinstance(label, str) or not label or command_args is None:
             return None
         command, arguments = command_args
-        run_in_shell = entry.get("type") != "process"
+        # Like VS Code, a task whose type resolves to nothing runs as a process.
+        run_in_shell = entry.get("type") == "shell"
         if run_in_shell and isinstance(entry.get("command"), dict):
             # The object form marks the command as a literal token to quote; it
             # still runs through the shell, so builtins keep working.

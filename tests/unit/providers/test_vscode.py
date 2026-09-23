@@ -198,24 +198,35 @@ def test_document_platform_options_apply_to_every_task(tmp_path) -> None:
     assert VsCodeProvider().discover(tmp_path) == []
 
 
-def test_tasks_inherit_document_level_defaults(tmp_path) -> None:
+def test_tasks_inherit_the_global_command_like_vs_code(tmp_path) -> None:
     _write_tasks(
         tmp_path,
-        """{"version": "2.0.0", "type": "process", "command": "python",
-  "args": ["-m", "pytest"],
+        """{"version": "2.0.0", "type": "shell", "command": "python",
+  "args": ["-m"],
   "tasks": [
-    {"label": "inherited"},
-    {"label": "own-command", "command": "ruff", "args": ["check"]},
-    {"label": "own-type", "type": "shell", "command": "echo hi", "args": []}
+    {"label": "pytest", "args": ["pytest"]},
+    {"label": "named", "suppressTaskName": false, "taskSelector": "--task="},
+    {"label": "own-command", "type": "process", "command": "make"},
+    {"label": "compound", "dependsOn": []},
+    {"label": "bad-args", "args": "-q"}
   ]}""",
     )
     tasks = {task.name: task for task in VsCodeProvider().discover(tmp_path)}
-    assert tasks["inherited"].argv_base == ("python", "-m", "pytest")
-    assert not tasks["inherited"].run_in_shell
-    assert tasks["own-command"].argv_base == ("ruff", "check")
+    assert tasks["pytest"].argv_base == ("python", "-m", "pytest")
+    assert tasks["pytest"].run_in_shell  # type is inherited from the document
+    assert tasks["named"].argv_base == ("python", "-m", "--task=named")
+    # An explicit command keeps only its own args, and its own type.
+    assert tasks["own-command"].argv_base == ("make",)
     assert not tasks["own-command"].run_in_shell
-    assert tasks["own-type"].argv_base == ("echo hi",)
-    assert tasks["own-type"].run_in_shell
+    assert set(tasks) == {"pytest", "named", "own-command"}
+
+
+def test_untyped_tasks_run_as_processes(tmp_path) -> None:
+    _write_tasks(
+        tmp_path,
+        """{"version": "2.0.0", "tasks": [{"label": "lint", "command": "ruff"}]}""",
+    )
+    assert not VsCodeProvider().discover(tmp_path)[0].run_in_shell
 
 
 def test_accepts_a_utf8_bom(tmp_path) -> None:
