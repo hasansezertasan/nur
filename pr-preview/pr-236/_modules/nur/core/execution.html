@@ -140,155 +140,160 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="22"><span class="c1"># Conventional "command not found" exit status (as used by POSIX shells).</span>
 </span><span data-line="23"><span class="n">RUNNER_NOT_FOUND</span> <span class="o">=</span> <span class="mi">127</span>
 </span><span data-line="24">
-</span><span data-line="25">
-</span><span data-line="26"><span class="k">def</span><span class="w"> </span><span class="nf">_quote_for_cmd</span><span class="p">(</span><span class="n">argument</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span data-line="27"><span class="w">    </span><span class="sd">"""Double-quote one argument for cmd.exe and the MSVC argv parser.</span>
-</span><span data-line="28">
-</span><span data-line="29"><span class="sd">    Unlike ``subprocess.list2cmdline``, this always quotes, so cmd.exe</span>
-</span><span data-line="30"><span class="sd">    operators such as ``&amp;`` or ``&gt;`` in a literal argument stay literal.</span>
-</span><span data-line="31"><span class="sd">    """</span>
-</span><span data-line="32">    <span class="n">escaped</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s1">'(</span><span class="se">\\</span><span class="s1">*)"'</span><span class="p">,</span> <span class="sa">r</span><span class="s1">'\1\1</span><span class="se">\\</span><span class="s1">"'</span><span class="p">,</span> <span class="n">argument</span><span class="p">)</span>
-</span><span data-line="33">    <span class="n">escaped</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">"(</span><span class="se">\\</span><span class="s2">+)$"</span><span class="p">,</span> <span class="sa">r</span><span class="s2">"\1\1"</span><span class="p">,</span> <span class="n">escaped</span><span class="p">)</span>
-</span><span data-line="34">    <span class="k">return</span> <span class="sa">f</span><span class="s1">'"</span><span class="si">{</span><span class="n">escaped</span><span class="si">}</span><span class="s1">"'</span>
-</span><span data-line="35">
-</span><span data-line="36">
-</span><span data-line="37"><span class="c1"># Match the shell subprocess picks for shell=True: cmd.exe or /bin/sh.</span>
-</span><span data-line="38"><span class="n">_quote</span> <span class="o">=</span> <span class="n">_quote_for_cmd</span> <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">"nt"</span> <span class="k">else</span> <span class="n">shlex</span><span class="o">.</span><span class="n">quote</span>
-</span><span data-line="39">
+</span><span data-line="25"><span class="n">_CMD_PLAIN</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s1">'[^\s"&amp;|&lt;&gt;^()%!,;=]+'</span><span class="p">)</span>
+</span><span data-line="26">
+</span><span data-line="27">
+</span><span data-line="28"><span class="k">def</span><span class="w"> </span><span class="nf">_quote_for_cmd</span><span class="p">(</span><span class="n">argument</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span data-line="29"><span class="w">    </span><span class="sd">"""Quote one argument for cmd.exe and the MSVC argv parser, only if needed.</span>
+</span><span data-line="30">
+</span><span data-line="31"><span class="sd">    Plain tokens stay bare, since cmd.exe built-ins such as ``echo`` print</span>
+</span><span data-line="32"><span class="sd">    quotes verbatim. Anything with whitespace, quotes, or cmd.exe operators</span>
+</span><span data-line="33"><span class="sd">    such as ``&amp;`` or ``&gt;`` is double-quoted so it stays one literal token.</span>
+</span><span data-line="34"><span class="sd">    """</span>
+</span><span data-line="35">    <span class="k">if</span> <span class="n">_CMD_PLAIN</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">argument</span><span class="p">):</span>
+</span><span data-line="36">        <span class="k">return</span> <span class="n">argument</span>
+</span><span data-line="37">    <span class="n">escaped</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s1">'(</span><span class="se">\\</span><span class="s1">*)"'</span><span class="p">,</span> <span class="sa">r</span><span class="s1">'\1\1</span><span class="se">\\</span><span class="s1">"'</span><span class="p">,</span> <span class="n">argument</span><span class="p">)</span>
+</span><span data-line="38">    <span class="n">escaped</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">"(</span><span class="se">\\</span><span class="s2">+)$"</span><span class="p">,</span> <span class="sa">r</span><span class="s2">"\1\1"</span><span class="p">,</span> <span class="n">escaped</span><span class="p">)</span>
+</span><span data-line="39">    <span class="k">return</span> <span class="sa">f</span><span class="s1">'"</span><span class="si">{</span><span class="n">escaped</span><span class="si">}</span><span class="s1">"'</span>
 </span><span data-line="40">
-</span><span data-line="41"><span class="k">def</span><span class="w"> </span><span class="nf">_command</span><span class="p">(</span>
-</span><span data-line="42">    <span class="n">task</span><span class="p">:</span> <span class="n">Task</span><span class="p">,</span> <span class="n">extra_args</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="43"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">bool</span><span class="p">]:</span>
-</span><span data-line="44"><span class="w">    </span><span class="sd">"""Build the ``subprocess`` command for ``task`` and whether it needs ``shell``.</span>
+</span><span data-line="41">
+</span><span data-line="42"><span class="c1"># Quote for the shell that runs shell tasks: cmd.exe, or a POSIX $SHELL.</span>
+</span><span data-line="43"><span class="n">_quote</span> <span class="o">=</span> <span class="n">_quote_for_cmd</span> <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">"nt"</span> <span class="k">else</span> <span class="n">shlex</span><span class="o">.</span><span class="n">quote</span>
+</span><span data-line="44">
 </span><span data-line="45">
-</span><span data-line="46"><span class="sd">    A shell task keeps its command text verbatim so operators such as</span>
-</span><span data-line="47"><span class="sd">    redirection still work, while each literal argument stays a single token.</span>
-</span><span data-line="48"><span class="sd">    Like VS Code's default profile, POSIX runs it with the user's ``$SHELL``;</span>
-</span><span data-line="49"><span class="sd">    Windows uses cmd.exe.</span>
-</span><span data-line="50"><span class="sd">    """</span>
-</span><span data-line="51">    <span class="n">argv</span> <span class="o">=</span> <span class="n">task</span><span class="o">.</span><span class="n">run_argv</span><span class="p">(</span><span class="n">extra_args</span><span class="p">)</span>
-</span><span data-line="52">    <span class="k">if</span> <span class="ow">not</span> <span class="n">task</span><span class="o">.</span><span class="n">run_in_shell</span><span class="p">:</span>
-</span><span data-line="53">        <span class="k">return</span> <span class="n">argv</span><span class="p">,</span> <span class="kc">False</span>
-</span><span data-line="54">    <span class="n">line</span> <span class="o">=</span> <span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">argv</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">*</span><span class="nb">map</span><span class="p">(</span><span class="n">_quote</span><span class="p">,</span> <span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">:])])</span>
-</span><span data-line="55">    <span class="n">posix_shell</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"SHELL"</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">"/bin/sh"</span>
-</span><span data-line="56">    <span class="k">return</span> <span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span> <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">"nt"</span> <span class="k">else</span> <span class="p">([</span><span class="n">posix_shell</span><span class="p">,</span> <span class="s2">"-c"</span><span class="p">,</span> <span class="n">line</span><span class="p">],</span> <span class="kc">False</span><span class="p">)</span>
-</span><span data-line="57">
-</span><span data-line="58">
+</span><span data-line="46"><span class="k">def</span><span class="w"> </span><span class="nf">_command</span><span class="p">(</span>
+</span><span data-line="47">    <span class="n">task</span><span class="p">:</span> <span class="n">Task</span><span class="p">,</span> <span class="n">extra_args</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="48"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">bool</span><span class="p">]:</span>
+</span><span data-line="49"><span class="w">    </span><span class="sd">"""Build the ``subprocess`` command for ``task`` and whether it needs ``shell``.</span>
+</span><span data-line="50">
+</span><span data-line="51"><span class="sd">    A shell task keeps its command text verbatim so operators such as</span>
+</span><span data-line="52"><span class="sd">    redirection still work, while each literal argument stays a single token.</span>
+</span><span data-line="53"><span class="sd">    Like VS Code's default profile, POSIX runs it with the user's ``$SHELL``;</span>
+</span><span data-line="54"><span class="sd">    Windows uses cmd.exe.</span>
+</span><span data-line="55"><span class="sd">    """</span>
+</span><span data-line="56">    <span class="n">argv</span> <span class="o">=</span> <span class="n">task</span><span class="o">.</span><span class="n">run_argv</span><span class="p">(</span><span class="n">extra_args</span><span class="p">)</span>
+</span><span data-line="57">    <span class="k">if</span> <span class="ow">not</span> <span class="n">task</span><span class="o">.</span><span class="n">run_in_shell</span><span class="p">:</span>
+</span><span data-line="58">        <span class="k">return</span> <span class="n">argv</span><span class="p">,</span> <span class="kc">False</span>
+</span><span data-line="59">    <span class="n">line</span> <span class="o">=</span> <span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">argv</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">*</span><span class="nb">map</span><span class="p">(</span><span class="n">_quote</span><span class="p">,</span> <span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">:])])</span>
+</span><span data-line="60">    <span class="n">posix_shell</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"SHELL"</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">"/bin/sh"</span>
+</span><span data-line="61">    <span class="k">return</span> <span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span> <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">"nt"</span> <span class="k">else</span> <span class="p">([</span><span class="n">posix_shell</span><span class="p">,</span> <span class="s2">"-c"</span><span class="p">,</span> <span class="n">line</span><span class="p">],</span> <span class="kc">False</span><span class="p">)</span>
+</span><span data-line="62">
+</span><span data-line="63">
 <div class="viewcode-block" id="run_direct">
 <a class="viewcode-back" href="../../../modules.html#nur.core.execution.run_direct">[docs]</a>
-</span><span data-line="59"><span class="k">def</span><span class="w"> </span><span class="nf">run_direct</span><span class="p">(</span><span class="n">task</span><span class="p">:</span> <span class="n">Task</span><span class="p">,</span> <span class="n">extra_args</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="60"><span class="w">    </span><span class="sd">"""Run a task with inherited stdio; return the child's exit code.</span>
-</span><span data-line="61">
-</span><span data-line="62"><span class="sd">    A natively-parsed provider (npm/PDM/poe) can surface a task whose runner</span>
-</span><span data-line="63"><span class="sd">    binary is not installed. Rather than letting ``FileNotFoundError`` escape</span>
-</span><span data-line="64"><span class="sd">    as a traceback, report a controlled error and return ``127``.</span>
-</span><span data-line="65"><span class="sd">    """</span>
-</span><span data-line="66">    <span class="n">command</span><span class="p">,</span> <span class="n">shell</span> <span class="o">=</span> <span class="n">_command</span><span class="p">(</span><span class="n">task</span><span class="p">,</span> <span class="n">extra_args</span><span class="p">)</span>
-</span><span data-line="67">    <span class="k">try</span><span class="p">:</span>
-</span><span data-line="68">        <span class="n">completed</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">cwd</span><span class="o">=</span><span class="n">cwd</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">shell</span><span class="o">=</span><span class="n">shell</span><span class="p">)</span>
-</span><span data-line="69">    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
-</span><span data-line="70">        <span class="nb">print</span><span class="p">(</span>
-</span><span data-line="71">            <span class="sa">f</span><span class="s2">"nur: runner '</span><span class="si">{</span><span class="n">task</span><span class="o">.</span><span class="n">argv_base</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">' is not installed "</span>
-</span><span data-line="72">            <span class="sa">f</span><span class="s2">"(needed to run </span><span class="si">{</span><span class="n">task</span><span class="o">.</span><span class="n">qualified_name</span><span class="si">}</span><span class="s2">)."</span><span class="p">,</span>
-</span><span data-line="73">            <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span>
-</span><span data-line="74">        <span class="p">)</span>
-</span><span data-line="75">        <span class="k">return</span> <span class="n">RUNNER_NOT_FOUND</span>
-</span><span data-line="76">    <span class="k">return</span> <span class="n">completed</span><span class="o">.</span><span class="n">returncode</span></div>
+</span><span data-line="64"><span class="k">def</span><span class="w"> </span><span class="nf">run_direct</span><span class="p">(</span><span class="n">task</span><span class="p">:</span> <span class="n">Task</span><span class="p">,</span> <span class="n">extra_args</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="65"><span class="w">    </span><span class="sd">"""Run a task with inherited stdio; return the child's exit code.</span>
+</span><span data-line="66">
+</span><span data-line="67"><span class="sd">    A natively-parsed provider (npm/PDM/poe) can surface a task whose runner</span>
+</span><span data-line="68"><span class="sd">    binary is not installed. Rather than letting ``FileNotFoundError`` escape</span>
+</span><span data-line="69"><span class="sd">    as a traceback, report a controlled error and return ``127``.</span>
+</span><span data-line="70"><span class="sd">    """</span>
+</span><span data-line="71">    <span class="n">command</span><span class="p">,</span> <span class="n">shell</span> <span class="o">=</span> <span class="n">_command</span><span class="p">(</span><span class="n">task</span><span class="p">,</span> <span class="n">extra_args</span><span class="p">)</span>
+</span><span data-line="72">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="73">        <span class="n">completed</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">cwd</span><span class="o">=</span><span class="n">cwd</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">shell</span><span class="o">=</span><span class="n">shell</span><span class="p">)</span>
+</span><span data-line="74">    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+</span><span data-line="75">        <span class="nb">print</span><span class="p">(</span>
+</span><span data-line="76">            <span class="sa">f</span><span class="s2">"nur: runner '</span><span class="si">{</span><span class="n">task</span><span class="o">.</span><span class="n">argv_base</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">' is not installed "</span>
+</span><span data-line="77">            <span class="sa">f</span><span class="s2">"(needed to run </span><span class="si">{</span><span class="n">task</span><span class="o">.</span><span class="n">qualified_name</span><span class="si">}</span><span class="s2">)."</span><span class="p">,</span>
+</span><span data-line="78">            <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span>
+</span><span data-line="79">        <span class="p">)</span>
+</span><span data-line="80">        <span class="k">return</span> <span class="n">RUNNER_NOT_FOUND</span>
+</span><span data-line="81">    <span class="k">return</span> <span class="n">completed</span><span class="o">.</span><span class="n">returncode</span></div>
 
-</span><span data-line="77">
-</span><span data-line="78">
+</span><span data-line="82">
+</span><span data-line="83">
 <div class="viewcode-block" id="ProcessRunner">
 <a class="viewcode-back" href="../../../modules.html#nur.core.execution.ProcessRunner">[docs]</a>
-</span><span data-line="79"><span class="k">class</span><span class="w"> </span><span class="nc">ProcessRunner</span><span class="p">:</span>
-</span><span data-line="80"><span class="w">    </span><span class="sd">"""Runs a command with combined output captured and streamed line-by-line.</span>
-</span><span data-line="81">
-</span><span data-line="82"><span class="sd">    Blocking; intended to be driven from a background thread by the TUI.</span>
-</span><span data-line="83"><span class="sd">    """</span>
-</span><span data-line="84">
-</span><span data-line="85">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="86">        <span class="bp">self</span><span class="o">.</span><span class="n">_proc</span><span class="p">:</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="87">        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
-</span><span data-line="88">
-</span><span data-line="89">    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span>
-</span><span data-line="90">        <span class="bp">self</span><span class="p">,</span> <span class="n">argv</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Task</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">on_line</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span>
-</span><span data-line="91">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="92">        <span class="c1"># Put the child in its own process group so an interrupt can signal the</span>
-</span><span data-line="93">        <span class="c1"># whole tree (e.g. npm -&gt; node, make -&gt; sh), not just the runner PID:</span>
-</span><span data-line="94">        <span class="c1"># start_new_session on POSIX, CREATE_NEW_PROCESS_GROUP on Windows. Each</span>
-</span><span data-line="95">        <span class="c1"># flag is a no-op on the other platform, so both are always passed.</span>
-</span><span data-line="96">        <span class="n">creationflags</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="97">        <span class="n">start_new_session</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span data-line="98">        <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">"win32"</span><span class="p">:</span>
-</span><span data-line="99">            <span class="n">creationflags</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">CREATE_NEW_PROCESS_GROUP</span>
-</span><span data-line="100">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="101">            <span class="n">start_new_session</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span data-line="102">        <span class="c1"># Not a `with` block: the process is stored on self and outlives this</span>
-</span><span data-line="103">        <span class="c1"># method so interrupt() can signal it; cleanup happens in the finally.</span>
-</span><span data-line="104">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">argv</span><span class="p">,</span> <span class="n">Task</span><span class="p">):</span>
-</span><span data-line="105">            <span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">shell</span><span class="p">),</span> <span class="n">runner</span> <span class="o">=</span> <span class="n">_command</span><span class="p">(</span><span class="n">argv</span><span class="p">),</span> <span class="n">argv</span><span class="o">.</span><span class="n">argv_base</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-</span><span data-line="106">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="107">            <span class="n">command</span><span class="p">,</span> <span class="n">shell</span><span class="p">,</span> <span class="n">runner</span> <span class="o">=</span> <span class="n">argv</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">argv</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-</span><span data-line="108">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="109">            <span class="n">proc</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span>  <span class="c1"># pylint: disable=consider-using-with</span>
-</span><span data-line="110">                <span class="n">command</span><span class="p">,</span>
-</span><span data-line="111">                <span class="n">cwd</span><span class="o">=</span><span class="n">cwd</span><span class="p">,</span>
-</span><span data-line="112">                <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
-</span><span data-line="113">                <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">STDOUT</span><span class="p">,</span>
-</span><span data-line="114">                <span class="n">stdin</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">,</span>
-</span><span data-line="115">                <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span data-line="116">                <span class="n">bufsize</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-</span><span data-line="117">                <span class="n">creationflags</span><span class="o">=</span><span class="n">creationflags</span><span class="p">,</span>
-</span><span data-line="118">                <span class="n">start_new_session</span><span class="o">=</span><span class="n">start_new_session</span><span class="p">,</span>
-</span><span data-line="119">                <span class="n">shell</span><span class="o">=</span><span class="n">shell</span><span class="p">,</span>
-</span><span data-line="120">            <span class="p">)</span>
-</span><span data-line="121">        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
-</span><span data-line="122">            <span class="c1"># Natively-discovered task whose runner isn't installed: surface a</span>
-</span><span data-line="123">            <span class="c1"># message in the output pane instead of an empty pane + exited(1).</span>
-</span><span data-line="124">            <span class="n">on_line</span><span class="p">(</span><span class="sa">f</span><span class="s2">"nur: runner '</span><span class="si">{</span><span class="n">runner</span><span class="si">}</span><span class="s2">' is not installed.</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
-</span><span data-line="125">            <span class="k">return</span> <span class="n">RUNNER_NOT_FOUND</span>
-</span><span data-line="126">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-</span><span data-line="127">            <span class="bp">self</span><span class="o">.</span><span class="n">_proc</span> <span class="o">=</span> <span class="n">proc</span>
-</span><span data-line="128">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="129">            <span class="k">assert</span> <span class="n">proc</span><span class="o">.</span><span class="n">stdout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span data-line="130">            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">proc</span><span class="o">.</span><span class="n">stdout</span><span class="p">:</span>
-</span><span data-line="131">                <span class="n">on_line</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
-</span><span data-line="132">        <span class="k">finally</span><span class="p">:</span>
-</span><span data-line="133">            <span class="c1"># Runs even if on_line raises, so we never leak the pipe or the</span>
-</span><span data-line="134">            <span class="c1"># child and never leave stale runner state behind.</span>
-</span><span data-line="135">            <span class="c1"># stdout is always a PIPE here, so the None branch never runs.</span>
-</span><span data-line="136">            <span class="k">if</span> <span class="n">proc</span><span class="o">.</span><span class="n">stdout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no branch</span>
-</span><span data-line="137">                <span class="n">proc</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span data-line="138">            <span class="n">code</span> <span class="o">=</span> <span class="n">proc</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
-</span><span data-line="139">            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-</span><span data-line="140">                <span class="bp">self</span><span class="o">.</span><span class="n">_proc</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="141">        <span class="k">return</span> <span class="n">code</span>
-</span><span data-line="142">
-</span><span data-line="143">    <span class="c1"># interrupt() drives OS signals against a live child, so it is exercised</span>
-</span><span data-line="144">    <span class="c1"># manually (see tests/tui/test_app_execution.py) rather than in unit tests.</span>
-</span><span data-line="145">    <span class="k">def</span><span class="w"> </span><span class="nf">interrupt</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
-</span><span data-line="146">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-</span><span data-line="147">            <span class="n">proc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_proc</span>
-</span><span data-line="148">        <span class="k">if</span> <span class="n">proc</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">proc</span><span class="o">.</span><span class="n">poll</span><span class="p">()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="149">            <span class="k">return</span>
-</span><span data-line="150">        <span class="c1"># if/else (not an early return) so type checkers treat each arm as a</span>
-</span><span data-line="151">        <span class="c1"># platform-specific branch and don't flag the other as unreachable.</span>
-</span><span data-line="152">        <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">"win32"</span><span class="p">:</span>
-</span><span data-line="153">            <span class="c1"># Windows has no os.killpg; CTRL_BREAK is the documented way to</span>
-</span><span data-line="154">            <span class="c1"># interrupt a CREATE_NEW_PROCESS_GROUP child (and, unlike CTRL_C,</span>
-</span><span data-line="155">            <span class="c1"># it targets only the child's group, never nur's own console).</span>
-</span><span data-line="156">            <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">OSError</span><span class="p">):</span>
-</span><span data-line="157">                <span class="n">proc</span><span class="o">.</span><span class="n">send_signal</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">CTRL_BREAK_EVENT</span><span class="p">)</span>
-</span><span data-line="158">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="159">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="160">                <span class="c1"># os.killpg/getpgid are POSIX-only (guarded by the branch above);</span>
-</span><span data-line="161">                <span class="c1"># pylint's Windows `os` stub lacks them, so silence no-member there.</span>
-</span><span data-line="162">                <span class="n">os</span><span class="o">.</span><span class="n">killpg</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getpgid</span><span class="p">(</span><span class="n">proc</span><span class="o">.</span><span class="n">pid</span><span class="p">),</span> <span class="n">signal</span><span class="o">.</span><span class="n">SIGINT</span><span class="p">)</span>  <span class="c1"># pylint: disable=no-member</span>
-</span><span data-line="163">            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
-</span><span data-line="164">                <span class="c1"># Process already gone (ProcessLookupError), or the group could</span>
-</span><span data-line="165">                <span class="c1"># not be signalled (PermissionError) -- both subclass OSError;</span>
-</span><span data-line="166">                <span class="c1"># fall back to signalling the process directly.</span>
-</span><span data-line="167">                <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">ProcessLookupError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
-</span><span data-line="168">                    <span class="n">proc</span><span class="o">.</span><span class="n">send_signal</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">SIGINT</span><span class="p">)</span></div>
+</span><span data-line="84"><span class="k">class</span><span class="w"> </span><span class="nc">ProcessRunner</span><span class="p">:</span>
+</span><span data-line="85"><span class="w">    </span><span class="sd">"""Runs a command with combined output captured and streamed line-by-line.</span>
+</span><span data-line="86">
+</span><span data-line="87"><span class="sd">    Blocking; intended to be driven from a background thread by the TUI.</span>
+</span><span data-line="88"><span class="sd">    """</span>
+</span><span data-line="89">
+</span><span data-line="90">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="91">        <span class="bp">self</span><span class="o">.</span><span class="n">_proc</span><span class="p">:</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="92">        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+</span><span data-line="93">
+</span><span data-line="94">    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span>
+</span><span data-line="95">        <span class="bp">self</span><span class="p">,</span> <span class="n">argv</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Task</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">on_line</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span>
+</span><span data-line="96">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="97">        <span class="c1"># Put the child in its own process group so an interrupt can signal the</span>
+</span><span data-line="98">        <span class="c1"># whole tree (e.g. npm -&gt; node, make -&gt; sh), not just the runner PID:</span>
+</span><span data-line="99">        <span class="c1"># start_new_session on POSIX, CREATE_NEW_PROCESS_GROUP on Windows. Each</span>
+</span><span data-line="100">        <span class="c1"># flag is a no-op on the other platform, so both are always passed.</span>
+</span><span data-line="101">        <span class="n">creationflags</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="102">        <span class="n">start_new_session</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="103">        <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">"win32"</span><span class="p">:</span>
+</span><span data-line="104">            <span class="n">creationflags</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">CREATE_NEW_PROCESS_GROUP</span>
+</span><span data-line="105">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="106">            <span class="n">start_new_session</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="107">        <span class="c1"># Not a `with` block: the process is stored on self and outlives this</span>
+</span><span data-line="108">        <span class="c1"># method so interrupt() can signal it; cleanup happens in the finally.</span>
+</span><span data-line="109">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">argv</span><span class="p">,</span> <span class="n">Task</span><span class="p">):</span>
+</span><span data-line="110">            <span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">shell</span><span class="p">),</span> <span class="n">runner</span> <span class="o">=</span> <span class="n">_command</span><span class="p">(</span><span class="n">argv</span><span class="p">),</span> <span class="n">argv</span><span class="o">.</span><span class="n">argv_base</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="111">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="112">            <span class="n">command</span><span class="p">,</span> <span class="n">shell</span><span class="p">,</span> <span class="n">runner</span> <span class="o">=</span> <span class="n">argv</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">argv</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="113">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="114">            <span class="n">proc</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span>  <span class="c1"># pylint: disable=consider-using-with</span>
+</span><span data-line="115">                <span class="n">command</span><span class="p">,</span>
+</span><span data-line="116">                <span class="n">cwd</span><span class="o">=</span><span class="n">cwd</span><span class="p">,</span>
+</span><span data-line="117">                <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+</span><span data-line="118">                <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">STDOUT</span><span class="p">,</span>
+</span><span data-line="119">                <span class="n">stdin</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">,</span>
+</span><span data-line="120">                <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span data-line="121">                <span class="n">bufsize</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+</span><span data-line="122">                <span class="n">creationflags</span><span class="o">=</span><span class="n">creationflags</span><span class="p">,</span>
+</span><span data-line="123">                <span class="n">start_new_session</span><span class="o">=</span><span class="n">start_new_session</span><span class="p">,</span>
+</span><span data-line="124">                <span class="n">shell</span><span class="o">=</span><span class="n">shell</span><span class="p">,</span>
+</span><span data-line="125">            <span class="p">)</span>
+</span><span data-line="126">        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+</span><span data-line="127">            <span class="c1"># Natively-discovered task whose runner isn't installed: surface a</span>
+</span><span data-line="128">            <span class="c1"># message in the output pane instead of an empty pane + exited(1).</span>
+</span><span data-line="129">            <span class="n">on_line</span><span class="p">(</span><span class="sa">f</span><span class="s2">"nur: runner '</span><span class="si">{</span><span class="n">runner</span><span class="si">}</span><span class="s2">' is not installed.</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="130">            <span class="k">return</span> <span class="n">RUNNER_NOT_FOUND</span>
+</span><span data-line="131">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+</span><span data-line="132">            <span class="bp">self</span><span class="o">.</span><span class="n">_proc</span> <span class="o">=</span> <span class="n">proc</span>
+</span><span data-line="133">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="134">            <span class="k">assert</span> <span class="n">proc</span><span class="o">.</span><span class="n">stdout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="135">            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">proc</span><span class="o">.</span><span class="n">stdout</span><span class="p">:</span>
+</span><span data-line="136">                <span class="n">on_line</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+</span><span data-line="137">        <span class="k">finally</span><span class="p">:</span>
+</span><span data-line="138">            <span class="c1"># Runs even if on_line raises, so we never leak the pipe or the</span>
+</span><span data-line="139">            <span class="c1"># child and never leave stale runner state behind.</span>
+</span><span data-line="140">            <span class="c1"># stdout is always a PIPE here, so the None branch never runs.</span>
+</span><span data-line="141">            <span class="k">if</span> <span class="n">proc</span><span class="o">.</span><span class="n">stdout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no branch</span>
+</span><span data-line="142">                <span class="n">proc</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="143">            <span class="n">code</span> <span class="o">=</span> <span class="n">proc</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+</span><span data-line="144">            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+</span><span data-line="145">                <span class="bp">self</span><span class="o">.</span><span class="n">_proc</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="146">        <span class="k">return</span> <span class="n">code</span>
+</span><span data-line="147">
+</span><span data-line="148">    <span class="c1"># interrupt() drives OS signals against a live child, so it is exercised</span>
+</span><span data-line="149">    <span class="c1"># manually (see tests/tui/test_app_execution.py) rather than in unit tests.</span>
+</span><span data-line="150">    <span class="k">def</span><span class="w"> </span><span class="nf">interrupt</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+</span><span data-line="151">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+</span><span data-line="152">            <span class="n">proc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_proc</span>
+</span><span data-line="153">        <span class="k">if</span> <span class="n">proc</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">proc</span><span class="o">.</span><span class="n">poll</span><span class="p">()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="154">            <span class="k">return</span>
+</span><span data-line="155">        <span class="c1"># if/else (not an early return) so type checkers treat each arm as a</span>
+</span><span data-line="156">        <span class="c1"># platform-specific branch and don't flag the other as unreachable.</span>
+</span><span data-line="157">        <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">"win32"</span><span class="p">:</span>
+</span><span data-line="158">            <span class="c1"># Windows has no os.killpg; CTRL_BREAK is the documented way to</span>
+</span><span data-line="159">            <span class="c1"># interrupt a CREATE_NEW_PROCESS_GROUP child (and, unlike CTRL_C,</span>
+</span><span data-line="160">            <span class="c1"># it targets only the child's group, never nur's own console).</span>
+</span><span data-line="161">            <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">OSError</span><span class="p">):</span>
+</span><span data-line="162">                <span class="n">proc</span><span class="o">.</span><span class="n">send_signal</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">CTRL_BREAK_EVENT</span><span class="p">)</span>
+</span><span data-line="163">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="164">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="165">                <span class="c1"># os.killpg/getpgid are POSIX-only (guarded by the branch above);</span>
+</span><span data-line="166">                <span class="c1"># pylint's Windows `os` stub lacks them, so silence no-member there.</span>
+</span><span data-line="167">                <span class="n">os</span><span class="o">.</span><span class="n">killpg</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getpgid</span><span class="p">(</span><span class="n">proc</span><span class="o">.</span><span class="n">pid</span><span class="p">),</span> <span class="n">signal</span><span class="o">.</span><span class="n">SIGINT</span><span class="p">)</span>  <span class="c1"># pylint: disable=no-member</span>
+</span><span data-line="168">            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+</span><span data-line="169">                <span class="c1"># Process already gone (ProcessLookupError), or the group could</span>
+</span><span data-line="170">                <span class="c1"># not be signalled (PermissionError) -- both subclass OSError;</span>
+</span><span data-line="171">                <span class="c1"># fall back to signalling the process directly.</span>
+</span><span data-line="172">                <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">ProcessLookupError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
+</span><span data-line="173">                    <span class="n">proc</span><span class="o">.</span><span class="n">send_signal</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">SIGINT</span><span class="p">)</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">
