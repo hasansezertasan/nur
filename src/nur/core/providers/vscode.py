@@ -20,6 +20,7 @@ log = logging.getLogger("nur")
 
 _SOURCE_FILE = ".vscode/tasks.json"
 _VARIABLE = re.compile(r"\$\{([^}]*)\}")
+_INHERITED_KEYS = ("type", "command", "args")
 
 
 def _strip_jsonc(text: str) -> str:  # noqa: C901, PLR0912
@@ -160,15 +161,18 @@ class VsCodeProvider:
     def discover(self, cwd: Path) -> list[Task]:
         """Discover shell and process tasks nur can run as VS Code would."""
         document = _load_document(cwd)
-        if document is None or not _supported_options(
-            _platform_entry(document).get("options"), cwd
-        ):
+        if document is None:
             return []
+        root = _platform_entry(document)
+        if not _supported_options(root.get("options"), cwd):
+            return []
+        # Tasks inherit these document-level properties unless they set their own.
+        defaults = {key: root[key] for key in _INHERITED_KEYS if key in root}
         tasks_by_label: dict[str, Task] = {}
         for raw_entry in cast("list[object]", document["tasks"]):
             if not isinstance(raw_entry, dict):
                 continue
-            task = self._task(_platform_entry(raw_entry), cwd)
+            task = self._task({**defaults, **_platform_entry(raw_entry)}, cwd)
             if task is not None:
                 tasks_by_label[task.name] = task
         return list(tasks_by_label.values())

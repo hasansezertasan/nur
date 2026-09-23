@@ -195,3 +195,23 @@ def test_document_platform_options_apply_to_every_task(tmp_path) -> None:
   "tasks": [{{"label": "test", "command": "pytest"}}]}}""",
     )
     assert VsCodeProvider().discover(tmp_path) == []
+
+
+def test_tasks_inherit_document_level_defaults(tmp_path) -> None:
+    _write_tasks(
+        tmp_path,
+        """{"version": "2.0.0", "type": "process", "command": "python",
+  "args": ["-m", "pytest"],
+  "tasks": [
+    {"label": "inherited"},
+    {"label": "own-command", "command": "ruff", "args": ["check"]},
+    {"label": "own-type", "type": "shell", "command": "echo hi", "args": []}
+  ]}""",
+    )
+    tasks = {task.name: task for task in VsCodeProvider().discover(tmp_path)}
+    assert tasks["inherited"].argv_base == ("python", "-m", "pytest")
+    assert not tasks["inherited"].run_in_shell
+    assert tasks["own-command"].argv_base == ("ruff", "check")
+    assert not tasks["own-command"].run_in_shell
+    assert tasks["own-type"].argv_base == ("echo hi",)
+    assert tasks["own-type"].run_in_shell
