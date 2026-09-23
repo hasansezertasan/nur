@@ -8,17 +8,36 @@ import sys
 import threading
 from typing import TYPE_CHECKING
 
+from nur.core.models import Task
+from nur.core.shell import quote
+
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
-
-    from nur.core.models import Task
 
 __all__ = ["ProcessRunner", "run_direct"]
 
 
 # Conventional "command not found" exit status (as used by POSIX shells).
 RUNNER_NOT_FOUND = 127
+
+
+def _command(
+    task: Task, extra_args: list[str] | None = None
+) -> tuple[str | list[str], bool]:
+    """Build the ``subprocess`` command for ``task`` and whether it needs ``shell``.
+
+    A shell task keeps its command text verbatim so operators such as
+    redirection still work, while each literal argument stays a single token.
+    Like VS Code's default profile, POSIX runs it with the user's ``$SHELL``;
+    Windows uses cmd.exe.
+    """
+    argv = task.run_argv(extra_args)
+    if not task.run_in_shell:
+        return argv, False
+    line = " ".join([argv[0], *map(quote, argv[1:])])
+    posix_shell = os.environ.get("SHELL") or "/bin/sh"
+    return (line, True) if os.name == "nt" else ([posix_shell, "-c", line], False)
 
 
 def run_direct(task: Task, extra_args: list[str], cwd: Path) -> int:
@@ -28,12 +47,12 @@ def run_direct(task: Task, extra_args: list[str], cwd: Path) -> int:
     binary is not installed. Rather than letting ``FileNotFoundError`` escape
     as a traceback, report a controlled error and return ``127``.
     """
-    argv = task.run_argv(extra_args)
+    command, shell = _command(task, extra_args)
     try:
-        completed = subprocess.run(argv, cwd=cwd, check=False)
+        completed = subprocess.run(command, cwd=cwd, check=False, shell=shell)
     except FileNotFoundError:
         print(
-            f"nur: runner '{argv[0]}' is not installed "
+            f"nur: runner '{task.argv_base[0]}' is not installed "
             f"(needed to run {task.qualified_name}).",
             file=sys.stderr,
         )
@@ -51,7 +70,9 @@ class ProcessRunner:
         self._proc: subprocess.Popen[str] | None = None
         self._lock = threading.Lock()
 
-    def run(self, argv: list[str], cwd: Path, on_line: Callable[[str], None]) -> int:
+    def run(
+        self, argv: list[str] | Task, cwd: Path, on_line: Callable[[str], None]
+    ) -> int:
         # Put the child in its own process group so an interrupt can signal the
         # whole tree (e.g. npm -> node, make -> sh), not just the runner PID:
         # start_new_session on POSIX, CREATE_NEW_PROCESS_GROUP on Windows. Each
@@ -64,9 +85,13 @@ class ProcessRunner:
             start_new_session = True
         # Not a `with` block: the process is stored on self and outlives this
         # method so interrupt() can signal it; cleanup happens in the finally.
+        if isinstance(argv, Task):
+            (command, shell), runner = _command(argv), argv.argv_base[0]
+        else:
+            command, shell, runner = argv, False, argv[0]
         try:
             proc = subprocess.Popen(  # pylint: disable=consider-using-with
-                argv,
+                command,
                 cwd=cwd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -75,11 +100,12 @@ class ProcessRunner:
                 bufsize=1,
                 creationflags=creationflags,
                 start_new_session=start_new_session,
+                shell=shell,
             )
         except FileNotFoundError:
             # Natively-discovered task whose runner isn't installed: surface a
             # message in the output pane instead of an empty pane + exited(1).
-            on_line(f"nur: runner '{argv[0]}' is not installed.\n")
+            on_line(f"nur: runner '{runner}' is not installed.\n")
             return RUNNER_NOT_FOUND
         with self._lock:
             self._proc = proc

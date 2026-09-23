@@ -199,7 +199,7 @@ class NurApp(App[None]):
         self._set_status(f"running… $ {' '.join(task.argv_base)}")
         self.run_worker(
             lambda: self._runner.run(
-                task.run_argv(),
+                task,
                 self._cwd,
                 lambda line: self.call_from_thread(self._append_output, line),
             ),

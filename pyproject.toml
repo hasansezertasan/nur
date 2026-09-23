@@ -27,6 +27,7 @@ keywords = [
   "deno",
   "composer",
   "xc",
+  "vscode",
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -314,14 +315,15 @@ type = "layers"
 # may not import each other. `cli` is the orchestrator layer — it drives
 # discovery/execution and launches the `tui` via a lazy import — so it sits ABOVE
 # the `tui`, which sits above `discovery`. `discovery` composes the independent
-# `providers | execution | registry` group, which all sit above the leaf
-# `models` data types. `__init__`, `__main__`, and `_version` are left outside
+# `providers | execution | registry` group, which all sit above the `shell`
+# quoting helpers and the leaf `models` data types. `__init__`, `__main__`, and `_version` are left outside
 # the contract as unconstrained foundations.
 layers = [
   "nur.cli",
   "nur.tui",
   "nur.core.discovery",
   "nur.core.providers | nur.core.execution | nur.core.registry",
+  "nur.core.shell",
   "nur.core.models",
 ]
 

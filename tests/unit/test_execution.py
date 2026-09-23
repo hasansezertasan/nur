@@ -1,10 +1,13 @@
+import os
+import shlex
 import sys
 import time
 
 import pytest
 
-from nur.core.execution import RUNNER_NOT_FOUND, ProcessRunner, run_direct
+from nur.core.execution import RUNNER_NOT_FOUND, ProcessRunner, _command, run_direct
 from nur.core.models import Task
+from nur.core.shell import quote_for_cmd
 
 
 def test_run_direct_returns_exit_code(tmp_path) -> None:
@@ -17,6 +20,93 @@ def test_run_direct_appends_extra_args(tmp_path) -> None:
     code = "import sys; raise SystemExit(len(sys.argv) - 1)"
     t = Task(name="x", prefix="py", argv_base=(sys.executable, "-c", code))
     assert run_direct(t, ["a", "b"], tmp_path) == 2
+
+
+_shell_quote = quote_for_cmd if os.name == "nt" else shlex.quote
+
+
+@pytest.mark.parametrize(
+    ("argument", "expected"),
+    [
+        ("plain", "plain"),
+        ("", '""'),
+        ("semi;colon", '"semi;colon"'),
+        ("one file", '"one file"'),
+        ("a&b>c", '"a&b>c"'),
+        ('say "hi"', '"say \\"hi\\""'),
+        ('back\\"slash', '"back\\\\\\"slash"'),
+        ("dir\\", "dir\\"),
+        ("my dir\\", '"my dir\\\\"'),
+        ("%PATH%", '""^%"PATH"^%""'),
+        ("a\\%b", '"a\\\\"^%"b"'),
+    ],
+)
+def testquote_for_cmd(argument: str, expected: str) -> None:
+    assert quote_for_cmd(argument) == expected
+
+
+def _write_argv_task() -> Task:
+    # Shell command text, then literal args that must each stay one token. Files
+    # go to out/ because a coverage-instrumented child writes data into its cwd.
+    script = (
+        "import pathlib, sys; out = pathlib.Path('out'); out.mkdir();"
+        " [(out / a).touch() for a in sys.argv[1:]]"
+    )
+    command = f"{_shell_quote(sys.executable)} -c {_shell_quote(script)}"
+    return Task(
+        name="touch",
+        prefix="test",
+        argv_base=(command, "one file", "semi;colon", "%PATH%"),
+        run_in_shell=True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("shell", "expected"), [("/bin/zsh", "/bin/zsh"), ("", "/bin/sh")]
+)
+def test_shell_task_uses_the_user_shell(monkeypatch, shell: str, expected: str) -> None:
+    monkeypatch.setenv("SHELL", shell)
+    task = Task(name="t", prefix="t", argv_base=("echo hi",), run_in_shell=True)
+    command = _command(task)
+    assert command == (
+        ("echo hi", True) if os.name == "nt" else ([expected, "-c", "echo hi"], False)
+    )
+
+
+def test_run_direct_executes_shell_task_syntax(tmp_path) -> None:
+    task = Task(
+        name="shell", prefix="test", argv_base=("echo ok> marker",), run_in_shell=True
+    )
+    assert run_direct(task, [], tmp_path) == 0
+    assert (tmp_path / "marker").read_text().strip() == "ok"
+
+
+def test_run_direct_quotes_shell_task_literal_arguments(tmp_path) -> None:
+    assert run_direct(_write_argv_task(), ["extra arg", "50%off%"], tmp_path) == 0
+    assert sorted(path.name for path in (tmp_path / "out").iterdir()) == [
+        "%PATH%",
+        "50%off%",
+        "extra arg",
+        "one file",
+        "semi;colon",
+    ]
+
+
+def test_process_runner_runs_shell_task(tmp_path) -> None:
+    code = ProcessRunner().run(_write_argv_task(), tmp_path, on_line=lambda _l: None)
+    assert code == 0
+    assert sorted(path.name for path in (tmp_path / "out").iterdir()) == [
+        "%PATH%",
+        "one file",
+        "semi;colon",
+    ]
+
+
+def test_process_runner_runs_process_task(tmp_path) -> None:
+    lines: list[str] = []
+    task = Task(name="x", prefix="py", argv_base=(sys.executable, "-c", "print('hi')"))
+    assert ProcessRunner().run(task, tmp_path, on_line=lines.append) == 0
+    assert [line.rstrip("\n") for line in lines] == ["hi"]
 
 
 def test_process_runner_streams_lines_and_returns_code(tmp_path) -> None:
