@@ -38,16 +38,22 @@ def _quote_for_cmd(argument: str) -> str:
 _quote = _quote_for_cmd if os.name == "nt" else shlex.quote
 
 
-def _command(task: Task, extra_args: list[str] | None = None) -> str | list[str]:
-    """Build the value handed to ``subprocess`` for ``task``.
+def _command(
+    task: Task, extra_args: list[str] | None = None
+) -> tuple[str | list[str], bool]:
+    """Build the ``subprocess`` command for ``task`` and whether it needs ``shell``.
 
     A shell task keeps its command text verbatim so operators such as
     redirection still work, while each literal argument stays a single token.
+    Like VS Code's default profile, POSIX runs it with the user's ``$SHELL``;
+    Windows uses cmd.exe.
     """
     argv = task.run_argv(extra_args)
     if not task.run_in_shell:
-        return argv
-    return " ".join([argv[0], *map(_quote, argv[1:])])
+        return argv, False
+    line = " ".join([argv[0], *map(_quote, argv[1:])])
+    posix_shell = os.environ.get("SHELL") or "/bin/sh"
+    return (line, True) if os.name == "nt" else ([posix_shell, "-c", line], False)
 
 
 def run_direct(task: Task, extra_args: list[str], cwd: Path) -> int:
@@ -57,10 +63,9 @@ def run_direct(task: Task, extra_args: list[str], cwd: Path) -> int:
     binary is not installed. Rather than letting ``FileNotFoundError`` escape
     as a traceback, report a controlled error and return ``127``.
     """
+    command, shell = _command(task, extra_args)
     try:
-        completed = subprocess.run(
-            _command(task, extra_args), cwd=cwd, check=False, shell=task.run_in_shell
-        )
+        completed = subprocess.run(command, cwd=cwd, check=False, shell=shell)
     except FileNotFoundError:
         print(
             f"nur: runner '{task.argv_base[0]}' is not installed "
@@ -97,10 +102,9 @@ class ProcessRunner:
         # Not a `with` block: the process is stored on self and outlives this
         # method so interrupt() can signal it; cleanup happens in the finally.
         if isinstance(argv, Task):
-            command, run_in_shell = _command(argv), argv.run_in_shell
-            runner = argv.argv_base[0]
+            (command, shell), runner = _command(argv), argv.argv_base[0]
         else:
-            command, run_in_shell, runner = argv, False, argv[0]
+            command, shell, runner = argv, False, argv[0]
         try:
             proc = subprocess.Popen(  # pylint: disable=consider-using-with
                 command,
@@ -112,7 +116,7 @@ class ProcessRunner:
                 bufsize=1,
                 creationflags=creationflags,
                 start_new_session=start_new_session,
-                shell=run_in_shell,
+                shell=shell,
             )
         except FileNotFoundError:
             # Natively-discovered task whose runner isn't installed: surface a

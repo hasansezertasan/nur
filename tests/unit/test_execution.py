@@ -8,6 +8,7 @@ import pytest
 from nur.core.execution import (
     RUNNER_NOT_FOUND,
     ProcessRunner,
+    _command,
     _quote_for_cmd,
     run_direct,
 )
@@ -57,6 +58,18 @@ def _write_argv_task() -> Task:
         prefix="test",
         argv_base=(command, "one file", "semi;colon"),
         run_in_shell=True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("shell", "expected"), [("/bin/zsh", "/bin/zsh"), ("", "/bin/sh")]
+)
+def test_shell_task_uses_the_user_shell(monkeypatch, shell: str, expected: str) -> None:
+    monkeypatch.setenv("SHELL", shell)
+    task = Task(name="t", prefix="t", argv_base=("echo hi",), run_in_shell=True)
+    command = _command(task)
+    assert command == (
+        ("echo hi", True) if os.name == "nt" else ([expected, "-c", "echo hi"], False)
     )
 
 
