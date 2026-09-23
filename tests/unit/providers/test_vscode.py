@@ -223,3 +223,25 @@ def test_accepts_a_utf8_bom(tmp_path) -> None:
         b'\xef\xbb\xbf{"version": "2.0.0", "tasks": [{"label": "t", "command": "x"}]}'
     )
     assert [task.name for task in VsCodeProvider().discover(tmp_path)] == ["t"]
+
+
+def test_task_options_override_document_options(tmp_path) -> None:
+    _write_tasks(
+        tmp_path,
+        """{"version": "2.0.0", "options": {"cwd": "sub"}, "tasks": [
+  {"label": "root", "command": "ls", "options": {"cwd": "${workspaceFolder}"}},
+  {"label": "inherited", "command": "ls"},
+  {"label": "malformed", "command": "ls", "options": []}
+]}""",
+    )
+    assert [task.name for task in VsCodeProvider().discover(tmp_path)] == ["root"]
+
+
+def test_document_env_still_applies_under_task_options(tmp_path) -> None:
+    _write_tasks(
+        tmp_path,
+        """{"version": "2.0.0", "options": {"env": {"A": "1"}}, "tasks": [
+  {"label": "test", "command": "pytest", "options": {"cwd": "${workspaceFolder}"}}
+]}""",
+    )
+    assert VsCodeProvider().discover(tmp_path) == []

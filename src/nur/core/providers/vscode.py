@@ -115,6 +115,18 @@ def _value(item: object) -> object:
     return item.get("value") if isinstance(item, dict) else item
 
 
+def _effective_options(root: object, task: object) -> object:
+    """Layer task options over document options, as VS Code does."""
+    if root is None or task is None:
+        return task if root is None else root
+    if not isinstance(root, dict) or not isinstance(task, dict):
+        return task  # Malformed options are rejected by _supported_options.
+    merged = {**root, **task}
+    # env is merged key by key, so any document-level variable still applies.
+    merged["env"] = root.get("env") or task.get("env")
+    return merged
+
+
 def _command_and_args(
     entry: dict[str, object], cwd: Path
 ) -> tuple[str, tuple[str, ...]] | None:
@@ -164,15 +176,17 @@ class VsCodeProvider:
         if document is None:
             return []
         root = _platform_entry(document)
-        if not _supported_options(root.get("options"), cwd):
-            return []
         # Tasks inherit these document-level properties unless they set their own.
         defaults = {key: root[key] for key in _INHERITED_KEYS if key in root}
         tasks_by_label: dict[str, Task] = {}
         for raw_entry in cast("list[object]", document["tasks"]):
             if not isinstance(raw_entry, dict):
                 continue
-            task = self._task({**defaults, **_platform_entry(raw_entry)}, cwd)
+            entry = {**defaults, **_platform_entry(raw_entry)}
+            entry["options"] = _effective_options(
+                root.get("options"), entry.get("options")
+            )
+            task = self._task(entry, cwd)
             if task is not None:
                 tasks_by_label[task.name] = task
         return list(tasks_by_label.values())
