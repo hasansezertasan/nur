@@ -119,11 +119,7 @@ class VsCodeProvider:
             return []
         tasks_by_label: dict[str, Task] = {}
         for entry in entries:
-            if entry.get("type") not in {
-                None,
-                "shell",
-                "process",
-            }:
+            if entry.get("type") not in {None, "shell", "process"}:
                 continue
             if entry.get("hide") is True or "dependsOn" in entry:
                 continue
