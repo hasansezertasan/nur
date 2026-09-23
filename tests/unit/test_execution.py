@@ -45,8 +45,12 @@ def test_quote_for_cmd(argument: str, expected: str) -> None:
 
 
 def _write_argv_task() -> Task:
-    # Shell command text, then literal args that must each stay one token.
-    script = "import pathlib, sys; [pathlib.Path(a).touch() for a in sys.argv[1:]]"
+    # Shell command text, then literal args that must each stay one token. Files
+    # go to out/ because a coverage-instrumented child writes data into its cwd.
+    script = (
+        "import pathlib, sys; out = pathlib.Path('out'); out.mkdir();"
+        " [(out / a).touch() for a in sys.argv[1:]]"
+    )
     command = f"{_shell_quote(sys.executable)} -c {_shell_quote(script)}"
     return Task(
         name="touch",
@@ -66,7 +70,7 @@ def test_run_direct_executes_shell_task_syntax(tmp_path) -> None:
 
 def test_run_direct_quotes_shell_task_literal_arguments(tmp_path) -> None:
     assert run_direct(_write_argv_task(), ["extra arg"], tmp_path) == 0
-    assert sorted(path.name for path in tmp_path.iterdir()) == [
+    assert sorted(path.name for path in (tmp_path / "out").iterdir()) == [
         "extra arg",
         "one file",
         "semi;colon",
@@ -76,7 +80,7 @@ def test_run_direct_quotes_shell_task_literal_arguments(tmp_path) -> None:
 def test_process_runner_runs_shell_task(tmp_path) -> None:
     code = ProcessRunner().run(_write_argv_task(), tmp_path, on_line=lambda _l: None)
     assert code == 0
-    assert sorted(path.name for path in tmp_path.iterdir()) == [
+    assert sorted(path.name for path in (tmp_path / "out").iterdir()) == [
         "one file",
         "semi;colon",
     ]
