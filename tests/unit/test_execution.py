@@ -33,12 +33,15 @@ _shell_quote = _quote_for_cmd if os.name == "nt" else shlex.quote
 @pytest.mark.parametrize(
     ("argument", "expected"),
     [
-        ("plain", '"plain"'),
+        ("plain", "plain"),
+        ("", '""'),
+        ("semi;colon", '"semi;colon"'),
         ("one file", '"one file"'),
         ("a&b>c", '"a&b>c"'),
         ('say "hi"', '"say \\"hi\\""'),
         ('back\\"slash', '"back\\\\\\"slash"'),
-        ("dir\\", '"dir\\\\"'),
+        ("dir\\", "dir\\"),
+        ("my dir\\", '"my dir\\\\"'),
     ],
 )
 def test_quote_for_cmd(argument: str, expected: str) -> None:
