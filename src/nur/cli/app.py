@@ -14,7 +14,9 @@ __all__ = ["format_list", "main", "split_passthrough"]
 
 
 app = typer.Typer(
-    add_completion=False, context_settings={"help_option_names": ["-h", "--help"]}
+    name="nur",
+    add_completion=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
 )
 
 

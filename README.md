@@ -84,6 +84,17 @@ Or, from a clone:
 uv tool install .
 ```
 
+### Verify the installation
+
+The package root is importable after installation:
+
+```pycon
+>>> import nur
+>>> isinstance(nur.__version__, str)
+True
+
+```
+
 ## Usage
 
 Run `nur` from the root of a project that contains any supported task file.
@@ -258,7 +269,7 @@ uv run --locked tox run -e docs-linkcheck
 
 ## Releasing
 
-Versioning and releases are automated with [release-please](https://github.com/googleapis/release-please), driven by [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) PR titles squash-merged into `main`. release-please maintains a release PR that bumps the version and `CHANGELOG.md`; merging it tags the release and publishes to PyPI. See the [Contributing Guidelines](./.github/CONTRIBUTING.md#releasing) for the commit conventions and the one-time [Repository setup](./.github/CONTRIBUTING.md#repository-setup-one-time) (squash-merge settings, Actions permissions, release immutability, and PyPI trusted publishing).
+Versioning and releases are automated with [release-please](https://github.com/googleapis/release-please), driven by [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) PR titles squash-merged into `main`. release-please maintains a release PR that bumps the version and `CHANGELOG.md`; merging it tags the release and publishes to PyPI. See the [Contributing Guidelines](./.github/CONTRIBUTING.md#releasing) for the commit conventions, and the [Repository setup](./docs/maintaining/setup.rst) guide for one-time configuration and optional post-launch integrations such as a social preview, downstream packaging, and Repology.
 
 ## Credits
 
