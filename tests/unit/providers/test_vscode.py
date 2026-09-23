@@ -215,3 +215,11 @@ def test_tasks_inherit_document_level_defaults(tmp_path) -> None:
     assert not tasks["own-command"].run_in_shell
     assert tasks["own-type"].argv_base == ("echo hi",)
     assert tasks["own-type"].run_in_shell
+
+
+def test_accepts_a_utf8_bom(tmp_path) -> None:
+    _write_tasks(tmp_path, "")
+    (tmp_path / ".vscode" / "tasks.json").write_bytes(
+        b'\xef\xbb\xbf{"version": "2.0.0", "tasks": [{"label": "t", "command": "x"}]}'
+    )
+    assert [task.name for task in VsCodeProvider().discover(tmp_path)] == ["t"]

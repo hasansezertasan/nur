@@ -136,7 +136,7 @@ def _load_document(cwd: Path) -> dict[str, object] | None:
     if not path.is_file():
         return None
     try:
-        document = json.loads(_strip_jsonc(path.read_text(encoding="utf-8")))
+        document = json.loads(_strip_jsonc(path.read_text(encoding="utf-8-sig")))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         log.warning("nur: skipping %s (%s)", _SOURCE_FILE, exc)
         return None
