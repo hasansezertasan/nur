@@ -24,7 +24,7 @@
 
 Run `nur` in a project and it discovers the tasks your project already defines —
 from npm, Make, deno, composer, just, Taskfile, pre-commit, PDM/poe, tox, mise,
-cargo-make, moon, and xc — then lets you run them from a TUI picker or directly from the command line.
+cargo-make, moon, xc, and VS Code tasks — then lets you run them from a TUI picker or directly from the command line.
 Discovery is limited to the current directory. See [Features](#features) for the
 full list of source files.
 
@@ -123,7 +123,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 
 ## Features
 
-- **Zero-config discovery** across fourteen providers, each parsed from a single
+- **Zero-config discovery** across fifteen providers, each parsed from a single
   source file in the current directory:
 
   | Provider | Prefix | Source file |
@@ -142,6 +142,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   | cargo-make | `cargo-make` | `Makefile.toml` |
   | moon | `moon` | `moon.yml` |
   | xc | `xc` | `README.md` (see below) |
+  | VS Code | `vscode` | `.vscode/tasks.json` (see below) |
 
   `tox` reads the first applicable config file present, in priority order:
   `tox.ini`, `setup.cfg` (`[tox:tox]`), `pyproject.toml` (`[tool.tox]`), then
@@ -157,6 +158,12 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   `scripts-descriptions` table when present.
   `pre-commit` reads only `repos[].hooks[]` and runs a selected hook with
   `pre-commit run <id> --all-files`; it never invokes `pre-commit` during discovery.
+  `vscode` reads version `2.0.0` `.vscode/tasks.json` (JSONC) and surfaces
+  `shell` and `process` tasks with a `command`, applying the current platform's
+  overrides and resolving `${workspaceFolder}`, `${workspaceFolderBasename}`,
+  `${pathSeparator}`, and `${env:NAME}`. Tasks nur cannot run faithfully are
+  skipped: hidden tasks, tasks with `dependsOn`, other variables, or `options`
+  setting `env`, `shell`, or a `cwd` other than the project root.
 - **CLI Application**: run any discovered task by name or qualified `prefix:name`, with `--` passthrough to the underlying runner.
 - **TUI Application**: interactive three-pane task picker built with Textual.
 - **Safe by default**: discovery parses files; it never shells out to a runner just to list tasks.
