@@ -57,8 +57,20 @@ As a library
 
 The package exposes its version for programmatic use:
 
-.. code-block:: python
+.. doctest::
 
-   import nur
+   >>> import nur
+   >>> isinstance(nur.__version__, str)
+   True
 
-   nur.__version__
+Look up the installed distribution version:
+
+.. literalinclude:: examples/version_lookup.py
+   :language: python
+   :caption: examples/version_lookup.py
+
+Or run nur itself from Python:
+
+.. literalinclude:: examples/cli_usage.py
+   :language: python
+   :caption: examples/cli_usage.py

@@ -88,14 +88,16 @@ def test_run_propagates_exit_code(tmp_path, monkeypatch) -> None:
     # make is required for this test; skip if unavailable
     import shutil
 
-    if shutil.which("make") is None:
+    # make is present on every CI runner, so the skip branch never executes there.
+    if shutil.which("make") is None:  # pragma: no cover
         import pytest
 
         pytest.skip("make not installed")
     # GNU Make exits with status 2 on any recipe failure, regardless of the recipe's
     # own exit code. This test verifies nur faithfully returns make's exit code (2)
     # rather than swallowing the failure. Precise exit-code propagation for arbitrary
-    # codes is already covered by the run_direct unit tests in tests/test_execution.py.
+    # codes is already covered by the run_direct unit tests in
+    # tests/core/test_execution.py.
     assert main(["make:boom"]) == 2
 
 

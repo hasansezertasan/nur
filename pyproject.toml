@@ -46,13 +46,6 @@ classifiers = [
 requires-python = ">=3.14"
 dependencies = ["textual>=3.0.0", "pyyaml>=6.0", "typer>=0.20.0"]
 
-[project.optional-dependencies]
-# Runnable-component and settings deps are core (see ``dependencies`` above), so
-# no per-component extras remain. ``all`` is kept (empty) because the ``dev``
-# dependency-group installs ``nur[all]``.
-all = []
-
-
 [project.urls]
 changelog = "https://github.com/hasansezertasan/nur/blob/main/CHANGELOG.md"
 documentation = "https://hasansezertasan.github.io/nur"
@@ -62,12 +55,11 @@ releasenotes = "https://github.com/hasansezertasan/nur/releases"
 source = "https://github.com/hasansezertasan/nur.git"
 
 [project.scripts]
-nur = "nur.cli:main"
+nur = "nur.__main__:main"
 
 
 [dependency-groups]
 dev = [
-  "nur[all]",
   "tox==4.61.2",
   "tox-uv==1.36.0",
   "debugpy==1.8.21",
@@ -80,6 +72,7 @@ dev = [
 style = [
   "actionlint-py==1.7.12.25",
   "basedpyright==1.40.1",
+  "detect-secrets==1.5.0",
   "editorconfig-checker==3.11.1",
   "import-linter==2.15",
   "mypy==2.3.1",
@@ -94,7 +87,7 @@ style = [
   "validate-pyproject[all]==0.26",
   "vulture==2.16",
   "zuban==0.10.0",
-  "types-PyYAML>=6.0",             # yaml stubs for the Taskfile provider (mypy/type checkers)
+  "types-PyYAML>=6.0", # yaml stubs for the Taskfile provider (mypy/type checkers)
   # "google-yamlfmt",
   # "shellcheck-makefile>=1.27.3",
   # "shellcheck-py>=0.10.0.1",
@@ -103,6 +96,15 @@ style = [
   # "yamlfix>=1.18.0",
   # "yamlfmt>=1.1.1",
   # "yamllint>=1.37.1",
+]
+# semgrep is deliberately its own group rather than part of `style`: `dev`
+# includes `style` wholesale, so a plain `uv sync` — and every Windows/macOS
+# cell in ci.yml, which runs `uv run --locked tox run` — would download and
+# unpack ~215 MB (the wheel bundles a native semgrep-core) for a tool that only
+# ever executes in the Linux-only `style` job. The tox `style` env lists this
+# group explicitly. Still a single version source, same as every other pin.
+sast = [
+  "semgrep==1.177.0",
 ]
 test = [
   "coverage-enable-subprocess==1.0",
@@ -118,18 +120,26 @@ test = [
   "pytest-asyncio>=0.23.0",
   "dirty-equals",
   "inline-snapshot",
+  "pytest-deadfixtures==3.1.0",
 ]
 docs = [
   "sphinx==9.1.0",
   "shibuya==2026.7.12",
-  "sphinx-autobuild==2025.8.25", # 2025.x drops Python 3.10 (requires-python >= 3.11)
+  "sphinx-autobuild==2025.8.25",
   "sphinx-copybutton==0.5.2",
-  "sphinx-design==0.7.0",        # 0.7.0 drops Python 3.10 (requires-python >= 3.11)
+  "sphinx-design==0.7.0",
   "sphinx-togglebutton==0.4.5",
   "sphinx-paramlinks==0.6.0",
   "auto-pytabs[sphinx]==0.5.0",
   "myst-parser==5.1.0",
   "sphinx-click==6.2.0",
+  # Per-page "last updated" footer sourced from git commit dates (ADR-027);
+  # offline, no network. Works from full history (docs CI checks out depth 0).
+  "sphinx-last-updated-by-git==0.3.8",
+  # PEP 440 version parsing/sorting used by tools/build_docs.py to order
+  # published versions and pick the `latest` alias (ADR-027). Also a Sphinx
+  # transitive dependency; pinned here for the explicit direct use.
+  "packaging>=24.0",
 ]
 tool = [
   "commitizen==4.19.0",
@@ -183,7 +193,13 @@ allow-direct-references = true
 # The package uses a src layout, so the source tree lives under /src (not
 # /nur); including /src ships the actual modules -- and, for
 # C-extension projects, the .pyx/.pxd sources needed to compile from the sdist.
-include = ["/README.md", "LICENSE", "/src", "/tests"]
+include = [
+  "/README.md",
+  "LICENSE",
+  "/src",
+  "/tests",
+  "/docs/examples",
+]
 
 
 [tool.commitizen]
@@ -195,10 +211,21 @@ name = "cz_conventional_commits"
 
 [tool.pytest.ini_options]
 # addopts = "-rXs --strict-config --strict-markers"
-addopts = "-v --tb=short"
+addopts = "-v --tb=short --doctest-glob=README.md"
+# One marker per component, auto-applied by tests/conftest.py from each test's
+# top-level tests/<dir>/. Enables `pytest -m tui` locally and the per-component
+# CI jobs (ADR-028).
+markers = [
+  "core: core/shared component tests",
+  "cli: CLI component tests",
+  "tui: TUI component tests",
+]
 asyncio_mode = "auto"
 filterwarnings = ["error"]
-testpaths = ["tests"]
+# The project README is the deliberately small Markdown doctest surface. Other
+# Markdown files can use illustrative snippets without becoming pytest inputs.
+testpaths = ["tests", "README.md"]
+doctest_optionflags = "ELLIPSIS IGNORE_EXCEPTION_DETAIL NORMALIZE_WHITESPACE"
 xfail_strict = true
 
 
@@ -209,7 +236,12 @@ branch = true
 # `src/**`-only pattern silently misses the installed copy and reports it at 0%.
 omit = ["*/_version.py"]
 parallel = true
-source_pkgs = ["nur"]
+# Store data-file paths relative to the project root so `.coverage` files produced
+# on different runners/OSes merge in the `coverage-combine` CI job without
+# absolute-path mismatches. Complements the `[tool.coverage.paths]` remap below
+# (which unifies the src/ vs site-packages layouts). See ADR-026.
+relative_files = true
+source_pkgs = ["nur", "tests"]
 
 
 [tool.coverage.paths]
@@ -254,6 +286,11 @@ ignore_decorators = [
   "@app.after_startup",
   "@app.after_shutdown",
   "@server.call_tool",
+  # A fixture used through ``@pytest.mark.usefixtures("name")`` -- or from
+  # another test module -- is only ever named in a string, which vulture cannot
+  # see. Unused fixtures are caught properly by ``pytest --dead-fixtures`` in
+  # the tox ``style`` env, so this delegates rather than suppresses.
+  "@pytest.fixture",
 ]
 # Public API surfaces vulture cannot see being used: ``main`` entry points are
 # referenced only via pyproject scripts, ``model_config`` is consumed by
@@ -296,10 +333,10 @@ exclude-modules = "nur.tui"
 
 [tool.typos.default.extend-words]
 # Intentional misspelling used to exercise the close-match suggestion path
-# (tests/unit/test_registry.py resolves "biuld").
+# (tests/core/test_registry.py resolves "biuld").
 biuld = "biuld"
 # Intentional misspelling used to exercise the "did you mean build?" suggestion
-# (tests/integration/test_cli.py).
+# (tests/cli/test_cli.py).
 buld = "buld"
 
 
@@ -316,7 +353,8 @@ type = "layers"
 # discovery/execution and launches the `tui` via a lazy import — so it sits ABOVE
 # the `tui`, which sits above `discovery`. `discovery` composes the independent
 # `providers | execution | registry` group, which all sit above the `shell`
-# quoting helpers and the leaf `models` data types. `__init__`, `__main__`, and `_version` are left outside
+# quoting helpers and the leaf `models` data types. `__init__`, `__main__`,
+# `__metadata__`, and `_version` are left outside
 # the contract as unconstrained foundations.
 layers = [
   "nur.cli",
@@ -338,7 +376,7 @@ fix = true
 output-format = "full"
 preview = true
 show-fixes = true
-src = ["src", "tests"]
+src = ["src", "tests", "docs/examples"]
 target-version = "py314"
 unsafe-fixes = true
 
@@ -416,32 +454,41 @@ convention = "pep257"
 # Tests legitimately use asserts/magic values, reach into package internals, and
 # don't need return-value documentation on their fixtures and helpers.
 "tests/**/*.py" = [
-  "ANN",                       # tests don't need type annotations on fixtures/helpers
-  "D",                         # tests don't need docstrings
-  "assert",                    # asserts are the point of a test
-  "private-member-access",     # white-box tests reach into package internals
-  "ARG",                       # pytest fixtures/monkeypatch lambdas take unused args
-  "magic-value-comparison",    # magic values are fine in assertions
-  "no-self-use",               # test methods needn't use self
-  "import-outside-top-level",  # local imports keep test isolation
-  "compare-to-empty-string",   # explicit empty-string compares read clearer in tests
-  "import-private-name",       # importing private members for testing
+  "ANN", # tests don't need type annotations on fixtures/helpers
+  "D", # tests don't need docstrings
+  "assert", # asserts are the point of a test
+  "private-member-access", # white-box tests reach into package internals
+  "ARG", # pytest fixtures/monkeypatch lambdas take unused args
+  "magic-value-comparison", # magic values are fine in assertions
+  "no-self-use", # test methods needn't use self
+  "import-outside-top-level", # local imports keep test isolation
+  "compare-to-empty-string", # explicit empty-string compares read clearer in tests
+  "import-private-name", # importing private members for testing
   "docstring-missing-returns", # helper return values needn't be documented
 ]
 # The __main__ smoke test runs `python -m nur` in a real subprocess (the only
 # faithful check that the module entry point is wired up); the subprocess
 # import/call are the point of the test, not a risk.
-"tests/smoke/test_main_module.py" = [
+"tests/test_main.py" = [
   "suspicious-subprocess-import",
   "subprocess-without-shell-equals-true",
 ]
 # The Sphinx config is a standalone module, not part of an importable package.
 "docs/conf.py" = ["implicit-namespace-package"]
+# Documentation examples are importable modules tested by
+# ``tests/test_docs_examples.py``; they are not application packages.
+"docs/examples/**/*.py" = ["implicit-namespace-package"]
+# The docs warning-allowlist gate is a standalone script (not an importable
+# package) whose whole job is to print GitHub `::error::` annotations to stdout.
+"docs/check_warnings.py" = ["implicit-namespace-package", "print"]
+# The versioned-docs build orchestrator is a standalone CLI script under tools/,
+# not part of an importable package (ADR-027).
+"tools/build_docs.py" = ["implicit-namespace-package"]
 # Typer's declarative API puts function calls (Argument/Option) in argument
 # defaults by design, so B008 is expected here.
 # Typer's declarative API puts function calls (Argument/Option) in argument
 # defaults, and a boolean --version option is idiomatic, by design.
-"src/nur/cli.py" = [
+"src/nur/cli/app.py" = [
   "function-call-in-default-argument",
   "boolean-type-hint-positional-argument",
 ]
@@ -487,7 +534,7 @@ parenthesize-tuple-in-subscript = true
 
 
 [tool.mypy]
-files = ["src"]
+files = ["src", "docs/examples"]
 pretty = true
 python_version = "3.14"
 strict = true
@@ -495,7 +542,7 @@ strict = true
 
 [tool.basedpyright]
 exclude = [".venv"]
-include = ["src/nur"]
+include = ["src/nur", "docs/examples"]
 pythonVersion = "3.14"
 venv = ".venv"
 # Silence basedpyright's strict-mode *warnings* that fight this project's
@@ -549,7 +596,7 @@ reportUnknownArgumentType = false
 # Type-check the package. Tests are excluded here: the pinned ty (0.0.53)
 # misreads pytest's skip()/fail() reason argument as "too many positional
 # arguments"; mypy already covers the package's public surface.
-include = ["src"]
+include = ["src", "docs/examples"]
 respect-ignore-files = false
 
 
@@ -569,11 +616,11 @@ python-version = "3.14"
 # os.killpg/os.getpgid in the platform-guarded interrupt path. The Windows
 # branches remain type-checked by the other three checkers on that runner.
 python-platform = "linux"
-project-includes = ["src"]
+project-includes = ["src", "docs/examples"]
 
 [tool.pylint.main]
 # pylint runs as an always-on gate that deliberately overlaps ruff's PL* rules.
-# Its canonical invocation is `pylint src`, so it never descends into tests; this
+# Its canonical invocation is `pylint src docs/examples`, so it never descends into tests; this
 # ignore-paths is a defensive scope guard for broader invocations (`pylint .`,
 # filename-passing hooks). Tests are linted by ruff, not pylint.
 ignore-paths = ["^tests/.*$"]
@@ -587,12 +634,12 @@ ignore-patterns = ['.*\.pyi$']
 # Only formatter-owned checks, the docstring family, and too-few-public-methods
 # are disabled so pylint is usable out of the box; everything else stays on.
 disable = [
-  "line-too-long",              # C0301 — ruff-format owns line length
-  "missing-module-docstring",   # C0114
-  "missing-class-docstring",    # C0115
+  "line-too-long", # C0301 — ruff-format owns line length
+  "missing-module-docstring", # C0114
+  "missing-class-docstring", # C0115
   "missing-function-docstring", # C0116
-  "too-few-public-methods",     # R0903 — trips dataclasses / config / Protocol classes
-  "import-outside-toplevel",    # C0415 — components (cli->tui/gui/web, and each
+  "too-few-public-methods", # R0903 — trips dataclasses / config / Protocol classes
+  "import-outside-toplevel", # C0415 — components (cli->tui/gui/web, and each
   # component's own optional-dependency probe) are
   # deliberately lazy-imported so import-linter's
   # layering contract holds and optional extras
@@ -626,7 +673,7 @@ max-locals = 20
 # and would hang/fail under ``tox run`` in CI (where no broker is available).
 # The worker is covered by its pytest TestBroker suite; run it on demand with
 # ``tox -e worker`` when a broker is up (e.g. inside the devcontainer).
-env_list = ["style", "cli", "3.14"]
+env_list = ["style", "docs-doctest", "cli", "3.14"]
 requires = ["tox>=4"]
 
 
@@ -652,7 +699,6 @@ env_tmp_dir = "{toxworkdir}/tmp/{envname}"
 # `coverage run` plus `parallel = true` writes per-env data files that the CI
 # `coverage combine` step merges.
 set_env = { COVERAGE_PROCESS_START = "{tox_root}/pyproject.toml" }
-extras = ["all"]
 
 package = "wheel"
 
@@ -667,38 +713,48 @@ commands = [
   ["ruff", "check", "--no-fix"],
   ["ruff", "format", "--check", "--diff"],
   ["mypy", "--python-version", "3.14"],
+  # Style runs once on Linux, so explicitly sweep platform-gated branches that
+  # mypy would otherwise prune as unreachable on the host platform.
+  ["mypy", "--platform", "win32"],
+  ["mypy", "--platform", "darwin"],
   ["basedpyright"],
   ["ty", "check"],
   ["pyrefly", "check"],
-  ["zuban", "check", "src"],
-  ["pylint", "src"],
+  ["zuban", "check", "src", "docs/examples"],
+  ["pylint", "src", "docs/examples"],
   ["vulture"],
   ["python", "-m", "slotscheck", "src"],
   ["lint-imports"],
+  # Rules-database SAST. Deliberately style-env-only (like ty/pyrefly/zuban) and
+  # not a prek hook: semgrep keeps no on-disk rule cache, so a pre-commit hook
+  # would make a registry request on every `git commit`. The ruleset is named
+  # explicitly rather than `--config auto` so rule selection does not depend on
+  # language auto-detection; it is still fetched from the registry, which is why
+  # this cannot be vendored (see ADR-032). `--error` makes findings blocking;
+  # silence a false positive with a trailing `# nosemgrep: <rule-id>`.
+  ["semgrep", "scan", "--config", "p/python", "--error", "--metrics=off", "src"],
   ["taplo", "lint", "*.toml"],
-  # NOTE: kept in fix mode (not `--check`) because the rendered TOML is not yet
-  # guaranteed taplo-formatted across every component combination. The `*.toml`
-  # glob is non-recursive, so it scopes taplo to this project's own root TOML
-  # (pyproject/prek/mise) without walking vendored `.tox`/`.venv`/site-packages
-  # trees — no `.taplo.toml` exclude config needed. Making this a strict
-  # `--check` gate is a follow-up that first requires the generated
-  # pyproject/prek to be clean.
-  ["taplo", "format", "*.toml"],
+  # A strict `--check` gate, not fix mode: a generated file that taplo would
+  # rewrite fails its own CI on first push and drifts on every `copier update`.
+  # `.taplo.toml` disables array auto expand/collapse so the shipped layout is
+  # the canonical one. The `*.toml` glob is non-recursive, so it scopes taplo to
+  # this project's own root TOML without walking vendored `.tox`/`.venv` trees.
+  ["taplo", "format", "--check", "--diff", "*.toml"],
   ["validate-pyproject", "pyproject.toml"],
   ["typos", "--diff"],
   ["actionlint"],
   ["ec"],
   ["sphinx-lint", "docs"],
   # ["yamlfmt", "."],
+  # Collects (does not run) the suite and flags fixtures that are never used --
+  # cheap, deterministic, and a natural fit next to the other whole-program
+  # analyzers above (lint-imports, slotscheck).
+  ["pytest", "--dead-fixtures"],
 ]
 # `test` is included so the type checkers that scope tests (e.g. ty) can
 # resolve pytest and other test-only imports.
-dependency_groups = ["style", "test"]
+dependency_groups = ["sast", "style", "test"]
 description = "Run Checkers, Linters and Formatters"
-# Optional components (web/gui/tui/mcp/worker) are only importable when their
-# extra is installed; without this, pylint/mypy/etc. see import-error for any
-# optional component present in this render.
-extras = ["all"]
 runner = "uv-venv-runner"
 
 
@@ -710,37 +766,57 @@ runner = "uv-venv-runner"
 
 
 [tool.tox.env.docs-build]
-commands = [["sphinx-build", "-b", "html", "docs", "docs/_build/html"]]
-extras = ["all"]
+# Write the warning stream to a file (`-w`) instead of `-W` turning the first
+# warning into a hard error, then let docs/check_warnings.py own the pass/fail:
+# it diffs the emitted warnings against the docs/expected_warnings.txt allowlist,
+# failing on both unexpected new warnings and expected ones that vanished.
+commands = [
+  ["sphinx-build", "-w", "docs/_build/warnings.txt", "-b", "html", "docs", "docs/_build/html"],
+  ["python", "docs/check_warnings.py"],
+]
 dependency_groups = ["docs"]
 description = "Build Docs"
 runner = "uv-venv-runner"
+# Keep build log output unbuffered/ordered. Reproducible builds pin Sphinx's
+# "today"/copyright to SOURCE_DATE_EPOCH, which the CI docs steps
+# (docs-preview.yml, release.yml) export from the last commit date before
+# invoking sphinx-build directly. Local `tox` runs deliberately do NOT export
+# it: an empty value ("{env:SOURCE_DATE_EPOCH:}") is *present but blank*, which
+# breaks hatchling's get_reproducible_timestamp (`int("")`), so we leave it
+# unset locally and conf.py falls back to the current year.
+set_env = { PYTHONUNBUFFERED = "1" }
 
 
 [tool.tox.env.docs-server]
-commands = [["sphinx-autobuild", "docs", "docs/_build/html"]]
-extras = ["all"]
+# ``--ignore`` the machine-generated ``docs/_generated/`` tree: ``conf.py``
+# rewrites it on every Sphinx build, so watching it would make each rebuild
+# trigger the next in an endless live-reload loop.
+commands = [["sphinx-autobuild", "--ignore", "*/_generated/*", "docs", "docs/_build/html"]]
 dependency_groups = ["docs"]
 description = "Start the live-reloading docs server"
 runner = "uv-venv-runner"
+set_env = { PYTHONUNBUFFERED = "1" }
+
+
+[tool.tox.env.docs-doctest]
+# ``literalinclude`` keeps complete examples in tested Python modules; this
+# separate builder executes the occasional ``>>>`` snippet that belongs inline
+# with prose.
+commands = [["sphinx-build", "-b", "doctest", "docs", "docs/_build/doctest"]]
+dependency_groups = ["docs"]
+description = "Run documentation doctests"
+runner = "uv-venv-runner"
+set_env = { PYTHONUNBUFFERED = "1" }
 
 
 [tool.tox.env.docs-linkcheck]
 # On-demand link checker. Also run weekly (non-blocking) by docs-linkcheck.yml.
 # Hits the network, so it is deliberately not part of the `style` env or PR CI.
-commands = [
-  [
-    "sphinx-build",
-    "-b",
-    "linkcheck",
-    "docs",
-    "docs/_build/linkcheck",
-  ],
-]
-extras = ["all"]
+commands = [["sphinx-build", "-b", "linkcheck", "docs", "docs/_build/linkcheck"]]
 dependency_groups = ["docs"]
 description = "Check documentation for broken links"
 runner = "uv-venv-runner"
+set_env = { PYTHONUNBUFFERED = "1" }
 
 [tool.tox.env.cli]
 commands = [

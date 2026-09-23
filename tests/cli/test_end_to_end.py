@@ -28,7 +28,7 @@ def test_make_exit_code_propagates(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     # GNU Make exits 2 on recipe failure regardless of the recipe's exit code;
     # this verifies nur faithfully returns make's exit code. Precise
-    # arbitrary-code propagation is covered by tests/test_execution.py.
+    # arbitrary-code propagation is covered by tests/core/test_execution.py.
     assert main(["make:fail"]) == 2
 
 
