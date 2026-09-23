@@ -37,6 +37,8 @@ _shell_quote = quote_for_cmd if os.name == "nt" else shlex.quote
         ('back\\"slash', '"back\\\\\\"slash"'),
         ("dir\\", "dir\\"),
         ("my dir\\", '"my dir\\\\"'),
+        ("%PATH%", '""^%"PATH"^%""'),
+        ("a\\%b", '"a\\\\"^%"b"'),
     ],
 )
 def testquote_for_cmd(argument: str, expected: str) -> None:
@@ -54,7 +56,7 @@ def _write_argv_task() -> Task:
     return Task(
         name="touch",
         prefix="test",
-        argv_base=(command, "one file", "semi;colon"),
+        argv_base=(command, "one file", "semi;colon", "%PATH%"),
         run_in_shell=True,
     )
 
@@ -80,8 +82,10 @@ def test_run_direct_executes_shell_task_syntax(tmp_path) -> None:
 
 
 def test_run_direct_quotes_shell_task_literal_arguments(tmp_path) -> None:
-    assert run_direct(_write_argv_task(), ["extra arg"], tmp_path) == 0
+    assert run_direct(_write_argv_task(), ["extra arg", "50%off%"], tmp_path) == 0
     assert sorted(path.name for path in (tmp_path / "out").iterdir()) == [
+        "%PATH%",
+        "50%off%",
         "extra arg",
         "one file",
         "semi;colon",
@@ -92,6 +96,7 @@ def test_process_runner_runs_shell_task(tmp_path) -> None:
     code = ProcessRunner().run(_write_argv_task(), tmp_path, on_line=lambda _l: None)
     assert code == 0
     assert sorted(path.name for path in (tmp_path / "out").iterdir()) == [
+        "%PATH%",
         "one file",
         "semi;colon",
     ]
