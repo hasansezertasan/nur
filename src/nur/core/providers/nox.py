@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 import logging
 import warnings
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from nur.core.models import Task
 
@@ -19,65 +19,98 @@ log = logging.getLogger("nur")
 _SOURCE_FILE = "noxfile.py"
 
 
-def _nox_aliases(tree: ast.Module) -> tuple[set[str], set[str]]:
-    """Return (names bound to the ``nox`` module, names bound to ``nox.session``).
+# What an imported name refers to: the ``nox`` module, ``nox.session``, or
+# anything else (tracked so a fallback import still counts as a binding).
+type _Kind = Literal["module", "session", "other"]
 
-    Imports are collected from every module-level branch, e.g. a
-    ``try: ... except ImportError: from nox import session`` fallback. That only
-    widens which decorators are recognised; whether a session is listed still
-    depends on where its ``def`` sits.
+
+def _import_bindings(node: ast.Import | ast.ImportFrom) -> dict[str, _Kind]:
+    bound: dict[str, _Kind] = {}
+    if isinstance(node, ast.Import):
+        for alias in node.names:
+            if alias.asname:
+                bound[alias.asname] = "module" if alias.name == "nox" else "other"
+            else:
+                # `import nox.command` binds the top-level `nox` name too.
+                top = alias.name.partition(".")[0]
+                bound[top] = "module" if top == "nox" else "other"
+    else:
+        from_nox = node.module == "nox" and not node.level
+        for alias in node.names:
+            if alias.name == "*":
+                if from_nox:
+                    bound["session"] = "session"
+            else:
+                is_session = from_nox and alias.name == "session"
+                bound[alias.asname or alias.name] = "session" if is_session else "other"
+    return bound
+
+
+def _on_every_path(paths: list[dict[str, _Kind]]) -> dict[str, _Kind]:
+    """Keep names every path binds, preferring a nox binding when paths differ.
+
+    ``try: from nox_uv import session`` / ``except ImportError: from nox import
+    session`` binds ``session`` either way, to nox or a drop-in wrapper of it.
     """
-    modules: set[str] = set()
-    decorators: set[str] = set()
-    for node in _module_level(tree.body, include_conditional=True):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                if alias.name == "nox":
-                    modules.add(alias.asname or "nox")
-                elif alias.name.startswith("nox.") and not alias.asname:
-                    # `import nox.command` binds the top-level `nox` name too.
-                    modules.add("nox")
-        elif (
-            isinstance(node, ast.ImportFrom) and node.module == "nox" and not node.level
-        ):
-            for alias in node.names:
-                if alias.name == "session":
-                    decorators.add(alias.asname or "session")
-                elif alias.name == "*":
-                    decorators.add("session")
-    return modules, decorators
+    common: set[str] = set.intersection(*(set(path) for path in paths))
+    bound: dict[str, _Kind] = {}
+    for name in common:
+        bound[name] = "other"
+        for path in paths:
+            if path[name] != "other":
+                bound[name] = path[name]
+                break
+    return bound
 
 
-def _module_level(
-    body: list[ast.stmt], *, include_conditional: bool = False
-) -> Iterator[ast.stmt]:
-    """Walk the statements that run when the module is imported.
+def _bound_on_every_path(body: list[ast.stmt]) -> dict[str, _Kind]:
+    """Return the names *body*'s imports bind however its branches go.
 
-    By default only blocks that always run are entered: ``with`` and ``class``
-    bodies, and a ``try``'s body, ``else``, and ``finally``. ``if``/``match``
-    branches, loops, and ``except`` handlers run only when a runtime condition
-    holds, so a session defined there may not exist (``nox -s`` would reject
-    it) and they are entered only with *include_conditional*. Function bodies
-    run only when called and are never entered.
+    A name bound only in an ``if`` without a binding ``else``, a loop, or a
+    ``match`` case may be missing at runtime, making nox fail with
+    ``NameError``. Both sides of an ``if``/``else`` count, as does a ``try``
+    whose body and every handler bind it (the ``except ImportError`` fallback
+    idiom). Class bodies bind class attributes, not module names.
+    """
+    bound: dict[str, _Kind] = {}
+    for node in body:
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            bound |= _import_bindings(node)
+        elif isinstance(node, ast.With):
+            bound |= _bound_on_every_path(node.body)
+        elif isinstance(node, ast.If):
+            bound |= _on_every_path([
+                _bound_on_every_path(node.body),
+                _bound_on_every_path(node.orelse),
+            ])
+        elif isinstance(node, ast.Try | ast.TryStar):
+            paths = [_bound_on_every_path(node.body + node.orelse)]
+            paths += [_bound_on_every_path(handler.body) for handler in node.handlers]
+            bound |= _on_every_path(paths)
+            bound |= _bound_on_every_path(node.finalbody)
+    return bound
+
+
+def _module_level(body: list[ast.stmt]) -> Iterator[ast.stmt]:
+    """Walk the statements that always run when the module is imported.
+
+    Only ``with`` and ``class`` bodies, and a ``try``'s body, ``else``, and
+    ``finally`` are entered. ``if``/``match`` branches, loops, and ``except``
+    handlers run only when a runtime condition holds, so a session defined
+    there may not exist (``nox -s`` would reject it); function bodies run only
+    when called.
 
     Yields:
         Each statement in *body*, then those nested in the entered blocks.
     """
     for node in body:
         yield node
-        children: list[list[ast.stmt]] = []
         if isinstance(node, ast.With | ast.ClassDef):
-            children.append(node.body)
+            yield from _module_level(node.body)
         elif isinstance(node, ast.Try | ast.TryStar):
-            children += [node.body, node.orelse, node.finalbody]
-            if include_conditional:
-                children += [handler.body for handler in node.handlers]
-        elif include_conditional and isinstance(node, ast.If | ast.For | ast.While):
-            children += [node.body, node.orelse]
-        elif include_conditional and isinstance(node, ast.Match):
-            children += [case.body for case in node.cases]
-        for child in children:
-            yield from _module_level(child, include_conditional=include_conditional)
+            yield from _module_level(node.body)
+            yield from _module_level(node.orelse)
+            yield from _module_level(node.finalbody)
 
 
 def _is_session_ref(node: ast.expr, modules: set[str], decorators: set[str]) -> bool:
@@ -119,11 +152,9 @@ def _explicit_name(call: ast.Call, default: str) -> str | None:
     a ``**mapping`` that may carry one, or positional arguments make the real
     name unknowable without evaluation.
     """
-    if call.args:
+    if call.args or any(keyword.arg is None for keyword in call.keywords):
         return None
     for keyword in call.keywords:
-        if keyword.arg is None:
-            return None
         if keyword.arg == "name":
             value = keyword.value
             if not isinstance(value, ast.Constant):
@@ -153,7 +184,9 @@ def parse_noxfile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     # report when it runs; nur only reads names, so keep them off every listing.
     with warnings.catch_warnings(action="ignore", category=SyntaxWarning):
         tree = ast.parse(text, filename=source_file)
-    modules, decorators = _nox_aliases(tree)
+    bound = _bound_on_every_path(tree.body)
+    modules = {name for name, kind in bound.items() if kind == "module"}
+    decorators = {name for name, kind in bound.items() if kind == "session"}
     if not modules and not decorators:
         return []
     # A later definition under the same name replaces the earlier one, as in

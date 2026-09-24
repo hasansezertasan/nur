@@ -145,6 +145,43 @@ def test_fallback_import_in_except_is_recognised() -> None:
     assert _names(text) == ["tests"]
 
 
+def test_import_must_be_bound_on_every_path() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    assert _names("import sys\nif sys.flags:\n    import nox\n" + session) == []
+    assert _names("for _ in []:\n    import nox\n" + session) == []
+    assert (
+        _names("try:\n    import nox\nexcept ImportError:\n    pass\n" + session) == []
+    )
+    assert _names(
+        "import sys\nif sys.flags:\n    import nox\nelse:\n    import nox as nox\n"
+        + session
+    ) == ["s"]
+    assert _names("try:\n    pass\nfinally:\n    import nox\n" + session) == ["s"]
+
+
+def test_long_elif_chain_is_skipped_not_crashing(tmp_path: Path, caplog) -> None:
+    chain = "".join(f"elif x == {i}:\n    pass\n" for i in range(1, 5000))
+    (tmp_path / "noxfile.py").write_text(
+        "import nox\nx = 0\nif x == 0:\n    pass\n" + chain
+    )
+    assert NoxProvider().discover(tmp_path) == []
+    assert any("noxfile.py" in r.message for r in caplog.records)
+
+
+def test_import_inside_class_body_is_not_module_level() -> None:
+    text = "class C:\n    import nox\n@nox.session\ndef outer(session): ...\n"
+    assert _names(text) == []
+
+
+def test_mapping_splat_skips_regardless_of_keyword_order() -> None:
+    text = (
+        "import nox\nKW = {}\n"
+        "@nox.session(name='a', **KW)\ndef a(session): ...\n"
+        "@nox.session(**KW, name='b')\ndef b(session): ...\n"
+    )
+    assert _names(text) == []
+
+
 def test_stacked_session_decorators_register_aliases() -> None:
     text = (
         "import nox\nNAME = 'x'\n"
