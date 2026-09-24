@@ -7,6 +7,7 @@ from nur.core.providers.just import JustProvider
 from nur.core.providers.make import MakeProvider
 from nur.core.providers.mise import MiseProvider
 from nur.core.providers.moon import MoonProvider
+from nur.core.providers.nox import NoxProvider
 from nur.core.providers.npm import NpmProvider
 from nur.core.providers.pdm import PdmProvider
 from nur.core.providers.poe import PoeProvider
@@ -35,6 +36,7 @@ PROVIDERS: list[Provider] = [
     MoonProvider(),
     XcProvider(),
     VsCodeProvider(),
+    NoxProvider(),
 ]
 
 __all__ = [
@@ -46,6 +48,7 @@ __all__ = [
     "MakeProvider",
     "MiseProvider",
     "MoonProvider",
+    "NoxProvider",
     "NpmProvider",
     "PdmProvider",
     "PoeProvider",

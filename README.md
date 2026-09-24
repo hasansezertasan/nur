@@ -24,7 +24,7 @@
 
 Run `nur` in a project and it discovers the tasks your project already defines —
 from npm, Make, deno, composer, just, Taskfile, pre-commit, PDM/poe, tox, mise,
-cargo-make, moon, xc, and VS Code tasks — then lets you run them from a TUI picker or directly from the command line.
+cargo-make, moon, xc, VS Code tasks, and nox — then lets you run them from a TUI picker or directly from the command line.
 Discovery is limited to the current directory. See [Features](#features) for the
 full list of source files.
 
@@ -134,7 +134,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 
 ## Features
 
-- **Zero-config discovery** across fifteen providers, each parsed from a single
+- **Zero-config discovery** across sixteen providers, each parsed from a single
   source file in the current directory:
 
   | Provider | Prefix | Source file |
@@ -154,6 +154,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   | moon | `moon` | `moon.yml` |
   | xc | `xc` | `README.md` (see below) |
   | VS Code | `vscode` | `.vscode/tasks.json` (see below) |
+  | nox | `nox` | `noxfile.py` (see below) |
 
   `tox` reads the first applicable config file present, in priority order:
   `tox.ini`, `setup.cfg` (`[tox:tox]`), `pyproject.toml` (`[tool.tox]`), then
@@ -179,6 +180,12 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   setting `env`, `shell`, or a `cwd` other than the project root. Shell tasks run
   through `$SHELL -c` on POSIX (falling back to `/bin/sh`) and `cmd.exe` on
   Windows; an object-form `command` is quoted as a single literal token.
+  `nox` parses `noxfile.py` as a Python syntax tree (never importing it, unlike
+  `nox --list`) and surfaces `@nox.session`-decorated functions, runnable as
+  `nox -s <name>`, using an explicit string `name=` when given and the
+  docstring's first line as the description. `python=[...]` and
+  `@nox.parametrize` variants appear under their base name (which runs every
+  variant); sessions with a computed `name=` or registered dynamically are skipped.
 - **CLI Application**: run any discovered task by name or qualified `prefix:name`, with `--` passthrough to the underlying runner.
 - **TUI Application**: interactive three-pane task picker built with Textual.
 - **Safe by default**: discovery parses files; it never shells out to a runner just to list tasks.
