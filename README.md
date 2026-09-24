@@ -185,7 +185,9 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   `nox -s <name>`, using an explicit string `name=` when given and the
   docstring's first line as the description. `python=[...]` and
   `@nox.parametrize` variants appear under their base name (which runs every
-  variant); sessions with a computed `name=` or registered dynamically are skipped.
+  variant). Sessions with a computed `name=`, defined inside `if`/`match`
+  branches, loops, `except` handlers, or functions, or registered dynamically
+  are skipped rather than listed under a name nox may not register.
 - **CLI Application**: run any discovered task by name or qualified `prefix:name`, with `--` passthrough to the underlying runner.
 - **TUI Application**: interactive three-pane task picker built with Textual.
 - **Safe by default**: discovery parses files; it never shells out to a runner just to list tasks.

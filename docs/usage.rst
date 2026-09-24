@@ -25,7 +25,7 @@ List the discovered tasks
    nur list
 
 Tasks are grouped by their provider prefix (``make``, ``npm``, ``deno``,
-``composer``, ``just``, ``task``, ``pdm``, ``poe``, ``mise``, ``cargo-make``,
+``composer``, ``just``, ``task``, ``pdm``, ``poe``, ``tox``, ``mise``, ``cargo-make``,
 ``moon``, ``xc``, ``vscode``, ``nox``).
 
 Run a task
