@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.5.0](https://github.com/hasansezertasan/nur/compare/v0.4.0...v0.5.0) (2026-09-25)
+
+
+### 🚀 Features
+
+* add tox task provider ([#233](https://github.com/hasansezertasan/nur/issues/233)) ([7a8abfd](https://github.com/hasansezertasan/nur/commit/7a8abfdccfef94454b6fc415e67f6e85a3dccd82))
+* **providers:** add pre-commit discovery ([#230](https://github.com/hasansezertasan/nur/issues/230)) ([56b36c3](https://github.com/hasansezertasan/nur/commit/56b36c3e065dfb0b7f95299f9964a6e0bb8f94b9))
+* **providers:** add VS Code tasks discovery ([#236](https://github.com/hasansezertasan/nur/issues/236)) ([8036eb4](https://github.com/hasansezertasan/nur/commit/8036eb4645a35a274ade391b75b0fd4423a237d2))
+* **templates:** add provider issue template for task-discovery formats ([#137](https://github.com/hasansezertasan/nur/issues/137)) ([e02af44](https://github.com/hasansezertasan/nur/commit/e02af44e23a2a19f21eaf417b8a01fa256843380))
+
 ## [0.4.0](https://github.com/hasansezertasan/nur/compare/v0.3.0...v0.4.0) (2026-08-13)
 
 
