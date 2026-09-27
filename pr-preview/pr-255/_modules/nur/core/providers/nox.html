@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="amber" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>nur.core.providers.nox - nur</title><link rel="index" title="Index" href="../../../../genindex.html" /><link rel="search" title="Search" href="../../../../search.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=e1a1ceaf" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx_paramlinks.css" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="nur.core.providers.nox"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../../../../index.html">
+      
+      
+      <strong>nur</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials">
+  <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../cli-reference.html">CLI reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modules.html">Modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../adr/index.html">Architecture Decision Records</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../adr/0001-provider-selection-criteria.html">Provider selection criteria: static discovery, never execution</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Maintainer guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../maintaining/setup.html">Repository setup</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../packaging/homebrew-tap/README.html">Homebrew tap setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../packaging/scoop-bucket/README.html">Scoop bucket setup</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../../index.html"><span itemprop="name">nur</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../index.html"><span itemprop="name">Module code</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">nur.core.providers.nox</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <h1>Source code for nur.core.providers.nox</h1><div class="highlight"><pre>
+<span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="kn">import</span><span class="w"> </span><span class="nn">ast</span>
+</span><span data-line="4"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+</span><span data-line="5"><span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+</span><span data-line="6"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Literal</span>
+</span><span data-line="7">
+</span><span data-line="8"><span class="kn">from</span><span class="w"> </span><span class="nn">nur.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Task</span>
+</span><span data-line="9">
+</span><span data-line="10"><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+</span><span data-line="11">    <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterator</span>
+</span><span data-line="12">    <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+</span><span data-line="13">
+</span><span data-line="14"><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"NoxProvider"</span><span class="p">,</span> <span class="s2">"parse_noxfile"</span><span class="p">]</span>
+</span><span data-line="15">
+</span><span data-line="16">
+</span><span data-line="17"><span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">"nur"</span><span class="p">)</span>
+</span><span data-line="18">
+</span><span data-line="19"><span class="n">_SOURCE_FILE</span> <span class="o">=</span> <span class="s2">"noxfile.py"</span>
+</span><span data-line="20">
+</span><span data-line="21">
+</span><span data-line="22"><span class="c1"># What an imported name refers to: the ``nox`` module, ``nox.session``, or</span>
+</span><span data-line="23"><span class="c1"># anything else (tracked so a fallback import still counts as a binding).</span>
+</span><span data-line="24"><span class="nb">type</span> <span class="n">_Kind</span> <span class="o">=</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"module"</span><span class="p">,</span> <span class="s2">"session"</span><span class="p">,</span> <span class="s2">"other"</span><span class="p">]</span>
+</span><span data-line="25">
+</span><span data-line="26">
+</span><span data-line="27"><span class="k">def</span><span class="w"> </span><span class="nf">_import_bindings</span><span class="p">(</span><span class="n">node</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">Import</span> <span class="o">|</span> <span class="n">ast</span><span class="o">.</span><span class="n">ImportFrom</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">_Kind</span><span class="p">]:</span>
+</span><span data-line="28">    <span class="n">bound</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">_Kind</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="29">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Import</span><span class="p">):</span>
+</span><span data-line="30">        <span class="k">for</span> <span class="n">alias</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
+</span><span data-line="31">            <span class="k">if</span> <span class="n">alias</span><span class="o">.</span><span class="n">asname</span><span class="p">:</span>
+</span><span data-line="32">                <span class="n">bound</span><span class="p">[</span><span class="n">alias</span><span class="o">.</span><span class="n">asname</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"module"</span> <span class="k">if</span> <span class="n">alias</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">"nox"</span> <span class="k">else</span> <span class="s2">"other"</span>
+</span><span data-line="33">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="34">                <span class="c1"># `import nox.command` binds the top-level `nox` name too.</span>
+</span><span data-line="35">                <span class="n">top</span> <span class="o">=</span> <span class="n">alias</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">"."</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="36">                <span class="n">bound</span><span class="p">[</span><span class="n">top</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"module"</span> <span class="k">if</span> <span class="n">top</span> <span class="o">==</span> <span class="s2">"nox"</span> <span class="k">else</span> <span class="s2">"other"</span>
+</span><span data-line="37">    <span class="k">else</span><span class="p">:</span>
+</span><span data-line="38">        <span class="n">from_nox</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">module</span> <span class="o">==</span> <span class="s2">"nox"</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">node</span><span class="o">.</span><span class="n">level</span>
+</span><span data-line="39">        <span class="k">for</span> <span class="n">alias</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
+</span><span data-line="40">            <span class="k">if</span> <span class="n">alias</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">"*"</span><span class="p">:</span>
+</span><span data-line="41">                <span class="k">if</span> <span class="n">from_nox</span><span class="p">:</span>
+</span><span data-line="42">                    <span class="n">bound</span><span class="p">[</span><span class="s2">"session"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"session"</span>
+</span><span data-line="43">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="44">                <span class="n">is_session</span> <span class="o">=</span> <span class="n">from_nox</span> <span class="ow">and</span> <span class="n">alias</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">"session"</span>
+</span><span data-line="45">                <span class="n">bound</span><span class="p">[</span><span class="n">alias</span><span class="o">.</span><span class="n">asname</span> <span class="ow">or</span> <span class="n">alias</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"session"</span> <span class="k">if</span> <span class="n">is_session</span> <span class="k">else</span> <span class="s2">"other"</span>
+</span><span data-line="46">    <span class="k">return</span> <span class="n">bound</span>
+</span><span data-line="47">
+</span><span data-line="48">
+</span><span data-line="49"><span class="k">def</span><span class="w"> </span><span class="nf">_on_every_path</span><span class="p">(</span><span class="n">paths</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">_Kind</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">_Kind</span><span class="p">]:</span>
+</span><span data-line="50"><span class="w">    </span><span class="sd">"""Keep names every path binds, preferring a nox binding when paths differ.</span>
+</span><span data-line="51">
+</span><span data-line="52"><span class="sd">    ``try: from nox_uv import session`` / ``except ImportError: from nox import</span>
+</span><span data-line="53"><span class="sd">    session`` binds ``session`` either way, to nox or a drop-in wrapper of it.</span>
+</span><span data-line="54"><span class="sd">    """</span>
+</span><span data-line="55">    <span class="n">common</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">))</span>
+</span><span data-line="56">    <span class="n">bound</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">_Kind</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="57">    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">common</span><span class="p">:</span>
+</span><span data-line="58">        <span class="n">bound</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"other"</span>
+</span><span data-line="59">        <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">:</span>
+</span><span data-line="60">            <span class="k">if</span> <span class="n">path</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">"other"</span><span class="p">:</span>
+</span><span data-line="61">                <span class="n">bound</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">path</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+</span><span data-line="62">                <span class="k">break</span>
+</span><span data-line="63">    <span class="k">return</span> <span class="n">bound</span>
+</span><span data-line="64">
+</span><span data-line="65">
+</span><span data-line="66"><span class="k">def</span><span class="w"> </span><span class="nf">_bound_on_every_path</span><span class="p">(</span><span class="n">body</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ast</span><span class="o">.</span><span class="n">stmt</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">_Kind</span><span class="p">]:</span>
+</span><span data-line="67"><span class="w">    </span><span class="sd">"""Return the names *body*'s imports bind however its branches go.</span>
+</span><span data-line="68">
+</span><span data-line="69"><span class="sd">    A name bound only in an ``if`` without a binding ``else``, a loop, or a</span>
+</span><span data-line="70"><span class="sd">    ``match`` case may be missing at runtime, making nox fail with</span>
+</span><span data-line="71"><span class="sd">    ``NameError``. Both sides of an ``if``/``else`` count, as does a ``try``</span>
+</span><span data-line="72"><span class="sd">    whose body and every handler bind it (the ``except ImportError`` fallback</span>
+</span><span data-line="73"><span class="sd">    idiom). Class bodies bind class attributes, not module names.</span>
+</span><span data-line="74"><span class="sd">    """</span>
+</span><span data-line="75">    <span class="n">bound</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">_Kind</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="76">    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">body</span><span class="p">:</span>
+</span><span data-line="77">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Import</span> <span class="o">|</span> <span class="n">ast</span><span class="o">.</span><span class="n">ImportFrom</span><span class="p">):</span>
+</span><span data-line="78">            <span class="n">bound</span> <span class="o">|=</span> <span class="n">_import_bindings</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+</span><span data-line="79">        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">With</span><span class="p">):</span>
+</span><span data-line="80">            <span class="n">bound</span> <span class="o">|=</span> <span class="n">_bound_on_every_path</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+</span><span data-line="81">        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">If</span><span class="p">):</span>
+</span><span data-line="82">            <span class="n">bound</span> <span class="o">|=</span> <span class="n">_on_every_path</span><span class="p">([</span>
+</span><span data-line="83">                <span class="n">_bound_on_every_path</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">),</span>
+</span><span data-line="84">                <span class="n">_bound_on_every_path</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">orelse</span><span class="p">),</span>
+</span><span data-line="85">            <span class="p">])</span>
+</span><span data-line="86">        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Try</span> <span class="o">|</span> <span class="n">ast</span><span class="o">.</span><span class="n">TryStar</span><span class="p">):</span>
+</span><span data-line="87">            <span class="n">paths</span> <span class="o">=</span> <span class="p">[</span><span class="n">_bound_on_every_path</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span> <span class="o">+</span> <span class="n">node</span><span class="o">.</span><span class="n">orelse</span><span class="p">)]</span>
+</span><span data-line="88">            <span class="n">paths</span> <span class="o">+=</span> <span class="p">[</span><span class="n">_bound_on_every_path</span><span class="p">(</span><span class="n">handler</span><span class="o">.</span><span class="n">body</span><span class="p">)</span> <span class="k">for</span> <span class="n">handler</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">handlers</span><span class="p">]</span>
+</span><span data-line="89">            <span class="n">bound</span> <span class="o">|=</span> <span class="n">_on_every_path</span><span class="p">(</span><span class="n">paths</span><span class="p">)</span>
+</span><span data-line="90">            <span class="n">bound</span> <span class="o">|=</span> <span class="n">_bound_on_every_path</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">finalbody</span><span class="p">)</span>
+</span><span data-line="91">    <span class="k">return</span> <span class="n">bound</span>
+</span><span data-line="92">
+</span><span data-line="93">
+</span><span data-line="94"><span class="k">def</span><span class="w"> </span><span class="nf">_module_level</span><span class="p">(</span><span class="n">body</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ast</span><span class="o">.</span><span class="n">stmt</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">ast</span><span class="o">.</span><span class="n">stmt</span><span class="p">]:</span>
+</span><span data-line="95"><span class="w">    </span><span class="sd">"""Walk the statements that always run when the module is imported.</span>
+</span><span data-line="96">
+</span><span data-line="97"><span class="sd">    Only ``with`` and ``class`` bodies, and a ``try``'s body, ``else``, and</span>
+</span><span data-line="98"><span class="sd">    ``finally`` are entered. ``if``/``match`` branches, loops, and ``except``</span>
+</span><span data-line="99"><span class="sd">    handlers run only when a runtime condition holds, so a session defined</span>
+</span><span data-line="100"><span class="sd">    there may not exist (``nox -s`` would reject it); function bodies run only</span>
+</span><span data-line="101"><span class="sd">    when called.</span>
+</span><span data-line="102">
+</span><span data-line="103"><span class="sd">    Yields:</span>
+</span><span data-line="104"><span class="sd">        Each statement in *body*, then those nested in the entered blocks.</span>
+</span><span data-line="105"><span class="sd">    """</span>
+</span><span data-line="106">    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">body</span><span class="p">:</span>
+</span><span data-line="107">        <span class="k">yield</span> <span class="n">node</span>
+</span><span data-line="108">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">With</span> <span class="o">|</span> <span class="n">ast</span><span class="o">.</span><span class="n">ClassDef</span><span class="p">):</span>
+</span><span data-line="109">            <span class="k">yield from</span> <span class="n">_module_level</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+</span><span data-line="110">        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Try</span> <span class="o">|</span> <span class="n">ast</span><span class="o">.</span><span class="n">TryStar</span><span class="p">):</span>
+</span><span data-line="111">            <span class="k">yield from</span> <span class="n">_module_level</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+</span><span data-line="112">            <span class="k">yield from</span> <span class="n">_module_level</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">orelse</span><span class="p">)</span>
+</span><span data-line="113">            <span class="k">yield from</span> <span class="n">_module_level</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">finalbody</span><span class="p">)</span>
+</span><span data-line="114">
+</span><span data-line="115">
+</span><span data-line="116"><span class="k">def</span><span class="w"> </span><span class="nf">_is_session_ref</span><span class="p">(</span><span class="n">node</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">expr</span><span class="p">,</span> <span class="n">modules</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">decorators</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="117">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Attribute</span><span class="p">):</span>
+</span><span data-line="118">        <span class="k">return</span> <span class="p">(</span>
+</span><span data-line="119">            <span class="n">node</span><span class="o">.</span><span class="n">attr</span> <span class="o">==</span> <span class="s2">"session"</span>
+</span><span data-line="120">            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">)</span>
+</span><span data-line="121">            <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="n">modules</span>
+</span><span data-line="122">        <span class="p">)</span>
+</span><span data-line="123">    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">)</span> <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="n">decorators</span>
+</span><span data-line="124">
+</span><span data-line="125">
+</span><span data-line="126"><span class="k">def</span><span class="w"> </span><span class="nf">_session_names</span><span class="p">(</span>
+</span><span data-line="127">    <span class="n">func</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">FunctionDef</span><span class="p">,</span> <span class="n">modules</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">decorators</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+</span><span data-line="128"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+</span><span data-line="129"><span class="w">    </span><span class="sd">"""Return every name *func* is registered under as a nox session.</span>
+</span><span data-line="130">
+</span><span data-line="131"><span class="sd">    Stacked ``@nox.session`` decorators each register an alias, applied</span>
+</span><span data-line="132"><span class="sd">    bottom-up. A decorator whose name cannot be read statically contributes</span>
+</span><span data-line="133"><span class="sd">    nothing rather than a name ``nox -s`` would reject.</span>
+</span><span data-line="134"><span class="sd">    """</span>
+</span><span data-line="135">    <span class="n">names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="136">    <span class="k">for</span> <span class="n">decorator</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="n">decorator_list</span><span class="p">):</span>
+</span><span data-line="137">        <span class="k">if</span> <span class="n">_is_session_ref</span><span class="p">(</span><span class="n">decorator</span><span class="p">,</span> <span class="n">modules</span><span class="p">,</span> <span class="n">decorators</span><span class="p">):</span>
+</span><span data-line="138">            <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="139">        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">decorator</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">)</span> <span class="ow">and</span> <span class="n">_is_session_ref</span><span class="p">(</span>
+</span><span data-line="140">            <span class="n">decorator</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="n">modules</span><span class="p">,</span> <span class="n">decorators</span>
+</span><span data-line="141">        <span class="p">):</span>
+</span><span data-line="142">            <span class="n">name</span> <span class="o">=</span> <span class="n">_explicit_name</span><span class="p">(</span><span class="n">decorator</span><span class="p">,</span> <span class="n">func</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="143">            <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="144">                <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="145">    <span class="k">return</span> <span class="n">names</span>
+</span><span data-line="146">
+</span><span data-line="147">
+</span><span data-line="148"><span class="k">def</span><span class="w"> </span><span class="nf">_explicit_name</span><span class="p">(</span><span class="n">call</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="149"><span class="w">    </span><span class="sd">"""Return the name a ``@nox.session(...)`` call registers, if it is static.</span>
+</span><span data-line="150">
+</span><span data-line="151"><span class="sd">    nox registers ``name or func.__name__``. A ``name=`` that is not a literal,</span>
+</span><span data-line="152"><span class="sd">    a ``**mapping`` that may carry one, or positional arguments make the real</span>
+</span><span data-line="153"><span class="sd">    name unknowable without evaluation.</span>
+</span><span data-line="154"><span class="sd">    """</span>
+</span><span data-line="155">    <span class="k">if</span> <span class="n">call</span><span class="o">.</span><span class="n">args</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">keyword</span><span class="o">.</span><span class="n">arg</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="n">call</span><span class="o">.</span><span class="n">keywords</span><span class="p">):</span>
+</span><span data-line="156">        <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="157">    <span class="k">for</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="n">call</span><span class="o">.</span><span class="n">keywords</span><span class="p">:</span>
+</span><span data-line="158">        <span class="k">if</span> <span class="n">keyword</span><span class="o">.</span><span class="n">arg</span> <span class="o">==</span> <span class="s2">"name"</span><span class="p">:</span>
+</span><span data-line="159">            <span class="n">value</span> <span class="o">=</span> <span class="n">keyword</span><span class="o">.</span><span class="n">value</span>
+</span><span data-line="160">            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Constant</span><span class="p">):</span>
+</span><span data-line="161">                <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="162">            <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>  <span class="c1"># nox registers `name or func.__name__`</span>
+</span><span data-line="163">                <span class="k">return</span> <span class="n">default</span>
+</span><span data-line="164">            <span class="k">return</span> <span class="n">value</span><span class="o">.</span><span class="n">value</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+</span><span data-line="165">    <span class="k">return</span> <span class="n">default</span>
+</span><span data-line="166">
+</span><span data-line="167">
+</span><span data-line="168"><span class="k">def</span><span class="w"> </span><span class="nf">_first_line</span><span class="p">(</span><span class="n">func</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">FunctionDef</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="169">    <span class="n">lines</span> <span class="o">=</span> <span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">get_docstring</span><span class="p">(</span><span class="n">func</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
+</span><span data-line="170">    <span class="k">return</span> <span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">if</span> <span class="n">lines</span> <span class="k">else</span> <span class="kc">None</span>
+</span><span data-line="171">
+</span><span data-line="172">
+<div class="viewcode-block" id="parse_noxfile">
+<a class="viewcode-back" href="../../../../modules.html#nur.core.providers.nox.parse_noxfile">[docs]</a>
+</span><span data-line="173"><span class="k">def</span><span class="w"> </span><span class="nf">parse_noxfile</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">source_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">_SOURCE_FILE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="174"><span class="w">    </span><span class="sd">"""Extract nox sessions from *text* by AST parsing, never importing it.</span>
+</span><span data-line="175">
+</span><span data-line="176"><span class="sd">    ``nox --list`` imports and executes ``noxfile.py`` to build its registry, so</span>
+</span><span data-line="177"><span class="sd">    discovery reads ``@nox.session``-decorated functions from the syntax tree</span>
+</span><span data-line="178"><span class="sd">    instead. This is a safe subset: ``python=[...]`` and ``@nox.parametrize``</span>
+</span><span data-line="179"><span class="sd">    variants are surfaced under their base name (``nox -s &lt;name&gt;`` still runs</span>
+</span><span data-line="180"><span class="sd">    every variant), and sessions registered dynamically or only under a runtime</span>
+</span><span data-line="181"><span class="sd">    condition are not discovered.</span>
+</span><span data-line="182"><span class="sd">    """</span>
+</span><span data-line="183">    <span class="c1"># The noxfile's own SyntaxWarnings (e.g. invalid escapes) are nox's to</span>
+</span><span data-line="184">    <span class="c1"># report when it runs; nur only reads names, so keep them off every listing.</span>
+</span><span data-line="185">    <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">(</span><span class="n">action</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="ne">SyntaxWarning</span><span class="p">):</span>
+</span><span data-line="186">        <span class="n">tree</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="n">source_file</span><span class="p">)</span>
+</span><span data-line="187">    <span class="n">bound</span> <span class="o">=</span> <span class="n">_bound_on_every_path</span><span class="p">(</span><span class="n">tree</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+</span><span data-line="188">    <span class="n">modules</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">bound</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"module"</span><span class="p">}</span>
+</span><span data-line="189">    <span class="n">decorators</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">bound</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"session"</span><span class="p">}</span>
+</span><span data-line="190">    <span class="k">if</span> <span class="ow">not</span> <span class="n">modules</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">decorators</span><span class="p">:</span>
+</span><span data-line="191">        <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="192">    <span class="c1"># A later definition under the same name replaces the earlier one, as in</span>
+</span><span data-line="193">    <span class="c1"># nox's own registry, while keeping the first definition's position.</span>
+</span><span data-line="194">    <span class="n">sessions</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="195">    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">_module_level</span><span class="p">(</span><span class="n">tree</span><span class="o">.</span><span class="n">body</span><span class="p">):</span>
+</span><span data-line="196">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">FunctionDef</span><span class="p">):</span>
+</span><span data-line="197">            <span class="n">description</span> <span class="o">=</span> <span class="n">_first_line</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+</span><span data-line="198">            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_session_names</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">modules</span><span class="p">,</span> <span class="n">decorators</span><span class="p">):</span>
+</span><span data-line="199">                <span class="n">sessions</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">description</span>
+</span><span data-line="200">    <span class="k">return</span> <span class="p">[</span>
+</span><span data-line="201">        <span class="n">Task</span><span class="p">(</span>
+</span><span data-line="202">            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+</span><span data-line="203">            <span class="n">prefix</span><span class="o">=</span><span class="s2">"nox"</span><span class="p">,</span>
+</span><span data-line="204">            <span class="n">argv_base</span><span class="o">=</span><span class="p">(</span><span class="s2">"nox"</span><span class="p">,</span> <span class="s2">"-s"</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
+</span><span data-line="205">            <span class="n">description</span><span class="o">=</span><span class="n">description</span><span class="p">,</span>
+</span><span data-line="206">            <span class="n">source_file</span><span class="o">=</span><span class="n">source_file</span><span class="p">,</span>
+</span><span data-line="207">            <span class="n">passthrough_prefix</span><span class="o">=</span><span class="p">(</span><span class="s2">"--"</span><span class="p">,),</span>
+</span><span data-line="208">        <span class="p">)</span>
+</span><span data-line="209">        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">description</span> <span class="ow">in</span> <span class="n">sessions</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+</span><span data-line="210">    <span class="p">]</span></div>
+
+</span><span data-line="211">
+</span><span data-line="212">
+</span><span data-line="213"><span class="k">class</span><span class="w"> </span><span class="nc">NoxProvider</span><span class="p">:</span>
+</span><span data-line="214">    <span class="n">prefix</span> <span class="o">=</span> <span class="s2">"nox"</span>
+</span><span data-line="215">
+</span><span data-line="216">    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="217">        <span class="k">return</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">_SOURCE_FILE</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span>
+</span><span data-line="218">
+</span><span data-line="219">    <span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="220">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="221">            <span class="c1"># Strict UTF-8, as nox itself reads the file before importing it, so</span>
+</span><span data-line="222">            <span class="c1"># a file nox would reject (e.g. with a BOM) lists nothing.</span>
+</span><span data-line="223">            <span class="n">text</span> <span class="o">=</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">_SOURCE_FILE</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
+</span><span data-line="224">            <span class="k">return</span> <span class="n">parse_noxfile</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+</span><span data-line="225">        <span class="k">except</span> <span class="p">(</span>
+</span><span data-line="226">            <span class="ne">OSError</span><span class="p">,</span>
+</span><span data-line="227">            <span class="ne">UnicodeDecodeError</span><span class="p">,</span>
+</span><span data-line="228">            <span class="ne">SyntaxError</span><span class="p">,</span>
+</span><span data-line="229">            <span class="ne">ValueError</span><span class="p">,</span>
+</span><span data-line="230">            <span class="ne">RecursionError</span><span class="p">,</span>
+</span><span data-line="231">        <span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="232">            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span> <span class="n">_SOURCE_FILE</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+</span><span data-line="233">            <span class="k">return</span> <span class="p">[]</span>
+</span></pre></div>
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Hasan Sezer Taşan</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../../../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../../_static/copybutton.js?v=f281be69"></script>
+      <script>let toggleHintShow = 'Click to show';</script>
+      <script>let toggleHintHide = 'Click to hide';</script>
+      <script>let toggleOpenOnPrint = 'true';</script>
+      <script src="../../../../_static/togglebutton.js?v=b8b12719"></script>
+      <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
+      <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+      <script src="../../../../_static/shibuya.js?v=50760d75"></script></body>
+</html>
