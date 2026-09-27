@@ -183,11 +183,14 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   `nox` parses `noxfile.py` as a Python syntax tree (never importing it, unlike
   `nox --list`) and surfaces `@nox.session`-decorated functions, runnable as
   `nox -s <name>`, using an explicit string `name=` when given and the
-  docstring's first line as the description. `python=[...]` and
-  `@nox.parametrize` variants appear under their base name (which runs every
-  variant). Sessions with a computed `name=`, defined inside `if`/`match`
-  branches, loops, `except` handlers, or functions, or registered dynamically
-  are skipped rather than listed under a name nox may not register.
+  docstring's first line as the description. `nox-uv`'s drop-in `session`
+  decorator is recognised too. `python=[...]` and `@nox.parametrize` variants
+  appear under their base name (which runs every variant). Only sessions nox
+  is sure to register are listed: those defined at module level, in class
+  bodies, or in `finally` blocks, with the decorator bound to nox at that point
+  on every path. Sessions with a computed `name=`, or defined inside
+  `if`/`match` branches, loops, `try`/`with` bodies, `except` handlers, or
+  functions, are skipped rather than listed under a name nox may not register.
 - **CLI Application**: run any discovered task by name or qualified `prefix:name`, with `--` passthrough to the underlying runner.
 - **TUI Application**: interactive three-pane task picker built with Textual.
 - **Safe by default**: discovery parses files; it never shells out to a runner just to list tasks.

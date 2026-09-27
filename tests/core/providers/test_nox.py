@@ -133,7 +133,65 @@ def test_only_unconditional_blocks_are_searched() -> None:
         "class C:\n"
         "    @nox.session\n    def in_class(session): ...\n"
     )
-    assert _names(text) == ["in_try", "in_else", "in_finally", "in_with", "in_class"]
+    # try/else/with bodies can be cut short by a handled exception.
+    assert _names(text) == ["in_finally", "in_class"]
+
+
+def test_session_after_caught_exception_is_not_listed() -> None:
+    text = (
+        "import nox\n"
+        "try:\n    import sphinx\n"
+        "    @nox.session\n    def docs(session): ...\n"
+        "except ImportError:\n    pass\n"
+    )
+    assert _names(text) == []
+
+
+def test_bindings_follow_statement_order() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    assert _names(session + "import nox\n") == []
+    assert _names("import nox\nnox = object()\n" + session) == []
+    assert _names("import nox\ndef nox(): ...\n" + session) == []
+    assert _names("import nox\n(nox := 1)\n" + session) == []
+    assert _names("import nox\nimport other as nox\n" + session) == []
+    assert _names("import nox\nfor nox in []:\n    pass\n" + session) == []
+    assert _names("import nox\nfrom helpers import *\n" + session) == []
+    text = (
+        "import nox\n" + session + "del nox\nimport nox\n" + session.replace("s(", "t(")
+    )
+    assert _names(text) == ["s", "t"]
+
+
+def test_rebinding_on_any_path_invalidates() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    assert _names("import nox\nif x:\n    nox = 1\n" + session) == []
+    assert _names("import nox\nwhile x:\n    nox = 1\n" + session) == []
+    assert (
+        _names(
+            "import nox\ntry:\n    pass\nexcept Exception as nox:\n    pass\n" + session
+        )
+        == []
+    )
+    assert (
+        _names(
+            "import nox\nimport sys\nmatch sys.platform:\n    case nox:\n        pass\n"
+            + session
+        )
+        == []
+    )
+
+
+def test_branches_must_agree_on_the_binding() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    text = "if x:\n    import nox\nelse:\n    import other as nox\n" + session
+    assert _names(text) == []
+
+
+def test_nox_uv_is_a_drop_in_replacement() -> None:
+    assert _names(
+        "from nox_uv import session\n@session(name='a')\ndef b(s): ...\n"
+    ) == ["a"]
+    assert _names("import nox_uv\n@nox_uv.session\ndef c(s): ...\n") == ["c"]
 
 
 def test_fallback_import_in_except_is_recognised() -> None:

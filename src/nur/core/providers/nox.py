@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import ast
+import enum
 import logging
 import warnings
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from nur.core.models import Task
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
     from pathlib import Path
 
 __all__ = ["NoxProvider", "parse_noxfile"]
@@ -17,132 +17,92 @@ __all__ = ["NoxProvider", "parse_noxfile"]
 log = logging.getLogger("nur")
 
 _SOURCE_FILE = "noxfile.py"
+# Modules whose ``session`` is ``nox.session`` or a drop-in wrapper that
+# forwards ``name=`` to it (nox-uv).
+_NOX_MODULES = frozenset({"nox", "nox_uv"})
 
 
-# What an imported name refers to: the ``nox`` module, ``nox.session``, or
-# anything else (tracked so a fallback import still counts as a binding).
-type _Kind = Literal["module", "session", "other"]
+class _Kind(enum.Enum):
+    """What a tracked name is bound to.
+
+    Bindings map names to a kind; a name missing from the mapping is either
+    unbound or bound to something other than nox.
+    """
+
+    MODULE = enum.auto()  # a nox module: `<name>.session` is the decorator
+    SESSION = enum.auto()  # the `session` decorator itself
 
 
-def _import_bindings(node: ast.Import | ast.ImportFrom) -> dict[str, _Kind]:
-    bound: dict[str, _Kind] = {}
+def _merge(paths: list[dict[str, _Kind]]) -> dict[str, _Kind]:
+    """Keep only the bindings every path agrees on."""
+    first, *rest = paths
+    return {
+        name: kind
+        for name, kind in first.items()
+        if all(path.get(name) == kind for path in rest)
+    }
+
+
+def _stored_names(*nodes: ast.AST | None) -> set[str]:
+    """Return every name *nodes* may bind or delete (assignment, walrus, ``as``)."""
+    names: set[str] = set()
+    for node in nodes:
+        if node is None:
+            continue
+        for child in ast.walk(node):
+            if isinstance(child, ast.Name) and isinstance(
+                child.ctx, ast.Store | ast.Del
+            ):
+                names.add(child.id)
+            elif isinstance(child, ast.MatchAs | ast.MatchStar) and child.name:
+                names.add(child.name)
+            elif isinstance(child, ast.MatchMapping) and child.rest:
+                names.add(child.rest)
+    return names
+
+
+def _without(bound: dict[str, _Kind], names: set[str]) -> dict[str, _Kind]:
+    return {name: kind for name, kind in bound.items() if name not in names}
+
+
+def _apply_import(
+    node: ast.Import | ast.ImportFrom, bound: dict[str, _Kind]
+) -> dict[str, _Kind]:
+    result = dict(bound)
     if isinstance(node, ast.Import):
         for alias in node.names:
-            if alias.asname:
-                bound[alias.asname] = "module" if alias.name == "nox" else "other"
+            # `import nox.command` binds the top-level `nox` name too.
+            name = alias.asname or alias.name.partition(".")[0]
+            target = alias.name if alias.asname else name
+            if target in _NOX_MODULES:
+                result[name] = _Kind.MODULE
             else:
-                # `import nox.command` binds the top-level `nox` name too.
-                top = alias.name.partition(".")[0]
-                bound[top] = "module" if top == "nox" else "other"
-    else:
-        from_nox = node.module == "nox" and not node.level
-        for alias in node.names:
-            if alias.name == "*":
-                if from_nox:
-                    bound["session"] = "session"
-            else:
-                is_session = from_nox and alias.name == "session"
-                bound[alias.asname or alias.name] = "session" if is_session else "other"
-    return bound
+                result.pop(name, None)
+        return result
+    from_nox = node.module in _NOX_MODULES and not node.level
+    for alias in node.names:
+        if alias.name == "*":
+            if not from_nox:
+                # Any name may be rebound by an unknown star import.
+                return {}
+            result["session"] = _Kind.SESSION
+            continue
+        name = alias.asname or alias.name
+        if from_nox and alias.name == "session":
+            result[name] = _Kind.SESSION
+        else:
+            result.pop(name, None)
+    return result
 
 
-def _on_every_path(paths: list[dict[str, _Kind]]) -> dict[str, _Kind]:
-    """Keep names every path binds, preferring a nox binding when paths differ.
-
-    ``try: from nox_uv import session`` / ``except ImportError: from nox import
-    session`` binds ``session`` either way, to nox or a drop-in wrapper of it.
-    """
-    common: set[str] = set.intersection(*(set(path) for path in paths))
-    bound: dict[str, _Kind] = {}
-    for name in common:
-        bound[name] = "other"
-        for path in paths:
-            if path[name] != "other":
-                bound[name] = path[name]
-                break
-    return bound
-
-
-def _bound_on_every_path(body: list[ast.stmt]) -> dict[str, _Kind]:
-    """Return the names *body*'s imports bind however its branches go.
-
-    A name bound only in an ``if`` without a binding ``else``, a loop, or a
-    ``match`` case may be missing at runtime, making nox fail with
-    ``NameError``. Both sides of an ``if``/``else`` count, as does a ``try``
-    whose body and every handler bind it (the ``except ImportError`` fallback
-    idiom). Class bodies bind class attributes, not module names.
-    """
-    bound: dict[str, _Kind] = {}
-    for node in body:
-        if isinstance(node, ast.Import | ast.ImportFrom):
-            bound |= _import_bindings(node)
-        elif isinstance(node, ast.With):
-            bound |= _bound_on_every_path(node.body)
-        elif isinstance(node, ast.If):
-            bound |= _on_every_path([
-                _bound_on_every_path(node.body),
-                _bound_on_every_path(node.orelse),
-            ])
-        elif isinstance(node, ast.Try | ast.TryStar):
-            paths = [_bound_on_every_path(node.body + node.orelse)]
-            paths += [_bound_on_every_path(handler.body) for handler in node.handlers]
-            bound |= _on_every_path(paths)
-            bound |= _bound_on_every_path(node.finalbody)
-    return bound
-
-
-def _module_level(body: list[ast.stmt]) -> Iterator[ast.stmt]:
-    """Walk the statements that always run when the module is imported.
-
-    Only ``with`` and ``class`` bodies, and a ``try``'s body, ``else``, and
-    ``finally`` are entered. ``if``/``match`` branches, loops, and ``except``
-    handlers run only when a runtime condition holds, so a session defined
-    there may not exist (``nox -s`` would reject it); function bodies run only
-    when called.
-
-    Yields:
-        Each statement in *body*, then those nested in the entered blocks.
-    """
-    for node in body:
-        yield node
-        if isinstance(node, ast.With | ast.ClassDef):
-            yield from _module_level(node.body)
-        elif isinstance(node, ast.Try | ast.TryStar):
-            yield from _module_level(node.body)
-            yield from _module_level(node.orelse)
-            yield from _module_level(node.finalbody)
-
-
-def _is_session_ref(node: ast.expr, modules: set[str], decorators: set[str]) -> bool:
+def _is_session_ref(node: ast.expr, bound: dict[str, _Kind]) -> bool:
     if isinstance(node, ast.Attribute):
         return (
             node.attr == "session"
             and isinstance(node.value, ast.Name)
-            and node.value.id in modules
+            and bound.get(node.value.id) is _Kind.MODULE
         )
-    return isinstance(node, ast.Name) and node.id in decorators
-
-
-def _session_names(
-    func: ast.FunctionDef, modules: set[str], decorators: set[str]
-) -> list[str]:
-    """Return every name *func* is registered under as a nox session.
-
-    Stacked ``@nox.session`` decorators each register an alias, applied
-    bottom-up. A decorator whose name cannot be read statically contributes
-    nothing rather than a name ``nox -s`` would reject.
-    """
-    names: list[str] = []
-    for decorator in reversed(func.decorator_list):
-        if _is_session_ref(decorator, modules, decorators):
-            names.append(func.name)
-        elif isinstance(decorator, ast.Call) and _is_session_ref(
-            decorator.func, modules, decorators
-        ):
-            name = _explicit_name(decorator, func.name)
-            if name is not None:
-                names.append(name)
-    return names
+    return isinstance(node, ast.Name) and bound.get(node.id) is _Kind.SESSION
 
 
 def _explicit_name(call: ast.Call, default: str) -> str | None:
@@ -165,9 +125,158 @@ def _explicit_name(call: ast.Call, default: str) -> str | None:
     return default
 
 
+def _session_names(func: ast.FunctionDef, bound: dict[str, _Kind]) -> list[str]:
+    """Return every name *func* is registered under as a nox session.
+
+    Stacked ``@nox.session`` decorators each register an alias, applied
+    bottom-up. A decorator whose name cannot be read statically contributes
+    nothing rather than a name ``nox -s`` would reject.
+    """
+    names: list[str] = []
+    for decorator in reversed(func.decorator_list):
+        if _is_session_ref(decorator, bound):
+            names.append(func.name)
+        elif isinstance(decorator, ast.Call) and _is_session_ref(decorator.func, bound):
+            name = _explicit_name(decorator, func.name)
+            if name is not None:
+                names.append(name)
+    return names
+
+
 def _first_line(func: ast.FunctionDef) -> str | None:
     lines = (ast.get_docstring(func) or "").strip().splitlines()
     return lines[0].strip() if lines else None
+
+
+class _Scanner:
+    """Follow a noxfile's import-time control flow without running it.
+
+    Statements are processed in order while tracking which names are bound to
+    nox, so a decorator only counts if nox is bound *at that point* on every
+    path. Sessions are registered only where a definition always runs once
+    reached: module level, class bodies, and ``finally`` blocks. ``if``/``match``
+    branches, loops, and ``try``/``with`` bodies may be skipped or cut short by
+    a handled exception, so definitions there are not listed; they are still
+    followed for the bindings they may change.
+    """
+
+    def __init__(self) -> None:
+        self.sessions: dict[str, str | None] = {}
+
+    def run(
+        self, body: list[ast.stmt], bound: dict[str, _Kind], *, register: bool
+    ) -> dict[str, _Kind]:
+        for node in body:
+            bound = self._statement(node, bound, register=register)
+        return bound
+
+    def _anywhere_in(
+        self, body: list[ast.stmt], bound: dict[str, _Kind]
+    ) -> dict[str, _Kind]:
+        """Return bindings that hold however far *body* gets before stopping."""
+        states = [bound]
+        for node in body:
+            bound = self._statement(node, bound, register=False)
+            states.append(bound)
+        return _merge(states)
+
+    def _loop(self, body: list[ast.stmt], bound: dict[str, _Kind]) -> dict[str, _Kind]:
+        # Bindings only shrink under _merge, so this reaches a fixed point.
+        while True:
+            after = _merge([bound, self._anywhere_in(body, bound)])
+            if after == bound:
+                return bound
+            bound = after
+
+    def _statement(
+        self, node: ast.stmt, bound: dict[str, _Kind], *, register: bool
+    ) -> dict[str, _Kind]:
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            result = _apply_import(node, bound)
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            result = self._function(node, bound, register=register)
+        elif isinstance(node, ast.ClassDef):
+            result = self._class(node, bound, register=register)
+        elif isinstance(node, ast.Try | ast.TryStar):
+            result = self._try(node, bound, register=register)
+        elif isinstance(node, ast.If):
+            result = self._if(node, bound)
+        elif isinstance(node, ast.For | ast.AsyncFor | ast.While):
+            result = self._for_or_while(node, bound)
+        elif isinstance(node, ast.Match):
+            result = self._match(node, bound)
+        elif isinstance(node, ast.With | ast.AsyncWith):
+            bound = _without(bound, _stored_names(*node.items))
+            # A context manager may suppress an exception partway through.
+            result = self._anywhere_in(node.body, bound)
+        else:
+            result = _without(bound, _stored_names(node))
+        return result
+
+    def _function(
+        self,
+        node: ast.FunctionDef | ast.AsyncFunctionDef,
+        bound: dict[str, _Kind],
+        *,
+        register: bool,
+    ) -> dict[str, _Kind]:
+        if register and isinstance(node, ast.FunctionDef):
+            description = _first_line(node)
+            for name in _session_names(node, bound):
+                self.sessions[name] = description
+        signature = _stored_names(*node.decorator_list, node.args, node.returns)
+        return _without(bound, signature | {node.name})
+
+    def _class(
+        self, node: ast.ClassDef, bound: dict[str, _Kind], *, register: bool
+    ) -> dict[str, _Kind]:
+        header = _stored_names(*node.decorator_list, *node.bases, *node.keywords)
+        bound = _without(bound, header)
+        # The class body sees module bindings but binds its own names.
+        self.run(node.body, bound, register=register)
+        return _without(bound, {node.name})
+
+    def _try(
+        self, node: ast.Try | ast.TryStar, bound: dict[str, _Kind], *, register: bool
+    ) -> dict[str, _Kind]:
+        completed = self.run(
+            node.orelse, self.run(node.body, bound, register=False), register=False
+        )
+        raised = self._anywhere_in(node.body, bound)
+        paths = [completed]
+        for handler in node.handlers:
+            names = _stored_names(handler.type)
+            if handler.name:
+                names.add(handler.name)
+            paths.append(
+                self.run(handler.body, _without(raised, names), register=False)
+            )
+        return self.run(node.finalbody, _merge(paths), register=register)
+
+    def _if(self, node: ast.If, bound: dict[str, _Kind]) -> dict[str, _Kind]:
+        bound = _without(bound, _stored_names(node.test))
+        return _merge([
+            self.run(node.body, bound, register=False),
+            self.run(node.orelse, bound, register=False),
+        ])
+
+    def _for_or_while(
+        self, node: ast.For | ast.AsyncFor | ast.While, bound: dict[str, _Kind]
+    ) -> dict[str, _Kind]:
+        if isinstance(node, ast.While):
+            header = _stored_names(node.test)
+        else:
+            header = _stored_names(node.target, node.iter)
+        bound = self._loop(node.body, _without(bound, header))
+        return _merge([bound, self.run(node.orelse, bound, register=False)])
+
+    def _match(self, node: ast.Match, bound: dict[str, _Kind]) -> dict[str, _Kind]:
+        bound = _without(bound, _stored_names(node.subject))
+        paths = [bound]
+        for case in node.cases:
+            names = _stored_names(case.pattern, case.guard)
+            paths.append(self.run(case.body, _without(bound, names), register=False))
+        return _merge(paths)
 
 
 def parse_noxfile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
@@ -184,19 +293,10 @@ def parse_noxfile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     # report when it runs; nur only reads names, so keep them off every listing.
     with warnings.catch_warnings(action="ignore", category=SyntaxWarning):
         tree = ast.parse(text, filename=source_file)
-    bound = _bound_on_every_path(tree.body)
-    modules = {name for name, kind in bound.items() if kind == "module"}
-    decorators = {name for name, kind in bound.items() if kind == "session"}
-    if not modules and not decorators:
-        return []
+    scanner = _Scanner()
+    scanner.run(tree.body, {}, register=True)
     # A later definition under the same name replaces the earlier one, as in
     # nox's own registry, while keeping the first definition's position.
-    sessions: dict[str, str | None] = {}
-    for node in _module_level(tree.body):
-        if isinstance(node, ast.FunctionDef):
-            description = _first_line(node)
-            for name in _session_names(node, modules, decorators):
-                sessions[name] = description
     return [
         Task(
             name=name,
@@ -206,7 +306,7 @@ def parse_noxfile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             source_file=source_file,
             passthrough_prefix=("--",),
         )
-        for name, description in sessions.items()
+        for name, description in scanner.sessions.items()
     ]
 
 
