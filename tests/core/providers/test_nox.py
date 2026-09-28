@@ -378,6 +378,28 @@ def test_wildcard_as_pattern_is_irrefutable() -> None:
     assert _names(alternatives + session) == []
 
 
+def test_raise_expression_stores_reach_the_handler() -> None:
+    text = (
+        "import nox\ntry:\n    raise ValueError from (nox := RuntimeError())\n"
+        "except ValueError:\n    pass\n@nox.session\ndef s(session): ...\n"
+    )
+    assert _names(text) == []
+
+
+def test_finally_raise_overrides_a_break() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    overridden = (
+        "import nox\nwhile True:\n    try:\n        break\n"
+        "    finally:\n        raise RuntimeError\n"
+    )
+    assert _names(overridden + session) == []
+    in_finally = (
+        "import nox\nwhile True:\n    try:\n        pass\n"
+        "    finally:\n        break\n        raise RuntimeError\n"
+    )
+    assert _names(in_finally + session) == ["s"]
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"

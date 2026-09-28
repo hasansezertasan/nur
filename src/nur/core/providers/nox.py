@@ -189,6 +189,14 @@ def _breaks_in(body: list[ast.stmt], *, or_continues: bool = False) -> bool:
         if _terminates(node):
             # Anything after an unconditional raise in this block is unreachable.
             return False
+        if isinstance(node, ast.Try | ast.TryStar) and any(
+            _terminates(final) for final in node.finalbody
+        ):
+            # A `finally` that always raises replaces any `break` in the
+            # `try`, so only a `break` in the `finally` itself can escape.
+            if _breaks_in(node.finalbody, or_continues=or_continues):
+                return True
+            continue
         if isinstance(node, ast.If) and isinstance(node.test, ast.Constant):
             # Only the branch a constant condition takes can reach its `break`.
             taken = node.body if node.test.value else node.orelse
@@ -376,6 +384,9 @@ class _Scanner:
         for node in body:
             after = self._statement(node, states[-1], register=False)
             if after is None:
+                # The raising statement may still bind names first, e.g.
+                # `raise E from (nox := ...)`, before control leaves it.
+                states.append(_without(states[-1], _stored_names(node)))
                 break
             states.append(after)
         return _merge(states)
