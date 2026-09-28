@@ -683,6 +683,24 @@ def test_nested_class_does_not_see_outer_class_names() -> None:
     assert _names(module_level) == ["ok"]
 
 
+def test_constant_expression_handler_types_are_invalid() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    for handler in ("-1", "1 + 1", "0 or 1"):
+        text = (
+            "import nox\ntry:\n    raise TypeError\n"
+            f"except {handler}:\n    pass\nexcept TypeError:\n    pass\n"
+        )
+        assert _names(text + session) == [], handler
+
+
+def test_namespace_dict_mutation_is_distrusted() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    via_dict = "import nox\nnox.__dict__['session'] = print\n"
+    assert _names(via_dict + session) == []
+    via_vars = "import nox\nvars(nox)['session'] = print\n"
+    assert _names(via_vars + session) == []
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"

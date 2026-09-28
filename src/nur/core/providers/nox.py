@@ -55,16 +55,26 @@ def _mutates_session_attr(tree: ast.Module) -> bool:
 
     Aliases share one module object, and a re-import returns the same mutated
     module, so once ``nox.session`` may have been swapped (``nox.session = ...``,
-    ``del nox.session``, ``setattr``/``delattr``) no decorator can be trusted.
-    Other attributes (``nox.options``, ``nox.needs_version``) do not count.
+    ``del nox.session``, ``setattr``/``delattr``, or a module's namespace via
+    ``__dict__``/``vars()``) no decorator can be trusted. Other attributes
+    (``nox.options``, ``nox.needs_version``) do not count.
     """
     for node in ast.walk(tree):
         if isinstance(node, ast.Attribute):
-            if node.attr == "session" and isinstance(node.ctx, ast.Store | ast.Del):
+            stored = isinstance(node.ctx, ast.Store | ast.Del)
+            if (node.attr == "session" and stored) or node.attr == "__dict__":
                 return True
-        elif _reflective_session_write(node):
+        elif _reflective_session_write(node) or _calls(node, "vars"):
             return True
     return False
+
+
+def _calls(node: ast.AST, name: str) -> bool:
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == name
+    )
 
 
 def _reflective_session_write(node: ast.AST) -> bool:
@@ -289,9 +299,18 @@ _LITERALS = (
 
 
 def _is_literal(expr: ast.expr) -> bool:
-    """Return True for an expression that can never be an exception class."""
+    """Return True for an expression that can never be an exception class.
+
+    Literals, and ``-1`` / ``1 + 1`` / ``0 or 1`` built only from them.
+    """
     if isinstance(expr, ast.Tuple):
         return any(_is_literal(elt) for elt in expr.elts)
+    if isinstance(expr, ast.UnaryOp):
+        return _is_literal(expr.operand)
+    if isinstance(expr, ast.BinOp):
+        return _is_literal(expr.left) and _is_literal(expr.right)
+    if isinstance(expr, ast.BoolOp):
+        return all(_is_literal(value) for value in expr.values)
     return isinstance(expr, _LITERALS)
 
 
