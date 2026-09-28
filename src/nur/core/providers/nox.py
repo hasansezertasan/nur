@@ -95,10 +95,19 @@ _BASE_ONLY = frozenset({
 def _raised_name(node: ast.Raise) -> str | None:
     """Return the class name an explicit ``raise X`` / ``raise X(...)`` raises.
 
-    None if unknown, or if evaluating the ``raise`` rebinds that very name
-    (``raise X from (X := ...)``), since a handler naming ``X`` then looks up
-    the new value.
+    A literal exception or cause (``raise 1``, ``raise E from 1``; ``from None``
+    is fine) makes Python raise ``TypeError`` instead. None if unknown, or if
+    evaluating the ``raise`` rebinds that very name (``raise X from (X := ...)``),
+    since a handler naming ``X`` then looks up the new value.
     """
+    cause = node.cause
+    invalid_cause = (
+        cause is not None
+        and not (isinstance(cause, ast.Constant) and cause.value is None)
+        and _is_literal(cause)
+    )
+    if (node.exc is not None and _is_literal(node.exc)) or invalid_cause:
+        return "TypeError"
     exc = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
     if not isinstance(exc, ast.Name) or exc.id in _stored_names(node):
         return None
@@ -109,7 +118,7 @@ def _catches(
     handler: ast.ExceptHandler,
     raised: str | None,
     rebound: set[str],
-    exception_classes: set[str],
+    exception_classes: dict[str, int],
 ) -> bool:
     """Return True if *handler* certainly catches an exception named *raised*.
 
@@ -144,13 +153,17 @@ _BUILTIN_EXCEPTIONS = frozenset(
 )
 
 
-def _exception_classes(tree: ast.Module, rebound: set[str]) -> set[str]:
-    """Return names certainly bound to exception classes throughout the file.
+def _exception_classes(tree: ast.Module, rebound: set[str]) -> dict[str, int]:
+    """Map names certainly bound to exception classes to where they are bound.
 
-    That is builtin exceptions the file never rebinds, plus names bound only by
-    undecorated ``class`` statements whose every definition has a base that is
-    itself such a class.
+    That is builtin exceptions the file never rebinds (line 0, always bound),
+    plus names bound only by plain top-level ``class`` statements (no
+    decorators or class keywords such as ``metaclass=``, either of which can
+    bind the name to anything) whose every definition has a base that is
+    itself such a class. User classes map to their first definition's line,
+    since the name is unbound before it.
     """
+    top_level = {id(node) for node in tree.body}
     classes: dict[str, list[ast.ClassDef]] = {}
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
@@ -159,9 +172,12 @@ def _exception_classes(tree: ast.Module, rebound: set[str]) -> set[str]:
     candidates = {
         name: defs
         for name, defs in classes.items()
-        if name not in other and not any(d.decorator_list for d in defs)
+        if name not in other
+        and all(
+            id(d) in top_level and not d.decorator_list and not d.keywords for d in defs
+        )
     }
-    known = set(_BUILTIN_EXCEPTIONS - rebound)
+    known = dict.fromkeys(_BUILTIN_EXCEPTIONS - rebound, 0)
     changed = True
     while changed:
         changed = False
@@ -170,7 +186,7 @@ def _exception_classes(tree: ast.Module, rebound: set[str]) -> set[str]:
                 any(isinstance(b, ast.Name) and b.id in known for b in d.bases)
                 for d in defs
             ):
-                known.add(name)
+                known[name] = min(d.lineno for d in defs)
                 changed = True
     return known
 
@@ -243,12 +259,30 @@ def _literal_match(pattern: ast.pattern, subject: object) -> bool | None:
     return None
 
 
+_LITERALS = (
+    ast.Constant
+    | ast.List
+    | ast.Set
+    | ast.Dict
+    | ast.JoinedStr
+    | ast.ListComp
+    | ast.SetComp
+    | ast.DictComp
+    | ast.GeneratorExp
+    | ast.Lambda
+)
+
+
+def _is_literal(expr: ast.expr) -> bool:
+    """Return True for an expression that can never be an exception class."""
+    if isinstance(expr, ast.Tuple):
+        return any(_is_literal(elt) for elt in expr.elts)
+    return isinstance(expr, _LITERALS)
+
+
 def _invalid_handler_type(handler: ast.ExceptHandler) -> bool:
-    """Return True for ``except 1:``-style handlers, which raise TypeError."""
-    if handler.type is None:
-        return False
-    types = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
-    return any(isinstance(t, ast.Constant) for t in types)
+    """Return True for ``except 1:`` / ``except []:``, which raise TypeError."""
+    return handler.type is not None and _is_literal(handler.type)
 
 
 def _constant_truth(expr: ast.expr | None) -> bool | None:
@@ -393,9 +427,17 @@ def _stored_names(*nodes: ast.AST | None) -> set[str]:
     return names
 
 
+def _lambda_defaults(node: ast.Lambda) -> list[ast.expr]:
+    defaults = [*node.args.defaults, *node.args.kw_defaults]
+    return [default for default in defaults if default is not None]
+
+
 def _collect_stores(node: ast.AST, names: set[str], *, in_comprehension: bool) -> None:
     if isinstance(node, ast.Lambda):
-        return  # Its parameters and body live in the lambda's own scope.
+        # Defaults are evaluated here; parameters and body are the lambda's own.
+        for default in _lambda_defaults(node):
+            _collect_stores(default, names, in_comprehension=in_comprehension)
+        return
     if isinstance(node, ast.AnnAssign) and node.value is None:
         return  # `nox: object` annotates without binding (annotations are lazy).
     if isinstance(node, ast.NamedExpr):
@@ -708,27 +750,37 @@ class _Scanner:
         raises: list[str | None] = []
         for node in body:
             if isinstance(node, ast.Raise):
-                raises.append(_raised_name(node))
+                raises.append(self._raise_class(node))
             elif isinstance(node, ast.Assert) and _terminates(node):
                 raises.append("AssertionError")
             elif isinstance(node, ast.Try | ast.TryStar):
-                inner = self._raises_in(node.body)
-                if not any(_invalid_handler_type(h) for h in node.handlers):
-                    inner = [
-                        name
-                        for name in inner
-                        if not any(self._catches(h, name) for h in node.handlers)
-                    ]
-                raises += inner + self._raises_in(node.orelse)
-                for handler in node.handlers:
-                    raises += self._raises_in(handler.body)
-                raises += self._raises_in(node.finalbody)
+                raises += self._try_raises(node)
             elif not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
                 for field in ("body", "orelse"):
                     raises += self._raises_in(getattr(node, field, []))
                 for case in getattr(node, "cases", []):
                     raises += self._raises_in(case.body)
         return raises
+
+    def _raise_class(self, node: ast.Raise) -> str | None:
+        name = _raised_name(node)
+        if name is not None and self._exception_classes.get(name, 0) > node.lineno:
+            return None  # Raised before its class is defined: NameError.
+        return name
+
+    def _try_raises(self, node: ast.Try | ast.TryStar) -> list[str | None]:
+        """Return what escapes a nested ``try``: uncaught body raises and the rest."""
+        inner = self._raises_in(node.body)
+        if not any(_invalid_handler_type(h) for h in node.handlers):
+            inner = [
+                name
+                for name in inner
+                if not any(self._catches(h, name) for h in node.handlers)
+            ]
+        raises = inner + self._raises_in(node.orelse)
+        for handler in node.handlers:
+            raises += self._raises_in(handler.body)
+        return raises + self._raises_in(node.finalbody)
 
     def _if(self, node: ast.If, bound: dict[str, _Kind]) -> dict[str, _Kind] | None:
         bound = _without(bound, _stored_names(node.test))
@@ -783,12 +835,17 @@ class _Scanner:
             literal = (
                 None if subject is _NO_VALUE else _literal_match(case.pattern, subject)
             )
-            guard = _constant_truth(case.guard)
-            if literal is False or guard is False:
-                # A different literal, or a constant-false guard, never matches.
-                continue
+            if literal is False:
+                continue  # A constant subject can never match a different literal.
+            # Captures are bound before the guard runs and stay bound if it (or
+            # a partial pattern match) fails, so later cases and the
+            # fallthrough lose them too.
             names = _stored_names(case.pattern, case.guard)
-            paths.append(self.run(case.body, _without(bound, names), register=False))
+            bound = _without(bound, names)
+            guard = _constant_truth(case.guard)
+            if guard is False:
+                continue  # A constant-false guard never runs the body.
+            paths.append(self.run(case.body, bound, register=False))
             certain = _irrefutable(case.pattern) or literal is True
             if certain and (case.guard is None or guard is True):
                 # `case _:`, a capture, or a literal equal to a constant subject

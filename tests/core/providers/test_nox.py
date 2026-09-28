@@ -593,6 +593,52 @@ def test_unary_and_container_conditions_are_constant() -> None:
     assert _names(starred + session) == ["s"]
 
 
+def test_lambda_defaults_are_evaluated_in_the_enclosing_scope() -> None:
+    text = "import nox\nf = lambda x=(nox := object()): x\n"
+    assert _names(text + "@nox.session\ndef s(session): ...\n") == []
+
+
+def test_literal_raise_causes_and_handler_types_are_invalid() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    cause = (
+        "import nox\ntry:\n    raise ValueError from 1\nexcept ValueError:\n    pass\n"
+    )
+    assert _names(cause + session) == []
+    none_cause = (
+        "import nox\ntry:\n    raise ValueError from None\n"
+        "except ValueError:\n    pass\n"
+    )
+    assert _names(none_cause + session) == ["s"]
+    handler = (
+        "import nox\ntry:\n    raise TypeError\n"
+        "except []:\n    pass\nexcept TypeError:\n    pass\n"
+    )
+    assert _names(handler + session) == []
+
+
+def test_exception_class_must_be_plain_top_level_and_defined_first() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    handled = "try:\n    raise E\nexcept E:\n    pass\n"
+    meta = "import nox\nclass E(Exception, metaclass=type): ...\n"
+    assert _names(meta + handled + session) == []
+    nested = "import nox\nif x:\n    class E(Exception): ...\n"
+    assert _names(nested + handled + session) == []
+    later = "import nox\n" + handled + "class E(Exception): ...\n"
+    assert _names(later + session) == []
+    plain = "import nox\nclass E(Exception): ...\n"
+    assert _names(plain + handled + session) == ["s"]
+
+
+def test_match_captures_survive_a_failed_guard() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    false_guard = "import nox\nmatch 1:\n    case nox if False:\n        pass\n"
+    assert _names(false_guard + session) == []
+    maybe_guard = (
+        "import nox\nmatch x:\n    case nox if y:\n        raise RuntimeError\n"
+    )
+    assert _names(maybe_guard + session) == []
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"
