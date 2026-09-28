@@ -205,20 +205,24 @@ def test_guards_that_never_run_under_nox_are_skipped() -> None:
 
 
 def test_if_blocks_merge_their_branches() -> None:
-    config = "import nox\nif flag:\n    nox.options.sessions = ['s']\n"
+    config = "import nox\nflag = 1\nif flag:\n    nox.options.sessions = ['s']\n"
     assert _names(config + SESSION) == ["s"]
-    both = "if flag:\n    import nox\nelse:\n    import nox\n"
+    both = "flag = 1\nif flag:\n    import nox\nelse:\n    import nox\n"
     assert _names(both + SESSION) == ["s"]
-    one = "import nox\nif flag:\n    import other as nox\n"
+    one = "import nox\nflag = 1\nif flag:\n    import other as nox\n"
     assert _names(one + SESSION) == []
     guard = (
         "import sys\nimport nox\nif sys.version_info < (3, 9):\n    raise SystemExit\n"
     )
     assert _names(guard + SESSION) == ["s"]
-    always = "import nox\nif flag:\n    raise SystemExit\nelse:\n    raise SystemExit\n"
+    always = (
+        "import nox\nflag = 1\nif flag:\n    raise SystemExit\n"
+        "else:\n    raise SystemExit\n"
+    )
     assert _names(always + SESSION) == []
     nested_def = (
-        "import nox\nif flag:\n    @nox.session\n    def hidden(session): ...\n"
+        "import nox\nflag = 1\nif flag:\n"
+        "    @nox.session\n    def hidden(session): ...\n"
     )
     assert _names(nested_def + SESSION) == ["s"]  # Only top-level defs register.
 
@@ -240,7 +244,9 @@ def test_try_blocks_merge_body_and_handlers() -> None:
 
 
 def test_raise_is_only_trusted_under_a_runtime_guard() -> None:
-    guard = "import nox\nif sys.version_info < (3, 9):\n    raise SystemExit\n"
+    guard = (
+        "import nox\nimport sys\nif sys.version_info < (3, 9):\n    raise SystemExit\n"
+    )
     assert _names(guard + SESSION) == ["s"]
     literal = "import nox\nif not False:\n    raise SystemExit\n"
     assert _names(literal + SESSION) == []
@@ -263,7 +269,7 @@ def test_class_bodies_follow_module_rules() -> None:
 
 def test_raising_guards_with_literal_parts_are_unpredictable() -> None:
     for test in ("flag or True", "not 0", "x and 1 == 1", "True"):
-        text = f"import nox\nif {test}:\n    raise RuntimeError\n"
+        text = f"import nox\nflag = x = 1\nif {test}:\n    raise RuntimeError\n"
         assert _names(text + SESSION) == [], test
     real = (
         "import nox\nimport sys\nif sys.version_info < (3, 9):\n    raise SystemExit\n"
@@ -272,16 +278,48 @@ def test_raising_guards_with_literal_parts_are_unpredictable() -> None:
 
 
 def test_lower_decorators_may_rename_the_function() -> None:
-    renamed = "import nox\n@nox.session\n@rename\ndef f(session): ...\n"
+    renamed = "import nox\nrename = print\n@nox.session\n@rename\ndef f(session): ...\n"
     assert _names(renamed) == []
-    explicit = "import nox\n@nox.session(name='x')\n@rename\ndef f(session): ...\n"
+    explicit = (
+        "import nox\nrename = print\n"
+        "@nox.session(name='x')\n@rename\ndef f(session): ...\n"
+    )
     assert _names(explicit) == ["x"]
     parametrized = (
-        "import nox\n@nox.session\n@nox.parametrize('a', [1])\ndef f(session, a): ...\n"
+        "import nox\nrename = print\n@nox.session\n"
+        "@nox.parametrize('a', [1])\ndef f(session, a): ...\n"
     )
     assert _names(parametrized) == ["f"]
-    above = "import nox\n@rename\n@nox.session\ndef f(session): ...\n"
+    above = "import nox\nrename = print\n@rename\n@nox.session\ndef f(session): ...\n"
     assert _names(above) == ["f"]  # Applied after nox registered the name.
+
+
+def test_type_checking_must_be_imported_first() -> None:
+    rebind = "if TYPE_CHECKING:\n    import other as nox\n"
+    never_imported = "import nox\n" + rebind
+    assert _names(never_imported + SESSION) == []
+    imported_late = "import nox\n" + rebind + "from typing import TYPE_CHECKING\n"
+    assert _names(imported_late + SESSION) == []
+
+
+def test_reading_a_never_bound_name_at_import_lists_nothing() -> None:
+    assert _names("import nox\nif TYPE_CHECKING:\n    pass\n" + SESSION) == []
+    assert _names("import nox\nprint(undefined)\n" + SESSION) == []
+    in_body = "import nox\ndef helper():\n    return undefined\n"
+    assert _names(in_body + SESSION) == ["s"]  # Only runs when called.
+    in_default = "import nox\ndef helper(x=undefined): ...\n"
+    assert _names(in_default + SESSION) == []
+
+
+def test_display_conditions_have_fixed_truth() -> None:
+    for test in ("(flag,)", "[flag]", "{flag: 1}", "f'{flag}'", "not (flag,)"):
+        text = f"import nox\nflag = 1\nif {test}:\n    raise RuntimeError\n"
+        assert _names(text + SESSION) == [], test
+    membership = (
+        "import nox\nimport sys\nif sys.platform in ('win32', 'cygwin'):\n"
+        "    raise SystemExit\n"
+    )
+    assert _names(membership + SESSION) == ["s"]
 
 
 @pytest.mark.parametrize(
@@ -299,7 +337,7 @@ def test_lower_decorators_may_rename_the_function() -> None:
     ],
 )
 def test_module_level_control_flow_lists_nothing(statement: str) -> None:
-    assert _names("import nox\n" + statement + SESSION) == []
+    assert _names("import nox\nx = 1\n" + statement + SESSION) == []
 
 
 def test_global_declarations_make_a_name_untrackable() -> None:
@@ -319,6 +357,8 @@ def test_global_declarations_make_a_name_untrackable() -> None:
         "locals()['nox'] = object()\n",
         "exec('nox = object()')\n",
         "eval('(nox := 1)')\n",
+        "import builtins\nbuiltins.setattr(nox, 'session', print)\n",
+        "from builtins import setattr as s\ns(nox, 'session', print)\n",
         "class C:\n    nox.session = print\n",
     ],
 )

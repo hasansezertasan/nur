@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import builtins
 import enum
 import logging
 import warnings
@@ -20,8 +21,17 @@ _SOURCE_FILE = "noxfile.py"
 # Modules whose ``session`` is ``nox.session`` or a drop-in wrapper that
 # forwards ``name=`` to it (nox-uv).
 _NOX_MODULES = frozenset({"nox", "nox_uv"})
-# Builtins that expose or run code in a namespace, so may rebind any name.
-_NAMESPACES = frozenset({"vars", "globals", "locals", "exec", "eval"})
+# Builtins that expose, edit, or run code in a namespace, so may rebind any
+# name or replace `nox.session`.
+_MUTATORS = frozenset({
+    "vars",
+    "globals",
+    "locals",
+    "exec",
+    "eval",
+    "setattr",
+    "delattr",
+})
 # Statements that run straight through and whose only effect on nox bindings
 # is the names they store. (`global`/`nonlocal` names are never trusted.)
 _PLAIN = (
@@ -58,7 +68,8 @@ def _mutates_namespace(tree: ast.Module) -> bool:
     ``del nox.session``, ``setattr``/``delattr``) no decorator can be trusted.
     The same goes for a namespace edited as a mapping (``__dict__``,
     ``vars()``, ``globals()``, ``locals()``) or by running code in it
-    (``exec``, ``eval``). Other attributes
+    (``exec``, ``eval``), including qualified or imported forms such as
+    ``builtins.setattr``. Other attributes
     (``nox.options``, ``nox.needs_version``) do not count.
     """
     for node in ast.walk(tree):
@@ -66,10 +77,16 @@ def _mutates_namespace(tree: ast.Module) -> bool:
             stored = isinstance(node.ctx, ast.Store | ast.Del)
             if (node.attr == "session" and stored) or node.attr == "__dict__":
                 return True
-        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-            name = node.func.id
-            if name in _NAMESPACES or (name in {"setattr", "delattr"} and node.args):
+        elif isinstance(node, ast.Call):
+            func = node.func
+            name = func.id if isinstance(func, ast.Name) else None
+            if isinstance(func, ast.Attribute):
+                name = func.attr  # e.g. `builtins.setattr(...)`
+            if name in _MUTATORS:
                 return True
+        elif isinstance(node, ast.ImportFrom) and node.module == "builtins":
+            if any(alias.name in _MUTATORS | {"*"} for alias in node.names):
+                return True  # `from builtins import setattr as s` hides the call.
     return False
 
 
@@ -182,6 +199,84 @@ def _never_runs(node: ast.If, *, type_checking: bool, main_name: bool) -> bool:
     return main_name and names == {"__name__"} and values == {"__main__"}
 
 
+def _imports_type_checking(node: ast.Import | ast.ImportFrom) -> bool:
+    return (
+        isinstance(node, ast.ImportFrom)
+        and node.module in {"typing", "typing_extensions"}
+        and not node.level
+        and any(
+            alias.name == "TYPE_CHECKING" and alias.asname in {None, "TYPE_CHECKING"}
+            for alias in node.names
+        )
+    )
+
+
+# Names a module has without binding them.
+_IMPLICIT = frozenset(dir(builtins)) | {
+    "__name__",
+    "__file__",
+    "__doc__",
+    "__spec__",
+    "__loader__",
+    "__package__",
+    "__builtins__",
+    "__annotations__",
+}
+
+
+def _reads_unbound_name(tree: ast.Module) -> bool:
+    """Return True if import-time code reads a name the file never binds.
+
+    Such a read raises ``NameError`` (unless a star import supplies the name),
+    so the import fails.
+    """
+    if any(
+        isinstance(node, ast.ImportFrom) and any(a.name == "*" for a in node.names)
+        for node in ast.walk(tree)
+    ):
+        return False
+    return not _import_time_reads(tree) <= _bound_anywhere(tree) | _IMPLICIT
+
+
+def _bound_anywhere(tree: ast.Module) -> set[str]:
+    """Return every name the file binds, in any scope."""
+    names = _stores(tree)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            names |= {a.asname or a.name.partition(".")[0] for a in node.names}
+        elif (name := _defined_name(node)) is not None:
+            names.add(name)
+    return names
+
+
+def _defined_name(node: ast.AST) -> str | None:
+    """Return the name a ``def``, ``class``, or ``except ... as`` binds."""
+    if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+        return node.name
+    return node.name if isinstance(node, ast.ExceptHandler) else None
+
+
+def _import_time_reads(tree: ast.Module) -> set[str]:
+    """Return the names code that runs at import reads.
+
+    Function and lambda bodies only run when called and are skipped; their
+    decorators, defaults, and annotations run at import and are not.
+    """
+    reads: set[str] = set()
+    stack: list[ast.AST] = list(tree.body)
+    while stack:
+        node = stack.pop()
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+            reads.add(node.id)
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            stack += [*node.decorator_list, node.args]
+        elif isinstance(node, ast.Lambda):
+            stack.append(node.args)
+        else:
+            stack.extend(ast.iter_child_nodes(node))
+    return reads
+
+
 def _only_imported_from_typing(tree: ast.Module, name: str) -> bool:
     """Return True if *name* is never stored and only imported from ``typing``."""
     for node in ast.walk(tree):
@@ -288,7 +383,9 @@ class _Walker:
 
     def __init__(self, tree: ast.Module) -> None:
         self.sessions: dict[str, str | None] = {}
-        self._type_checking = _only_imported_from_typing(tree, "TYPE_CHECKING")
+        self._type_checking_safe = _only_imported_from_typing(tree, "TYPE_CHECKING")
+        # Set once `from typing import TYPE_CHECKING` has run at module level.
+        self._type_checking_bound = False
         # `__name__` is never imported from typing, so this means "never bound".
         self._main_name = _only_imported_from_typing(tree, "__name__")
         # A `global`/`nonlocal` anywhere (e.g. in a function called at import)
@@ -317,9 +414,7 @@ class _Walker:
         self, node: ast.stmt, bound: dict[str, _Kind], *, top: bool
     ) -> dict[str, _Kind] | None:
         if isinstance(node, ast.Import | ast.ImportFrom):
-            if _unknown_star_import(node):
-                raise _Unpredictable  # It may rebind any name.
-            return _apply_import(node, bound)
+            return self._import(node, bound, top=top)
         if isinstance(node, ast.FunctionDef) and top:
             # A later definition under the same name replaces the earlier one,
             # as in nox's own registry, while keeping the first one's position.
@@ -343,10 +438,18 @@ class _Walker:
             return self._try(node, bound)
         raise _Unpredictable  # Loops, `with`, `match`, `assert`, `except*`, ...
 
+    def _import(
+        self, node: ast.Import | ast.ImportFrom, bound: dict[str, _Kind], *, top: bool
+    ) -> dict[str, _Kind]:
+        if _unknown_star_import(node):
+            raise _Unpredictable  # It may rebind any name.
+        if top and _imports_type_checking(node):
+            self._type_checking_bound = True
+        return _apply_import(node, bound)
+
     def _if(self, node: ast.If, bound: dict[str, _Kind]) -> dict[str, _Kind] | None:
-        if _never_runs(
-            node, type_checking=self._type_checking, main_name=self._main_name
-        ):
+        type_checking = self._type_checking_safe and self._type_checking_bound
+        if _never_runs(node, type_checking=type_checking, main_name=self._main_name):
             return bound
         if _has_literal_condition(node.test) and _raises_within(node):
             # `if True: raise` always raises; nur does not evaluate conditions.
@@ -406,17 +509,33 @@ def _has_literal_condition(test: ast.expr) -> bool:
     """Return True if a condition's truth may hinge on a literal part.
 
     ``if flag or True:`` is always true, so a raise under it always runs;
-    nur does not evaluate conditions, so any literal operand of ``and``/``or``/
-    ``not``, a literal-only comparison, or a literal-only test counts.
+    nur does not evaluate conditions, so a test, or an ``and``/``or``/``not``
+    operand, whose truth is fixed (see ``_known_truth``) counts, as does a
+    literal-only comparison.
     """
-    for node in ast.walk(test):
-        if isinstance(node, ast.BoolOp) and any(map(_literal_only, node.values)):
-            return True
-        if isinstance(node, ast.UnaryOp) and _literal_only(node.operand):
-            return True
-        if isinstance(node, ast.Compare) and _literal_only(node):
-            return True
-    return _literal_only(test)
+    if any(isinstance(n, ast.Compare) and _literal_only(n) for n in ast.walk(test)):
+        return True
+    return any(_known_truth(operand) for operand in _truth_operands(test))
+
+
+def _truth_operands(test: ast.expr) -> list[ast.expr]:
+    """Return *test* and the ``and``/``or``/``not`` operands its truth rests on."""
+    operands = [test]
+    if isinstance(test, ast.BoolOp):
+        for value in test.values:
+            operands += _truth_operands(value)
+    elif isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+        operands += _truth_operands(test.operand)
+    return operands
+
+
+def _known_truth(expr: ast.expr) -> bool:
+    """Return True if *expr*'s truth is fixed: a literal, display, or lambda.
+
+    ``(flag,)`` is always true, whatever ``flag`` is.
+    """
+    displays = ast.Tuple | ast.List | ast.Set | ast.Dict | ast.JoinedStr | ast.Lambda
+    return _literal_only(expr) or isinstance(expr, displays)
 
 
 def _merge_continuing(paths: list[dict[str, _Kind] | None]) -> dict[str, _Kind] | None:
@@ -464,7 +583,7 @@ def parse_noxfile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
         # module-level `return`); nox fails to import those, so list nothing.
         # Compiling builds a code object without executing any of it.
         compile(tree, source_file, "exec", dont_inherit=True)
-    if _mutates_namespace(tree):
+    if _mutates_namespace(tree) or _reads_unbound_name(tree):
         return []
     sessions = _scan(tree)
     if sessions is None:
