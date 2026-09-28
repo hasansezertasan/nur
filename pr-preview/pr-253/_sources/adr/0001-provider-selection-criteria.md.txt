@@ -89,9 +89,17 @@ consistent with the completeness-yields-to-safety trade-off above.
 
 Note the deliberate consequence: **adoption alone never qualifies a format.**
 High-popularity tools whose tasks live in imperative code or run remotely
-(Gradle, Maven, GitHub Actions, Rake, `nox`, cargo-xtask) are declined despite
+(Gradle, Maven, GitHub Actions, Rake, cargo-xtask) are declined despite
 their reach, because enumerating their tasks would mean executing project code or
 resolving remote state — a breach of the hard rule.
+
+Imperative code is not disqualifying by itself: what matters is whether task
+*names* can be read without running it. `nox` and `invoke` register tasks with
+decorators (`@nox.session`, `@task`), so an AST parse of `noxfile.py` /
+`tasks.py` yields a safe subset of names without importing the module, and the
+run command delegates to the runner (`nox -s <name>`). They are therefore
+candidates, not declined; their native listing commands (`nox -l`,
+`invoke --list`) import the file and must not be used. See #142 and #140.
 
 ### Current provider landscape
 
