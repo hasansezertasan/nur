@@ -153,6 +153,29 @@ def _raises_in(body: list[ast.stmt]) -> list[ast.Raise]:
     return raises
 
 
+def _terminates(node: ast.stmt) -> bool:
+    """Return True for a statement that always raises: ``raise``, ``assert False``.
+
+    nox imports noxfiles without ``-O``, so assertions are live.
+    """
+    if isinstance(node, ast.Raise):
+        return True
+    return (
+        isinstance(node, ast.Assert)
+        and isinstance(node.test, ast.Constant)
+        and not node.test.value
+    )
+
+
+def _irrefutable(pattern: ast.pattern) -> bool:
+    """Return True for a pattern that always matches (``_``, ``x``, ``_ as y``)."""
+    if isinstance(pattern, ast.MatchAs):
+        return pattern.pattern is None or _irrefutable(pattern.pattern)
+    if isinstance(pattern, ast.MatchOr):
+        return any(_irrefutable(alternative) for alternative in pattern.patterns)
+    return False
+
+
 def _always_true(test: ast.expr) -> bool:
     return isinstance(test, ast.Constant) and bool(test.value)
 
@@ -163,6 +186,15 @@ def _breaks_in(body: list[ast.stmt], *, or_continues: bool = False) -> bool:
     for node in body:
         if isinstance(node, exits):
             return True
+        if _terminates(node):
+            # Anything after an unconditional raise in this block is unreachable.
+            return False
+        if isinstance(node, ast.If) and isinstance(node.test, ast.Constant):
+            # Only the branch a constant condition takes can reach its `break`.
+            taken = node.body if node.test.value else node.orelse
+            if _breaks_in(taken, or_continues=or_continues):
+                return True
+            continue
         # A nested loop's `break` and a function's body belong elsewhere.
         if isinstance(
             node,
@@ -295,8 +327,8 @@ def _first_line(func: ast.FunctionDef) -> str | None:
 
 def _simple(node: ast.stmt, bound: dict[str, _Kind]) -> dict[str, _Kind] | None:
     """Apply a statement with no nested block to *bound*."""
-    if isinstance(node, ast.Raise):
-        # Nothing after an unconditional `raise` runs on this path.
+    if _terminates(node):
+        # Nothing after an unconditional `raise` (or `assert False`) runs.
         return None
     return _without(bound, _stored_names(node))
 
@@ -504,12 +536,8 @@ class _Scanner:
     ) -> dict[str, _Kind] | None:
         bound = _without(bound, _stored_names(node.subject))
         last = node.cases[-1]
-        irrefutable = (
-            isinstance(last.pattern, ast.MatchAs)
-            and last.pattern.pattern is None
-            and last.guard is None
-        )
-        # `case _:` or a bare capture always matches, so no case is skipped.
+        irrefutable = last.guard is None and _irrefutable(last.pattern)
+        # `case _:`, a bare capture, or `case _ as x` always matches.
         paths: list[dict[str, _Kind] | None] = [] if irrefutable else [bound]
         for case in node.cases:
             names = _stored_names(case.pattern, case.guard)

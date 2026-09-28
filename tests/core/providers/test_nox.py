@@ -353,6 +353,31 @@ def test_finally_break_cancels_an_escaping_exception() -> None:
     assert _names(keeps) == ["s"]
 
 
+def test_assert_false_ends_the_path() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    assert _names("import nox\nassert False\n" + session) == []
+    assert _names("import nox\nassert 0, 'no'\n" + session) == []
+    assert _names("import nox\nassert True\n" + session) == ["s"]
+
+
+def test_unreachable_break_does_not_exit_the_loop() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    dead_if = "import nox\nwhile True:\n    if False:\n        break\n"
+    assert _names(dead_if + session) == []
+    after_raise = "import nox\nwhile True:\n    raise RuntimeError\n    break\n"
+    assert _names(after_raise + session) == []
+    live_if = "import nox\nwhile True:\n    if True:\n        break\n"
+    assert _names(live_if + session) == ["s"]
+
+
+def test_wildcard_as_pattern_is_irrefutable() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    named = "import nox\nmatch x:\n    case _ as y:\n        raise RuntimeError\n"
+    assert _names(named + session) == []
+    alternatives = "import nox\nmatch x:\n    case 1 | _:\n        raise RuntimeError\n"
+    assert _names(alternatives + session) == []
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"
