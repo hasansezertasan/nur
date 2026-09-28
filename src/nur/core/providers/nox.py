@@ -1,13 +1,30 @@
 from __future__ import annotations
 
 import ast
-import builtins
 import enum
 import logging
 import warnings
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING
 
 from nur.core.models import Task
+from nur.core.providers._pystatic import (
+    NO_VALUE,
+    always_enters,
+    always_true,
+    bound_anywhere,
+    breaks_in,
+    catches,
+    constant_truth,
+    exception_classes,
+    invalid_handler_type,
+    irrefutable,
+    literal_match,
+    never_enters,
+    raised_name,
+    signed_number,
+    stored_names,
+    terminates,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -92,420 +109,6 @@ def _reflective_session_write(node: ast.AST) -> bool:
     return not (isinstance(attr, ast.Constant) and attr.value != "session")
 
 
-def _raised_name(node: ast.Raise) -> str | None:
-    """Return the class name an explicit ``raise X`` / ``raise X(...)`` raises.
-
-    A literal exception or cause (``raise 1``, ``raise E from 1``; ``from None``
-    is fine) makes Python raise ``TypeError`` instead. None if unknown, or if
-    evaluating the ``raise`` rebinds that very name (``raise X from (X := ...)``),
-    since a handler naming ``X`` then looks up the new value.
-    """
-    cause = node.cause
-    invalid_cause = (
-        cause is not None
-        and not (isinstance(cause, ast.Constant) and cause.value is None)
-        and _is_literal(cause)
-    )
-    if (node.exc is not None and _is_literal(node.exc)) or invalid_cause:
-        return "TypeError"
-    exc = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
-    if not isinstance(exc, ast.Name) or exc.id in _stored_names(node):
-        return None
-    return exc.id
-
-
-def _catches(
-    handler: ast.ExceptHandler,
-    raised: str | None,
-    exception_classes: dict[str, _ExceptionClass],
-) -> bool:
-    """Return True if *handler* certainly catches an exception named *raised*.
-
-    A handler naming a known exception class (see ``_exception_classes``)
-    catches a known raised class when it is one of that class's ancestors, as
-    in ``raise FileNotFoundError`` / ``except OSError``. Unknown names are never
-    trusted: ``except`` rejects instances such as ``X = TypeError()``, and a
-    rebound ``Exception = ValueError`` changes what it catches. Only a bare
-    ``except:`` or an unshadowed ``BaseException`` catches an unknown raise.
-    """
-    if handler.type is None:
-        return True
-    types = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
-    names = {t.id for t in types if isinstance(t, ast.Name)}
-    trusted = {name for name in names if name in exception_classes}
-    if "BaseException" in trusted:
-        return True
-    known = exception_classes.get(raised) if raised is not None else None
-    return known is not None and bool(trusted & known.ancestors)
-
-
-_BUILTIN_EXCEPTIONS = frozenset(
-    name
-    for name, value in vars(builtins).items()
-    if isinstance(value, type) and issubclass(value, BaseException)
-)
-
-
-class _ExceptionClass(NamedTuple):
-    """A name known to be bound to an exception class."""
-
-    line: int  # First line where the name is bound (0: builtin, always bound).
-    ancestors: frozenset[str]  # Known class names it inherits from, itself included.
-
-
-def _builtin_ancestors(name: str, trusted: set[str]) -> frozenset[str]:
-    cls = getattr(builtins, name)
-    return frozenset(base.__name__ for base in cls.__mro__ if base.__name__ in trusted)
-
-
-def _exception_classes(
-    tree: ast.Module, rebound: set[str]
-) -> dict[str, _ExceptionClass]:
-    """Map names certainly bound to exception classes to where and what they are.
-
-    That is builtin exceptions the file never rebinds, plus names bound only by
-    plain top-level ``class`` statements (no decorators or class keywords such
-    as ``metaclass=``, either of which can bind the name to anything) whose
-    every definition has a base that is itself such a class. A user class is
-    unbound before its first definition, and its known ancestors are those
-    every definition shares.
-    """
-    top_level = {id(node) for node in tree.body}
-    classes: dict[str, list[ast.ClassDef]] = {}
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef):
-            classes.setdefault(node.name, []).append(node)
-    other = _bound_anywhere(tree, include_classes=False)
-    candidates = {
-        name: defs
-        for name, defs in classes.items()
-        if name not in other
-        and all(
-            id(d) in top_level and not d.decorator_list and not d.keywords for d in defs
-        )
-    }
-    unshadowed = set(_BUILTIN_EXCEPTIONS - rebound)
-    known = {
-        name: _ExceptionClass(0, _builtin_ancestors(name, unshadowed))
-        for name in unshadowed
-    }
-    changed = True
-    while changed:
-        changed = False
-        for name, defs in candidates.items():
-            if name in known:
-                continue
-            per_def = [
-                [
-                    known[b.id]
-                    for b in d.bases
-                    if isinstance(b, ast.Name) and b.id in known
-                ]
-                for d in defs
-            ]
-            if all(per_def):
-                shared: frozenset[str] = frozenset.intersection(
-                    *(
-                        frozenset().union(*(base.ancestors for base in bases))
-                        for bases in per_def
-                    )
-                )
-                line = min(d.lineno for d in defs)
-                known[name] = _ExceptionClass(line, shared | {name})
-                changed = True
-    return known
-
-
-def _bound_anywhere(tree: ast.Module, *, include_classes: bool = True) -> set[str]:
-    """Return every name the file binds anywhere, in any scope.
-
-    With ``include_classes=False``, names bound by a ``class`` statement are
-    left out (unless something else also binds them).
-    """
-    names: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store | ast.Del):
-            names.add(node.id)
-        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            names.add(node.name)
-        elif isinstance(node, ast.ClassDef):
-            # A class decorator may bind the name to anything, even an instance.
-            if include_classes or node.decorator_list:
-                names.add(node.name)
-        elif isinstance(node, ast.alias):
-            names.add(node.asname or node.name.partition(".")[0])
-        elif isinstance(node, ast.ExceptHandler | ast.MatchAs | ast.MatchStar):
-            if node.name:
-                names.add(node.name)
-        elif isinstance(node, ast.MatchMapping) and node.rest:
-            names.add(node.rest)
-    return names
-
-
-def _terminates(node: ast.stmt) -> bool:
-    """Return True for a statement that always raises: ``raise``, ``assert False``.
-
-    nox imports noxfiles without ``-O``, so assertions are live.
-    """
-    if isinstance(node, ast.Raise):
-        return True
-    return isinstance(node, ast.Assert) and _constant_truth(node.test) is False
-
-
-def _irrefutable(pattern: ast.pattern) -> bool:
-    """Return True for a pattern that always matches (``_``, ``x``, ``_ as y``)."""
-    if isinstance(pattern, ast.MatchAs):
-        return pattern.pattern is None or _irrefutable(pattern.pattern)
-    if isinstance(pattern, ast.MatchOr):
-        return any(_irrefutable(alternative) for alternative in pattern.patterns)
-    return False
-
-
-# Marks "not a statically known value" (None is itself a literal).
-_NO_VALUE = object()
-
-
-def _literal_match(pattern: ast.pattern, subject: object) -> bool | None:
-    """Return whether a literal pattern matches a constant *subject*.
-
-    ``case 1:`` compares with ``==`` and ``case None:``/``case True:`` with
-    ``is``, as Python does. None means the pattern is not a literal.
-    """
-    if isinstance(pattern, ast.MatchValue) and isinstance(pattern.value, ast.Constant):
-        return bool(pattern.value.value == subject)
-    if isinstance(pattern, ast.MatchSingleton):
-        return pattern.value is subject
-    if isinstance(pattern, ast.MatchOr):
-        results = [_literal_match(alt, subject) for alt in pattern.patterns]
-        if True in results:
-            return True
-        if all(result is False for result in results):
-            return False
-    return None
-
-
-_LITERALS = (
-    ast.Constant
-    | ast.List
-    | ast.Set
-    | ast.Dict
-    | ast.JoinedStr
-    | ast.ListComp
-    | ast.SetComp
-    | ast.DictComp
-    | ast.GeneratorExp
-    | ast.Lambda
-)
-
-
-def _is_literal(expr: ast.expr) -> bool:
-    """Return True for an expression that can never be an exception class.
-
-    Literals, and ``-1`` / ``1 + 1`` / ``0 or 1`` built only from them.
-    """
-    if isinstance(expr, ast.Tuple):
-        return any(_is_literal(elt) for elt in expr.elts)
-    if isinstance(expr, ast.UnaryOp):
-        return _is_literal(expr.operand)
-    if isinstance(expr, ast.BinOp):
-        return _is_literal(expr.left) and _is_literal(expr.right)
-    if isinstance(expr, ast.BoolOp):
-        return all(_is_literal(value) for value in expr.values)
-    return isinstance(expr, _LITERALS)
-
-
-def _invalid_handler_type(handler: ast.ExceptHandler) -> bool:
-    """Return True for ``except 1:`` / ``except []:``, which raise TypeError."""
-    return handler.type is not None and _is_literal(handler.type)
-
-
-def _constant_truth(expr: ast.expr | None) -> bool | None:
-    """Return the truth of a statically known expression, or None if unknown.
-
-    Covers literals, ``not``, unary ``+``/``-``/``~`` on numbers, and container
-    literals without ``*`` unpacking (whose emptiness is then known).
-    """
-    if isinstance(expr, ast.Constant):
-        return bool(expr.value)
-    if isinstance(expr, ast.UnaryOp):
-        return _unary_truth(expr)
-    length = None if expr is None else _literal_length(expr)
-    return None if length is None else length > 0
-
-
-def _unary_truth(expr: ast.UnaryOp) -> bool | None:
-    if isinstance(expr.op, ast.Not):
-        inner = _constant_truth(expr.operand)
-        return None if inner is None else not inner
-    operand = expr.operand
-    if not isinstance(operand, ast.Constant):
-        return None
-    value = operand.value
-    numeric = isinstance(value, int | float | complex)
-    if isinstance(expr.op, ast.USub | ast.UAdd) and numeric:
-        return bool(value)
-    # `~` on a bool is deprecated, so only plain ints are evaluated.
-    if (
-        isinstance(expr.op, ast.Invert)
-        and isinstance(value, int)
-        and not isinstance(value, bool)
-    ):
-        return bool(~value)
-    return None
-
-
-def _never_enters(node: ast.For | ast.AsyncFor | ast.While) -> bool:
-    """Return True for loops whose body cannot run: ``while False``, ``for x in []``."""
-    if isinstance(node, ast.While):
-        return _constant_truth(node.test) is False
-    return _literal_length(node.iter) == 0
-
-
-def _always_enters(node: ast.For | ast.AsyncFor) -> bool:
-    """Return True for a ``for`` over a literal known to be non-empty."""
-    length = _literal_length(node.iter)
-    return length is not None and length > 0
-
-
-def _literal_length(expr: ast.expr) -> int | None:
-    """Return the length of a literal iterable, or None if it isn't known."""
-    if isinstance(expr, ast.List | ast.Tuple | ast.Set):
-        if any(isinstance(elt, ast.Starred) for elt in expr.elts):
-            return None
-        return len(expr.elts)
-    if isinstance(expr, ast.Dict):
-        return None if None in expr.keys else len(expr.keys)
-    if isinstance(expr, ast.Constant) and isinstance(expr.value, str | bytes):
-        return len(expr.value)
-    return None
-
-
-def _always_true(test: ast.expr) -> bool:
-    return _constant_truth(test) is True
-
-
-def _always_diverts(body: list[ast.stmt]) -> bool:
-    """Return True if *body* always ends in ``raise``/``assert False``/``continue``.
-
-    Follows constant ``if`` branches and ``if``/``else`` pairs that both divert.
-    """
-    for node in body:
-        if _terminates(node) or isinstance(node, ast.Continue):
-            return True
-        if isinstance(node, ast.If):
-            truth = _constant_truth(node.test)
-            if truth is not None:
-                if _always_diverts(node.body if truth else node.orelse):
-                    return True
-            elif _always_diverts(node.body) and _always_diverts(node.orelse):
-                return True
-    return False
-
-
-def _breaks_in(body: list[ast.stmt], *, or_continues: bool = False) -> bool:
-    """Return True if *body* contains a reachable ``break`` (or ``continue``)."""
-    exits = ast.Break | ast.Continue if or_continues else ast.Break
-    for node in body:
-        if isinstance(node, exits):
-            return True
-        if isinstance(node, ast.Continue) or _terminates(node):
-            # A `continue` or unconditional raise skips the rest of this block.
-            return False
-        if _breaks_in_statement(node, or_continues=or_continues):
-            return True
-    return False
-
-
-def _breaks_in_statement(node: ast.stmt, *, or_continues: bool) -> bool:
-    """Return True if a compound statement can reach a ``break`` for our loop."""
-    if isinstance(node, ast.Try | ast.TryStar) and _always_diverts(node.finalbody):
-        # A `finally` that always raises or `continue`s overrides any `break`
-        # in the `try`, so only a `break` in the `finally` itself can escape.
-        return _breaks_in(node.finalbody, or_continues=or_continues)
-    truth = _constant_truth(node.test) if isinstance(node, ast.If) else None
-    if isinstance(node, ast.If) and truth is not None:
-        # Only the branch a constant condition takes can reach its `break`.
-        taken = node.body if truth else node.orelse
-        return _breaks_in(taken, or_continues=or_continues)
-    # A nested loop's `break` and a function's or class's body belong elsewhere.
-    scopes = ast.For | ast.AsyncFor | ast.While | ast.FunctionDef | ast.AsyncFunctionDef
-    if isinstance(node, scopes | ast.ClassDef):
-        return False
-    blocks = [getattr(node, field, []) for field in ("body", "orelse", "finalbody")]
-    blocks += [handler.body for handler in getattr(node, "handlers", [])]
-    if isinstance(node, ast.Match):
-        blocks += [case.body for case in _reachable_cases(node)]
-    return any(_breaks_in(block, or_continues=or_continues) for block in blocks)
-
-
-def _reachable_cases(node: ast.Match) -> list[ast.match_case]:
-    """Return the cases whose body may run, as ``_Scanner._match`` decides it.
-
-    A literal differing from a constant subject or a constant-false guard never
-    runs its body, and nothing after a certain match is reached.
-    """
-    subject = (
-        node.subject.value if isinstance(node.subject, ast.Constant) else _NO_VALUE
-    )
-    reachable: list[ast.match_case] = []
-    for case in node.cases:
-        literal = (
-            None if subject is _NO_VALUE else _literal_match(case.pattern, subject)
-        )
-        guard = _constant_truth(case.guard)
-        if literal is False or guard is False:
-            continue
-        reachable.append(case)
-        certain = _irrefutable(case.pattern) or literal is True
-        if certain and (case.guard is None or guard is True):
-            break
-    return reachable
-
-
-_COMPREHENSIONS = ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp
-
-
-def _stored_names(*nodes: ast.AST | None) -> set[str]:
-    """Return every name *nodes* may bind or delete in the enclosing scope.
-
-    Covers assignment, walrus, ``as`` and pattern captures. Lambda bodies and
-    comprehension loop variables are local to their own scope and skipped, but
-    a walrus inside a comprehension binds the enclosing scope and counts.
-    """
-    names: set[str] = set()
-    for node in nodes:
-        if node is not None:
-            _collect_stores(node, names, in_comprehension=False)
-    return names
-
-
-def _lambda_defaults(node: ast.Lambda) -> list[ast.expr]:
-    defaults = [*node.args.defaults, *node.args.kw_defaults]
-    return [default for default in defaults if default is not None]
-
-
-def _collect_stores(node: ast.AST, names: set[str], *, in_comprehension: bool) -> None:
-    if isinstance(node, ast.Lambda):
-        # Defaults are evaluated here; parameters and body are the lambda's own.
-        for default in _lambda_defaults(node):
-            _collect_stores(default, names, in_comprehension=in_comprehension)
-        return
-    if isinstance(node, ast.AnnAssign) and node.value is None:
-        return  # `nox: object` annotates without binding (annotations are lazy).
-    if isinstance(node, ast.NamedExpr):
-        names.add(node.target.id)
-    elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store | ast.Del):
-        if not in_comprehension:
-            names.add(node.id)
-    elif isinstance(node, ast.MatchAs | ast.MatchStar) and node.name:
-        names.add(node.name)
-    elif isinstance(node, ast.MatchMapping) and node.rest:
-        names.add(node.rest)
-    nested = in_comprehension or isinstance(node, _COMPREHENSIONS)
-    for child in ast.iter_child_nodes(node):
-        _collect_stores(child, names, in_comprehension=nested)
-
-
 def _without(bound: dict[str, _Kind], names: set[str]) -> dict[str, _Kind]:
     return {name: kind for name, kind in bound.items() if name not in names}
 
@@ -585,11 +188,11 @@ def _session_names(func: ast.FunctionDef, bound: dict[str, _Kind]) -> list[str]:
         if isinstance(decorator, ast.Call):
             # The callable is looked up before its arguments run, so stores in
             # `@nox.session(tags=(nox := []))` don't affect this decorator.
-            callee = _without(bound, _stored_names(decorator.func))
+            callee = _without(bound, stored_names(decorator.func))
             evaluated.append((decorator, callee))
-            bound = _without(bound, _stored_names(decorator))
+            bound = _without(bound, stored_names(decorator))
         else:
-            bound = _without(bound, _stored_names(decorator))
+            bound = _without(bound, stored_names(decorator))
             evaluated.append((decorator, bound))
     names: list[str] = []
     for decorator, seen in reversed(evaluated):
@@ -609,10 +212,10 @@ def _first_line(func: ast.FunctionDef) -> str | None:
 
 def _simple(node: ast.stmt, bound: dict[str, _Kind]) -> dict[str, _Kind] | None:
     """Apply a statement with no nested block to *bound*."""
-    if _terminates(node):
+    if terminates(node):
         # Nothing after an unconditional `raise` (or `assert False`) runs.
         return None
-    return _without(bound, _stored_names(node))
+    return _without(bound, stored_names(node))
 
 
 class _Scanner:
@@ -640,8 +243,8 @@ class _Scanner:
             if isinstance(node, ast.Global | ast.Nonlocal)
             for name in node.names
         }
-        self._rebound = _bound_anywhere(tree)
-        self._exception_classes = _exception_classes(tree, self._rebound)
+        self._rebound = bound_anywhere(tree)
+        self._exception_classes = exception_classes(tree, self._rebound)
 
     def run(
         self, body: list[ast.stmt], bound: dict[str, _Kind] | None, *, register: bool
@@ -663,7 +266,7 @@ class _Scanner:
             if after is None:
                 # The raising statement may still bind names first, e.g.
                 # `raise E from (nox := ...)`, before control leaves it.
-                states.append(_without(states[-1], _stored_names(node)))
+                states.append(_without(states[-1], stored_names(node)))
                 break
             states.append(after)
         return _merge(states)
@@ -695,7 +298,7 @@ class _Scanner:
         elif isinstance(node, ast.Match):
             result = self._match(node, bound)
         elif isinstance(node, ast.With | ast.AsyncWith):
-            bound = _without(bound, _stored_names(*node.items))
+            bound = _without(bound, stored_names(*node.items))
             # A context manager may suppress an exception partway through.
             result = self._anywhere_in(node.body, bound)
         else:
@@ -713,13 +316,13 @@ class _Scanner:
             description = _first_line(node)
             for name in _session_names(node, bound):
                 self.sessions[name] = description
-        signature = _stored_names(*node.decorator_list, node.args, node.returns)
+        signature = stored_names(*node.decorator_list, node.args, node.returns)
         return _without(bound, signature | {node.name})
 
     def _class(
         self, node: ast.ClassDef, bound: dict[str, _Kind], *, register: bool
     ) -> dict[str, _Kind] | None:
-        header = _stored_names(*node.decorator_list, *node.bases, *node.keywords)
+        header = stored_names(*node.decorator_list, *node.bases, *node.keywords)
         bound = _without(bound, header)
         # A class body sees module bindings and binds its own names; a nested
         # class body does not see the enclosing class's names, only the module's
@@ -754,7 +357,7 @@ class _Scanner:
             handlers = candidates
         paths = [completed]
         for handler in handlers:
-            names = _stored_names(handler.type)
+            names = stored_names(handler.type)
             if handler.name:
                 names.add(handler.name)
             start = _without(raised, names)
@@ -781,7 +384,7 @@ class _Scanner:
         conservative merge of the bindings where the exception may have been
         raised.
         """
-        if not _breaks_in(node.finalbody, or_continues=True):
+        if not breaks_in(node.finalbody, or_continues=True):
             return None
         return self.run(node.finalbody, state, register=False)
 
@@ -804,7 +407,7 @@ class _Scanner:
             return None
         candidates: list[ast.ExceptHandler] = []
         for handler in node.handlers:
-            if _invalid_handler_type(handler):
+            if invalid_handler_type(handler):
                 # Evaluating `except 1:` raises TypeError before any later
                 # handler is tried, so the exception escapes.
                 return None
@@ -814,7 +417,7 @@ class _Scanner:
         return None
 
     def _catches(self, handler: ast.ExceptHandler, raised: str | None) -> bool:
-        return _catches(handler, raised, self._exception_classes)
+        return catches(handler, raised, self._exception_classes)
 
     def _raises_in(self, body: list[ast.stmt]) -> list[str | None]:
         """Return the class names *body*'s explicit raises may let escape.
@@ -827,7 +430,7 @@ class _Scanner:
         for node in body:
             if isinstance(node, ast.Raise):
                 raises.append(self._raise_class(node))
-            elif isinstance(node, ast.Assert) and _terminates(node):
+            elif isinstance(node, ast.Assert) and terminates(node):
                 raises.append("AssertionError")
             elif isinstance(node, ast.Try | ast.TryStar):
                 raises += self._try_raises(node)
@@ -839,7 +442,7 @@ class _Scanner:
         return raises
 
     def _raise_class(self, node: ast.Raise) -> str | None:
-        name = _raised_name(node)
+        name = raised_name(node)
         known = self._exception_classes.get(name) if name is not None else None
         if known is not None and known.line > node.lineno:
             return None  # Raised before its class is defined: NameError.
@@ -849,7 +452,7 @@ class _Scanner:
         """Return what escapes a nested ``try``: uncaught body raises and the rest."""
         inner = self._raises_in(node.body)
         trusted = isinstance(node, ast.Try)  # `except*` is never trusted to catch.
-        if trusted and not any(_invalid_handler_type(h) for h in node.handlers):
+        if trusted and not any(invalid_handler_type(h) for h in node.handlers):
             inner = [
                 name
                 for name in inner
@@ -861,9 +464,9 @@ class _Scanner:
         return raises + self._raises_in(node.finalbody)
 
     def _if(self, node: ast.If, bound: dict[str, _Kind]) -> dict[str, _Kind] | None:
-        bound = _without(bound, _stored_names(node.test))
+        bound = _without(bound, stored_names(node.test))
         branches = [node.body, node.orelse]
-        truth = _constant_truth(node.test)
+        truth = constant_truth(node.test)
         if truth is not None:
             # A constant condition takes exactly one branch (`if not False:`).
             branches = [node.body if truth else node.orelse]
@@ -874,29 +477,29 @@ class _Scanner:
     def _for_or_while(
         self, node: ast.For | ast.AsyncFor | ast.While, bound: dict[str, _Kind]
     ) -> dict[str, _Kind] | None:
-        if _never_enters(node):
+        if never_enters(node):
             # The body cannot run, so neither can its `break`: `else` always runs.
-            header = _stored_names(
+            header = stored_names(
                 node.test if isinstance(node, ast.While) else node.iter
             )
             return self.run(node.orelse, _without(bound, header), register=False)
         if isinstance(node, ast.While):
-            header = _stored_names(node.test)
-            if _always_true(node.test) and not _breaks_in(node.body):
+            header = stored_names(node.test)
+            if always_true(node.test) and not breaks_in(node.body):
                 # `while True` without a `break` never finishes.
                 return None
         else:
-            header = _stored_names(node.target, node.iter)
+            header = stored_names(node.target, node.iter)
             if (
-                _always_enters(node)
-                and not _breaks_in(node.body, or_continues=True)
+                always_enters(node)
+                and not breaks_in(node.body, or_continues=True)
                 and self.run(node.body, _without(bound, header), register=False) is None
             ):
                 # The first iteration always runs and always raises.
                 return None
         bound = self._loop(node.body, _without(bound, header))
         after_else = self.run(node.orelse, bound, register=False)
-        if not _breaks_in(node.body):
+        if not breaks_in(node.body):
             return after_else  # Without a `break`, the loop always runs `else`.
         # A `break` skips `else`, so the loop state itself is a path too.
         return _merge_paths([bound, after_else])
@@ -904,27 +507,25 @@ class _Scanner:
     def _match(
         self, node: ast.Match, bound: dict[str, _Kind]
     ) -> dict[str, _Kind] | None:
-        bound = _without(bound, _stored_names(node.subject))
-        subject = (
-            node.subject.value if isinstance(node.subject, ast.Constant) else _NO_VALUE
-        )
+        bound = _without(bound, stored_names(node.subject))
+        subject = signed_number(node.subject)
         paths: list[dict[str, _Kind] | None] = []
         for case in node.cases:
             literal = (
-                None if subject is _NO_VALUE else _literal_match(case.pattern, subject)
+                None if subject is NO_VALUE else literal_match(case.pattern, subject)
             )
             if literal is False:
                 continue  # A constant subject can never match a different literal.
             # Captures are bound before the guard runs and stay bound if it (or
             # a partial pattern match) fails, so later cases and the
             # fallthrough lose them too.
-            names = _stored_names(case.pattern, case.guard)
+            names = stored_names(case.pattern, case.guard)
             bound = _without(bound, names)
-            guard = _constant_truth(case.guard)
+            guard = constant_truth(case.guard)
             if guard is False:
                 continue  # A constant-false guard never runs the body.
             paths.append(self.run(case.body, bound, register=False))
-            certain = _irrefutable(case.pattern) or literal is True
+            certain = irrefutable(case.pattern) or literal is True
             if certain and (case.guard is None or guard is True):
                 # `case _:`, a capture, or a literal equal to a constant subject
                 # always matches, so later cases and fallthrough cannot happen.

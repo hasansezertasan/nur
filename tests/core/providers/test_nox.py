@@ -726,6 +726,25 @@ def test_breaks_in_impossible_match_cases_are_unreachable() -> None:
     assert _names(possible + session) == ["s"]
 
 
+def test_terminating_compound_statement_ends_the_break_scan() -> None:
+    text = (
+        "import nox\nwhile True:\n    if True:\n        raise RuntimeError\n    break\n"
+    )
+    assert _names(text + "@nox.session\ndef s(session): ...\n") == []
+
+
+def test_signed_number_patterns_are_literals() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    miss = (
+        "import nox\nwhile True:\n    match 1:\n        case -1:\n            break\n"
+    )
+    assert _names(miss + session) == []
+    hit = "import nox\nmatch -1:\n    case -1:\n        raise RuntimeError\n"
+    assert _names(hit + session) == []
+    plain = "import nox\nmatch 1:\n    case -1:\n        raise RuntimeError\n"
+    assert _names(plain + session) == ["s"]
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"
