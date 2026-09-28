@@ -155,15 +155,18 @@ def _bound_anywhere(tree: ast.Module, *, include_classes: bool = True) -> set[st
     return names
 
 
-def _raises_in(body: list[ast.stmt]) -> list[ast.Raise]:
-    """Return the explicit ``raise`` statements *body* may run at import time.
+def _raises_in(body: list[ast.stmt]) -> list[str | None]:
+    """Return the class names *body*'s explicit raises may raise at import time.
 
+    ``assert False`` raises ``AssertionError``; an unknown class is None.
     Nested blocks and class bodies run at import; function bodies do not.
     """
-    raises: list[ast.Raise] = []
+    raises: list[str | None] = []
     for node in body:
         if isinstance(node, ast.Raise):
-            raises.append(node)
+            raises.append(_raised_name(node))
+        elif isinstance(node, ast.Assert) and _terminates(node):
+            raises.append("AssertionError")
         elif not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             for field in ("body", "orelse", "finalbody"):
                 raises += _raises_in(getattr(node, field, []))
@@ -211,6 +214,12 @@ def _literal_match(pattern: ast.pattern, subject: object) -> bool | None:
         return bool(pattern.value.value == subject)
     if isinstance(pattern, ast.MatchSingleton):
         return pattern.value is subject
+    if isinstance(pattern, ast.MatchOr):
+        results = [_literal_match(alt, subject) for alt in pattern.patterns]
+        if True in results:
+            return True
+        if all(result is False for result in results):
+            return False
     return None
 
 
@@ -245,6 +254,24 @@ def _always_true(test: ast.expr) -> bool:
     return isinstance(test, ast.Constant) and bool(test.value)
 
 
+def _always_diverts(body: list[ast.stmt]) -> bool:
+    """Return True if *body* always ends in ``raise``/``assert False``/``continue``.
+
+    Follows constant ``if`` branches and ``if``/``else`` pairs that both divert.
+    """
+    for node in body:
+        if _terminates(node) or isinstance(node, ast.Continue):
+            return True
+        if isinstance(node, ast.If):
+            truth = _constant_truth(node.test)
+            if truth is not None:
+                if _always_diverts(node.body if truth else node.orelse):
+                    return True
+            elif _always_diverts(node.body) and _always_diverts(node.orelse):
+                return True
+    return False
+
+
 def _breaks_in(body: list[ast.stmt], *, or_continues: bool = False) -> bool:
     """Return True if *body* contains a ``break`` (or ``continue``) for its loop."""
     exits = ast.Break | ast.Continue if or_continues else ast.Break
@@ -254,10 +281,7 @@ def _breaks_in(body: list[ast.stmt], *, or_continues: bool = False) -> bool:
         if _terminates(node):
             # Anything after an unconditional raise in this block is unreachable.
             return False
-        if isinstance(node, ast.Try | ast.TryStar) and any(
-            _terminates(final) or isinstance(final, ast.Continue)
-            for final in node.finalbody
-        ):
+        if isinstance(node, ast.Try | ast.TryStar) and _always_diverts(node.finalbody):
             # A `finally` that always raises or `continue`s overrides any
             # `break` in the `try`, so only a `break` in the `finally` itself
             # can escape.
@@ -309,6 +333,8 @@ def _stored_names(*nodes: ast.AST | None) -> set[str]:
 def _collect_stores(node: ast.AST, names: set[str], *, in_comprehension: bool) -> None:
     if isinstance(node, ast.Lambda):
         return  # Its parameters and body live in the lambda's own scope.
+    if isinstance(node, ast.AnnAssign) and node.value is None:
+        return  # `nox: object` annotates without binding (annotations are lazy).
     if isinstance(node, ast.NamedExpr):
         names.add(node.target.id)
     elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store | ast.Del):
@@ -592,7 +618,7 @@ class _Scanner:
         first that is sure to catch every explicit raise is a candidate. None
         means no handler is sure to, so the import fails after ``finally``.
         """
-        raises = [_raised_name(r) for r in _raises_in(node.body)]
+        raises = _raises_in(node.body)
         if not raises:
             return None
         candidates: list[ast.ExceptHandler] = []

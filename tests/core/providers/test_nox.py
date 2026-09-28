@@ -495,6 +495,48 @@ def test_constant_match_guards() -> None:
     assert _names(false_guard + session) == ["s"]
 
 
+def test_nested_finally_continue_overrides_a_break() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    nested = (
+        "import nox\nwhile True:\n    try:\n        break\n"
+        "    finally:\n        if True:\n            continue\n"
+    )
+    assert _names(nested + session) == []
+    both = (
+        "import nox\nwhile True:\n    try:\n        break\n    finally:\n"
+        "        if x:\n            continue\n"
+        "        else:\n            raise RuntimeError\n"
+    )
+    assert _names(both + session) == []
+    maybe = (
+        "import nox\nwhile True:\n    try:\n        break\n"
+        "    finally:\n        if x:\n            continue\n"
+    )
+    assert _names(maybe + session) == ["s"]
+
+
+def test_annotation_only_keeps_the_binding() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    assert _names("import nox\nnox: object\n" + session) == ["s"]
+    assert _names("import nox\nnox: object = 1\n" + session) == []
+
+
+def test_caught_assert_false_continues() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    caught = "import nox\ntry:\n    assert False\nexcept AssertionError:\n    pass\n"
+    assert _names(caught + session) == ["s"]
+    uncaught = "import nox\ntry:\n    assert False\nexcept ValueError:\n    pass\n"
+    assert _names(uncaught + session) == []
+
+
+def test_constant_subject_matches_literal_alternatives() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    hit = "import nox\nmatch 1:\n    case 1 | 2:\n        raise RuntimeError\n"
+    assert _names(hit + session) == []
+    miss = "import nox\nmatch 1:\n    case 2 | 3:\n        raise RuntimeError\n"
+    assert _names(miss + session) == ["s"]
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"
