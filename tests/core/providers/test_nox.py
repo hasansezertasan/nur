@@ -154,7 +154,9 @@ def test_bindings_follow_statement_order() -> None:
     assert _names("import nox\ndef nox(): ...\n" + session) == []
     assert _names("import nox\n(nox := 1)\n" + session) == []
     assert _names("import nox\nimport other as nox\n" + session) == []
-    assert _names("import nox\nfor nox in []:\n    pass\n" + session) == []
+    assert _names("import nox\nfor nox in [1]:\n    pass\n" + session) == []
+    # An empty literal never assigns the loop target.
+    assert _names("import nox\nfor nox in []:\n    pass\n" + session) == ["s"]
     assert _names("import nox\nfrom helpers import *\n" + session) == []
     text = (
         "import nox\n" + session + "del nox\nimport nox\n" + session.replace("s(", "t(")
@@ -470,6 +472,27 @@ def test_comprehension_and_lambda_locals_keep_module_bindings() -> None:
     assert _names("import nox\nf = lambda nox: nox\n" + session) == ["s"]
     walrus = "import nox\nitems = [(nox := x) for x in ()]\n"
     assert _names(walrus + session) == []
+
+
+def test_loop_that_cannot_enter_always_runs_else() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    for loop in ("while False:", "for x in []:", "for x in ():", "for x in '':"):
+        text = f"import nox\n{loop}\n    break\nelse:\n    raise RuntimeError\n"
+        assert _names(text + session) == [], loop
+    enters = "import nox\nfor x in [1]:\n    break\nelse:\n    raise RuntimeError\n"
+    assert _names(enters + session) == ["s"]
+
+
+def test_constant_match_guards() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    true_guard = (
+        "import nox\nmatch 1:\n    case 1 if True:\n        raise RuntimeError\n"
+    )
+    assert _names(true_guard + session) == []
+    false_guard = (
+        "import nox\nmatch 1:\n    case 1 if False:\n        raise RuntimeError\n"
+    )
+    assert _names(false_guard + session) == ["s"]
 
 
 def test_except_target_is_deleted_after_the_handler() -> None:

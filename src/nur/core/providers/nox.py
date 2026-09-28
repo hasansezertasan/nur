@@ -222,6 +222,25 @@ def _invalid_handler_type(handler: ast.ExceptHandler) -> bool:
     return any(isinstance(t, ast.Constant) for t in types)
 
 
+def _constant_truth(expr: ast.expr | None) -> bool | None:
+    """Return the truth of a constant expression, or None if it isn't constant."""
+    if isinstance(expr, ast.Constant):
+        return bool(expr.value)
+    return None
+
+
+def _never_enters(node: ast.For | ast.AsyncFor | ast.While) -> bool:
+    """Return True for loops whose body cannot run: ``while False``, ``for x in []``."""
+    if isinstance(node, ast.While):
+        return _constant_truth(node.test) is False
+    iterable = node.iter
+    if isinstance(iterable, ast.List | ast.Tuple | ast.Set):
+        return not iterable.elts
+    if isinstance(iterable, ast.Dict):
+        return not iterable.keys
+    return isinstance(iterable, ast.Constant) and iterable.value in {"", b""}
+
+
 def _always_true(test: ast.expr) -> bool:
     return isinstance(test, ast.Constant) and bool(test.value)
 
@@ -603,6 +622,12 @@ class _Scanner:
     def _for_or_while(
         self, node: ast.For | ast.AsyncFor | ast.While, bound: dict[str, _Kind]
     ) -> dict[str, _Kind] | None:
+        if _never_enters(node):
+            # The body cannot run, so neither can its `break`: `else` always runs.
+            header = _stored_names(
+                node.test if isinstance(node, ast.While) else node.iter
+            )
+            return self.run(node.orelse, _without(bound, header), register=False)
         if isinstance(node, ast.While):
             header = _stored_names(node.test)
             if _always_true(node.test) and not _breaks_in(node.body):
@@ -629,12 +654,14 @@ class _Scanner:
             literal = (
                 None if subject is _NO_VALUE else _literal_match(case.pattern, subject)
             )
-            if literal is False:
-                continue  # A constant subject can never match a different literal.
+            guard = _constant_truth(case.guard)
+            if literal is False or guard is False:
+                # A different literal, or a constant-false guard, never matches.
+                continue
             names = _stored_names(case.pattern, case.guard)
             paths.append(self.run(case.body, _without(bound, names), register=False))
             certain = _irrefutable(case.pattern) or literal is True
-            if certain and case.guard is None:
+            if certain and (case.guard is None or guard is True):
                 # `case _:`, a capture, or a literal equal to a constant subject
                 # always matches, so later cases and fallthrough cannot happen.
                 return _merge_paths(paths)
