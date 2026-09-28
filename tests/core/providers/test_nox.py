@@ -254,6 +254,38 @@ def test_raise_must_be_caught_by_a_handler() -> None:
     assert guarded("err", "") == ["s"]
 
 
+def test_else_raise_escapes_the_handlers() -> None:
+    text = (
+        "import nox\ntry:\n    pass\nexcept Exception:\n    pass\n"
+        "else:\n    raise RuntimeError\n@nox.session\ndef s(session): ...\n"
+    )
+    assert _names(text) == []
+
+
+def test_only_catching_handlers_continue_after_a_raise() -> None:
+    text = (
+        "import nox\ntry:\n    raise TypeError\n"
+        "except TypeError:\n    raise\nexcept ValueError:\n    pass\n"
+        "@nox.session\ndef s(session): ...\n"
+    )
+    assert _names(text) == []
+
+
+def test_shadowed_exception_names_are_not_trusted() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    body = "try:\n    raise TypeError\nexcept Exception:\n    pass\n"
+    assert _names("import nox\nException = ValueError\n" + body + session) == []
+    assert _names("import nox\nTypeError = SystemExit\n" + body + session) == []
+    base = "try:\n    raise TypeError\nexcept BaseException:\n    pass\n"
+    assert _names("import nox\nBaseException = ValueError\n" + base + session) == []
+    # A user-defined exception matched by its own name is still caught.
+    own = (
+        "import nox\nclass Boom(Exception): ...\n"
+        "try:\n    raise Boom\nexcept Boom:\n    pass\n"
+    )
+    assert _names(own + session) == ["s"]
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"

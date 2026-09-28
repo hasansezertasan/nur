@@ -91,17 +91,47 @@ def _raised_name(node: ast.Raise) -> str | None:
     return exc.id if isinstance(exc, ast.Name) else None
 
 
-def _catches(handler: ast.ExceptHandler, raised: str | None) -> bool:
-    """Return True if *handler* certainly catches an exception named *raised*."""
+def _catches(handler: ast.ExceptHandler, raised: str | None, rebound: set[str]) -> bool:
+    """Return True if *handler* certainly catches an exception named *raised*.
+
+    The same name in ``raise X`` and ``except X`` always matches: nothing runs
+    between the two lookups. ``Exception``/``BaseException`` are trusted only
+    if the file never rebinds them (``Exception = ValueError``), and the
+    ``Exception`` rule also needs an unshadowed raised name.
+    """
     if handler.type is None:
         return True
     types = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
     names = {t.id for t in types if isinstance(t, ast.Name)}
-    if "BaseException" in names:
+    if raised is not None and raised in names:
         return True
-    if raised is None:
-        return False
-    return raised in names or ("Exception" in names and raised not in _BASE_ONLY)
+    builtins = names - rebound
+    if "BaseException" in builtins:
+        return True
+    return (
+        "Exception" in builtins
+        and raised is not None
+        and raised not in rebound
+        and raised not in _BASE_ONLY
+    )
+
+
+def _bound_anywhere(tree: ast.Module) -> set[str]:
+    """Return every name the file binds anywhere, in any scope."""
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store | ast.Del):
+            names.add(node.id)
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            names.add(node.name)
+        elif isinstance(node, ast.alias):
+            names.add(node.asname or node.name.partition(".")[0])
+        elif isinstance(node, ast.ExceptHandler | ast.MatchAs | ast.MatchStar):
+            if node.name:
+                names.add(node.name)
+        elif isinstance(node, ast.MatchMapping) and node.rest:
+            names.add(node.rest)
+    return names
 
 
 def _raises_in(body: list[ast.stmt]) -> list[ast.Raise]:
@@ -264,6 +294,7 @@ class _Scanner:
             if isinstance(node, ast.Global | ast.Nonlocal)
             for name in node.names
         }
+        self._rebound = _bound_anywhere(tree)
 
     def run(
         self, body: list[ast.stmt], bound: dict[str, _Kind] | None, *, register: bool
@@ -348,19 +379,29 @@ class _Scanner:
     def _try(
         self, node: ast.Try | ast.TryStar, bound: dict[str, _Kind], *, register: bool
     ) -> dict[str, _Kind] | None:
-        completed = self.run(
-            node.orelse, self.run(node.body, bound, register=False), register=False
-        )
-        if completed is None and not all(
-            any(_catches(handler, _raised_name(r)) for handler in node.handlers)
-            for r in _raises_in(node.body)
-        ):
-            # The body always raises something no handler is sure to catch,
-            # so the import fails (after `finally`) on the normal path.
-            return None
+        body_done = self.run(node.body, bound, register=False)
+        completed: dict[str, _Kind] | None = None
+        if body_done is not None:
+            completed = self.run(node.orelse, body_done, register=False)
+            if completed is None:
+                # An exception from `else` escapes these handlers.
+                return None
+            # Any handler may still run after an implicit error in the body.
+            handlers = node.handlers
+        else:
+            # The body always raises: only handlers sure to catch every explicit
+            # raise in it can run; with none, the import fails after `finally`.
+            raises = [_raised_name(r) for r in _raises_in(node.body)]
+            handlers = [
+                handler
+                for handler in node.handlers
+                if all(_catches(handler, name, self._rebound) for name in raises)
+            ]
+            if not handlers:
+                return None
         raised = self._anywhere_in(node.body, bound)
         paths = [completed]
-        for handler in node.handlers:
+        for handler in handlers:
             names = _stored_names(handler.type)
             if handler.name:
                 names.add(handler.name)
