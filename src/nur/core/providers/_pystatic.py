@@ -391,7 +391,9 @@ def always_true(test: ast.expr) -> bool:
     return constant_truth(test) is True
 
 
-def always_diverts(body: list[ast.stmt]) -> bool:
+def always_diverts(
+    body: list[ast.stmt], known: dict[str, _ExceptionClass] | None = None
+) -> bool:
     """Return True if *body* always ends in ``raise``/``assert False``/``continue``.
 
     Follows constant ``if`` branches, ``if``/``else`` pairs that both divert,
@@ -404,30 +406,37 @@ def always_diverts(body: list[ast.stmt]) -> bool:
         if isinstance(node, ast.If):
             truth = constant_truth(node.test)
             if truth is not None:
-                if always_diverts(node.body if truth else node.orelse):
+                if always_diverts(node.body if truth else node.orelse, known):
                     return True
-            elif always_diverts(node.body) and always_diverts(node.orelse):
+            elif always_diverts(node.body, known) and always_diverts(
+                node.orelse, known
+            ):
                 return True
         if isinstance(node, ast.Match):
             cases, exhaustive = _reachable_cases(node)
-            if exhaustive and all(always_diverts(case.body) for case in cases):
+            if exhaustive and all(always_diverts(case.body, known) for case in cases):
                 return True
-        if isinstance(node, ast.Try | ast.TryStar) and _try_diverts(node):
+        if isinstance(node, ast.Try | ast.TryStar) and _try_diverts(node, known):
             return True
     return False
 
 
-def _try_diverts(node: ast.Try | ast.TryStar) -> bool:
+def _try_diverts(
+    node: ast.Try | ast.TryStar, known: dict[str, _ExceptionClass] | None
+) -> bool:
     """Return True if every way through a ``try`` raises or ``continue``s.
 
-    Either ``finally`` always diverts, or the body and every handler do and
-    ``finally`` has no ``break`` to cancel that.
+    Either ``finally`` always diverts, or the body and every handler that can
+    run do and ``finally`` has no ``break`` to cancel that.
     """
-    if always_diverts(node.finalbody):
+    if always_diverts(node.finalbody, known):
         return True
-    handlers_divert = all(always_diverts(h.body) for h in node.handlers)
+    handlers = _runnable_handlers(node, known)
+    handlers_divert = all(always_diverts(h.body, known) for h in handlers)
     return (
-        always_diverts(node.body) and handlers_divert and not breaks_in(node.finalbody)
+        always_diverts(node.body, known)
+        and handlers_divert
+        and not breaks_in(node.finalbody)
     )
 
 
@@ -447,7 +456,7 @@ def breaks_in(
             return False
         if _breaks_in_statement(node, or_continues=or_continues, known=known):
             return True
-        if always_diverts([node]):
+        if always_diverts([node], known):
             return False  # e.g. `if True: raise ...` skips the rest of this block.
     return False
 
@@ -456,7 +465,9 @@ def _breaks_in_statement(
     node: ast.stmt, *, or_continues: bool, known: dict[str, _ExceptionClass] | None
 ) -> bool:
     """Return True if a compound statement can reach a ``break`` for our loop."""
-    if isinstance(node, ast.Try | ast.TryStar) and always_diverts(node.finalbody):
+    if isinstance(node, ast.Try | ast.TryStar) and always_diverts(
+        node.finalbody, known
+    ):
         # A `finally` that always raises or `continue`s overrides any `break`
         # in the `try`, so only a `break` in the `finally` itself can escape.
         return breaks_in(node.finalbody, or_continues=or_continues, known=known)
@@ -469,7 +480,10 @@ def _breaks_in_statement(
     scopes = ast.For | ast.AsyncFor | ast.While | ast.FunctionDef | ast.AsyncFunctionDef
     if isinstance(node, scopes | ast.ClassDef):
         return False
-    blocks = [getattr(node, field, []) for field in ("body", "orelse", "finalbody")]
+    fields = ["body", "orelse", "finalbody"]
+    if isinstance(node, ast.Try | ast.TryStar) and always_diverts(node.body, known):
+        fields.remove("orelse")  # `else` only runs when the body completes.
+    blocks = [getattr(node, field, []) for field in fields]
     blocks += [handler.body for handler in _runnable_handlers(node, known)]
     if isinstance(node, ast.Match):
         blocks += [case.body for case in _reachable_cases(node)[0]]
@@ -492,9 +506,10 @@ def _runnable_handlers(
         return handlers
     if not all(isinstance(stmt, ast.Raise | ast.Pass) for stmt in node.body):
         return handlers
-    raises = [raised_name(stmt) for stmt in node.body if isinstance(stmt, ast.Raise)]
-    if not raises:
+    first = next((stmt for stmt in node.body if isinstance(stmt, ast.Raise)), None)
+    if first is None:
         return handlers
+    raises = [raised_name(first)]  # Nothing after the first raise runs.
     runnable: list[ast.ExceptHandler] = []
     for handler in handlers:
         if all(cannot_catch(handler, r, known) for r in raises):

@@ -837,6 +837,42 @@ def test_globals_and_locals_are_distrusted() -> None:
         assert _names(text + session) == [], call
 
 
+def test_nested_invalid_handler_replaces_the_exception() -> None:
+    text = (
+        "import nox\ntry:\n    try:\n        raise ValueError\n"
+        "    except 1:\n        pass\n    except ValueError:\n        pass\n"
+        "except ValueError:\n    pass\n@nox.session\ndef s(session): ...\n"
+    )
+    assert _names(text) == []
+
+
+def test_try_else_cannot_break_when_the_body_never_completes() -> None:
+    text = (
+        "import nox\nwhile True:\n    try:\n        raise ValueError\n"
+        "    except ValueError:\n        continue\n    else:\n        break\n"
+    )
+    assert _names(text + "@nox.session\ndef s(session): ...\n") == []
+
+
+def test_only_runnable_handlers_decide_whether_a_try_diverts() -> None:
+    text = (
+        "import nox\nwhile True:\n    try:\n        raise ValueError\n"
+        "    except ValueError:\n        continue\n"
+        "    except TypeError:\n        pass\n"
+        "    break\n"
+    )
+    assert _names(text + "@nox.session\ndef s(session): ...\n") == []
+
+
+def test_handler_filter_stops_at_the_first_raise() -> None:
+    text = (
+        "import nox\nwhile True:\n    try:\n        raise ValueError\n"
+        "        raise TypeError\n    except ValueError:\n        continue\n"
+        "    except TypeError:\n        break\n"
+    )
+    assert _names(text + "@nox.session\ndef s(session): ...\n") == []
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"

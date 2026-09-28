@@ -481,7 +481,7 @@ class _Scanner:
                     raises += self._raises_in(getattr(node, field, []))
                 for case in getattr(node, "cases", []):
                     raises += self._raises_in(case.body)
-            if always_diverts([node]):
+            if always_diverts([node], self._exception_classes):
                 break  # Nothing after it in this block runs.
         return raises
 
@@ -496,7 +496,13 @@ class _Scanner:
         """Return what escapes a nested ``try``: uncaught body raises and the rest."""
         inner = self._raises_in(node.body)
         trusted = isinstance(node, ast.Try)  # `except*` is never trusted to catch.
-        if trusted and not any(invalid_handler_type(h) for h in node.handlers):
+        if inner and any(
+            invalid_handler_type(h) or self._unbound_handler(h) for h in node.handlers
+        ):
+            # Evaluating such a handler raises TypeError/NameError, which
+            # replaces the exception on its way out, so its class is unknown.
+            inner = [None]
+        elif trusted:
             inner = [
                 name
                 for name in inner
