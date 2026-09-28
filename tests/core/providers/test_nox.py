@@ -745,6 +745,48 @@ def test_signed_number_patterns_are_literals() -> None:
     assert _names(plain + session) == ["s"]
 
 
+def test_handler_that_cannot_catch_is_skipped() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    text = (
+        "import nox\ntry:\n    raise ValueError\n"
+        "except TypeError:\n    raise RuntimeError\nexcept ValueError:\n    pass\n"
+    )
+    assert _names(text + session) == ["s"]
+    # An unknown base leaves the ancestry open, so the earlier handler may match.
+    unknown_base = (
+        "import nox\nclass E(ValueError, Mixin): ...\ntry:\n    raise E\n"
+        "except TypeError:\n    raise RuntimeError\nexcept E:\n    pass\n"
+    )
+    assert _names(unknown_base + session) == []
+
+
+def test_match_that_always_raises_ends_the_break_scan() -> None:
+    text = (
+        "import nox\nwhile True:\n    match 1:\n        case 1:\n"
+        "            raise RuntimeError\n    break\n"
+    )
+    assert _names(text + "@nox.session\ndef s(session): ...\n") == []
+
+
+def test_break_in_a_handler_that_cannot_run_is_unreachable() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    dead = (
+        "import nox\nwhile True:\n    try:\n        raise ValueError\n"
+        "    except TypeError:\n        break\n"
+    )
+    assert _names(dead + session) == []
+    live = (
+        "import nox\nwhile True:\n    try:\n        raise ValueError\n"
+        "    except ValueError:\n        break\n"
+    )
+    assert _names(live + session) == ["s"]
+    implicit = (
+        "import nox\nwhile True:\n    try:\n        f()\n        raise ValueError\n"
+        "    except TypeError:\n        break\n"
+    )
+    assert _names(implicit + session) == ["s"]  # f() may raise TypeError.
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"

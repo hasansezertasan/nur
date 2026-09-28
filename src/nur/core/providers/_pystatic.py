@@ -17,6 +17,7 @@ __all__ = [
     "always_true",
     "bound_anywhere",
     "breaks_in",
+    "cannot_catch",
     "catches",
     "constant_truth",
     "exception_classes",
@@ -78,6 +79,31 @@ def catches(
     return known is not None and bool(trusted & known.ancestors)
 
 
+def cannot_catch(
+    handler: ast.ExceptHandler,
+    raised: str | None,
+    known_classes: dict[str, _ExceptionClass],
+) -> bool:
+    """Return True if *handler* provably never catches an exception named *raised*.
+
+    That needs the raised class's whole ancestry (a builtin, or a user class
+    whose bases are all known) and every handler type to be a known class
+    outside it.
+    """
+    if handler.type is None or raised is None:
+        return False
+    known = known_classes.get(raised)
+    if known is None or not known.complete:
+        return False
+    types = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
+    return all(
+        isinstance(t, ast.Name)
+        and t.id in known_classes
+        and t.id not in known.ancestors
+        for t in types
+    )
+
+
 _BUILTIN_EXCEPTIONS = frozenset(
     name
     for name, value in vars(builtins).items()
@@ -90,6 +116,7 @@ class _ExceptionClass(NamedTuple):
 
     line: int  # First line where the name is bound (0: builtin, always bound).
     ancestors: frozenset[str]  # Known class names it inherits from, itself included.
+    complete: bool  # Whether `ancestors` is its whole MRO (every base is known).
 
 
 def _builtin_ancestors(name: str, trusted: set[str]) -> frozenset[str]:
@@ -125,7 +152,7 @@ def exception_classes(
     }
     unshadowed = set(_BUILTIN_EXCEPTIONS - rebound)
     known = {
-        name: _ExceptionClass(0, _builtin_ancestors(name, unshadowed))
+        name: _ExceptionClass(0, _builtin_ancestors(name, unshadowed), complete=True)
         for name in unshadowed
     }
     changed = True
@@ -150,7 +177,12 @@ def exception_classes(
                     )
                 )
                 line = min(d.lineno for d in defs)
-                known[name] = _ExceptionClass(line, shared | {name})
+                complete = all(
+                    isinstance(b, ast.Name) and b.id in known and known[b.id].complete
+                    for d in defs
+                    for b in d.bases
+                )
+                known[name] = _ExceptionClass(line, shared | {name}, complete)
                 changed = True
     return known
 
@@ -343,7 +375,8 @@ def always_true(test: ast.expr) -> bool:
 def _always_diverts(body: list[ast.stmt]) -> bool:
     """Return True if *body* always ends in ``raise``/``assert False``/``continue``.
 
-    Follows constant ``if`` branches and ``if``/``else`` pairs that both divert.
+    Follows constant ``if`` branches, ``if``/``else`` pairs that both divert,
+    and ``match`` statements whose reachable cases are exhaustive and all divert.
     """
     for node in body:
         if terminates(node) or isinstance(node, ast.Continue):
@@ -355,10 +388,19 @@ def _always_diverts(body: list[ast.stmt]) -> bool:
                     return True
             elif _always_diverts(node.body) and _always_diverts(node.orelse):
                 return True
+        if isinstance(node, ast.Match):
+            cases, exhaustive = _reachable_cases(node)
+            if exhaustive and all(_always_diverts(case.body) for case in cases):
+                return True
     return False
 
 
-def breaks_in(body: list[ast.stmt], *, or_continues: bool = False) -> bool:
+def breaks_in(
+    body: list[ast.stmt],
+    *,
+    or_continues: bool = False,
+    known: dict[str, _ExceptionClass] | None = None,
+) -> bool:
     """Return True if *body* contains a reachable ``break`` (or ``continue``)."""
     exits = ast.Break | ast.Continue if or_continues else ast.Break
     for node in body:
@@ -367,40 +409,67 @@ def breaks_in(body: list[ast.stmt], *, or_continues: bool = False) -> bool:
         if isinstance(node, ast.Continue) or terminates(node):
             # A `continue` or unconditional raise skips the rest of this block.
             return False
-        if _breaks_in_statement(node, or_continues=or_continues):
+        if _breaks_in_statement(node, or_continues=or_continues, known=known):
             return True
         if _always_diverts([node]):
             return False  # e.g. `if True: raise ...` skips the rest of this block.
     return False
 
 
-def _breaks_in_statement(node: ast.stmt, *, or_continues: bool) -> bool:
+def _breaks_in_statement(
+    node: ast.stmt, *, or_continues: bool, known: dict[str, _ExceptionClass] | None
+) -> bool:
     """Return True if a compound statement can reach a ``break`` for our loop."""
     if isinstance(node, ast.Try | ast.TryStar) and _always_diverts(node.finalbody):
         # A `finally` that always raises or `continue`s overrides any `break`
         # in the `try`, so only a `break` in the `finally` itself can escape.
-        return breaks_in(node.finalbody, or_continues=or_continues)
+        return breaks_in(node.finalbody, or_continues=or_continues, known=known)
     truth = constant_truth(node.test) if isinstance(node, ast.If) else None
     if isinstance(node, ast.If) and truth is not None:
         # Only the branch a constant condition takes can reach its `break`.
         taken = node.body if truth else node.orelse
-        return breaks_in(taken, or_continues=or_continues)
+        return breaks_in(taken, or_continues=or_continues, known=known)
     # A nested loop's `break` and a function's or class's body belong elsewhere.
     scopes = ast.For | ast.AsyncFor | ast.While | ast.FunctionDef | ast.AsyncFunctionDef
     if isinstance(node, scopes | ast.ClassDef):
         return False
     blocks = [getattr(node, field, []) for field in ("body", "orelse", "finalbody")]
-    blocks += [handler.body for handler in getattr(node, "handlers", [])]
+    blocks += [handler.body for handler in _runnable_handlers(node, known)]
     if isinstance(node, ast.Match):
-        blocks += [case.body for case in _reachable_cases(node)]
-    return any(breaks_in(block, or_continues=or_continues) for block in blocks)
+        blocks += [case.body for case in _reachable_cases(node)[0]]
+    return any(
+        breaks_in(block, or_continues=or_continues, known=known) for block in blocks
+    )
 
 
-def _reachable_cases(node: ast.Match) -> list[ast.match_case]:
-    """Return the cases whose body may run, as ``_Scanner._match`` decides it.
+def _runnable_handlers(
+    node: ast.stmt, known: dict[str, _ExceptionClass] | None
+) -> list[ast.ExceptHandler]:
+    """Return the handlers of a ``try`` that may run.
 
-    A literal differing from a constant subject or a constant-false guard never
-    runs its body, and nothing after a certain match is reached.
+    Any handler may run after an implicit error, except when the body holds
+    nothing but ``raise``/``pass``: then a handler that provably can't catch
+    any of its raises never runs.
+    """
+    handlers: list[ast.ExceptHandler] = getattr(node, "handlers", [])
+    if known is None or not isinstance(node, ast.Try):
+        return handlers
+    if not all(isinstance(stmt, ast.Raise | ast.Pass) for stmt in node.body):
+        return handlers
+    raises = [raised_name(stmt) for stmt in node.body if isinstance(stmt, ast.Raise)]
+    return [
+        handler
+        for handler in handlers
+        if not raises or not all(cannot_catch(handler, r, known) for r in raises)
+    ]
+
+
+def _reachable_cases(node: ast.Match) -> tuple[list[ast.match_case], bool]:
+    """Return the cases whose body may run, and whether one certainly does.
+
+    Decided as ``_Scanner._match`` does: a literal differing from a constant
+    subject or a constant-false guard never runs its body, and nothing after a
+    certain match is reached (so there is no fallthrough).
     """
     subject = signed_number(node.subject)
     reachable: list[ast.match_case] = []
@@ -412,8 +481,8 @@ def _reachable_cases(node: ast.Match) -> list[ast.match_case]:
         reachable.append(case)
         certain = irrefutable(case.pattern) or literal is True
         if certain and (case.guard is None or guard is True):
-            break
-    return reachable
+            return reachable, True
+    return reachable, False
 
 
 _COMPREHENSIONS = ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp

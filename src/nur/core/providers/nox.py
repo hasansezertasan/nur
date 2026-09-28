@@ -13,6 +13,7 @@ from nur.core.providers._pystatic import (
     always_true,
     bound_anywhere,
     breaks_in,
+    cannot_catch,
     catches,
     constant_truth,
     exception_classes,
@@ -384,7 +385,9 @@ class _Scanner:
         conservative merge of the bindings where the exception may have been
         raised.
         """
-        if not breaks_in(node.finalbody, or_continues=True):
+        if not breaks_in(
+            node.finalbody, or_continues=True, known=self._exception_classes
+        ):
             return None
         return self.run(node.finalbody, state, register=False)
 
@@ -411,6 +414,10 @@ class _Scanner:
                 # Evaluating `except 1:` raises TypeError before any later
                 # handler is tried, so the exception escapes.
                 return None
+            if all(
+                cannot_catch(handler, name, self._exception_classes) for name in raises
+            ):
+                continue  # Provably can't catch any of them, so it never runs.
             candidates.append(handler)
             if all(self._catches(handler, name) for name in raises):
                 return candidates
@@ -485,21 +492,25 @@ class _Scanner:
             return self.run(node.orelse, _without(bound, header), register=False)
         if isinstance(node, ast.While):
             header = stored_names(node.test)
-            if always_true(node.test) and not breaks_in(node.body):
+            if always_true(node.test) and not breaks_in(
+                node.body, known=self._exception_classes
+            ):
                 # `while True` without a `break` never finishes.
                 return None
         else:
             header = stored_names(node.target, node.iter)
             if (
                 always_enters(node)
-                and not breaks_in(node.body, or_continues=True)
+                and not breaks_in(
+                    node.body, or_continues=True, known=self._exception_classes
+                )
                 and self.run(node.body, _without(bound, header), register=False) is None
             ):
                 # The first iteration always runs and always raises.
                 return None
         bound = self._loop(node.body, _without(bound, header))
         after_else = self.run(node.orelse, bound, register=False)
-        if not breaks_in(node.body):
+        if not breaks_in(node.body, known=self._exception_classes):
             return after_else  # Without a `break`, the loop always runs `else`.
         # A `break` skips `else`, so the loop state itself is a path too.
         return _merge_paths([bound, after_else])
