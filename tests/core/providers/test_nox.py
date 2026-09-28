@@ -181,6 +181,33 @@ def test_rebinding_on_any_path_invalidates() -> None:
     )
 
 
+def test_decorators_see_bindings_from_those_above() -> None:
+    text = (
+        "import nox\nimport other\n"
+        "@((nox := other).session)\n@nox.session\ndef s(session): ...\n"
+    )
+    assert _names(text) == []
+
+
+def test_global_declarations_make_a_name_untrackable() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    in_class = "import nox\nclass C:\n    global nox\n    import other as nox\n"
+    assert _names(in_class + session) == []
+    in_function = "import nox\ndef setup():\n    global nox\n    nox = 1\nsetup()\n"
+    assert _names(in_function + session) == []
+
+
+def test_file_that_cannot_compile_lists_nothing(tmp_path: Path, caplog) -> None:
+    session = "import nox\n@nox.session\ndef s(session): ...\n"
+    for broken in (
+        "@nox.session(name='a', name='b')\ndef t(session): ...\n",
+        "return\n",
+    ):
+        (tmp_path / "noxfile.py").write_text(session + broken)
+        assert NoxProvider().discover(tmp_path) == []
+    assert any("noxfile.py" in r.message for r in caplog.records)
+
+
 def test_branches_must_agree_on_the_binding() -> None:
     session = "@nox.session\ndef s(session): ...\n"
     text = "if x:\n    import nox\nelse:\n    import other as nox\n" + session

@@ -129,14 +129,20 @@ def _session_names(func: ast.FunctionDef, bound: dict[str, _Kind]) -> list[str]:
     """Return every name *func* is registered under as a nox session.
 
     Stacked ``@nox.session`` decorators each register an alias, applied
-    bottom-up. A decorator whose name cannot be read statically contributes
-    nothing rather than a name ``nox -s`` would reject.
+    bottom-up. Decorator expressions are evaluated top-down first, so each is
+    checked against the bindings left by those above it (and itself, should it
+    rebind a name with ``:=``). A decorator whose name cannot be read statically
+    contributes nothing rather than a name ``nox -s`` would reject.
     """
+    evaluated: list[tuple[ast.expr, dict[str, _Kind]]] = []
+    for decorator in func.decorator_list:
+        bound = _without(bound, _stored_names(decorator))
+        evaluated.append((decorator, bound))
     names: list[str] = []
-    for decorator in reversed(func.decorator_list):
-        if _is_session_ref(decorator, bound):
+    for decorator, seen in reversed(evaluated):
+        if _is_session_ref(decorator, seen):
             names.append(func.name)
-        elif isinstance(decorator, ast.Call) and _is_session_ref(decorator.func, bound):
+        elif isinstance(decorator, ast.Call) and _is_session_ref(decorator.func, seen):
             name = _explicit_name(decorator, func.name)
             if name is not None:
                 names.append(name)
@@ -160,8 +166,17 @@ class _Scanner:
     followed for the bindings they may change.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, tree: ast.Module) -> None:
         self.sessions: dict[str, str | None] = {}
+        # A `global` (or `nonlocal`) declaration anywhere, e.g. in a class body
+        # or a function called at import time, can rebind a module-level name
+        # in a way statement order cannot follow, so such names never count.
+        self._unstable = {
+            name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Global | ast.Nonlocal)
+            for name in node.names
+        }
 
     def run(
         self, body: list[ast.stmt], bound: dict[str, _Kind], *, register: bool
@@ -211,7 +226,7 @@ class _Scanner:
             result = self._anywhere_in(node.body, bound)
         else:
             result = _without(bound, _stored_names(node))
-        return result
+        return _without(result, self._unstable)
 
     def _function(
         self,
@@ -293,7 +308,11 @@ def parse_noxfile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     # report when it runs; nur only reads names, so keep them off every listing.
     with warnings.catch_warnings(action="ignore", category=SyntaxWarning):
         tree = ast.parse(text, filename=source_file)
-    scanner = _Scanner()
+        # Some trees parse but cannot compile (a repeated keyword argument, a
+        # module-level `return`); nox fails to import those, so list nothing.
+        # Compiling builds a code object without executing any of it.
+        compile(tree, source_file, "exec", dont_inherit=True)
+    scanner = _Scanner(tree)
     scanner.run(tree.body, {}, register=True)
     # A later definition under the same name replaces the earlier one, as in
     # nox's own registry, while keeping the first definition's position.
