@@ -152,21 +152,34 @@ def test_process_runner_cleans_up_when_callback_raises(tmp_path) -> None:
 
 def test_process_runner_interrupt_stops_running_child(tmp_path) -> None:
     runner = ProcessRunner()
-    argv = [sys.executable, "-c", "import time; time.sleep(30)"]
+    argv = [
+        sys.executable,
+        "-c",
+        "import time; print('ready', flush=True); time.sleep(30)",
+    ]
     result: dict[str, int] = {}
+    lines: list[str] = []
 
     def target() -> None:
-        result["code"] = runner.run(argv, tmp_path, on_line=lambda _l: None)
+        result["code"] = runner.run(argv, tmp_path, on_line=lines.append)
 
     import threading
 
     worker = threading.Thread(target=target)
     worker.start()
-    for _ in range(100):  # wait for the child to actually start
-        if runner._proc is not None:
+    # Wait for the child's own "ready" line, not just for _proc to be set: a
+    # SIGINT that lands while the interpreter is still starting up can be
+    # swallowed (coverage's subprocess .pth hook imports coverage under a bare
+    # `except:`), leaving sleep(30) running past the join timeout. stderr is
+    # merged into stdout, so startup diagnostics may precede the marker.
+    for _ in range(500):
+        if "ready\n" in lines:
             break
         time.sleep(0.02)
+    ready = "ready\n" in lines
+    # Interrupt before asserting readiness so a failure never leaks the child.
     runner.interrupt()
+    assert ready, lines
     worker.join(timeout=10)
     assert not worker.is_alive()  # interrupt actually stopped the sleep(30)
     assert result["code"] != 0
