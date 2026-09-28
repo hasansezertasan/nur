@@ -665,6 +665,24 @@ def test_decorator_callable_is_resolved_before_its_arguments() -> None:
     assert _names(after) == ["s"]
 
 
+def test_continue_makes_the_rest_of_the_body_unreachable() -> None:
+    text = "import nox\nwhile True:\n    continue\n    break\n"
+    assert _names(text + "@nox.session\ndef s(session): ...\n") == []
+
+
+def test_nested_class_does_not_see_outer_class_names() -> None:
+    text = (
+        "class Outer:\n    import nox as local\n    class Inner:\n"
+        "        @local.session\n        def bad(session): ...\n"
+    )
+    assert _names(text) == []
+    module_level = (
+        "import nox\nclass Outer:\n    class Inner:\n"
+        "        @nox.session\n        def ok(session): ...\n"
+    )
+    assert _names(module_level) == ["ok"]
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"

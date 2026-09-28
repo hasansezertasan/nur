@@ -384,45 +384,38 @@ def _always_diverts(body: list[ast.stmt]) -> bool:
 
 
 def _breaks_in(body: list[ast.stmt], *, or_continues: bool = False) -> bool:
-    """Return True if *body* contains a ``break`` (or ``continue``) for its loop."""
+    """Return True if *body* contains a reachable ``break`` (or ``continue``)."""
     exits = ast.Break | ast.Continue if or_continues else ast.Break
     for node in body:
         if isinstance(node, exits):
             return True
-        if _terminates(node):
-            # Anything after an unconditional raise in this block is unreachable.
+        if isinstance(node, ast.Continue) or _terminates(node):
+            # A `continue` or unconditional raise skips the rest of this block.
             return False
-        if isinstance(node, ast.Try | ast.TryStar) and _always_diverts(node.finalbody):
-            # A `finally` that always raises or `continue`s overrides any
-            # `break` in the `try`, so only a `break` in the `finally` itself
-            # can escape.
-            if _breaks_in(node.finalbody, or_continues=or_continues):
-                return True
-            continue
-        truth = _constant_truth(node.test) if isinstance(node, ast.If) else None
-        if isinstance(node, ast.If) and truth is not None:
-            # Only the branch a constant condition takes can reach its `break`.
-            taken = node.body if truth else node.orelse
-            if _breaks_in(taken, or_continues=or_continues):
-                return True
-            continue
-        # A nested loop's `break` and a function's body belong elsewhere.
-        if isinstance(
-            node,
-            ast.For
-            | ast.AsyncFor
-            | ast.While
-            | ast.FunctionDef
-            | ast.AsyncFunctionDef
-            | ast.ClassDef,
-        ):
-            continue
-        blocks = [getattr(node, field, []) for field in ("body", "orelse", "finalbody")]
-        blocks += [handler.body for handler in getattr(node, "handlers", [])]
-        blocks += [case.body for case in getattr(node, "cases", [])]
-        if any(_breaks_in(block, or_continues=or_continues) for block in blocks):
+        if _breaks_in_statement(node, or_continues=or_continues):
             return True
     return False
+
+
+def _breaks_in_statement(node: ast.stmt, *, or_continues: bool) -> bool:
+    """Return True if a compound statement can reach a ``break`` for our loop."""
+    if isinstance(node, ast.Try | ast.TryStar) and _always_diverts(node.finalbody):
+        # A `finally` that always raises or `continue`s overrides any `break`
+        # in the `try`, so only a `break` in the `finally` itself can escape.
+        return _breaks_in(node.finalbody, or_continues=or_continues)
+    truth = _constant_truth(node.test) if isinstance(node, ast.If) else None
+    if isinstance(node, ast.If) and truth is not None:
+        # Only the branch a constant condition takes can reach its `break`.
+        taken = node.body if truth else node.orelse
+        return _breaks_in(taken, or_continues=or_continues)
+    # A nested loop's `break` and a function's or class's body belong elsewhere.
+    scopes = ast.For | ast.AsyncFor | ast.While | ast.FunctionDef | ast.AsyncFunctionDef
+    if isinstance(node, scopes | ast.ClassDef):
+        return False
+    blocks = [getattr(node, field, []) for field in ("body", "orelse", "finalbody")]
+    blocks += [handler.body for handler in getattr(node, "handlers", [])]
+    blocks += [case.body for case in getattr(node, "cases", [])]
+    return any(_breaks_in(block, or_continues=or_continues) for block in blocks)
 
 
 _COMPREHENSIONS = ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp
@@ -592,6 +585,8 @@ class _Scanner:
 
     def __init__(self, tree: ast.Module) -> None:
         self.sessions: dict[str, str | None] = {}
+        # Module bindings when the outermost enclosing class body began, if any.
+        self._class_base: dict[str, _Kind] | None = None
         # A `global` (or `nonlocal`) declaration anywhere, e.g. in a class body
         # or a function called at import time, can rebind a module-level name
         # in a way statement order cannot follow, so such names never count.
@@ -682,8 +677,16 @@ class _Scanner:
     ) -> dict[str, _Kind] | None:
         header = _stored_names(*node.decorator_list, *node.bases, *node.keywords)
         bound = _without(bound, header)
-        # The class body sees module bindings but binds its own names.
-        if self.run(node.body, bound, register=register) is None:
+        # A class body sees module bindings and binds its own names; a nested
+        # class body does not see the enclosing class's names, only the module's
+        # (which `global`-free class bodies cannot change).
+        outer = self._class_base
+        self._class_base = bound if outer is None else outer
+        try:
+            body = self.run(node.body, self._class_base, register=register)
+        finally:
+            self._class_base = outer
+        if body is None:
             return None
         return _without(bound, {node.name})
 
