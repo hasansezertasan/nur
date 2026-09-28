@@ -41,12 +41,12 @@ def _names(text: str) -> list[str]:
 
 def test_detect(tmp_path: Path) -> None:
     assert not NoxProvider().detect(tmp_path)
-    (tmp_path / "noxfile.py").write_text(NOXFILE)
+    (tmp_path / "noxfile.py").write_text(NOXFILE, encoding="utf-8")
     assert NoxProvider().detect(tmp_path)
 
 
 def test_discover(tmp_path: Path) -> None:
-    (tmp_path / "noxfile.py").write_text(NOXFILE)
+    (tmp_path / "noxfile.py").write_text(NOXFILE, encoding="utf-8")
     tasks = {t.name: t for t in NoxProvider().discover(tmp_path)}
     assert list(tasks) == ["tests", "lint", "docs-build"]
     assert tasks["tests"].argv_base == ("nox", "-s", "tests")
@@ -203,9 +203,42 @@ def test_file_that_cannot_compile_lists_nothing(tmp_path: Path, caplog) -> None:
         "@nox.session(name='a', name='b')\ndef t(session): ...\n",
         "return\n",
     ):
-        (tmp_path / "noxfile.py").write_text(session + broken)
+        (tmp_path / "noxfile.py").write_text(session + broken, encoding="utf-8")
         assert NoxProvider().discover(tmp_path) == []
     assert any("noxfile.py" in r.message for r in caplog.records)
+
+
+def test_replacing_the_session_attribute_invalidates_modules() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    assert _names("import nox\nnox.session = print\n" + session) == []
+    assert _names("import nox\ndel nox.session\n" + session) == []
+    assert _names("import nox\nimport nox as n\nn.session = print\n" + session) == []
+    assert _names("import nox\nsetattr(nox, 'session', print)\n" + session) == []
+    # Ordinary nox configuration leaves the decorator alone.
+    text = "import nox\nnox.needs_version = '>=2024'\nnox.options.sessions = []\n"
+    assert _names(text + session) == ["s"]
+
+
+def test_unconditional_raise_ends_the_path() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    assert _names("import nox\n" + session + "raise RuntimeError\n") == []
+    assert _names("import nox\nclass C:\n    raise RuntimeError\n" + session) == []
+    guarded = "import nox\nif x:\n    raise RuntimeError\n" + session
+    assert _names(guarded) == ["s"]
+    handled = (
+        "import nox\ntry:\n    raise RuntimeError\n"
+        "except RuntimeError:\n    pass\n" + session
+    )
+    assert _names(handled) == ["s"]
+
+
+def test_except_target_is_deleted_after_the_handler() -> None:
+    text = (
+        "import nox\ntry:\n    pass\n"
+        "except ImportError as nox:\n    import nox\n"
+        "@nox.session\ndef s(session): ...\n"
+    )
+    assert _names(text) == []
 
 
 def test_branches_must_agree_on_the_binding() -> None:
@@ -247,7 +280,7 @@ def test_import_must_be_bound_on_every_path() -> None:
 def test_long_elif_chain_is_skipped_not_crashing(tmp_path: Path, caplog) -> None:
     chain = "".join(f"elif x == {i}:\n    pass\n" for i in range(1, 5000))
     (tmp_path / "noxfile.py").write_text(
-        "import nox\nx = 0\nif x == 0:\n    pass\n" + chain
+        "import nox\nx = 0\nif x == 0:\n    pass\n" + chain, encoding="utf-8"
     )
     assert NoxProvider().discover(tmp_path) == []
     assert any("noxfile.py" in r.message for r in caplog.records)
@@ -323,14 +356,15 @@ def test_discovery_never_executes_the_noxfile(tmp_path: Path) -> None:
     marker = tmp_path / "executed"
     (tmp_path / "noxfile.py").write_text(
         f"import nox, pathlib\npathlib.Path({str(marker)!r}).touch()\n"
-        "@nox.session\ndef t(session): ...\n"
+        "@nox.session\ndef t(session): ...\n",
+        encoding="utf-8",
     )
     assert [t.name for t in NoxProvider().discover(tmp_path)] == ["t"]
     assert not marker.exists()
 
 
 def test_syntax_error_returns_empty(tmp_path: Path, caplog) -> None:
-    (tmp_path / "noxfile.py").write_text("import nox\ndef (:\n")
+    (tmp_path / "noxfile.py").write_text("import nox\ndef (:\n", encoding="utf-8")
     assert NoxProvider().discover(tmp_path) == []
     assert any("noxfile.py" in r.message for r in caplog.records)
 

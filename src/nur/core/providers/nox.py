@@ -43,6 +43,35 @@ def _merge(paths: list[dict[str, _Kind]]) -> dict[str, _Kind]:
     }
 
 
+def _merge_paths(paths: list[dict[str, _Kind] | None]) -> dict[str, _Kind] | None:
+    """Merge the paths that continue; None when every path stops (``raise``)."""
+    continuing = [path for path in paths if path is not None]
+    return _merge(continuing) if continuing else None
+
+
+def _is_module(node: ast.expr, bound: dict[str, _Kind]) -> bool:
+    return isinstance(node, ast.Name) and bound.get(node.id) is _Kind.MODULE
+
+
+def _mutates_session_attr(node: ast.AST, bound: dict[str, _Kind]) -> bool:
+    """Return True if *node* may replace or delete ``<nox module>.session``.
+
+    Covers ``nox.session = ...``, ``del nox.session``, and ``setattr``/``delattr``
+    on a tracked module. Other attributes (``nox.options``, ``nox.needs_version``)
+    leave the decorator alone.
+    """
+    for child in ast.walk(node):
+        if isinstance(child, ast.Attribute):
+            stored = isinstance(child.ctx, ast.Store | ast.Del)
+            if stored and child.attr == "session" and _is_module(child.value, bound):
+                return True
+        elif isinstance(child, ast.Call) and isinstance(child.func, ast.Name):
+            reflective = child.func.id in {"setattr", "delattr"} and child.args
+            if reflective and _is_module(child.args[0], bound):
+                return True
+    return False
+
+
 def _stored_names(*nodes: ast.AST | None) -> set[str]:
     """Return every name *nodes* may bind or delete (assignment, walrus, ``as``)."""
     names: set[str] = set()
@@ -154,6 +183,20 @@ def _first_line(func: ast.FunctionDef) -> str | None:
     return lines[0].strip() if lines else None
 
 
+def _simple(node: ast.stmt, bound: dict[str, _Kind]) -> dict[str, _Kind] | None:
+    """Apply a statement with no nested block to *bound*."""
+    if isinstance(node, ast.Raise):
+        # Nothing after an unconditional `raise` runs on this path.
+        return None
+    result = _without(bound, _stored_names(node))
+    if _mutates_session_attr(node, bound):
+        # Every alias of the module now sees the replaced attribute.
+        result = {
+            name: kind for name, kind in result.items() if kind is not _Kind.MODULE
+        }
+    return result
+
+
 class _Scanner:
     """Follow a noxfile's import-time control flow without running it.
 
@@ -179,9 +222,12 @@ class _Scanner:
         }
 
     def run(
-        self, body: list[ast.stmt], bound: dict[str, _Kind], *, register: bool
-    ) -> dict[str, _Kind]:
+        self, body: list[ast.stmt], bound: dict[str, _Kind] | None, *, register: bool
+    ) -> dict[str, _Kind] | None:
+        """Return the bindings after *body*, or None if it always raises."""
         for node in body:
+            if bound is None:
+                break
             bound = self._statement(node, bound, register=register)
         return bound
 
@@ -191,8 +237,10 @@ class _Scanner:
         """Return bindings that hold however far *body* gets before stopping."""
         states = [bound]
         for node in body:
-            bound = self._statement(node, bound, register=False)
-            states.append(bound)
+            after = self._statement(node, states[-1], register=False)
+            if after is None:
+                break
+            states.append(after)
         return _merge(states)
 
     def _loop(self, body: list[ast.stmt], bound: dict[str, _Kind]) -> dict[str, _Kind]:
@@ -205,7 +253,8 @@ class _Scanner:
 
     def _statement(
         self, node: ast.stmt, bound: dict[str, _Kind], *, register: bool
-    ) -> dict[str, _Kind]:
+    ) -> dict[str, _Kind] | None:
+        result: dict[str, _Kind] | None
         if isinstance(node, ast.Import | ast.ImportFrom):
             result = _apply_import(node, bound)
         elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
@@ -225,8 +274,8 @@ class _Scanner:
             # A context manager may suppress an exception partway through.
             result = self._anywhere_in(node.body, bound)
         else:
-            result = _without(bound, _stored_names(node))
-        return _without(result, self._unstable)
+            result = _simple(node, bound)
+        return None if result is None else _without(result, self._unstable)
 
     def _function(
         self,
@@ -244,16 +293,17 @@ class _Scanner:
 
     def _class(
         self, node: ast.ClassDef, bound: dict[str, _Kind], *, register: bool
-    ) -> dict[str, _Kind]:
+    ) -> dict[str, _Kind] | None:
         header = _stored_names(*node.decorator_list, *node.bases, *node.keywords)
         bound = _without(bound, header)
         # The class body sees module bindings but binds its own names.
-        self.run(node.body, bound, register=register)
+        if self.run(node.body, bound, register=register) is None:
+            return None
         return _without(bound, {node.name})
 
     def _try(
         self, node: ast.Try | ast.TryStar, bound: dict[str, _Kind], *, register: bool
-    ) -> dict[str, _Kind]:
+    ) -> dict[str, _Kind] | None:
         completed = self.run(
             node.orelse, self.run(node.body, bound, register=False), register=False
         )
@@ -263,35 +313,41 @@ class _Scanner:
             names = _stored_names(handler.type)
             if handler.name:
                 names.add(handler.name)
-            paths.append(
-                self.run(handler.body, _without(raised, names), register=False)
-            )
-        return self.run(node.finalbody, _merge(paths), register=register)
+            after = self.run(handler.body, _without(raised, names), register=False)
+            # Python deletes an `except ... as name` target when the handler exits.
+            paths.append(None if after is None else _without(after, names))
+        # `finally` runs even when every path raises, but the import then fails.
+        after_try = _merge_paths(paths)
+        final = self.run(node.finalbody, after_try or {}, register=register)
+        return None if after_try is None else final
 
-    def _if(self, node: ast.If, bound: dict[str, _Kind]) -> dict[str, _Kind]:
+    def _if(self, node: ast.If, bound: dict[str, _Kind]) -> dict[str, _Kind] | None:
         bound = _without(bound, _stored_names(node.test))
-        return _merge([
+        return _merge_paths([
             self.run(node.body, bound, register=False),
             self.run(node.orelse, bound, register=False),
         ])
 
     def _for_or_while(
         self, node: ast.For | ast.AsyncFor | ast.While, bound: dict[str, _Kind]
-    ) -> dict[str, _Kind]:
+    ) -> dict[str, _Kind] | None:
         if isinstance(node, ast.While):
             header = _stored_names(node.test)
         else:
             header = _stored_names(node.target, node.iter)
         bound = self._loop(node.body, _without(bound, header))
-        return _merge([bound, self.run(node.orelse, bound, register=False)])
+        # The loop may break before `else`, so `bound` itself is a path too.
+        return _merge_paths([bound, self.run(node.orelse, bound, register=False)])
 
-    def _match(self, node: ast.Match, bound: dict[str, _Kind]) -> dict[str, _Kind]:
+    def _match(
+        self, node: ast.Match, bound: dict[str, _Kind]
+    ) -> dict[str, _Kind] | None:
         bound = _without(bound, _stored_names(node.subject))
-        paths = [bound]
+        paths: list[dict[str, _Kind] | None] = [bound]
         for case in node.cases:
             names = _stored_names(case.pattern, case.guard)
             paths.append(self.run(case.body, _without(bound, names), register=False))
-        return _merge(paths)
+        return _merge_paths(paths)
 
 
 def parse_noxfile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
@@ -313,7 +369,9 @@ def parse_noxfile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
         # Compiling builds a code object without executing any of it.
         compile(tree, source_file, "exec", dont_inherit=True)
     scanner = _Scanner(tree)
-    scanner.run(tree.body, {}, register=True)
+    if scanner.run(tree.body, {}, register=True) is None:
+        # The module always raises, so nox cannot import it at all.
+        return []
     # A later definition under the same name replaces the earlier one, as in
     # nox's own registry, while keeping the first definition's position.
     return [
