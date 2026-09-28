@@ -427,6 +427,22 @@ def test_invalid_handler_type_lets_the_exception_escape() -> None:
     assert _names(text) == []
 
 
+def test_raise_that_rebinds_its_own_class_is_not_matched_by_name() -> None:
+    text = (
+        "import nox\ntry:\n    raise TypeError from (TypeError := ValueError)\n"
+        "except TypeError:\n    pass\n@nox.session\ndef s(session): ...\n"
+    )
+    assert _names(text) == []
+
+
+def test_finally_continue_overrides_a_break() -> None:
+    text = (
+        "import nox\nwhile True:\n    try:\n        break\n"
+        "    finally:\n        continue\n@nox.session\ndef s(session): ...\n"
+    )
+    assert _names(text) == []
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"

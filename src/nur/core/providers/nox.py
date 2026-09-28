@@ -86,9 +86,16 @@ _BASE_ONLY = frozenset({"SystemExit", "KeyboardInterrupt", "GeneratorExit"})
 
 
 def _raised_name(node: ast.Raise) -> str | None:
-    """Return the class name an explicit ``raise X`` / ``raise X(...)`` raises."""
+    """Return the class name an explicit ``raise X`` / ``raise X(...)`` raises.
+
+    None if unknown, or if evaluating the ``raise`` rebinds that very name
+    (``raise X from (X := ...)``), since a handler naming ``X`` then looks up
+    the new value.
+    """
     exc = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
-    return exc.id if isinstance(exc, ast.Name) else None
+    if not isinstance(exc, ast.Name) or exc.id in _stored_names(node):
+        return None
+    return exc.id
 
 
 def _catches(handler: ast.ExceptHandler, raised: str | None, rebound: set[str]) -> bool:
@@ -215,10 +222,12 @@ def _breaks_in(body: list[ast.stmt], *, or_continues: bool = False) -> bool:
             # Anything after an unconditional raise in this block is unreachable.
             return False
         if isinstance(node, ast.Try | ast.TryStar) and any(
-            _terminates(final) for final in node.finalbody
+            _terminates(final) or isinstance(final, ast.Continue)
+            for final in node.finalbody
         ):
-            # A `finally` that always raises replaces any `break` in the
-            # `try`, so only a `break` in the `finally` itself can escape.
+            # A `finally` that always raises or `continue`s overrides any
+            # `break` in the `try`, so only a `break` in the `finally` itself
+            # can escape.
             if _breaks_in(node.finalbody, or_continues=or_continues):
                 return True
             continue
