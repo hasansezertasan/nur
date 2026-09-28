@@ -5,7 +5,7 @@ import builtins
 import enum
 import logging
 import warnings
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 from nur.core.models import Task
 
@@ -82,16 +82,6 @@ def _reflective_session_write(node: ast.AST) -> bool:
     return not (isinstance(attr, ast.Constant) and attr.value != "session")
 
 
-# Exceptions that `except Exception` does not catch.
-_BASE_ONLY = frozenset({
-    "BaseException",
-    "BaseExceptionGroup",
-    "GeneratorExit",
-    "KeyboardInterrupt",
-    "SystemExit",
-})
-
-
 def _raised_name(node: ast.Raise) -> str | None:
     """Return the class name an explicit ``raise X`` / ``raise X(...)`` raises.
 
@@ -117,33 +107,26 @@ def _raised_name(node: ast.Raise) -> str | None:
 def _catches(
     handler: ast.ExceptHandler,
     raised: str | None,
-    rebound: set[str],
-    exception_classes: dict[str, int],
+    exception_classes: dict[str, _ExceptionClass],
 ) -> bool:
     """Return True if *handler* certainly catches an exception named *raised*.
 
-    The same name in ``raise X`` and ``except X`` matches when ``X`` is known
-    to be an exception class (see ``_exception_classes``): ``except`` rejects
-    instances such as ``X = TypeError()`` and non-exception classes.
-    ``Exception``/``BaseException`` are trusted only if the file never rebinds
-    them (``Exception = ValueError``), and the ``Exception`` rule also needs an
-    unshadowed raised name.
+    A handler naming a known exception class (see ``_exception_classes``)
+    catches a known raised class when it is one of that class's ancestors, as
+    in ``raise FileNotFoundError`` / ``except OSError``. Unknown names are never
+    trusted: ``except`` rejects instances such as ``X = TypeError()``, and a
+    rebound ``Exception = ValueError`` changes what it catches. Only a bare
+    ``except:`` or an unshadowed ``BaseException`` catches an unknown raise.
     """
     if handler.type is None:
         return True
     types = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
     names = {t.id for t in types if isinstance(t, ast.Name)}
-    if raised is not None and raised in names and raised in exception_classes:
+    trusted = {name for name in names if name in exception_classes}
+    if "BaseException" in trusted:
         return True
-    unshadowed = names - rebound
-    if "BaseException" in unshadowed:
-        return True
-    return (
-        "Exception" in unshadowed
-        and raised is not None
-        and raised not in rebound
-        and raised not in _BASE_ONLY
-    )
+    known = exception_classes.get(raised) if raised is not None else None
+    return known is not None and bool(trusted & known.ancestors)
 
 
 _BUILTIN_EXCEPTIONS = frozenset(
@@ -153,15 +136,29 @@ _BUILTIN_EXCEPTIONS = frozenset(
 )
 
 
-def _exception_classes(tree: ast.Module, rebound: set[str]) -> dict[str, int]:
-    """Map names certainly bound to exception classes to where they are bound.
+class _ExceptionClass(NamedTuple):
+    """A name known to be bound to an exception class."""
 
-    That is builtin exceptions the file never rebinds (line 0, always bound),
-    plus names bound only by plain top-level ``class`` statements (no
-    decorators or class keywords such as ``metaclass=``, either of which can
-    bind the name to anything) whose every definition has a base that is
-    itself such a class. User classes map to their first definition's line,
-    since the name is unbound before it.
+    line: int  # First line where the name is bound (0: builtin, always bound).
+    ancestors: frozenset[str]  # Known class names it inherits from, itself included.
+
+
+def _builtin_ancestors(name: str, trusted: set[str]) -> frozenset[str]:
+    cls = getattr(builtins, name)
+    return frozenset(base.__name__ for base in cls.__mro__ if base.__name__ in trusted)
+
+
+def _exception_classes(
+    tree: ast.Module, rebound: set[str]
+) -> dict[str, _ExceptionClass]:
+    """Map names certainly bound to exception classes to where and what they are.
+
+    That is builtin exceptions the file never rebinds, plus names bound only by
+    plain top-level ``class`` statements (no decorators or class keywords such
+    as ``metaclass=``, either of which can bind the name to anything) whose
+    every definition has a base that is itself such a class. A user class is
+    unbound before its first definition, and its known ancestors are those
+    every definition shares.
     """
     top_level = {id(node) for node in tree.body}
     classes: dict[str, list[ast.ClassDef]] = {}
@@ -177,16 +174,34 @@ def _exception_classes(tree: ast.Module, rebound: set[str]) -> dict[str, int]:
             id(d) in top_level and not d.decorator_list and not d.keywords for d in defs
         )
     }
-    known = dict.fromkeys(_BUILTIN_EXCEPTIONS - rebound, 0)
+    unshadowed = set(_BUILTIN_EXCEPTIONS - rebound)
+    known = {
+        name: _ExceptionClass(0, _builtin_ancestors(name, unshadowed))
+        for name in unshadowed
+    }
     changed = True
     while changed:
         changed = False
         for name, defs in candidates.items():
-            if name not in known and all(
-                any(isinstance(b, ast.Name) and b.id in known for b in d.bases)
+            if name in known:
+                continue
+            per_def = [
+                [
+                    known[b.id]
+                    for b in d.bases
+                    if isinstance(b, ast.Name) and b.id in known
+                ]
                 for d in defs
-            ):
-                known[name] = min(d.lineno for d in defs)
+            ]
+            if all(per_def):
+                shared: frozenset[str] = frozenset.intersection(
+                    *(
+                        frozenset().union(*(base.ancestors for base in bases))
+                        for bases in per_def
+                    )
+                )
+                line = min(d.lineno for d in defs)
+                known[name] = _ExceptionClass(line, shared | {name})
                 changed = True
     return known
 
@@ -523,14 +538,22 @@ def _session_names(func: ast.FunctionDef, bound: dict[str, _Kind]) -> list[str]:
 
     Stacked ``@nox.session`` decorators each register an alias, applied
     bottom-up. Decorator expressions are evaluated top-down first, so each is
-    checked against the bindings left by those above it (and itself, should it
-    rebind a name with ``:=``). A decorator whose name cannot be read statically
-    contributes nothing rather than a name ``nox -s`` would reject.
+    checked against the bindings left by those above it; a call's own argument
+    stores come after its callable is looked up. A decorator whose name cannot
+    be read statically contributes nothing rather than a name ``nox -s`` would
+    reject.
     """
     evaluated: list[tuple[ast.expr, dict[str, _Kind]]] = []
     for decorator in func.decorator_list:
-        bound = _without(bound, _stored_names(decorator))
-        evaluated.append((decorator, bound))
+        if isinstance(decorator, ast.Call):
+            # The callable is looked up before its arguments run, so stores in
+            # `@nox.session(tags=(nox := []))` don't affect this decorator.
+            callee = _without(bound, _stored_names(decorator.func))
+            evaluated.append((decorator, callee))
+            bound = _without(bound, _stored_names(decorator))
+        else:
+            bound = _without(bound, _stored_names(decorator))
+            evaluated.append((decorator, bound))
     names: list[str] = []
     for decorator, seen in reversed(evaluated):
         if _is_session_ref(decorator, seen):
@@ -705,9 +728,11 @@ class _Scanner:
     ) -> dict[str, _Kind] | None:
         """Follow an exception leaving *node*.
 
-        ``finally`` still runs, and a ``break`` or ``continue`` there cancels
-        the exception; otherwise the path ends. *state* is a conservative merge
-        of the bindings at the point the exception may have been raised.
+        ``finally`` still runs, and a ``break`` or ``continue`` there may
+        cancel the exception (under an unknown condition, possibly), so the
+        path continues from it; otherwise the path ends. *state* is a
+        conservative merge of the bindings where the exception may have been
+        raised.
         """
         if not _breaks_in(node.finalbody, or_continues=True):
             return None
@@ -738,7 +763,7 @@ class _Scanner:
         return None
 
     def _catches(self, handler: ast.ExceptHandler, raised: str | None) -> bool:
-        return _catches(handler, raised, self._rebound, self._exception_classes)
+        return _catches(handler, raised, self._exception_classes)
 
     def _raises_in(self, body: list[ast.stmt]) -> list[str | None]:
         """Return the class names *body*'s explicit raises may let escape.
@@ -764,7 +789,8 @@ class _Scanner:
 
     def _raise_class(self, node: ast.Raise) -> str | None:
         name = _raised_name(node)
-        if name is not None and self._exception_classes.get(name, 0) > node.lineno:
+        known = self._exception_classes.get(name) if name is not None else None
+        if known is not None and known.line > node.lineno:
             return None  # Raised before its class is defined: NameError.
         return name
 

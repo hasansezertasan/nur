@@ -639,6 +639,32 @@ def test_match_captures_survive_a_failed_guard() -> None:
     assert _names(maybe_guard + session) == []
 
 
+def test_handlers_catch_known_subclasses() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+
+    def guarded(prelude: str, raised: str, caught: str) -> list[str]:
+        body = f"try:\n    raise {raised}\nexcept {caught}:\n    pass\n"
+        return _names("import nox\n" + prelude + body + session)
+
+    assert guarded("", "FileNotFoundError", "OSError") == ["s"]
+    assert guarded("", "KeyError", "LookupError") == ["s"]
+    assert guarded("", "KeyError", "(TypeError, LookupError)") == ["s"]
+    assert guarded("", "OSError", "FileNotFoundError") == []
+    assert guarded("", "SystemExit", "Exception") == []
+    user = "class A(ValueError): ...\nclass B(A): ...\n"
+    assert guarded(user, "B", "ValueError") == ["s"]
+    assert guarded(user, "B", "A") == ["s"]
+    assert guarded(user, "A", "B") == []
+    assert guarded("OSError = ValueError\n", "FileNotFoundError", "OSError") == []
+
+
+def test_decorator_callable_is_resolved_before_its_arguments() -> None:
+    text = "import nox\n@nox.session(tags=(nox := []))\ndef s(session): ...\n"
+    assert _names(text) == ["s"]
+    after = text + "@nox.session\ndef t(session): ...\n"
+    assert _names(after) == ["s"]
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"
