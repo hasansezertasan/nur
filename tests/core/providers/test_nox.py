@@ -552,6 +552,47 @@ def test_decorated_exception_class_is_not_trusted() -> None:
     assert _names(text) == []
 
 
+def test_same_name_match_needs_an_exception_class() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    handled = "try:\n    raise E\nexcept E:\n    pass\n"
+    assert _names("import nox\nclass E: pass\n" + handled + session) == []
+    int_class = "try:\n    raise int\nexcept int:\n    pass\n"
+    assert _names("import nox\n" + int_class + session) == []
+    chained = "import nox\nclass A(ValueError): ...\nclass E(A): ...\n"
+    assert _names(chained + handled + session) == ["s"]
+
+
+def test_for_over_a_non_empty_literal_runs_once() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    assert _names("import nox\nfor _ in [1]:\n    raise RuntimeError\n" + session) == []
+    assert _names("import nox\nfor _ in 'x':\n    raise RuntimeError\n" + session) == []
+    skips = "import nox\nfor _ in [1]:\n    continue\n    raise RuntimeError\n"
+    assert _names(skips + session) == ["s"]
+    unknown = "import nox\nfor _ in items:\n    raise RuntimeError\n"
+    assert _names(unknown + session) == ["s"]
+
+
+def test_inner_caught_raises_do_not_reach_outer_handlers() -> None:
+    text = (
+        "import nox\ntry:\n    try:\n        raise TypeError\n"
+        "    except TypeError:\n        pass\n    raise ValueError\n"
+        "except ValueError:\n    pass\n@nox.session\ndef s(session): ...\n"
+    )
+    assert _names(text) == ["s"]
+
+
+def test_unary_and_container_conditions_are_constant() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    for test in ("not False", "not 0", "-1", "[1]", "(1,)", "{'a': 1}", "not []"):
+        text = f"import nox\nif {test}:\n    raise RuntimeError\n"
+        assert _names(text + session) == [], test
+    for test in ("not True", "[]", "()", "{}", "-0"):
+        text = f"import nox\nif {test}:\n    raise RuntimeError\n"
+        assert _names(text + session) == ["s"], test
+    starred = "import nox\nif [*items]:\n    raise RuntimeError\n"
+    assert _names(starred + session) == ["s"]
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"
