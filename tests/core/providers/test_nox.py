@@ -286,6 +286,41 @@ def test_shadowed_exception_names_are_not_trusted() -> None:
     assert _names(own + session) == ["s"]
 
 
+def test_handlers_are_tried_in_order() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    reraise_first = (
+        "import nox\ntry:\n    raise TypeError\n"
+        "except Exception:\n    raise\nexcept TypeError:\n    pass\n"
+    )
+    assert _names(reraise_first + session) == []
+    earlier_passes = (
+        "import nox\ntry:\n    raise TypeError\n"
+        "except ValueError:\n    pass\nexcept TypeError:\n    pass\n"
+    )
+    assert _names(earlier_passes + session) == ["s"]
+
+
+def test_class_body_raise_needs_a_catching_handler() -> None:
+    text = (
+        "import nox\ntry:\n    class C:\n        raise TypeError\n"
+        "except ValueError:\n    pass\n@nox.session\ndef s(session): ...\n"
+    )
+    assert _names(text) == []
+
+
+def test_while_true_without_break_never_finishes() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    assert _names("import nox\nwhile True:\n    raise RuntimeError\n" + session) == []
+    assert _names("import nox\nwhile 1:\n    pass\n" + session) == []
+    breaks = "import nox\nwhile True:\n    break\n"
+    assert _names(breaks + session) == ["s"]
+    inner_only = (
+        "import nox\nwhile True:\n    for _ in []:\n        break\n"
+        "    raise RuntimeError\n"
+    )
+    assert _names(inner_only + session) == []
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"

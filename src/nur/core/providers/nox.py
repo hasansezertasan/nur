@@ -135,14 +135,15 @@ def _bound_anywhere(tree: ast.Module) -> set[str]:
 
 
 def _raises_in(body: list[ast.stmt]) -> list[ast.Raise]:
-    """Return the explicit ``raise`` statements *body* runs directly or in blocks."""
+    """Return the explicit ``raise`` statements *body* may run at import time.
+
+    Nested blocks and class bodies run at import; function bodies do not.
+    """
     raises: list[ast.Raise] = []
     for node in body:
         if isinstance(node, ast.Raise):
             raises.append(node)
-        elif not isinstance(
-            node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
-        ):
+        elif not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             for field in ("body", "orelse", "finalbody"):
                 raises += _raises_in(getattr(node, field, []))
             for handler in getattr(node, "handlers", []):
@@ -150,6 +151,34 @@ def _raises_in(body: list[ast.stmt]) -> list[ast.Raise]:
             for case in getattr(node, "cases", []):
                 raises += _raises_in(case.body)
     return raises
+
+
+def _always_true(test: ast.expr) -> bool:
+    return isinstance(test, ast.Constant) and bool(test.value)
+
+
+def _breaks_in(body: list[ast.stmt]) -> bool:
+    """Return True if *body* contains a ``break`` for the enclosing loop."""
+    for node in body:
+        if isinstance(node, ast.Break):
+            return True
+        # A nested loop's `break` and a function's body belong elsewhere.
+        if isinstance(
+            node,
+            ast.For
+            | ast.AsyncFor
+            | ast.While
+            | ast.FunctionDef
+            | ast.AsyncFunctionDef
+            | ast.ClassDef,
+        ):
+            continue
+        blocks = [getattr(node, field, []) for field in ("body", "orelse", "finalbody")]
+        blocks += [handler.body for handler in getattr(node, "handlers", [])]
+        blocks += [case.body for case in getattr(node, "cases", [])]
+        if any(_breaks_in(block) for block in blocks):
+            return True
+    return False
 
 
 def _stored_names(*nodes: ast.AST | None) -> set[str]:
@@ -389,16 +418,10 @@ class _Scanner:
             # Any handler may still run after an implicit error in the body.
             handlers = node.handlers
         else:
-            # The body always raises: only handlers sure to catch every explicit
-            # raise in it can run; with none, the import fails after `finally`.
-            raises = [_raised_name(r) for r in _raises_in(node.body)]
-            handlers = [
-                handler
-                for handler in node.handlers
-                if all(_catches(handler, name, self._rebound) for name in raises)
-            ]
-            if not handlers:
+            candidates = self._handlers_for_raise(node)
+            if candidates is None:
                 return None
+            handlers = candidates
         raised = self._anywhere_in(node.body, bound)
         paths = [completed]
         for handler in handlers:
@@ -406,12 +429,36 @@ class _Scanner:
             if handler.name:
                 names.add(handler.name)
             after = self.run(handler.body, _without(raised, names), register=False)
+            if after is None and body_done is None:
+                # This handler may be the one the raise lands in, and it ends
+                # the path too, so the import may always fail.
+                return None
             # Python deletes an `except ... as name` target when the handler exits.
             paths.append(None if after is None else _without(after, names))
         # `finally` runs even when every path raises, but the import then fails.
         after_try = _merge_paths(paths)
         final = self.run(node.finalbody, after_try or {}, register=register)
         return None if after_try is None else final
+
+    def _handlers_for_raise(
+        self, node: ast.Try | ast.TryStar
+    ) -> list[ast.ExceptHandler] | None:
+        """Return the handlers an always-raising body may land in, if one is sure.
+
+        Only the first matching handler runs, and an earlier handler may match
+        a subclass we cannot see, so every handler up to and including the
+        first that is sure to catch every explicit raise is a candidate. None
+        means no handler is sure to, so the import fails after ``finally``.
+        """
+        raises = [_raised_name(r) for r in _raises_in(node.body)]
+        if not raises:
+            return None
+        candidates: list[ast.ExceptHandler] = []
+        for handler in node.handlers:
+            candidates.append(handler)
+            if all(_catches(handler, name, self._rebound) for name in raises):
+                return candidates
+        return None
 
     def _if(self, node: ast.If, bound: dict[str, _Kind]) -> dict[str, _Kind] | None:
         bound = _without(bound, _stored_names(node.test))
@@ -425,6 +472,9 @@ class _Scanner:
     ) -> dict[str, _Kind] | None:
         if isinstance(node, ast.While):
             header = _stored_names(node.test)
+            if _always_true(node.test) and not _breaks_in(node.body):
+                # `while True` without a `break` never finishes.
+                return None
         else:
             header = _stored_names(node.target, node.iter)
         bound = self._loop(node.body, _without(bound, header))
