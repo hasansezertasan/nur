@@ -787,6 +787,56 @@ def test_break_in_a_handler_that_cannot_run_is_unreachable() -> None:
     assert _names(implicit + session) == ["s"]  # f() may raise TypeError.
 
 
+def test_handler_types_must_all_be_bound_classes() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    late = (
+        "import nox\ntry:\n    raise ValueError\nexcept E:\n    pass\n"
+        "except ValueError:\n    pass\nclass E(TypeError): ...\n"
+    )
+    assert _names(late + session) == []
+    tuple_unknown = (
+        "import nox\ntry:\n    raise ValueError\nexcept (X, ValueError):\n    pass\n"
+    )
+    assert _names(tuple_unknown + session) == []
+    tuple_known = (
+        "import nox\ntry:\n    raise ValueError\n"
+        "except (TypeError, ValueError):\n    pass\n"
+    )
+    assert _names(tuple_known + session) == ["s"]
+
+
+def test_try_that_always_continues_ends_the_break_scan() -> None:
+    text = (
+        "import nox\nwhile True:\n    try:\n        continue\n"
+        "    finally:\n        pass\n    break\n"
+    )
+    assert _names(text + "@nox.session\ndef s(session): ...\n") == []
+
+
+def test_only_the_first_matching_handler_can_break() -> None:
+    text = (
+        "import nox\nwhile True:\n    try:\n        raise ValueError\n"
+        "    except Exception:\n        continue\n"
+        "    except ValueError:\n        break\n"
+    )
+    assert _names(text + "@nox.session\ndef s(session): ...\n") == []
+
+
+def test_raises_after_an_unconditional_raise_are_unreachable() -> None:
+    text = (
+        "import nox\ntry:\n    raise ValueError\n    raise TypeError\n"
+        "except ValueError:\n    pass\n@nox.session\ndef s(session): ...\n"
+    )
+    assert _names(text) == ["s"]
+
+
+def test_globals_and_locals_are_distrusted() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    for call in ("globals()", "locals()"):
+        text = f"import nox\n{call}['nox'] = object()\n"
+        assert _names(text + session) == [], call
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"

@@ -13,6 +13,7 @@ from typing import NamedTuple
 
 __all__ = [
     "NO_VALUE",
+    "always_diverts",
     "always_enters",
     "always_true",
     "bound_anywhere",
@@ -70,13 +71,36 @@ def catches(
     """
     if handler.type is None:
         return True
-    types = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
-    names = {t.id for t in types if isinstance(t, ast.Name)}
-    trusted = {name for name in names if name in known_classes}
+    trusted = _handler_classes(handler, known_classes)
+    if trusted is None:
+        return False
     if "BaseException" in trusted:
         return True
     known = known_classes.get(raised) if raised is not None else None
     return known is not None and bool(trusted & known.ancestors)
+
+
+def _handler_classes(
+    handler: ast.ExceptHandler, known_classes: dict[str, _ExceptionClass]
+) -> set[str] | None:
+    """Return the handler's type names if all are safe to evaluate, else None.
+
+    Evaluating the ``except`` expression raises ``NameError`` for a class not
+    yet defined and ``TypeError`` if any element is not an exception class, so
+    every element must be a known class already bound at the handler.
+    """
+    if handler.type is None:
+        return None
+    types = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
+    names: set[str] = set()
+    for t in types:
+        if not isinstance(t, ast.Name):
+            return None
+        known = known_classes.get(t.id)
+        if known is None or known.line > handler.lineno:
+            return None
+        names.add(t.id)
+    return names
 
 
 def cannot_catch(
@@ -95,13 +119,8 @@ def cannot_catch(
     known = known_classes.get(raised)
     if known is None or not known.complete:
         return False
-    types = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
-    return all(
-        isinstance(t, ast.Name)
-        and t.id in known_classes
-        and t.id not in known.ancestors
-        for t in types
-    )
+    names = _handler_classes(handler, known_classes)
+    return names is not None and not names & known.ancestors
 
 
 _BUILTIN_EXCEPTIONS = frozenset(
@@ -372,11 +391,12 @@ def always_true(test: ast.expr) -> bool:
     return constant_truth(test) is True
 
 
-def _always_diverts(body: list[ast.stmt]) -> bool:
+def always_diverts(body: list[ast.stmt]) -> bool:
     """Return True if *body* always ends in ``raise``/``assert False``/``continue``.
 
     Follows constant ``if`` branches, ``if``/``else`` pairs that both divert,
-    and ``match`` statements whose reachable cases are exhaustive and all divert.
+    ``match`` statements whose reachable cases are exhaustive and all divert,
+    and ``try`` statements that divert on every path.
     """
     for node in body:
         if terminates(node) or isinstance(node, ast.Continue):
@@ -384,15 +404,31 @@ def _always_diverts(body: list[ast.stmt]) -> bool:
         if isinstance(node, ast.If):
             truth = constant_truth(node.test)
             if truth is not None:
-                if _always_diverts(node.body if truth else node.orelse):
+                if always_diverts(node.body if truth else node.orelse):
                     return True
-            elif _always_diverts(node.body) and _always_diverts(node.orelse):
+            elif always_diverts(node.body) and always_diverts(node.orelse):
                 return True
         if isinstance(node, ast.Match):
             cases, exhaustive = _reachable_cases(node)
-            if exhaustive and all(_always_diverts(case.body) for case in cases):
+            if exhaustive and all(always_diverts(case.body) for case in cases):
                 return True
+        if isinstance(node, ast.Try | ast.TryStar) and _try_diverts(node):
+            return True
     return False
+
+
+def _try_diverts(node: ast.Try | ast.TryStar) -> bool:
+    """Return True if every way through a ``try`` raises or ``continue``s.
+
+    Either ``finally`` always diverts, or the body and every handler do and
+    ``finally`` has no ``break`` to cancel that.
+    """
+    if always_diverts(node.finalbody):
+        return True
+    handlers_divert = all(always_diverts(h.body) for h in node.handlers)
+    return (
+        always_diverts(node.body) and handlers_divert and not breaks_in(node.finalbody)
+    )
 
 
 def breaks_in(
@@ -411,7 +447,7 @@ def breaks_in(
             return False
         if _breaks_in_statement(node, or_continues=or_continues, known=known):
             return True
-        if _always_diverts([node]):
+        if always_diverts([node]):
             return False  # e.g. `if True: raise ...` skips the rest of this block.
     return False
 
@@ -420,7 +456,7 @@ def _breaks_in_statement(
     node: ast.stmt, *, or_continues: bool, known: dict[str, _ExceptionClass] | None
 ) -> bool:
     """Return True if a compound statement can reach a ``break`` for our loop."""
-    if isinstance(node, ast.Try | ast.TryStar) and _always_diverts(node.finalbody):
+    if isinstance(node, ast.Try | ast.TryStar) and always_diverts(node.finalbody):
         # A `finally` that always raises or `continue`s overrides any `break`
         # in the `try`, so only a `break` in the `finally` itself can escape.
         return breaks_in(node.finalbody, or_continues=or_continues, known=known)
@@ -457,11 +493,16 @@ def _runnable_handlers(
     if not all(isinstance(stmt, ast.Raise | ast.Pass) for stmt in node.body):
         return handlers
     raises = [raised_name(stmt) for stmt in node.body if isinstance(stmt, ast.Raise)]
-    return [
-        handler
-        for handler in handlers
-        if not raises or not all(cannot_catch(handler, r, known) for r in raises)
-    ]
+    if not raises:
+        return handlers
+    runnable: list[ast.ExceptHandler] = []
+    for handler in handlers:
+        if all(cannot_catch(handler, r, known) for r in raises):
+            continue
+        runnable.append(handler)
+        if all(catches(handler, r, known) for r in raises):
+            break  # Only the first matching handler runs.
+    return runnable
 
 
 def _reachable_cases(node: ast.Match) -> tuple[list[ast.match_case], bool]:

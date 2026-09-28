@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import builtins
 import enum
 import logging
 import warnings
@@ -9,6 +10,7 @@ from typing import TYPE_CHECKING
 from nur.core.models import Task
 from nur.core.providers._pystatic import (
     NO_VALUE,
+    always_diverts,
     always_enters,
     always_true,
     bound_anywhere,
@@ -73,8 +75,9 @@ def _mutates_session_attr(tree: ast.Module) -> bool:
 
     Aliases share one module object, and a re-import returns the same mutated
     module, so once ``nox.session`` may have been swapped (``nox.session = ...``,
-    ``del nox.session``, ``setattr``/``delattr``, or a module's namespace via
-    ``__dict__``/``vars()``) no decorator can be trusted. Other attributes
+    ``del nox.session``, ``setattr``/``delattr``, or a namespace via
+    ``__dict__``/``vars()``/``globals()``/``locals()``) no decorator can be
+    trusted. Other attributes
     (``nox.options``, ``nox.needs_version``) do not count.
     """
     for node in ast.walk(tree):
@@ -82,16 +85,21 @@ def _mutates_session_attr(tree: ast.Module) -> bool:
             stored = isinstance(node.ctx, ast.Store | ast.Del)
             if (node.attr == "session" and stored) or node.attr == "__dict__":
                 return True
-        elif _reflective_session_write(node) or _calls(node, "vars"):
+        elif _reflective_session_write(node) or _calls_any(node, _NAMESPACES):
             return True
     return False
 
 
-def _calls(node: ast.AST, name: str) -> bool:
+_BUILTIN_NAMES = frozenset(dir(builtins))
+# Builtins that expose a namespace as a mutable mapping.
+_NAMESPACES = frozenset({"vars", "globals", "locals"})
+
+
+def _calls_any(node: ast.AST, names: frozenset[str]) -> bool:
     return (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Name)
-        and node.func.id == name
+        and node.func.id in names
     )
 
 
@@ -246,6 +254,10 @@ class _Scanner:
         }
         self._rebound = bound_anywhere(tree)
         self._exception_classes = exception_classes(tree, self._rebound)
+        self._star_import = any(
+            isinstance(node, ast.ImportFrom) and any(a.name == "*" for a in node.names)
+            for node in ast.walk(tree)
+        )
 
     def run(
         self, body: list[ast.stmt], bound: dict[str, _Kind] | None, *, register: bool
@@ -410,9 +422,10 @@ class _Scanner:
             return None
         candidates: list[ast.ExceptHandler] = []
         for handler in node.handlers:
-            if invalid_handler_type(handler):
-                # Evaluating `except 1:` raises TypeError before any later
-                # handler is tried, so the exception escapes.
+            if invalid_handler_type(handler) or self._unbound_handler(handler):
+                # Evaluating `except 1:` (TypeError) or a name not bound yet
+                # (NameError) raises before any later handler is tried, so the
+                # exception escapes.
                 return None
             if all(
                 cannot_catch(handler, name, self._exception_classes) for name in raises
@@ -422,6 +435,28 @@ class _Scanner:
             if all(self._catches(handler, name) for name in raises):
                 return candidates
         return None
+
+    def _unbound_handler(self, handler: ast.ExceptHandler) -> bool:
+        """Return True if a handler names something certainly unbound there.
+
+        That is a user exception class first defined after the handler, or a
+        name the file never binds that is not a builtin (with no star import
+        that could supply it).
+        """
+        if handler.type is None:
+            return False
+        types = (
+            handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
+        )
+        for t in types:
+            if not isinstance(t, ast.Name):
+                continue
+            known = self._exception_classes.get(t.id)
+            if known is not None and known.line > handler.lineno:
+                return True
+            if not self._star_import and t.id not in self._rebound | _BUILTIN_NAMES:
+                return True
+        return False
 
     def _catches(self, handler: ast.ExceptHandler, raised: str | None) -> bool:
         return catches(handler, raised, self._exception_classes)
@@ -446,6 +481,8 @@ class _Scanner:
                     raises += self._raises_in(getattr(node, field, []))
                 for case in getattr(node, "cases", []):
                     raises += self._raises_in(case.body)
+            if always_diverts([node]):
+                break  # Nothing after it in this block runs.
         return raises
 
     def _raise_class(self, node: ast.Raise) -> str | None:
