@@ -219,9 +219,16 @@ coverage is intentionally partial (imports and computed names are not resolved),
 consistent with the completeness-yields-to-safety trade-off above.</p>
 <p>Note the deliberate consequence: <strong>adoption alone never qualifies a format.</strong>
 High-popularity tools whose tasks live in imperative code or run remotely
-(Gradle, Maven, GitHub Actions, Rake, <code class="docutils literal notranslate"><span class="pre">nox</span></code>, cargo-xtask) are declined despite
+(Gradle, Maven, GitHub Actions, Rake, cargo-xtask) are declined despite
 their reach, because enumerating their tasks would mean executing project code or
 resolving remote state — a breach of the hard rule.</p>
+<p>Imperative code is not disqualifying by itself: what matters is whether task
+<em>names</em> can be read without running it. <code class="docutils literal notranslate"><span class="pre">nox</span></code> and <code class="docutils literal notranslate"><span class="pre">invoke</span></code> register tasks with
+decorators (<code class="docutils literal notranslate"><span class="pre">&#64;nox.session</span></code>, <code class="docutils literal notranslate"><span class="pre">&#64;task</span></code>), so an AST parse of <code class="docutils literal notranslate"><span class="pre">noxfile.py</span></code> /
+<code class="docutils literal notranslate"><span class="pre">tasks.py</span></code> yields a safe subset of names without importing the module, and the
+run command delegates to the runner (<code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">-s</span> <span class="pre">&lt;name&gt;</span></code>). They are therefore
+candidates, not declined; their native listing commands (<code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">-l</span></code>,
+<code class="docutils literal notranslate"><span class="pre">invoke</span> <span class="pre">--list</span></code>) import the file and must not be used. See #142 and #140.</p>
 </section>
 <section id="current-provider-landscape">
 <h3>Current provider landscape<a class="headerlink" href="#current-provider-landscape" title="Link to this heading">#</a></h3>
