@@ -157,10 +157,11 @@ def _always_true(test: ast.expr) -> bool:
     return isinstance(test, ast.Constant) and bool(test.value)
 
 
-def _breaks_in(body: list[ast.stmt]) -> bool:
-    """Return True if *body* contains a ``break`` for the enclosing loop."""
+def _breaks_in(body: list[ast.stmt], *, or_continues: bool = False) -> bool:
+    """Return True if *body* contains a ``break`` (or ``continue``) for its loop."""
+    exits = ast.Break | ast.Continue if or_continues else ast.Break
     for node in body:
-        if isinstance(node, ast.Break):
+        if isinstance(node, exits):
             return True
         # A nested loop's `break` and a function's body belong elsewhere.
         if isinstance(
@@ -176,7 +177,7 @@ def _breaks_in(body: list[ast.stmt]) -> bool:
         blocks = [getattr(node, field, []) for field in ("body", "orelse", "finalbody")]
         blocks += [handler.body for handler in getattr(node, "handlers", [])]
         blocks += [case.body for case in getattr(node, "cases", [])]
-        if any(_breaks_in(block) for block in blocks):
+        if any(_breaks_in(block, or_continues=or_continues) for block in blocks):
             return True
     return False
 
@@ -408,37 +409,51 @@ class _Scanner:
     def _try(
         self, node: ast.Try | ast.TryStar, bound: dict[str, _Kind], *, register: bool
     ) -> dict[str, _Kind] | None:
+        raised = self._anywhere_in(node.body, bound)
         body_done = self.run(node.body, bound, register=False)
         completed: dict[str, _Kind] | None = None
         if body_done is not None:
             completed = self.run(node.orelse, body_done, register=False)
             if completed is None:
                 # An exception from `else` escapes these handlers.
-                return None
+                return self._escape(node, raised)
             # Any handler may still run after an implicit error in the body.
             handlers = node.handlers
         else:
             candidates = self._handlers_for_raise(node)
             if candidates is None:
-                return None
+                return self._escape(node, raised)
             handlers = candidates
-        raised = self._anywhere_in(node.body, bound)
         paths = [completed]
         for handler in handlers:
             names = _stored_names(handler.type)
             if handler.name:
                 names.add(handler.name)
-            after = self.run(handler.body, _without(raised, names), register=False)
+            start = _without(raised, names)
+            after = self.run(handler.body, start, register=False)
             if after is None and body_done is None:
                 # This handler may be the one the raise lands in, and it ends
                 # the path too, so the import may always fail.
-                return None
+                return self._escape(node, self._anywhere_in(handler.body, start))
             # Python deletes an `except ... as name` target when the handler exits.
             paths.append(None if after is None else _without(after, names))
-        # `finally` runs even when every path raises, but the import then fails.
         after_try = _merge_paths(paths)
-        final = self.run(node.finalbody, after_try or {}, register=register)
-        return None if after_try is None else final
+        if after_try is None:
+            return self._escape(node, raised)
+        return self.run(node.finalbody, after_try, register=register)
+
+    def _escape(
+        self, node: ast.Try | ast.TryStar, state: dict[str, _Kind]
+    ) -> dict[str, _Kind] | None:
+        """Follow an exception leaving *node*.
+
+        ``finally`` still runs, and a ``break`` or ``continue`` there cancels
+        the exception; otherwise the path ends. *state* is a conservative merge
+        of the bindings at the point the exception may have been raised.
+        """
+        if not _breaks_in(node.finalbody, or_continues=True):
+            return None
+        return self.run(node.finalbody, state, register=False)
 
     def _handlers_for_raise(
         self, node: ast.Try | ast.TryStar
@@ -462,9 +477,12 @@ class _Scanner:
 
     def _if(self, node: ast.If, bound: dict[str, _Kind]) -> dict[str, _Kind] | None:
         bound = _without(bound, _stored_names(node.test))
+        branches = [node.body, node.orelse]
+        if isinstance(node.test, ast.Constant):
+            # A constant condition takes exactly one branch (`if True:`).
+            branches = [node.body if node.test.value else node.orelse]
         return _merge_paths([
-            self.run(node.body, bound, register=False),
-            self.run(node.orelse, bound, register=False),
+            self.run(branch, bound, register=False) for branch in branches
         ])
 
     def _for_or_while(
@@ -485,7 +503,14 @@ class _Scanner:
         self, node: ast.Match, bound: dict[str, _Kind]
     ) -> dict[str, _Kind] | None:
         bound = _without(bound, _stored_names(node.subject))
-        paths: list[dict[str, _Kind] | None] = [bound]
+        last = node.cases[-1]
+        irrefutable = (
+            isinstance(last.pattern, ast.MatchAs)
+            and last.pattern.pattern is None
+            and last.guard is None
+        )
+        # `case _:` or a bare capture always matches, so no case is skipped.
+        paths: list[dict[str, _Kind] | None] = [] if irrefutable else [bound]
         for case in node.cases:
             names = _stored_names(case.pattern, case.guard)
             paths.append(self.run(case.body, _without(bound, names), register=False))

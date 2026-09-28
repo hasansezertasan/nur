@@ -321,6 +321,38 @@ def test_while_true_without_break_never_finishes() -> None:
     assert _names(inner_only + session) == []
 
 
+def test_constant_conditions_take_one_branch() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    assert _names("import nox\nif True:\n    raise RuntimeError\n" + session) == []
+    assert _names("if 1:\n    import nox\n" + session) == ["s"]
+    assert _names("import nox\nif False:\n    raise RuntimeError\n" + session) == ["s"]
+
+
+def test_irrefutable_match_case_leaves_no_fallthrough() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    wildcard = "import nox\nmatch x:\n    case _:\n        raise RuntimeError\n"
+    assert _names(wildcard + session) == []
+    capture = "import nox\nmatch x:\n    case y:\n        raise RuntimeError\n"
+    assert _names(capture + session) == []
+    guarded = "import nox\nmatch x:\n    case _ if x:\n        raise RuntimeError\n"
+    assert _names(guarded + session) == ["s"]
+
+
+def test_finally_break_cancels_an_escaping_exception() -> None:
+    text = (
+        "import nox\nimport other\nwhile True:\n    try:\n        raise RuntimeError\n"
+        "    finally:\n        nox = other\n        break\n"
+        "@nox.session\ndef s(session): ...\n"
+    )
+    assert _names(text) == []
+    keeps = (
+        "import nox\nwhile True:\n    try:\n        raise RuntimeError\n"
+        "    finally:\n        break\n"
+        "@nox.session\ndef s(session): ...\n"
+    )
+    assert _names(keeps) == ["s"]
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"
