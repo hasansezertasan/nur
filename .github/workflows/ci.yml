@@ -632,7 +632,14 @@ jobs:
       - name: Decide whether the needed jobs succeeded or failed
         uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35  # release/v1
         with:
+<<<<<<< before updating
           # These jobs are skipped by design when `changes` reports no cli/tui/core
           # paths (e.g. a docs-only PR); a skip there is a pass, a failure is not.
           allowed-skips: test-cli, test-tui, coverage-cli, coverage-tui
+=======
+          # The gate counts a skipped job as a failure unless it is listed
+          # here. These jobs are path-gated by `changes`, so they skip whenever
+          # their component (and core) is untouched. Real failures still fail.
+          allowed-skips: test-cli, coverage-cli, test-tui, coverage-tui
+>>>>>>> after updating
           jobs: ${{ toJSON(needs) }}
