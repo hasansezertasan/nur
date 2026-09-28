@@ -82,7 +82,13 @@ def _reflective_session_write(node: ast.AST) -> bool:
 
 
 # Exceptions that `except Exception` does not catch.
-_BASE_ONLY = frozenset({"SystemExit", "KeyboardInterrupt", "GeneratorExit"})
+_BASE_ONLY = frozenset({
+    "BaseException",
+    "BaseExceptionGroup",
+    "GeneratorExit",
+    "KeyboardInterrupt",
+    "SystemExit",
+})
 
 
 def _raised_name(node: ast.Raise) -> str | None:
@@ -143,7 +149,8 @@ def _bound_anywhere(tree: ast.Module, *, include_classes: bool = True) -> set[st
         elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             names.add(node.name)
         elif isinstance(node, ast.ClassDef):
-            if include_classes:
+            # A class decorator may bind the name to anything, even an instance.
+            if include_classes or node.decorator_list:
                 names.add(node.name)
         elif isinstance(node, ast.alias):
             names.add(node.asname or node.name.partition(".")[0])

@@ -537,6 +537,21 @@ def test_constant_subject_matches_literal_alternatives() -> None:
     assert _names(miss + session) == ["s"]
 
 
+def test_base_exceptions_escape_except_exception() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    for raised in ("BaseException", "BaseExceptionGroup('x', [])"):
+        text = f"import nox\ntry:\n    raise {raised}\nexcept Exception:\n    pass\n"
+        assert _names(text + session) == [], raised
+
+
+def test_decorated_exception_class_is_not_trusted() -> None:
+    text = (
+        "import nox\n@factory\nclass E(Exception): ...\n"
+        "try:\n    raise E\nexcept E:\n    pass\n@nox.session\ndef s(session): ...\n"
+    )
+    assert _names(text) == []
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"
