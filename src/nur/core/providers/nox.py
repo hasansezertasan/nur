@@ -20,8 +20,8 @@ _SOURCE_FILE = "noxfile.py"
 # Modules whose ``session`` is ``nox.session`` or a drop-in wrapper that
 # forwards ``name=`` to it (nox-uv).
 _NOX_MODULES = frozenset({"nox", "nox_uv"})
-# Builtins that expose a namespace as a mutable mapping.
-_NAMESPACES = frozenset({"vars", "globals", "locals"})
+# Builtins that expose or run code in a namespace, so may rebind any name.
+_NAMESPACES = frozenset({"vars", "globals", "locals", "exec", "eval"})
 # Statements that run straight through and whose only effect on nox bindings
 # is the names they store. (`global`/`nonlocal` names are never trusted.)
 _PLAIN = (
@@ -57,7 +57,8 @@ def _mutates_namespace(tree: ast.Module) -> bool:
     module, so once ``.session`` may have been swapped (``nox.session = ...``,
     ``del nox.session``, ``setattr``/``delattr``) no decorator can be trusted.
     The same goes for a namespace edited as a mapping (``__dict__``,
-    ``vars()``, ``globals()``, ``locals()``). Other attributes
+    ``vars()``, ``globals()``, ``locals()``) or by running code in it
+    (``exec``, ``eval``). Other attributes
     (``nox.options``, ``nox.needs_version``) do not count.
     """
     for node in ast.walk(tree):
@@ -210,7 +211,7 @@ def _is_session_ref(node: ast.expr, bound: dict[str, _Kind]) -> bool:
     return isinstance(node, ast.Name) and bound.get(node.id) is _Kind.SESSION
 
 
-def _explicit_name(call: ast.Call, default: str) -> str | None:
+def _explicit_name(call: ast.Call, default: str | None) -> str | None:
     """Return the name a ``@nox.session(...)`` call registers, if it is static.
 
     nox registers ``name or func.__name__``. A ``name=`` that is not a literal,
@@ -235,19 +236,37 @@ def _session_names(func: ast.FunctionDef, bound: dict[str, _Kind]) -> list[str]:
 
     Stacked ``@nox.session`` decorators each register an alias, applied
     bottom-up. Any name a decorator expression stores is treated as rebound
-    for all of them. A decorator whose name cannot be read statically
-    contributes nothing rather than a name ``nox -s`` would reject.
+    for all of them. nox falls back to the wrapped callable's ``__name__``,
+    which a lower decorator other than ``@nox.session``/``@nox.parametrize``
+    may change, so above one only an explicit ``name=`` is trusted. A
+    decorator whose name cannot be read statically contributes nothing rather
+    than a name ``nox -s`` would reject.
     """
     seen = _without(bound, _stores(*func.decorator_list))
     names: list[str] = []
+    default: str | None = func.name
     for decorator in reversed(func.decorator_list):
         if _is_session_ref(decorator, seen):
-            names.append(func.name)
+            if default is not None:
+                names.append(default)
         elif isinstance(decorator, ast.Call) and _is_session_ref(decorator.func, seen):
-            name = _explicit_name(decorator, func.name)
+            name = _explicit_name(decorator, default)
             if name is not None:
                 names.append(name)
+        elif not _is_parametrize(decorator, seen):
+            default = None  # An unknown decorator may rename the function.
     return names
+
+
+def _is_parametrize(node: ast.expr, bound: dict[str, _Kind]) -> bool:
+    """Return True for ``@nox.parametrize(...)``, which keeps ``__name__``."""
+    func = node.func if isinstance(node, ast.Call) else node
+    return (
+        isinstance(func, ast.Attribute)
+        and func.attr == "parametrize"
+        and isinstance(func.value, ast.Name)
+        and bound.get(func.value.id) is _Kind.MODULE
+    )
 
 
 def _first_line(func: ast.FunctionDef) -> str | None:
@@ -307,8 +326,13 @@ class _Walker:
             description = _first_line(node)
             for name in _session_names(node, bound):
                 self.sessions[name] = description
-        if isinstance(node, ast.ClassDef) and _raises_within(node):
-            raise _Unpredictable  # A class body runs at import.
+        if (
+            isinstance(node, ast.ClassDef)
+            and self.block(node.body, {}, top=False) is None
+        ):
+            # A class body runs at import, under the same rules as module code;
+            # one that always raises means the import always fails.
+            return None
         if isinstance(node, _PLAIN):
             return _without(bound, _statement_stores(node))
         if isinstance(node, ast.Raise):
@@ -324,7 +348,7 @@ class _Walker:
             node, type_checking=self._type_checking, main_name=self._main_name
         ):
             return bound
-        if _literal_only(node.test) and _raises_within(node):
+        if _has_literal_condition(node.test) and _raises_within(node):
             # `if True: raise` always raises; nur does not evaluate conditions.
             raise _Unpredictable
         bound = _without(bound, _stores(node.test))
@@ -376,6 +400,23 @@ def _literal_only(expr: ast.expr) -> bool:
         isinstance(child, ast.Name | ast.Call | ast.Attribute)
         for child in ast.walk(expr)
     )
+
+
+def _has_literal_condition(test: ast.expr) -> bool:
+    """Return True if a condition's truth may hinge on a literal part.
+
+    ``if flag or True:`` is always true, so a raise under it always runs;
+    nur does not evaluate conditions, so any literal operand of ``and``/``or``/
+    ``not``, a literal-only comparison, or a literal-only test counts.
+    """
+    for node in ast.walk(test):
+        if isinstance(node, ast.BoolOp) and any(map(_literal_only, node.values)):
+            return True
+        if isinstance(node, ast.UnaryOp) and _literal_only(node.operand):
+            return True
+        if isinstance(node, ast.Compare) and _literal_only(node):
+            return True
+    return _literal_only(test)
 
 
 def _merge_continuing(paths: list[dict[str, _Kind] | None]) -> dict[str, _Kind] | None:

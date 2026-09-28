@@ -252,6 +252,38 @@ def test_raise_is_only_trusted_under_a_runtime_guard() -> None:
     assert _names(in_function + SESSION) == ["s"]
 
 
+def test_class_bodies_follow_module_rules() -> None:
+    assert (
+        _names("import nox\nclass C:\n    while True:\n        pass\n" + SESSION) == []
+    )
+    assert _names("import nox\nclass C:\n    raise TypeError\n" + SESSION) == []
+    plain = "import nox\nclass C:\n    x = 1\n    def m(self): ...\n"
+    assert _names(plain + SESSION) == ["s"]
+
+
+def test_raising_guards_with_literal_parts_are_unpredictable() -> None:
+    for test in ("flag or True", "not 0", "x and 1 == 1", "True"):
+        text = f"import nox\nif {test}:\n    raise RuntimeError\n"
+        assert _names(text + SESSION) == [], test
+    real = (
+        "import nox\nimport sys\nif sys.version_info < (3, 9):\n    raise SystemExit\n"
+    )
+    assert _names(real + SESSION) == ["s"]
+
+
+def test_lower_decorators_may_rename_the_function() -> None:
+    renamed = "import nox\n@nox.session\n@rename\ndef f(session): ...\n"
+    assert _names(renamed) == []
+    explicit = "import nox\n@nox.session(name='x')\n@rename\ndef f(session): ...\n"
+    assert _names(explicit) == ["x"]
+    parametrized = (
+        "import nox\n@nox.session\n@nox.parametrize('a', [1])\ndef f(session, a): ...\n"
+    )
+    assert _names(parametrized) == ["f"]
+    above = "import nox\n@rename\n@nox.session\ndef f(session): ...\n"
+    assert _names(above) == ["f"]  # Applied after nox registered the name.
+
+
 @pytest.mark.parametrize(
     "statement",
     [
@@ -285,6 +317,8 @@ def test_global_declarations_make_a_name_untrackable() -> None:
         "vars(nox)['session'] = print\n",
         "globals()['nox'] = object()\n",
         "locals()['nox'] = object()\n",
+        "exec('nox = object()')\n",
+        "eval('(nox := 1)')\n",
         "class C:\n    nox.session = print\n",
     ],
 )
