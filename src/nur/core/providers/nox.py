@@ -49,27 +49,77 @@ def _merge_paths(paths: list[dict[str, _Kind] | None]) -> dict[str, _Kind] | Non
     return _merge(continuing) if continuing else None
 
 
-def _is_module(node: ast.expr, bound: dict[str, _Kind]) -> bool:
-    return isinstance(node, ast.Name) and bound.get(node.id) is _Kind.MODULE
+def _mutates_session_attr(tree: ast.Module) -> bool:
+    """Return True if the file may replace or delete any ``.session`` attribute.
 
-
-def _mutates_session_attr(node: ast.AST, bound: dict[str, _Kind]) -> bool:
-    """Return True if *node* may replace or delete ``<nox module>.session``.
-
-    Covers ``nox.session = ...``, ``del nox.session``, and ``setattr``/``delattr``
-    on a tracked module. Other attributes (``nox.options``, ``nox.needs_version``)
-    leave the decorator alone.
+    Aliases share one module object, and a re-import returns the same mutated
+    module, so once ``nox.session`` may have been swapped (``nox.session = ...``,
+    ``del nox.session``, ``setattr``/``delattr``) no decorator can be trusted.
+    Other attributes (``nox.options``, ``nox.needs_version``) do not count.
     """
-    for child in ast.walk(node):
-        if isinstance(child, ast.Attribute):
-            stored = isinstance(child.ctx, ast.Store | ast.Del)
-            if stored and child.attr == "session" and _is_module(child.value, bound):
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute):
+            if node.attr == "session" and isinstance(node.ctx, ast.Store | ast.Del):
                 return True
-        elif isinstance(child, ast.Call) and isinstance(child.func, ast.Name):
-            reflective = child.func.id in {"setattr", "delattr"} and child.args
-            if reflective and _is_module(child.args[0], bound):
-                return True
+        elif _reflective_session_write(node):
+            return True
     return False
+
+
+def _reflective_session_write(node: ast.AST) -> bool:
+    """Return True for ``setattr``/``delattr`` calls that may target ``session``."""
+    if not (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id in {"setattr", "delattr"}
+    ):
+        return False
+    if len(node.args) <= 1:
+        return False
+    attr = node.args[1]
+    # Only a literal naming some other attribute is known to be harmless.
+    return not (isinstance(attr, ast.Constant) and attr.value != "session")
+
+
+# Exceptions that `except Exception` does not catch.
+_BASE_ONLY = frozenset({"SystemExit", "KeyboardInterrupt", "GeneratorExit"})
+
+
+def _raised_name(node: ast.Raise) -> str | None:
+    """Return the class name an explicit ``raise X`` / ``raise X(...)`` raises."""
+    exc = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
+    return exc.id if isinstance(exc, ast.Name) else None
+
+
+def _catches(handler: ast.ExceptHandler, raised: str | None) -> bool:
+    """Return True if *handler* certainly catches an exception named *raised*."""
+    if handler.type is None:
+        return True
+    types = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
+    names = {t.id for t in types if isinstance(t, ast.Name)}
+    if "BaseException" in names:
+        return True
+    if raised is None:
+        return False
+    return raised in names or ("Exception" in names and raised not in _BASE_ONLY)
+
+
+def _raises_in(body: list[ast.stmt]) -> list[ast.Raise]:
+    """Return the explicit ``raise`` statements *body* runs directly or in blocks."""
+    raises: list[ast.Raise] = []
+    for node in body:
+        if isinstance(node, ast.Raise):
+            raises.append(node)
+        elif not isinstance(
+            node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
+        ):
+            for field in ("body", "orelse", "finalbody"):
+                raises += _raises_in(getattr(node, field, []))
+            for handler in getattr(node, "handlers", []):
+                raises += _raises_in(handler.body)
+            for case in getattr(node, "cases", []):
+                raises += _raises_in(case.body)
+    return raises
 
 
 def _stored_names(*nodes: ast.AST | None) -> set[str]:
@@ -188,13 +238,7 @@ def _simple(node: ast.stmt, bound: dict[str, _Kind]) -> dict[str, _Kind] | None:
     if isinstance(node, ast.Raise):
         # Nothing after an unconditional `raise` runs on this path.
         return None
-    result = _without(bound, _stored_names(node))
-    if _mutates_session_attr(node, bound):
-        # Every alias of the module now sees the replaced attribute.
-        result = {
-            name: kind for name, kind in result.items() if kind is not _Kind.MODULE
-        }
-    return result
+    return _without(bound, _stored_names(node))
 
 
 class _Scanner:
@@ -307,6 +351,13 @@ class _Scanner:
         completed = self.run(
             node.orelse, self.run(node.body, bound, register=False), register=False
         )
+        if completed is None and not all(
+            any(_catches(handler, _raised_name(r)) for handler in node.handlers)
+            for r in _raises_in(node.body)
+        ):
+            # The body always raises something no handler is sure to catch,
+            # so the import fails (after `finally`) on the normal path.
+            return None
         raised = self._anywhere_in(node.body, bound)
         paths = [completed]
         for handler in node.handlers:
@@ -368,6 +419,8 @@ def parse_noxfile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
         # module-level `return`); nox fails to import those, so list nothing.
         # Compiling builds a code object without executing any of it.
         compile(tree, source_file, "exec", dont_inherit=True)
+    if _mutates_session_attr(tree):
+        return []
     scanner = _Scanner(tree)
     if scanner.run(tree.body, {}, register=True) is None:
         # The module always raises, so nox cannot import it at all.

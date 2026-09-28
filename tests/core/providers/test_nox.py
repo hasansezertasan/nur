@@ -214,6 +214,10 @@ def test_replacing_the_session_attribute_invalidates_modules() -> None:
     assert _names("import nox\ndel nox.session\n" + session) == []
     assert _names("import nox\nimport nox as n\nn.session = print\n" + session) == []
     assert _names("import nox\nsetattr(nox, 'session', print)\n" + session) == []
+    in_class = "import nox\nclass C:\n    nox.session = print\n"
+    assert _names(in_class + session) == []
+    reimport = "import nox\nnox.session = print\nimport nox\n"
+    assert _names(reimport + session) == []
     # Ordinary nox configuration leaves the decorator alone.
     text = "import nox\nnox.needs_version = '>=2024'\nnox.options.sessions = []\n"
     assert _names(text + session) == ["s"]
@@ -230,6 +234,24 @@ def test_unconditional_raise_ends_the_path() -> None:
         "except RuntimeError:\n    pass\n" + session
     )
     assert _names(handled) == ["s"]
+
+
+def test_raise_must_be_caught_by_a_handler() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+
+    def guarded(raised: str, caught: str) -> list[str]:
+        handler = f"except {caught}:" if caught else "except:"
+        text = f"import nox\ntry:\n    raise {raised}\n{handler}\n    pass\n"
+        return _names(text + session)
+
+    assert guarded("TypeError", "ValueError") == []
+    assert guarded("err", "ValueError") == []
+    assert guarded("SystemExit", "Exception") == []
+    assert guarded("TypeError('x')", "TypeError") == ["s"]
+    assert guarded("TypeError", "(ValueError, TypeError)") == ["s"]
+    assert guarded("TypeError", "Exception") == ["s"]
+    assert guarded("err", "BaseException") == ["s"]
+    assert guarded("err", "") == ["s"]
 
 
 def test_except_target_is_deleted_after_the_handler() -> None:
