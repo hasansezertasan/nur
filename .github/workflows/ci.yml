@@ -632,4 +632,7 @@ jobs:
       - name: Decide whether the needed jobs succeeded or failed
         uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35  # release/v1
         with:
+          # These jobs are skipped by design when `changes` reports no cli/tui/core
+          # paths (e.g. a docs-only PR); a skip there is a pass, a failure is not.
+          allowed-skips: test-cli, test-tui, coverage-cli, coverage-tui
           jobs: ${{ toJSON(needs) }}
