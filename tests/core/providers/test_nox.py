@@ -400,6 +400,33 @@ def test_finally_raise_overrides_a_break() -> None:
     assert _names(in_finally + session) == ["s"]
 
 
+def test_constant_match_subject_selects_its_case() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    hit = "import nox\nmatch 1:\n    case 1:\n        raise RuntimeError\n"
+    assert _names(hit + session) == []
+    skip_other = (
+        "import nox\nmatch 1:\n    case 2:\n        pass\n"
+        "    case 1:\n        raise RuntimeError\n"
+    )
+    assert _names(skip_other + session) == []
+    miss = "import nox\nmatch 1:\n    case 2:\n        raise RuntimeError\n"
+    assert _names(miss + session) == ["s"]
+    singleton = "import nox\nmatch None:\n    case None:\n        raise RuntimeError\n"
+    assert _names(singleton + session) == []
+    # Singletons compare by identity: 1 is not True.
+    identity = "import nox\nmatch 1:\n    case True:\n        raise RuntimeError\n"
+    assert _names(identity + session) == ["s"]
+
+
+def test_invalid_handler_type_lets_the_exception_escape() -> None:
+    text = (
+        "import nox\ntry:\n    raise TypeError\n"
+        "except 1:\n    pass\nexcept TypeError:\n    pass\n"
+        "@nox.session\ndef s(session): ...\n"
+    )
+    assert _names(text) == []
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"

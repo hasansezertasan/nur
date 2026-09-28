@@ -176,6 +176,31 @@ def _irrefutable(pattern: ast.pattern) -> bool:
     return False
 
 
+# Marks "not a statically known value" (None is itself a literal).
+_NO_VALUE = object()
+
+
+def _literal_match(pattern: ast.pattern, subject: object) -> bool | None:
+    """Return whether a literal pattern matches a constant *subject*.
+
+    ``case 1:`` compares with ``==`` and ``case None:``/``case True:`` with
+    ``is``, as Python does. None means the pattern is not a literal.
+    """
+    if isinstance(pattern, ast.MatchValue) and isinstance(pattern.value, ast.Constant):
+        return bool(pattern.value.value == subject)
+    if isinstance(pattern, ast.MatchSingleton):
+        return pattern.value is subject
+    return None
+
+
+def _invalid_handler_type(handler: ast.ExceptHandler) -> bool:
+    """Return True for ``except 1:``-style handlers, which raise TypeError."""
+    if handler.type is None:
+        return False
+    types = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
+    return any(isinstance(t, ast.Constant) for t in types)
+
+
 def _always_true(test: ast.expr) -> bool:
     return isinstance(test, ast.Constant) and bool(test.value)
 
@@ -513,6 +538,10 @@ class _Scanner:
             return None
         candidates: list[ast.ExceptHandler] = []
         for handler in node.handlers:
+            if _invalid_handler_type(handler):
+                # Evaluating `except 1:` raises TypeError before any later
+                # handler is tried, so the exception escapes.
+                return None
             candidates.append(handler)
             if all(_catches(handler, name, self._rebound) for name in raises):
                 return candidates
@@ -546,13 +575,24 @@ class _Scanner:
         self, node: ast.Match, bound: dict[str, _Kind]
     ) -> dict[str, _Kind] | None:
         bound = _without(bound, _stored_names(node.subject))
-        last = node.cases[-1]
-        irrefutable = last.guard is None and _irrefutable(last.pattern)
-        # `case _:`, a bare capture, or `case _ as x` always matches.
-        paths: list[dict[str, _Kind] | None] = [] if irrefutable else [bound]
+        subject = (
+            node.subject.value if isinstance(node.subject, ast.Constant) else _NO_VALUE
+        )
+        paths: list[dict[str, _Kind] | None] = []
         for case in node.cases:
+            literal = (
+                None if subject is _NO_VALUE else _literal_match(case.pattern, subject)
+            )
+            if literal is False:
+                continue  # A constant subject can never match a different literal.
             names = _stored_names(case.pattern, case.guard)
             paths.append(self.run(case.body, _without(bound, names), register=False))
+            certain = _irrefutable(case.pattern) or literal is True
+            if certain and case.guard is None:
+                # `case _:`, a capture, or a literal equal to a constant subject
+                # always matches, so later cases and fallthrough cannot happen.
+                return _merge_paths(paths)
+        paths.append(bound)  # No case matched.
         return _merge_paths(paths)
 
 
