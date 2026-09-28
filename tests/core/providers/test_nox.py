@@ -443,6 +443,35 @@ def test_finally_continue_overrides_a_break() -> None:
     assert _names(text) == []
 
 
+def test_loop_else_runs_without_a_break() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    no_break = "import nox\nwhile False:\n    pass\nelse:\n    raise RuntimeError\n"
+    assert _names(no_break + session) == []
+    for_else = "import nox\nfor _ in []:\n    pass\nelse:\n    raise RuntimeError\n"
+    assert _names(for_else + session) == []
+    can_break = (
+        "import nox\nfor x in y:\n    if x:\n        break\n"
+        "else:\n    raise RuntimeError\n"
+    )
+    assert _names(can_break + session) == ["s"]
+
+
+def test_instance_bound_name_is_not_a_catching_class() -> None:
+    text = (
+        "import nox\nE = TypeError()\ntry:\n    raise E\n"
+        "except E:\n    pass\n@nox.session\ndef s(session): ...\n"
+    )
+    assert _names(text) == []
+
+
+def test_comprehension_and_lambda_locals_keep_module_bindings() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    assert _names("import nox\nitems = [nox for nox in ()]\n" + session) == ["s"]
+    assert _names("import nox\nf = lambda nox: nox\n" + session) == ["s"]
+    walrus = "import nox\nitems = [(nox := x) for x in ()]\n"
+    assert _names(walrus + session) == []
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"

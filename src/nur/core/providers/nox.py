@@ -98,19 +98,26 @@ def _raised_name(node: ast.Raise) -> str | None:
     return exc.id
 
 
-def _catches(handler: ast.ExceptHandler, raised: str | None, rebound: set[str]) -> bool:
+def _catches(
+    handler: ast.ExceptHandler,
+    raised: str | None,
+    rebound: set[str],
+    rebound_non_class: set[str],
+) -> bool:
     """Return True if *handler* certainly catches an exception named *raised*.
 
-    The same name in ``raise X`` and ``except X`` always matches: nothing runs
-    between the two lookups. ``Exception``/``BaseException`` are trusted only
-    if the file never rebinds them (``Exception = ValueError``), and the
-    ``Exception`` rule also needs an unshadowed raised name.
+    The same name in ``raise X`` and ``except X`` matches when ``X`` is a class
+    (a builtin the file never rebinds, or a name bound only by ``class``):
+    ``except`` rejects instances such as ``X = TypeError()``.
+    ``Exception``/``BaseException`` are trusted only if the file never rebinds
+    them (``Exception = ValueError``), and the ``Exception`` rule also needs an
+    unshadowed raised name.
     """
     if handler.type is None:
         return True
     types = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
     names = {t.id for t in types if isinstance(t, ast.Name)}
-    if raised is not None and raised in names:
+    if raised is not None and raised in names and raised not in rebound_non_class:
         return True
     builtins = names - rebound
     if "BaseException" in builtins:
@@ -123,14 +130,21 @@ def _catches(handler: ast.ExceptHandler, raised: str | None, rebound: set[str]) 
     )
 
 
-def _bound_anywhere(tree: ast.Module) -> set[str]:
-    """Return every name the file binds anywhere, in any scope."""
+def _bound_anywhere(tree: ast.Module, *, include_classes: bool = True) -> set[str]:
+    """Return every name the file binds anywhere, in any scope.
+
+    With ``include_classes=False``, names bound by a ``class`` statement are
+    left out (unless something else also binds them).
+    """
     names: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store | ast.Del):
             names.add(node.id)
-        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             names.add(node.name)
+        elif isinstance(node, ast.ClassDef):
+            if include_classes:
+                names.add(node.name)
         elif isinstance(node, ast.alias):
             names.add(node.asname or node.name.partition(".")[0])
         elif isinstance(node, ast.ExceptHandler | ast.MatchAs | ast.MatchStar):
@@ -256,22 +270,38 @@ def _breaks_in(body: list[ast.stmt], *, or_continues: bool = False) -> bool:
     return False
 
 
+_COMPREHENSIONS = ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp
+
+
 def _stored_names(*nodes: ast.AST | None) -> set[str]:
-    """Return every name *nodes* may bind or delete (assignment, walrus, ``as``)."""
+    """Return every name *nodes* may bind or delete in the enclosing scope.
+
+    Covers assignment, walrus, ``as`` and pattern captures. Lambda bodies and
+    comprehension loop variables are local to their own scope and skipped, but
+    a walrus inside a comprehension binds the enclosing scope and counts.
+    """
     names: set[str] = set()
     for node in nodes:
-        if node is None:
-            continue
-        for child in ast.walk(node):
-            if isinstance(child, ast.Name) and isinstance(
-                child.ctx, ast.Store | ast.Del
-            ):
-                names.add(child.id)
-            elif isinstance(child, ast.MatchAs | ast.MatchStar) and child.name:
-                names.add(child.name)
-            elif isinstance(child, ast.MatchMapping) and child.rest:
-                names.add(child.rest)
+        if node is not None:
+            _collect_stores(node, names, in_comprehension=False)
     return names
+
+
+def _collect_stores(node: ast.AST, names: set[str], *, in_comprehension: bool) -> None:
+    if isinstance(node, ast.Lambda):
+        return  # Its parameters and body live in the lambda's own scope.
+    if isinstance(node, ast.NamedExpr):
+        names.add(node.target.id)
+    elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store | ast.Del):
+        if not in_comprehension:
+            names.add(node.id)
+    elif isinstance(node, ast.MatchAs | ast.MatchStar) and node.name:
+        names.add(node.name)
+    elif isinstance(node, ast.MatchMapping) and node.rest:
+        names.add(node.rest)
+    nested = in_comprehension or isinstance(node, _COMPREHENSIONS)
+    for child in ast.iter_child_nodes(node):
+        _collect_stores(child, names, in_comprehension=nested)
 
 
 def _without(bound: dict[str, _Kind], names: set[str]) -> dict[str, _Kind]:
@@ -399,6 +429,7 @@ class _Scanner:
             for name in node.names
         }
         self._rebound = _bound_anywhere(tree)
+        self._rebound_non_class = _bound_anywhere(tree, include_classes=False)
 
     def run(
         self, body: list[ast.stmt], bound: dict[str, _Kind] | None, *, register: bool
@@ -552,7 +583,10 @@ class _Scanner:
                 # handler is tried, so the exception escapes.
                 return None
             candidates.append(handler)
-            if all(_catches(handler, name, self._rebound) for name in raises):
+            if all(
+                _catches(handler, name, self._rebound, self._rebound_non_class)
+                for name in raises
+            ):
                 return candidates
         return None
 
@@ -577,8 +611,11 @@ class _Scanner:
         else:
             header = _stored_names(node.target, node.iter)
         bound = self._loop(node.body, _without(bound, header))
-        # The loop may break before `else`, so `bound` itself is a path too.
-        return _merge_paths([bound, self.run(node.orelse, bound, register=False)])
+        after_else = self.run(node.orelse, bound, register=False)
+        if not _breaks_in(node.body):
+            return after_else  # Without a `break`, the loop always runs `else`.
+        # A `break` skips `else`, so the loop state itself is a path too.
+        return _merge_paths([bound, after_else])
 
     def _match(
         self, node: ast.Match, bound: dict[str, _Kind]
