@@ -61,19 +61,25 @@ async def test_run_streams_output_and_sets_status() -> None:
 
 @pytest.mark.asyncio
 async def test_interrupt_stops_running_task() -> None:
-    argv = [sys.executable, "-c", "import time; time.sleep(30)"]
+    argv = [
+        sys.executable,
+        "-c",
+        "import time; print('ready', flush=True); time.sleep(30)",
+    ]
     app = NurApp(Path(), scan=lambda argv=argv: _registry(argv))
     async with app.run_test() as pilot:
         await pilot.pause()
         await _wait_scanned(app, pilot)
         await pilot.press("r")
         # action_run() sets _task_running synchronously but spawns the child on
-        # a worker thread, so wait for the process itself to exist -- otherwise
-        # interrupt() can race ahead of the spawn, no-op on a None proc, and
-        # leave sleep(30) running until the deadline.
+        # a worker thread, so wait for the child's own "ready" line -- otherwise
+        # interrupt() can race ahead of the spawn (no-op on a None proc) or land
+        # while the interpreter is still starting up, where the SIGINT can be
+        # swallowed (coverage's subprocess .pth hook imports coverage under a
+        # bare `except:`), leaving sleep(30) running until the deadline.
         await _wait_until(
             pilot,
-            lambda: app._runner._proc is not None,
+            lambda: "ready" in app._output_lines,
             message="task process did not start within 15 seconds",
         )
         assert app._task_running
