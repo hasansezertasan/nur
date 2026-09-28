@@ -701,6 +701,31 @@ def test_namespace_dict_mutation_is_distrusted() -> None:
     assert _names(via_vars + session) == []
 
 
+def test_except_star_is_never_trusted_to_catch() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    group = (
+        "import nox\ntry:\n    raise ExceptionGroup('x', [TypeError()])\n"
+        "except* ExceptionGroup:\n    pass\n"
+    )
+    assert _names(group + session) == []
+    plain = "import nox\ntry:\n    raise TypeError\nexcept* TypeError:\n    pass\n"
+    assert _names(plain + session) == []
+    no_raise = "import nox\ntry:\n    pass\nexcept* TypeError:\n    pass\n"
+    assert _names(no_raise + session) == ["s"]
+
+
+def test_breaks_in_impossible_match_cases_are_unreachable() -> None:
+    session = "@nox.session\ndef s(session): ...\n"
+    impossible = (
+        "import nox\nwhile True:\n    match 1:\n        case 2:\n            break\n"
+    )
+    assert _names(impossible + session) == []
+    possible = (
+        "import nox\nwhile True:\n    match 1:\n        case 1:\n            break\n"
+    )
+    assert _names(possible + session) == ["s"]
+
+
 def test_except_target_is_deleted_after_the_handler() -> None:
     text = (
         "import nox\ntry:\n    pass\n"

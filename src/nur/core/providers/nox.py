@@ -433,8 +433,33 @@ def _breaks_in_statement(node: ast.stmt, *, or_continues: bool) -> bool:
         return False
     blocks = [getattr(node, field, []) for field in ("body", "orelse", "finalbody")]
     blocks += [handler.body for handler in getattr(node, "handlers", [])]
-    blocks += [case.body for case in getattr(node, "cases", [])]
+    if isinstance(node, ast.Match):
+        blocks += [case.body for case in _reachable_cases(node)]
     return any(_breaks_in(block, or_continues=or_continues) for block in blocks)
+
+
+def _reachable_cases(node: ast.Match) -> list[ast.match_case]:
+    """Return the cases whose body may run, as ``_Scanner._match`` decides it.
+
+    A literal differing from a constant subject or a constant-false guard never
+    runs its body, and nothing after a certain match is reached.
+    """
+    subject = (
+        node.subject.value if isinstance(node.subject, ast.Constant) else _NO_VALUE
+    )
+    reachable: list[ast.match_case] = []
+    for case in node.cases:
+        literal = (
+            None if subject is _NO_VALUE else _literal_match(case.pattern, subject)
+        )
+        guard = _constant_truth(case.guard)
+        if literal is False or guard is False:
+            continue
+        reachable.append(case)
+        certain = _irrefutable(case.pattern) or literal is True
+        if certain and (case.guard is None or guard is True):
+            break
+    return reachable
 
 
 _COMPREHENSIONS = ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp
@@ -770,6 +795,10 @@ class _Scanner:
         first that is sure to catch every explicit raise is a candidate. None
         means no handler is sure to, so the import fails after ``finally``.
         """
+        if isinstance(node, ast.TryStar):
+            # `except*` wraps raises in groups, can run several handlers, and
+            # rejects `except* ExceptionGroup`; it is never trusted to catch.
+            return None
         raises = self._raises_in(node.body)
         if not raises:
             return None
@@ -819,7 +848,8 @@ class _Scanner:
     def _try_raises(self, node: ast.Try | ast.TryStar) -> list[str | None]:
         """Return what escapes a nested ``try``: uncaught body raises and the rest."""
         inner = self._raises_in(node.body)
-        if not any(_invalid_handler_type(h) for h in node.handlers):
+        trusted = isinstance(node, ast.Try)  # `except*` is never trusted to catch.
+        if trusted and not any(_invalid_handler_type(h) for h in node.handlers):
             inner = [
                 name
                 for name in inner
