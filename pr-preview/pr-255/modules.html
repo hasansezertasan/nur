@@ -596,10 +596,16 @@ documented at <a class="reference external" href="https://xcfile.dev/task-syntax
 <dd><p>Extract nox sessions from <em>text</em> by AST parsing, never importing it.</p>
 <p><code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">--list</span></code> imports and executes <code class="docutils literal notranslate"><span class="pre">noxfile.py</span></code> to build its registry, so
 discovery reads <code class="docutils literal notranslate"><span class="pre">&#64;nox.session</span></code>-decorated functions from the syntax tree
-instead. This is a safe subset: <code class="docutils literal notranslate"><span class="pre">python=[...]</span></code> and <code class="docutils literal notranslate"><span class="pre">&#64;nox.parametrize</span></code>
-variants are surfaced under their base name (<code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">-s</span> <span class="pre">&lt;name&gt;</span></code> still runs
-every variant), and sessions registered dynamically or only under a runtime
-condition are not discovered.</p>
+instead. It only trusts straight-line noxfiles: module code may use
+imports, plain statements (assignment, <code class="docutils literal notranslate"><span class="pre">del</span></code>, expression, <code class="docutils literal notranslate"><span class="pre">pass</span></code>,
+<code class="docutils literal notranslate"><span class="pre">def</span></code>, <code class="docutils literal notranslate"><span class="pre">class</span></code>), and <code class="docutils literal notranslate"><span class="pre">if</span></code>/<code class="docutils literal notranslate"><span class="pre">try</span></code> blocks made of those, where a
+<code class="docutils literal notranslate"><span class="pre">raise</span></code> ends its branch. Sessions register only from top-level <code class="docutils literal notranslate"><span class="pre">def</span></code>
+statements. Anything else (loops, <code class="docutils literal notranslate"><span class="pre">with</span></code>, <code class="docutils literal notranslate"><span class="pre">match</span></code>, <code class="docutils literal notranslate"><span class="pre">assert</span></code>,
+<code class="docutils literal notranslate"><span class="pre">except*</span></code>, a star import from another module) makes nox’s registry
+depend on control flow nur does not follow, so nothing is listed rather
+than a session nox may not register. <code class="docutils literal notranslate"><span class="pre">python=[...]</span></code> and
+<code class="docutils literal notranslate"><span class="pre">&#64;nox.parametrize</span></code> variants are surfaced under their base name
+(<code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">-s</span> <span class="pre">&lt;name&gt;</span></code> still runs every variant).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
