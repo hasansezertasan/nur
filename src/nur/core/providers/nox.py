@@ -482,6 +482,8 @@ def _session_names(func: ast.FunctionDef, bound: dict[str, _Kind]) -> list[str]:
     than a name ``nox -s`` would reject.
     """
     seen = _without(bound, _stores(*func.decorator_list))
+    if any(_decorator_fails(decorator, seen) for decorator in func.decorator_list):
+        return []  # Python evaluates every decorator before applying any.
     names: list[str] = []
     default: str | None = func.name
     for decorator in reversed(func.decorator_list):
@@ -499,6 +501,25 @@ def _session_names(func: ast.FunctionDef, bound: dict[str, _Kind]) -> list[str]:
     return names
 
 
+def _decorator_fails(decorator: ast.expr, bound: dict[str, _Kind]) -> bool:
+    """Return True if a nox decorator expression certainly (or may) raise.
+
+    A session call with positional arguments or an unaccepted keyword raises,
+    and one with ``**mapping`` may; so does ``parametrize`` used bare or
+    without its required arguments.
+    """
+    call = decorator if isinstance(decorator, ast.Call) else None
+    target = call.func if call is not None else decorator
+    accepted = _session_kwargs(target, bound)
+    if accepted is not None:
+        return call is not None and (
+            bool(call.args) or any(kw.arg not in accepted for kw in call.keywords)
+        )
+    if _is_parametrize_ref(target, bound):
+        return call is None or not _valid_parametrize_call(call)
+    return False
+
+
 def _is_parametrize(node: ast.expr, bound: dict[str, _Kind]) -> bool:
     """Return True for ``@nox.parametrize(...)``, which keeps ``__name__``.
 
@@ -507,7 +528,11 @@ def _is_parametrize(node: ast.expr, bound: dict[str, _Kind]) -> bool:
     """
     if not isinstance(node, ast.Call) or not _valid_parametrize_call(node):
         return False
-    func = node.func
+    return _is_parametrize_ref(node.func, bound)
+
+
+def _is_parametrize_ref(func: ast.expr, bound: dict[str, _Kind]) -> bool:
+    """Return True if *func* names nox's ``parametrize``."""
     if isinstance(func, ast.Name):
         return bound.get(func.id) is _Kind.PARAMETRIZE
     return (
@@ -600,6 +625,10 @@ class _Walker:
             description = _first_line(node)
             for name in _session_names(node, bound):
                 self.sessions[name] = description
+        if isinstance(node, ast.ClassDef) and _deletes_within(node):
+            # A class-scope `del` only sees the class namespace, which the
+            # module-level bindings nur passes in do not separate out.
+            raise _Unpredictable
         if (
             isinstance(node, ast.ClassDef)
             and self.block(node.body, bound, top=False) is None
@@ -629,11 +658,12 @@ class _Walker:
         type_checking = self._type_checking_safe and "TYPE_CHECKING" in bound
         if _never_runs(node, type_checking=type_checking, main_name=self._main_name):
             return bound
-        if _has_literal_condition(node.test) and _raises_within(node):
-            # `if True: raise` always raises; nur does not evaluate conditions.
-            raise _Unpredictable
         bound = _without(bound, _stores(node.test))
         branches = [self.block(b, bound, top=False) for b in (node.body, node.orelse)]
+        if None in branches and _has_literal_condition(node.test):
+            # `if True: missing` always fails; nur does not evaluate conditions,
+            # so it cannot tell whether the failing branch is the one taken.
+            raise _Unpredictable
         return _merge_continuing(branches)
 
     def _try(self, node: ast.Try, bound: dict[str, _Kind]) -> dict[str, _Kind] | None:
@@ -647,10 +677,12 @@ class _Walker:
             # catches that depends on its class, which nur does not model.
             raise _Unpredictable
         completed = self.block(node.orelse, body, top=False)
-        # A handler may start after any statement of the body ran.
+        # A handler may start after any statement of the body ran, unless the
+        # body cannot raise at all (only `pass` and literal expressions).
         start = _without(bound, _stores(*node.body))
         paths = [completed]
-        for handler in node.handlers:
+        handlers = [] if _cannot_raise(node.body) else node.handlers
+        for handler in handlers:
             names = _stores(handler.type) | ({handler.name} if handler.name else set())
             entry = _without(start, names)
             if handler.name:
@@ -662,6 +694,27 @@ class _Walker:
         if state is None:
             return None
         return self.block(node.finalbody, state, top=False)
+
+
+def _deletes_within(node: ast.ClassDef) -> bool:
+    """Return True if a class body runs a ``del`` (outside nested functions)."""
+    stack: list[ast.AST] = list(node.body)
+    while stack:
+        current = stack.pop()
+        if isinstance(current, ast.Delete):
+            return True
+        if not isinstance(current, ast.FunctionDef | ast.AsyncFunctionDef):
+            stack.extend(ast.iter_child_nodes(current))
+    return False
+
+
+def _cannot_raise(body: list[ast.stmt]) -> bool:
+    """Return True for a block of only ``pass`` and literal expressions."""
+    return all(
+        isinstance(stmt, ast.Pass)
+        or (isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant))
+        for stmt in body
+    )
 
 
 def _raises_within(node: ast.AST) -> bool:

@@ -227,6 +227,37 @@ def test_if_blocks_merge_their_branches() -> None:
     assert _names(nested_def + SESSION) == ["s"]  # Only top-level defs register.
 
 
+def test_invalid_decorator_in_a_stack_registers_nothing() -> None:
+    stacked = "import nox\n@nox.session(typo=True)\n@nox.session\ndef f(session): ...\n"
+    assert _names(stacked) == []
+    bad_param = (
+        "import nox\n@nox.session(name='x')\n@nox.parametrize()\ndef f(session): ...\n"
+    )
+    assert _names(bad_param) == []
+    computed = (
+        "import nox\nNAME = 'x'\n@nox.session(name=NAME)\n@nox.session\ndef f(s): ...\n"
+    )
+    assert _names(computed) == ["f"]  # A computed name is unknown, not an error.
+
+
+def test_failing_branch_under_a_literal_condition_is_unpredictable() -> None:
+    assert _names("import nox\nif True:\n    missing\n" + SESSION) == []
+    assert (
+        _names("import nox\nif False:\n    pass\nelse:\n    missing\n" + SESSION) == []
+    )
+
+
+def test_handlers_of_a_body_that_cannot_raise_never_run() -> None:
+    text = (
+        "import nox\ntry:\n    pass\nexcept Exception:\n    pass\nelse:\n    missing\n"
+    )
+    assert _names(text + SESSION) == []
+
+
+def test_del_in_a_class_body_is_unpredictable() -> None:
+    assert _names("import nox\nx = 1\nclass C:\n    del x\n" + SESSION) == []
+
+
 def test_try_whose_body_always_fails_is_unpredictable() -> None:
     text = "import nox\ntry:\n    missing\nexcept TypeError:\n    pass\n"
     assert _names(text + SESSION) == []
@@ -242,7 +273,9 @@ def test_try_blocks_merge_body_and_handlers() -> None:
         "import nox\ntry:\n    nox = 1\n    import nox\nexcept Exception:\n    pass\n"
     )
     assert _names(rebinding_body + SESSION) == []
-    as_name = "import nox\ntry:\n    pass\nexcept ImportError as nox:\n    pass\n"
+    as_name = (
+        "import nox\ntry:\n    import tomllib\nexcept ImportError as nox:\n    pass\n"
+    )
     assert _names(as_name + SESSION) == []
     with_finally = "import nox\ntry:\n    pass\nfinally:\n    x = 1\n"
     assert _names(with_finally + SESSION) == ["s"]
