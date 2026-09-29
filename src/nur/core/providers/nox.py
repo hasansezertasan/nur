@@ -21,6 +21,17 @@ _SOURCE_FILE = "noxfile.py"
 # Modules whose ``session`` is ``nox.session`` or a drop-in wrapper that
 # forwards ``name=`` to it (nox-uv).
 _NOX_MODULES = frozenset({"nox", "nox_uv"})
+# `nox.__all__`, which `from nox import *` binds.
+_NOX_STAR = {
+    "Session": "OTHER",
+    "main": "OTHER",
+    "needs_version": "OTHER",
+    "options": "OTHER",
+    "param": "OTHER",
+    "parametrize": "PARAMETRIZE",
+    "project": "OTHER",
+    "session": "SESSION",
+}
 # Builtins that expose, edit, or run code in a namespace, so may rebind any
 # name or replace `nox.session`.
 _MUTATORS = frozenset({
@@ -52,15 +63,16 @@ _PLAIN = (
 
 
 class _Kind(enum.Enum):
-    """What a tracked name is bound to.
+    """What a module-level name is certainly bound to.
 
-    Bindings map names to a kind; a name missing from the mapping is either
-    unbound or bound to something other than nox.
+    Bindings map names to a kind. A name missing from the mapping may be
+    unbound, so reading it at import time may raise ``NameError``.
     """
 
     MODULE = enum.auto()  # a nox module: `<name>.session` is the decorator
     SESSION = enum.auto()  # the `session` decorator itself
     PARAMETRIZE = enum.auto()  # `nox.parametrize`, which keeps `__name__`
+    OTHER = enum.auto()  # bound, but not to anything nox
 
 
 def _mutates_namespace(tree: ast.Module) -> bool:
@@ -111,17 +123,114 @@ def _stores(*nodes: ast.AST | None) -> set[str]:
     return names
 
 
-def _statement_stores(node: ast.stmt) -> set[str]:
-    """Return the module-level names a plain statement may bind or delete.
+def _bind(node: ast.stmt, bound: dict[str, _Kind]) -> dict[str, _Kind]:
+    """Apply a plain statement's bindings to *bound*.
 
-    A ``def`` or ``class`` binds its name and evaluates its decorators and
-    header here, but its body is its own scope.
+    Every name it may store or delete loses its nox kind (over-approximated,
+    counting comprehension and lambda internals); only names it certainly binds
+    in module scope become defined. A ``def`` or ``class`` binds its name and
+    evaluates its header here, but its body is its own scope.
     """
     if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-        return {node.name} | _stores(*node.decorator_list, node.args, node.returns)
+        header = _stores(*node.decorator_list, node.args, node.returns)
+        return _without(bound, header) | {node.name: _Kind.OTHER}
     if isinstance(node, ast.ClassDef):
-        return {node.name} | _stores(*node.decorator_list, *node.bases, *node.keywords)
-    return _stores(node)
+        header = _stores(*node.decorator_list, *node.bases, *node.keywords)
+        return _without(bound, header) | {node.name: _Kind.OTHER}
+    result = _without(bound, _stores(node))
+    for name in _certain_targets(node):
+        result[name] = _Kind.OTHER
+    return result
+
+
+def _certain_targets(node: ast.stmt) -> set[str]:
+    """Return the module names an assignment statement certainly binds."""
+    if isinstance(node, ast.Assign):
+        targets = node.targets
+    elif isinstance(node, ast.AnnAssign | ast.AugAssign):
+        targets = [node.target] if getattr(node, "value", None) is not None else []
+    else:
+        return set()
+    names: set[str] = set()
+    for target in targets:
+        stack: list[ast.expr] = [target]
+        while stack:
+            current = stack.pop()
+            if isinstance(current, ast.Name):
+                names.add(current.id)
+            elif isinstance(current, ast.Tuple | ast.List):
+                stack.extend(current.elts)
+            elif isinstance(current, ast.Starred):
+                stack.append(current.value)
+    return names
+
+
+def _reads(*nodes: ast.AST | None) -> set[str]:
+    """Return the names evaluating *nodes* reads in the enclosing scope.
+
+    Names bound inside a comprehension are its own; a lambda's body runs only
+    when called, though its defaults are evaluated here.
+    """
+    reads: set[str] = set()
+    for node in nodes:
+        if node is not None:
+            _collect_reads(node, reads, local=frozenset())
+    return reads
+
+
+def _collect_reads(node: ast.AST, reads: set[str], *, local: frozenset[str]) -> None:
+    if isinstance(node, ast.Lambda):
+        for default in [*node.args.defaults, *node.args.kw_defaults]:
+            if default is not None:
+                _collect_reads(default, reads, local=local)
+        return
+    if isinstance(node, ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp):
+        local |= _stores(node)
+    if (
+        isinstance(node, ast.Name)
+        and isinstance(node.ctx, ast.Load | ast.Del)
+        and node.id not in local
+    ):
+        reads.add(node.id)
+    for child in ast.iter_child_nodes(node):
+        _collect_reads(child, reads, local=local)
+
+
+def _annotated_reads(
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.AnnAssign,
+    *,
+    lazy_annotations: bool,
+) -> set[str]:
+    """Return the reads of a statement with annotations, skipping lazy ones."""
+    if isinstance(node, ast.AnnAssign):
+        if lazy_annotations:
+            return _reads(node.target, node.value) - _certain_targets(node)
+        return _reads(node)
+    if lazy_annotations:
+        defaults = [*node.args.defaults, *node.args.kw_defaults]
+        return _reads(*node.decorator_list, *defaults)
+    return _reads(*node.decorator_list, node.args, node.returns)
+
+
+def _statement_reads(node: ast.stmt, *, lazy_annotations: bool) -> set[str]:
+    """Return the names a statement reads when it runs (its header only).
+
+    With ``from __future__ import annotations`` annotations are never
+    evaluated, so they are not reads; otherwise they are (eagerly, before
+    Python 3.14), which nur assumes since nox may run an older Python.
+    """
+    if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.AnnAssign):
+        return _annotated_reads(node, lazy_annotations=lazy_annotations)
+    if isinstance(node, ast.ClassDef):
+        return _reads(*node.decorator_list, *node.bases, *node.keywords)
+    if isinstance(node, ast.If):
+        return _reads(node.test)
+    if isinstance(node, ast.Try | ast.Import | ast.ImportFrom):
+        return set()
+    reads = _reads(node)
+    if isinstance(node, ast.AugAssign) and isinstance(node.target, ast.Name):
+        reads.add(node.target.id)  # `x += 1` reads `x` first.
+    return reads
 
 
 def _without(bound: dict[str, _Kind], names: set[str]) -> dict[str, _Kind]:
@@ -139,11 +248,14 @@ def _merge(paths: list[dict[str, _Kind]]) -> dict[str, _Kind]:
 
 
 def _unknown_star_import(node: ast.stmt) -> bool:
-    """Return True for ``from x import *`` of a module other than nox."""
+    """Return True for ``from x import *`` of a module other than nox itself.
+
+    nox-uv defines no ``__all__``, so what its star import binds varies.
+    """
     return (
         isinstance(node, ast.ImportFrom)
         and any(alias.name == "*" for alias in node.names)
-        and not (node.module in _NOX_MODULES and not node.level)
+        and not (node.module == "nox" and not node.level)
     )
 
 
@@ -156,24 +268,19 @@ def _apply_import(
             # `import nox.command` binds the top-level `nox` name too.
             name = alias.asname or alias.name.partition(".")[0]
             target = alias.name if alias.asname else name
-            if target in _NOX_MODULES:
-                result[name] = _Kind.MODULE
-            else:
-                result.pop(name, None)
+            result[name] = _Kind.MODULE if target in _NOX_MODULES else _Kind.OTHER
         return result
     from_nox = node.module in _NOX_MODULES and not node.level
     kinds = {"session": _Kind.SESSION}
     if node.module == "nox":
         kinds["parametrize"] = _Kind.PARAMETRIZE
     for alias in node.names:
-        if alias.name == "*":  # Only nox star imports get here.
-            result.update(kinds)
+        if alias.name == "*":  # Only `from nox import *` gets here.
+            result.update({n: _Kind[kind] for n, kind in _NOX_STAR.items()})
             continue
         name = alias.asname or alias.name
-        if from_nox and alias.name in kinds:
-            result[name] = kinds[alias.name]
-        else:
-            result.pop(name, None)
+        known = from_nox and alias.name in kinds
+        result[name] = kinds[alias.name] if known else _Kind.OTHER
     return result
 
 
@@ -205,18 +312,6 @@ def _never_runs(node: ast.If, *, type_checking: bool, main_name: bool) -> bool:
     return main_name and names == {"__name__"} and values == {"__main__"}
 
 
-def _imports_type_checking(node: ast.Import | ast.ImportFrom) -> bool:
-    return (
-        isinstance(node, ast.ImportFrom)
-        and node.module in {"typing", "typing_extensions"}
-        and not node.level
-        and any(
-            alias.name == "TYPE_CHECKING" and alias.asname in {None, "TYPE_CHECKING"}
-            for alias in node.names
-        )
-    )
-
-
 # Names a module has without binding them.
 _IMPLICIT = frozenset(dir(builtins)) | {
     "__name__",
@@ -228,59 +323,6 @@ _IMPLICIT = frozenset(dir(builtins)) | {
     "__builtins__",
     "__annotations__",
 }
-
-
-def _reads_unbound_name(tree: ast.Module) -> bool:
-    """Return True if import-time code reads a name the file never binds.
-
-    Such a read raises ``NameError`` (unless a star import supplies the name),
-    so the import fails.
-    """
-    if any(
-        isinstance(node, ast.ImportFrom) and any(a.name == "*" for a in node.names)
-        for node in ast.walk(tree)
-    ):
-        return False
-    return not _import_time_reads(tree) <= _bound_anywhere(tree) | _IMPLICIT
-
-
-def _bound_anywhere(tree: ast.Module) -> set[str]:
-    """Return every name the file binds, in any scope."""
-    names = _stores(tree)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import | ast.ImportFrom):
-            names |= {a.asname or a.name.partition(".")[0] for a in node.names}
-        elif (name := _defined_name(node)) is not None:
-            names.add(name)
-    return names
-
-
-def _defined_name(node: ast.AST) -> str | None:
-    """Return the name a ``def``, ``class``, or ``except ... as`` binds."""
-    if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
-        return node.name
-    return node.name if isinstance(node, ast.ExceptHandler) else None
-
-
-def _import_time_reads(tree: ast.Module) -> set[str]:
-    """Return the names code that runs at import reads.
-
-    Function and lambda bodies only run when called and are skipped; their
-    decorators, defaults, and annotations run at import and are not.
-    """
-    reads: set[str] = set()
-    stack: list[ast.AST] = list(tree.body)
-    while stack:
-        node = stack.pop()
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
-            reads.add(node.id)
-        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            stack += [*node.decorator_list, node.args]
-        elif isinstance(node, ast.Lambda):
-            stack.append(node.args)
-        else:
-            stack.extend(ast.iter_child_nodes(node))
-    return reads
 
 
 def _only_imported_from_typing(tree: ast.Module, name: str) -> bool:
@@ -392,8 +434,12 @@ class _Walker:
     def __init__(self, tree: ast.Module) -> None:
         self.sessions: dict[str, str | None] = {}
         self._type_checking_safe = _only_imported_from_typing(tree, "TYPE_CHECKING")
-        # Set once `from typing import TYPE_CHECKING` has run at module level.
-        self._type_checking_bound = False
+        self._lazy_annotations = any(
+            isinstance(node, ast.ImportFrom)
+            and node.module == "__future__"
+            and any(alias.name == "annotations" for alias in node.names)
+            for node in tree.body
+        )
         # `__name__` is never imported from typing, so this means "never bound".
         self._main_name = _only_imported_from_typing(tree, "__name__")
         # A `global`/`nonlocal` anywhere (e.g. in a function called at import)
@@ -413,6 +459,9 @@ class _Walker:
         for node in body:
             if state is None:
                 break  # Unreachable after a raise.
+            reads = _statement_reads(node, lazy_annotations=self._lazy_annotations)
+            if not reads <= state.keys() | _IMPLICIT:
+                return None  # Reading a name not yet bound raises NameError.
             state = self._statement(node, state, top=top)
             if state is not None:
                 state = _without(state, self._unstable)
@@ -431,13 +480,13 @@ class _Walker:
                 self.sessions[name] = description
         if (
             isinstance(node, ast.ClassDef)
-            and self.block(node.body, {}, top=False) is None
+            and self.block(node.body, bound, top=False) is None
         ):
             # A class body runs at import, under the same rules as module code;
             # one that always raises means the import always fails.
             return None
         if isinstance(node, _PLAIN):
-            return _without(bound, _statement_stores(node))
+            return _bind(node, bound)
         if isinstance(node, ast.Raise):
             return None
         if isinstance(node, ast.If):
@@ -449,14 +498,13 @@ class _Walker:
     def _import(
         self, node: ast.Import | ast.ImportFrom, bound: dict[str, _Kind], *, top: bool
     ) -> dict[str, _Kind]:
+        del top  # Imports bind the same way at any depth.
         if _unknown_star_import(node):
             raise _Unpredictable  # It may rebind any name.
-        if top and _imports_type_checking(node):
-            self._type_checking_bound = True
         return _apply_import(node, bound)
 
     def _if(self, node: ast.If, bound: dict[str, _Kind]) -> dict[str, _Kind] | None:
-        type_checking = self._type_checking_safe and self._type_checking_bound
+        type_checking = self._type_checking_safe and "TYPE_CHECKING" in bound
         if _never_runs(node, type_checking=type_checking, main_name=self._main_name):
             return bound
         if _has_literal_condition(node.test) and _raises_within(node):
@@ -478,7 +526,10 @@ class _Walker:
         paths = [completed]
         for handler in node.handlers:
             names = _stores(handler.type) | ({handler.name} if handler.name else set())
-            after = self.block(handler.body, _without(start, names), top=False)
+            entry = _without(start, names)
+            if handler.name:
+                entry[handler.name] = _Kind.OTHER
+            after = self.block(handler.body, entry, top=False)
             # Python deletes an `except ... as name` target when it exits.
             paths.append(None if after is None else _without(after, names))
         state = _merge_continuing(paths)
@@ -591,7 +642,7 @@ def parse_noxfile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
         # module-level `return`); nox fails to import those, so list nothing.
         # Compiling builds a code object without executing any of it.
         compile(tree, source_file, "exec", dont_inherit=True)
-    if _mutates_namespace(tree) or _reads_unbound_name(tree):
+    if _mutates_namespace(tree):
         return []
     sessions = _scan(tree)
     if sessions is None:

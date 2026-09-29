@@ -321,6 +321,48 @@ def test_reading_a_never_bound_name_at_import_lists_nothing() -> None:
     assert _names(in_default + SESSION) == []
 
 
+def test_reads_must_follow_their_bindings() -> None:
+    assert _names("import nox\nprint(later)\nlater = 1\n" + SESSION) == []
+    assert _names("import nox\nlater = 1\nprint(later)\n" + SESSION) == ["s"]
+    in_function = "import nox\ndef setup():\n    helper = 1\nprint(helper)\n"
+    assert _names(in_function + SESSION) == []
+    comprehension = "import nox\nitems = [i for i in range(3)]\nprint(i)\n"
+    assert _names(comprehension + SESSION) == []
+    local_ok = "import nox\nitems = [i for i in range(3)]\n"
+    assert _names(local_ok + SESSION) == ["s"]
+    deleted = "import nox\nx = 1\ndel x\nprint(x)\n"
+    assert _names(deleted + SESSION) == []
+    one_branch = "import nox\nimport sys\nif sys.argv:\n    y = 1\nprint(y)\n"
+    assert _names(one_branch + SESSION) == []
+    guarded = "import nox\nimport sys\nif sys.argv:\n    print(missing)\n"
+    assert _names(guarded + SESSION) == ["s"]  # Only that branch fails.
+
+
+def test_annotations_are_reads_unless_postponed() -> None:
+    header = (
+        "from typing import TYPE_CHECKING\nimport nox\n"
+        "if TYPE_CHECKING:\n    from nox import Session\n"
+    )
+    typed = "@nox.session\ndef s(session: Session) -> None: ...\n"
+    assert _names(header + typed) == []  # Eager annotations raise NameError.
+    future = "from __future__ import annotations\n"
+    assert _names(future + header + typed) == ["s"]
+    module_level = "x: Session = 1\n"
+    assert _names(future + header + module_level + typed) == ["s"]
+    default = "@nox.session\ndef s(session, x=Session): ...\n"
+    assert _names(future + header + default) == []  # Defaults still run.
+
+
+def test_star_imports_bind_only_known_names() -> None:
+    body = "from nox import *\n@session\ndef s(session): ...\n"
+    assert _names(
+        "from nox import *\noptions.sessions = []\n"
+        + SESSION.replace("@nox.session", "@session")
+    ) == ["s"]
+    assert _names("from nox import *\nprint(definitely_missing)\n" + body) == []
+    assert _names("from nox_uv import *\n@session\ndef s(session): ...\n") == []
+
+
 def test_display_conditions_have_fixed_truth() -> None:
     for test in ("(flag,)", "[flag]", "{flag: 1}", "f'{flag}'", "not (flag,)"):
         text = f"import nox\nflag = 1\nif {test}:\n    raise RuntimeError\n"
