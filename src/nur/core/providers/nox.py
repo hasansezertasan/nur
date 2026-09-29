@@ -71,6 +71,8 @@ class _Kind(enum.Enum):
 
     MODULE = enum.auto()  # a nox module: `<name>.session` is the decorator
     SESSION = enum.auto()  # the `session` decorator itself
+    UV_MODULE = enum.auto()  # the nox-uv module: `<name>.session` wraps nox's
+    UV_SESSION = enum.auto()  # nox-uv's drop-in `session` decorator
     PARAMETRIZE = enum.auto()  # `nox.parametrize`, which keeps `__name__`
     OTHER = enum.auto()  # bound, but not to anything nox
 
@@ -185,7 +187,22 @@ def _collect_reads(node: ast.AST, reads: set[str], *, local: frozenset[str]) -> 
                 _collect_reads(default, reads, local=local)
         return
     if isinstance(node, ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp):
-        local |= _stores(node)
+        # The first iterable runs in the enclosing scope, before any target is
+        # bound; everything else sees the comprehension's own names.
+        first, *rest = node.generators
+        _collect_reads(first.iter, reads, local=local)
+        inner = local | _stores(node)
+        others: list[ast.AST] = [
+            *first.ifs,
+            *(part for gen in rest for part in (gen.iter, *gen.ifs)),
+        ]
+        if isinstance(node, ast.DictComp):
+            others += [node.key, node.value]
+        else:
+            others.append(node.elt)
+        for part in others:
+            _collect_reads(part, reads, local=inner)
+        return
     if (
         isinstance(node, ast.Name)
         and isinstance(node.ctx, ast.Load | ast.Del)
@@ -238,13 +255,22 @@ def _without(bound: dict[str, _Kind], names: set[str]) -> dict[str, _Kind]:
 
 
 def _merge(paths: list[dict[str, _Kind]]) -> dict[str, _Kind]:
-    """Keep only the bindings every path agrees on."""
+    """Keep only the bindings every path agrees on.
+
+    nox's and nox-uv's ``session`` decorators both register sessions, so a
+    name bound to either on every path stays a session decorator, limited to
+    the keywords nox accepts (``from nox_uv import session`` falling back to
+    ``from nox import session``). Otherwise every kind must match.
+    """
     first, *rest = paths
-    return {
-        name: kind
-        for name, kind in first.items()
-        if all(path.get(name) == kind for path in rest)
-    }
+    merged: dict[str, _Kind] = {}
+    for name, kind in first.items():
+        kinds = {kind, *(path.get(name) for path in rest)}
+        if len(kinds) == 1:
+            merged[name] = kind
+        elif kinds <= {_Kind.SESSION, _Kind.UV_SESSION}:
+            merged[name] = _Kind.SESSION
+    return merged
 
 
 def _unknown_star_import(node: ast.stmt) -> bool:
@@ -268,12 +294,14 @@ def _apply_import(
             # `import nox.command` binds the top-level `nox` name too.
             name = alias.asname or alias.name.partition(".")[0]
             target = alias.name if alias.asname else name
-            result[name] = _Kind.MODULE if target in _NOX_MODULES else _Kind.OTHER
+            result[name] = _MODULE_KINDS.get(target, _Kind.OTHER)
         return result
     from_nox = node.module in _NOX_MODULES and not node.level
     kinds = {"session": _Kind.SESSION}
     if node.module == "nox":
         kinds["parametrize"] = _Kind.PARAMETRIZE
+    else:
+        kinds["session"] = _Kind.UV_SESSION
     for alias in node.names:
         if alias.name == "*":  # Only `from nox import *` gets here.
             result.update({n: _Kind[kind] for n, kind in _NOX_STAR.items()})
@@ -282,6 +310,39 @@ def _apply_import(
         known = from_nox and alias.name in kinds
         result[name] = kinds[alias.name] if known else _Kind.OTHER
     return result
+
+
+_MODULE_KINDS = {"nox": _Kind.MODULE, "nox_uv": _Kind.UV_MODULE}
+_SESSION_OF = {_Kind.MODULE: _Kind.SESSION, _Kind.UV_MODULE: _Kind.UV_SESSION}
+# Keyword arguments `nox.session` accepts; any other raises TypeError.
+_NOX_SESSION_KWARGS = frozenset({
+    "python",
+    "py",
+    "reuse_venv",
+    "name",
+    "venv_backend",
+    "venv_params",
+    "tags",
+    "default",
+    "requires",
+    "download_python",
+    "allow_parallel",
+})
+# nox-uv adds its own and forwards the rest to `nox.session`.
+_UV_SESSION_KWARGS = _NOX_SESSION_KWARGS | {
+    "uv_groups",
+    "uv_extras",
+    "uv_only_groups",
+    "uv_all_extras",
+    "uv_no_extras",
+    "uv_all_groups",
+    "uv_no_groups",
+    "uv_no_install_project",
+    "uv_sync_locked",
+    "uv_quiet",
+    "uv_packages",
+    "uv_all_packages",
+}
 
 
 class _Unpredictable(Exception):  # noqa: N818  # control flow, not an error
@@ -344,24 +405,34 @@ def _only_imported_from_typing(tree: ast.Module, name: str) -> bool:
     return name not in _stores(tree)
 
 
-def _is_session_ref(node: ast.expr, bound: dict[str, _Kind]) -> bool:
-    if isinstance(node, ast.Attribute):
-        return (
-            node.attr == "session"
-            and isinstance(node.value, ast.Name)
-            and bound.get(node.value.id) is _Kind.MODULE
-        )
-    return isinstance(node, ast.Name) and bound.get(node.id) is _Kind.SESSION
+def _session_kwargs(node: ast.expr, bound: dict[str, _Kind]) -> frozenset[str] | None:
+    """Return the keywords a session decorator accepts, or None if it isn't one.
+
+    ``nox.session``/``session`` from nox and their nox-uv equivalents count.
+    """
+    kind: _Kind | None = None
+    if isinstance(node, ast.Attribute) and node.attr == "session":
+        if isinstance(node.value, ast.Name):
+            module = bound.get(node.value.id)
+            kind = _SESSION_OF.get(module) if module is not None else None
+    elif isinstance(node, ast.Name):
+        kind = bound.get(node.id)
+    if kind is _Kind.SESSION:
+        return _NOX_SESSION_KWARGS
+    return _UV_SESSION_KWARGS if kind is _Kind.UV_SESSION else None
 
 
-def _explicit_name(call: ast.Call, default: str | None) -> str | None:
+def _explicit_name(
+    call: ast.Call, default: str | None, accepted: frozenset[str]
+) -> str | None:
     """Return the name a ``@nox.session(...)`` call registers, if it is static.
 
     nox registers ``name or func.__name__``. A ``name=`` that is not a literal,
     a ``**mapping`` that may carry one, or positional arguments make the real
-    name unknowable without evaluation.
+    name unknowable without evaluation, and a keyword not in *accepted* makes
+    the call raise ``TypeError``, so nothing registers.
     """
-    if call.args or any(keyword.arg is None for keyword in call.keywords):
+    if call.args or any(keyword.arg not in accepted for keyword in call.keywords):
         return None
     for keyword in call.keywords:
         if keyword.arg == "name":
@@ -389,11 +460,13 @@ def _session_names(func: ast.FunctionDef, bound: dict[str, _Kind]) -> list[str]:
     names: list[str] = []
     default: str | None = func.name
     for decorator in reversed(func.decorator_list):
-        if _is_session_ref(decorator, seen):
+        call = decorator if isinstance(decorator, ast.Call) else None
+        accepted = _session_kwargs(call.func if call else decorator, seen)
+        if accepted is not None and call is None:
             if default is not None:
                 names.append(default)
-        elif isinstance(decorator, ast.Call) and _is_session_ref(decorator.func, seen):
-            name = _explicit_name(decorator, default)
+        elif accepted is not None and call is not None:
+            name = _explicit_name(call, default, accepted)
             if name is not None:
                 names.append(name)
         elif not _is_parametrize(decorator, seen):

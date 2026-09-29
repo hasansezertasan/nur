@@ -353,6 +353,30 @@ def test_annotations_are_reads_unless_postponed() -> None:
     assert _names(future + header + default) == []  # Defaults still run.
 
 
+def test_comprehension_first_iterable_reads_the_enclosing_scope() -> None:
+    assert _names("import nox\nitems = [x for x in x]\n" + SESSION) == []
+    ok = "import nox\nxs = [1]\nitems = [x for x in xs if x]\n"
+    assert _names(ok + SESSION) == ["s"]
+    nested = "import nox\nxs = [[1]]\nitems = [y for x in xs for y in x]\n"
+    assert _names(nested + SESSION) == ["s"]
+
+
+def test_session_keywords_must_be_accepted() -> None:
+    assert _names("import nox\n@nox.session(typo=True)\ndef s(session): ...\n") == []
+    uv_on_nox = "import nox\n@nox.session(uv_groups=['dev'])\ndef s(session): ...\n"
+    assert _names(uv_on_nox) == []
+    uv = (
+        "from nox_uv import session\n@session(uv_groups=['dev'])\ndef s(session): ...\n"
+    )
+    assert _names(uv) == ["s"]
+    fallback = (
+        "try:\n    from nox_uv import session\n"
+        "except ImportError:\n    from nox import session\n"
+    )
+    assert _names(fallback + "@session(tags=['x'])\ndef s(session): ...\n") == ["s"]
+    assert _names(fallback + "@session(uv_groups=['x'])\ndef s(session): ...\n") == []
+
+
 def test_star_imports_bind_only_known_names() -> None:
     body = "from nox import *\n@session\ndef s(session): ...\n"
     assert _names(
