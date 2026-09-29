@@ -89,22 +89,37 @@ def _mutates_namespace(tree: ast.Module) -> bool:
     ``builtins.setattr``. Other attributes
     (``nox.options``, ``nox.needs_version``) do not count.
     """
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Attribute):
-            stored = isinstance(node.ctx, ast.Store | ast.Del)
-            if (node.attr == "session" and stored) or node.attr == "__dict__":
-                return True
-        elif isinstance(node, ast.Call):
-            func = node.func
-            name = func.id if isinstance(func, ast.Name) else None
-            if isinstance(func, ast.Attribute):
-                name = func.attr  # e.g. `builtins.setattr(...)`
-            if name in _MUTATORS:
-                return True
-        elif isinstance(node, ast.ImportFrom) and node.module == "builtins":
-            if any(alias.name in _MUTATORS | {"*"} for alias in node.names):
-                return True  # `from builtins import setattr as s` hides the call.
+    return any(_mutates(node) for node in ast.walk(tree))
+
+
+def _mutates(node: ast.AST) -> bool:
+    if isinstance(node, ast.Attribute):
+        stored = isinstance(node.ctx, ast.Store | ast.Del)
+        return (node.attr == "session" and stored) or node.attr == "__dict__"
+    if isinstance(node, ast.Call):
+        func = node.func
+        name = func.id if isinstance(func, ast.Name) else None
+        if isinstance(func, ast.Attribute):
+            name = func.attr  # e.g. `builtins.setattr(...)`
+        return name in _MUTATORS or _computed_getattr(node)
+    if isinstance(node, ast.Constant):
+        return node.value == "__dict__"  # e.g. `getattr(nox, "__dict__")`.
+    if isinstance(node, ast.ImportFrom) and node.module == "builtins":
+        # `from builtins import setattr as s` hides the call.
+        return any(alias.name in _MUTATORS | {"*"} for alias in node.names)
     return False
+
+
+def _computed_getattr(node: ast.Call) -> bool:
+    """Return True for ``getattr(obj, name)`` with a non-literal attribute name."""
+    if len(node.args) < 2:  # noqa: PLR2004  # (object, name)
+        return False
+    func = node.func
+    name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
+    attr = node.args[1]
+    return name in {"getattr", "__getattribute__"} and not (
+        isinstance(attr, ast.Constant) and isinstance(attr.value, str)
+    )
 
 
 def _stores(*nodes: ast.AST | None) -> set[str]:
@@ -190,25 +205,37 @@ def _collect_reads(node: ast.AST, reads: set[str], *, local: frozenset[str]) -> 
         # Each generator's iterable is read before its own target is bound (the
         # first one in the enclosing scope); its filters and everything after
         # see that target, and the element sees all of them.
+        # A walrus inside binds the enclosing scope, so it is not local here.
         inner = local
         for generator in node.generators:
             _collect_reads(generator.iter, reads, local=inner)
-            inner |= _stores(generator.target) | _stores(*generator.ifs)
+            inner |= _stores(generator.target)
             for condition in generator.ifs:
                 _collect_reads(condition, reads, local=inner)
         parts = [node.key, node.value] if isinstance(node, ast.DictComp) else [node.elt]
-        inner |= _stores(*parts)
         for part in parts:
             _collect_reads(part, reads, local=inner)
         return
     if (
         isinstance(node, ast.Name)
-        and isinstance(node.ctx, ast.Load | ast.Del)
+        and isinstance(node.ctx, ast.Load)
         and node.id not in local
     ):
         reads.add(node.id)
     for child in ast.iter_child_nodes(node):
         _collect_reads(child, reads, local=local)
+
+
+def _deleted_names(node: ast.stmt) -> set[str]:
+    """Return the plain names a ``del`` statement deletes."""
+    if not isinstance(node, ast.Delete):
+        return set()
+    return {
+        child.id
+        for target in node.targets
+        for child in ast.walk(target)
+        if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Del)
+    }
 
 
 def _annotated_reads(
@@ -473,8 +500,14 @@ def _session_names(func: ast.FunctionDef, bound: dict[str, _Kind]) -> list[str]:
 
 
 def _is_parametrize(node: ast.expr, bound: dict[str, _Kind]) -> bool:
-    """Return True for ``@nox.parametrize(...)``, which keeps ``__name__``."""
-    func = node.func if isinstance(node, ast.Call) else node
+    """Return True for ``@nox.parametrize(...)``, which keeps ``__name__``.
+
+    It must be called with its two required arguments (``arg_names`` and
+    ``arg_values_list``); ``@nox.parametrize()`` raises ``TypeError``.
+    """
+    if not isinstance(node, ast.Call) or not _valid_parametrize_call(node):
+        return False
+    func = node.func
     if isinstance(func, ast.Name):
         return bound.get(func.id) is _Kind.PARAMETRIZE
     return (
@@ -482,6 +515,22 @@ def _is_parametrize(node: ast.expr, bound: dict[str, _Kind]) -> bool:
         and func.attr == "parametrize"
         and isinstance(func.value, ast.Name)
         and bound.get(func.value.id) is _Kind.MODULE
+    )
+
+
+def _valid_parametrize_call(call: ast.Call) -> bool:
+    keywords = {keyword.arg for keyword in call.keywords if keyword.arg is not None}
+    if len(keywords) < len(call.keywords) or any(
+        isinstance(arg, ast.Starred) for arg in call.args
+    ):
+        return False  # `*args`/`**kwargs` hide what is passed.
+    accepted = ["arg_names", "arg_values_list", "ids"]
+    positional = set(accepted[: len(call.args)])
+    return (
+        len(call.args) <= len(accepted)
+        and not positional & keywords
+        and keywords <= set(accepted)
+        and {"arg_names", "arg_values_list"} <= positional | keywords
     )
 
 
@@ -533,6 +582,8 @@ class _Walker:
             reads = _statement_reads(node, lazy_annotations=self._lazy_annotations)
             if not reads <= state.keys() | _IMPLICIT:
                 return None  # Reading a name not yet bound raises NameError.
+            if not _deleted_names(node) <= state.keys():
+                return None  # `del` of an unbound name (even a builtin) fails.
             state = self._statement(node, state, top=top)
             if state is not None:
                 state = _without(state, self._unstable)

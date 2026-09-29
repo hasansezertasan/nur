@@ -384,6 +384,36 @@ def test_session_keywords_must_be_accepted() -> None:
     assert _names(fallback + "@session(uv_groups=['x'])\ndef s(session): ...\n") == []
 
 
+def test_walrus_in_a_comprehension_reads_the_enclosing_scope() -> None:
+    in_filter = "import nox\nitems = [i for i in [1] if (x := x + 1)]\n"
+    assert _names(in_filter + SESSION) == []
+    in_element = "import nox\nitems = [(x := x + 1) for i in [1]]\n"
+    assert _names(in_element + SESSION) == []
+
+
+def test_deleting_an_unbound_name_fails() -> None:
+    assert _names("import nox\ndel len\n" + SESSION) == []
+    assert _names("import nox\nx = 1\ndel x\n" + SESSION) == ["s"]
+
+
+def test_parametrize_must_receive_its_required_arguments() -> None:
+    body = "def f(session, a): ...\n"
+    for decorator in (
+        "@nox.parametrize()",
+        "@nox.parametrize",
+        "@nox.parametrize('a')",
+        "@nox.parametrize(*args)",
+    ):
+        text = f"import nox\nargs = ()\n@nox.session\n{decorator}\n" + body
+        assert _names(text) == [], decorator
+    for decorator in (
+        "@nox.parametrize('a', [1])",
+        "@nox.parametrize(arg_names='a', arg_values_list=[1])",
+        "@nox.parametrize('a', [1], ids=['one'])",
+    ):
+        assert _names(f"import nox\n@nox.session\n{decorator}\n" + body) == ["f"]
+
+
 def test_star_imports_bind_only_known_names() -> None:
     body = "from nox import *\n@session\ndef s(session): ...\n"
     assert _names(
@@ -443,6 +473,8 @@ def test_global_declarations_make_a_name_untrackable() -> None:
         "import builtins\nbuiltins.setattr(nox, 'session', print)\n",
         "from builtins import setattr as s\ns(nox, 'session', print)\n",
         "nox.__setattr__('session', print)\n",
+        "getattr(nox, '__dict__')['session'] = print\n",
+        "attr = 'session'\ngetattr(nox, attr)\n",
         "nox.__delattr__('session')\n",
         "class C:\n    nox.session = print\n",
     ],
