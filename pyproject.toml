@@ -28,6 +28,7 @@ keywords = [
   "composer",
   "xc",
   "vscode",
+  "nox",
 ]
 classifiers = [
   "Development Status :: 4 - Beta",

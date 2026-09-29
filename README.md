@@ -24,7 +24,7 @@
 
 Run `nur` in a project and it discovers the tasks your project already defines —
 from npm, Make, deno, composer, just, Taskfile, pre-commit, PDM/poe, tox, mise,
-cargo-make, moon, xc, and VS Code tasks — then lets you run them from a TUI picker or directly from the command line.
+cargo-make, moon, xc, VS Code tasks, and nox — then lets you run them from a TUI picker or directly from the command line.
 Discovery is limited to the current directory. See [Features](#features) for the
 full list of source files.
 
@@ -134,7 +134,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 
 ## Features
 
-- **Zero-config discovery** across fifteen providers, each parsed from a single
+- **Zero-config discovery** across sixteen providers, each parsed from a single
   source file in the current directory:
 
   | Provider | Prefix | Source file |
@@ -154,6 +154,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   | moon | `moon` | `moon.yml` |
   | xc | `xc` | `README.md` (see below) |
   | VS Code | `vscode` | `.vscode/tasks.json` (see below) |
+  | nox | `nox` | `noxfile.py` (see below) |
 
   `tox` reads the first applicable config file present, in priority order:
   `tox.ini`, `setup.cfg` (`[tox:tox]`), `pyproject.toml` (`[tool.tox]`), then
@@ -179,6 +180,24 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   setting `env`, `shell`, or a `cwd` other than the project root. Shell tasks run
   through `$SHELL -c` on POSIX (falling back to `/bin/sh`) and `cmd.exe` on
   Windows; an object-form `command` is quoted as a single literal token.
+  `nox` parses `noxfile.py` as a Python syntax tree (never importing it, unlike
+  `nox --list`) and surfaces top-level `@nox.session`-decorated functions,
+  runnable as `nox -s <name>`, using an explicit string `name=` when given and
+  the docstring's first line as the description. `nox-uv`'s drop-in `session`
+  decorator is recognised too, and `python=[...]` / `@nox.parametrize`
+  variants appear under their base name (which runs every variant). Only
+  straight-line noxfiles are trusted: module code may use imports,
+  assignments, `def`/`class`, and `if`/`try` blocks made of those (such as
+  try-import fallbacks and `if sys.version_info < ...: raise` guards);
+  `if TYPE_CHECKING:` and `if __name__ == "__main__":` blocks are skipped. A
+  noxfile that uses loops, `with`, `match`, `assert`, `raise` inside a `try`,
+  or that edits `nox.session` or a namespace directly lists no sessions, rather
+  than sessions nox may not register.
+  Discovery is best-effort: it cannot know whether an import or an expression
+  fails in nox's environment, and deliberately unusual module code (aliasing
+  tricks, handler matching inside `try`, and similar) may still list a session
+  nox rejects. Running such a session fails with nox's own error; nur never runs
+  noxfile code to discover sessions.
 - **CLI Application**: run any discovered task by name or qualified `prefix:name`, with `--` passthrough to the underlying runner.
 - **TUI Application**: interactive three-pane task picker built with Textual.
 - **Safe by default**: discovery parses files; it never shells out to a runner just to list tasks.
