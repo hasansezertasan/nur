@@ -4,7 +4,7 @@ Usage
 ``nur`` discovers the runnable tasks in your project (from ``Makefile``,
 ``package.json``, ``deno.json``/``deno.jsonc``, ``composer.json``, ``justfile``,
 ``Taskfile``, ``mise.toml``, ``Makefile.toml`` (cargo-make), ``moon.yml``, the xc
-task section of ``README.md``, ``.vscode/tasks.json``, ``noxfile.py``, and the ``pdm``/``poe``
+task section of ``README.md``, ``.vscode/tasks.json``, ``noxfile.py``, ``maskfile.md``, and the ``pdm``/``poe``
 tables in ``pyproject.toml``) and runs them from one entry point.
 
 Launch the TUI
@@ -26,7 +26,7 @@ List the discovered tasks
 
 Tasks are grouped by their provider prefix (``make``, ``npm``, ``deno``,
 ``composer``, ``just``, ``task``, ``pdm``, ``poe``, ``tox``, ``mise``, ``cargo-make``,
-``moon``, ``xc``, ``vscode``, ``nox``).
+``moon``, ``xc``, ``vscode``, ``nox``, ``mask``).
 
 Run a task
 ----------

@@ -24,7 +24,7 @@
 
 Run `nur` in a project and it discovers the tasks your project already defines —
 from npm, Make, deno, composer, just, Taskfile, pre-commit, PDM/poe, tox, mise,
-cargo-make, moon, xc, VS Code tasks, and nox — then lets you run them from a TUI picker or directly from the command line.
+cargo-make, moon, xc, VS Code tasks, nox, and mask — then lets you run them from a TUI picker or directly from the command line.
 Discovery is limited to the current directory. See [Features](#features) for the
 full list of source files.
 
@@ -134,7 +134,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 
 ## Features
 
-- **Zero-config discovery** across sixteen providers, each parsed from a single
+- **Zero-config discovery** across seventeen providers, each parsed from a single
   source file in the current directory:
 
   | Provider | Prefix | Source file |
@@ -155,6 +155,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   | xc | `xc` | `README.md` (see below) |
   | VS Code | `vscode` | `.vscode/tasks.json` (see below) |
   | nox | `nox` | `noxfile.py` (see below) |
+  | mask | `mask` | `maskfile.md` (see below) |
 
   `tox` reads the first applicable config file present, in priority order:
   `tox.ini`, `setup.cfg` (`[tox:tox]`), `pyproject.toml` (`[tool.tox]`), then
@@ -198,6 +199,14 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   tricks, handler matching inside `try`, and similar) may still list a session
   nox rejects. Running such a session fails with nox's own error; nur never runs
   noxfile code to discover sessions.
+  `mask` reads `maskfile.md` the way mask does: each heading after the title is
+  a command, a deeper heading is its subcommand, the last fenced block under a
+  heading is its script, and a `>` blockquote is its description. A subcommand
+  is named by its path and runs with it, so `### test lint` under `## test` is
+  the task `test lint` (`nur "test lint"` runs `mask test lint`). A heading
+  becomes a task only when its script is a fenced block with a language tag,
+  since mask needs the tag to pick an interpreter. Setext (underlined) headings
+  and indented code blocks are not recognised.
 - **CLI Application**: run any discovered task by name or qualified `prefix:name`, with `--` passthrough to the underlying runner.
 - **TUI Application**: interactive three-pane task picker built with Textual.
 - **Safe by default**: discovery parses files; it never shells out to a runner just to list tasks.

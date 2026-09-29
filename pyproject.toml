@@ -29,6 +29,7 @@ keywords = [
   "xc",
   "vscode",
   "nox",
+  "mask",
 ]
 classifiers = [
   "Development Status :: 4 - Beta",

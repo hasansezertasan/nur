@@ -5,6 +5,7 @@ from nur.core.providers.composer import ComposerProvider
 from nur.core.providers.deno import DenoProvider
 from nur.core.providers.just import JustProvider
 from nur.core.providers.make import MakeProvider
+from nur.core.providers.mask import MaskProvider
 from nur.core.providers.mise import MiseProvider
 from nur.core.providers.moon import MoonProvider
 from nur.core.providers.nox import NoxProvider
@@ -37,6 +38,7 @@ PROVIDERS: list[Provider] = [
     XcProvider(),
     VsCodeProvider(),
     NoxProvider(),
+    MaskProvider(),
 ]
 
 __all__ = [
@@ -46,6 +48,7 @@ __all__ = [
     "DenoProvider",
     "JustProvider",
     "MakeProvider",
+    "MaskProvider",
     "MiseProvider",
     "MoonProvider",
     "NoxProvider",
