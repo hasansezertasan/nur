@@ -277,6 +277,16 @@ def test_raising_guards_with_literal_parts_are_unpredictable() -> None:
     assert _names(real + SESSION) == ["s"]
 
 
+def test_directly_imported_parametrize_keeps_the_name() -> None:
+    body = "@session\n@parametrize('a', [1])\ndef f(session, a): ...\n"
+    assert _names("from nox import session, parametrize\n" + body) == ["f"]
+    assert _names("from nox import *\n" + body) == ["f"]
+    aliased = "from nox import session, parametrize as p\n"
+    assert _names(aliased + body.replace("@parametrize", "@p")) == ["f"]
+    other = "from nox import session\nfrom other import parametrize\n"
+    assert _names(other + body) == []
+
+
 def test_lower_decorators_may_rename_the_function() -> None:
     renamed = "import nox\nrename = print\n@nox.session\n@rename\ndef f(session): ...\n"
     assert _names(renamed) == []
@@ -359,6 +369,8 @@ def test_global_declarations_make_a_name_untrackable() -> None:
         "eval('(nox := 1)')\n",
         "import builtins\nbuiltins.setattr(nox, 'session', print)\n",
         "from builtins import setattr as s\ns(nox, 'session', print)\n",
+        "nox.__setattr__('session', print)\n",
+        "nox.__delattr__('session')\n",
         "class C:\n    nox.session = print\n",
     ],
 )

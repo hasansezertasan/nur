@@ -31,6 +31,8 @@ _MUTATORS = frozenset({
     "eval",
     "setattr",
     "delattr",
+    "__setattr__",
+    "__delattr__",
 })
 # Statements that run straight through and whose only effect on nox bindings
 # is the names they store. (`global`/`nonlocal` names are never trusted.)
@@ -58,6 +60,7 @@ class _Kind(enum.Enum):
 
     MODULE = enum.auto()  # a nox module: `<name>.session` is the decorator
     SESSION = enum.auto()  # the `session` decorator itself
+    PARAMETRIZE = enum.auto()  # `nox.parametrize`, which keeps `__name__`
 
 
 def _mutates_namespace(tree: ast.Module) -> bool:
@@ -159,13 +162,16 @@ def _apply_import(
                 result.pop(name, None)
         return result
     from_nox = node.module in _NOX_MODULES and not node.level
+    kinds = {"session": _Kind.SESSION}
+    if node.module == "nox":
+        kinds["parametrize"] = _Kind.PARAMETRIZE
     for alias in node.names:
-        if alias.name == "*":
-            result["session"] = _Kind.SESSION  # Only nox star imports get here.
+        if alias.name == "*":  # Only nox star imports get here.
+            result.update(kinds)
             continue
         name = alias.asname or alias.name
-        if from_nox and alias.name == "session":
-            result[name] = _Kind.SESSION
+        if from_nox and alias.name in kinds:
+            result[name] = kinds[alias.name]
         else:
             result.pop(name, None)
     return result
@@ -356,6 +362,8 @@ def _session_names(func: ast.FunctionDef, bound: dict[str, _Kind]) -> list[str]:
 def _is_parametrize(node: ast.expr, bound: dict[str, _Kind]) -> bool:
     """Return True for ``@nox.parametrize(...)``, which keeps ``__name__``."""
     func = node.func if isinstance(node, ast.Call) else node
+    if isinstance(func, ast.Name):
+        return bound.get(func.id) is _Kind.PARAMETRIZE
     return (
         isinstance(func, ast.Attribute)
         and func.attr == "parametrize"
