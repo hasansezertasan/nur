@@ -193,6 +193,11 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   noxfile that uses loops, `with`, `match`, `assert`, `raise` inside a `try`,
   or that edits `nox.session` or a namespace directly lists no sessions, rather
   than sessions nox may not register.
+  Discovery is best-effort: it cannot know whether an import or an expression
+  fails in nox's environment, and deliberately unusual module code (aliasing
+  tricks, handler matching inside `try`, and similar) may still list a session
+  nox rejects. Running such a session fails with nox's own error; nur never runs
+  noxfile code to discover sessions.
 - **CLI Application**: run any discovered task by name or qualified `prefix:name`, with `--` passthrough to the underlying runner.
 - **TUI Application**: interactive three-pane task picker built with Textual.
 - **Safe by default**: discovery parses files; it never shells out to a runner just to list tasks.

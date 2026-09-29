@@ -11,6 +11,7 @@ from nur.core.models import Task
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from typing import TypeIs
 
 __all__ = ["NoxProvider", "parse_noxfile"]
 
@@ -88,8 +89,36 @@ def _mutates_namespace(tree: ast.Module) -> bool:
     (``exec``, ``eval``), including qualified or imported forms such as
     ``builtins.setattr``. Other attributes
     (``nox.options``, ``nox.needs_version``) do not count.
+
+    Session bodies run only when nox calls the session, after the noxfile has
+    loaded, so they are not scanned; ``getattr``/``vars`` there are common and
+    harmless. Other function bodies are, since module code may call them.
     """
-    return any(_mutates(node) for node in ast.walk(tree))
+    stack: list[ast.AST] = [tree]
+    while stack:
+        node = stack.pop()
+        if _mutates(node):
+            return True
+        if _is_session_function(node):
+            stack += [*node.decorator_list, node.args, *filter(None, [node.returns])]
+        else:
+            stack.extend(ast.iter_child_nodes(node))
+    return False
+
+
+def _is_session_function(
+    node: ast.AST,
+) -> TypeIs[ast.FunctionDef | ast.AsyncFunctionDef]:
+    """Return True for a ``def`` decorated with ``@...session`` (syntactically)."""
+    if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+        return False
+    for decorator in node.decorator_list:
+        target = decorator.func if isinstance(decorator, ast.Call) else decorator
+        if isinstance(target, ast.Attribute) and target.attr == "session":
+            return True
+        if isinstance(target, ast.Name) and target.id == "session":
+            return True
+    return False
 
 
 def _mutates(node: ast.AST) -> bool:

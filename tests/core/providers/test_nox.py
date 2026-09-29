@@ -516,6 +516,16 @@ def test_namespace_mutation_lists_nothing(mutation: str) -> None:
     assert _names("import nox\n" + mutation + SESSION) == []
 
 
+def test_namespace_builtins_inside_session_bodies_are_fine() -> None:
+    text = (
+        "import nox\nimport os\n@nox.session\ndef s(session):\n"
+        "    env = vars(os.environ)\n    getattr(session, name)\n"
+    )
+    assert _names(text) == ["s"]
+    helper = "import nox\ndef patch():\n    setattr(nox, 'session', print)\npatch()\n"
+    assert _names(helper + SESSION) == []  # A helper may run at import.
+
+
 def test_ordinary_nox_configuration_is_allowed() -> None:
     config = "import nox\nnox.needs_version = '>=2024'\nnox.options.sessions = []\n"
     assert _names(config + SESSION) == ["s"]
