@@ -1,3 +1,5 @@
+import pytest
+
 from nur.core.providers.mask import MaskProvider, parse_mask
 
 BASIC = """\
@@ -104,8 +106,9 @@ def test_windows_only_blocks_are_ignored_elsewhere() -> None:
     assert parse_mask(text, windows=True)[0].definition == "Write-Output ps"
 
 
-def test_command_with_only_a_windows_block_is_skipped_elsewhere() -> None:
-    text = "## go\n\n```cmd\necho hi\n```\n"
+@pytest.mark.parametrize("executor", ["powershell", "batch", "cmd"])
+def test_command_with_only_a_windows_block_is_skipped_elsewhere(executor) -> None:
+    text = f"## go\n\n```{executor}\necho hi\n```\n"
     assert parse_mask(text, windows=False) == []
     assert [t.name for t in parse_mask(text, windows=True)] == ["go"]
 
@@ -230,12 +233,6 @@ def test_crlf_line_endings_are_handled() -> None:
     ]
 
 
-def test_batch_blocks_count_only_on_windows() -> None:
-    text = "## go\n\n```batch\necho hi\n```\n"
-    assert parse_mask(text, windows=False) == []
-    assert [t.name for t in parse_mask(text, windows=True)] == ["go"]
-
-
 def test_empty_comment_closes_on_its_own_line() -> None:
     text = "## a\n<!-->\n\n```sh\nx\n```\n\n<!--->\n## b\n\n```sh\ny\n```\n"
     assert [t.name for t in parse_mask(text)] == ["a", "b"]
@@ -253,3 +250,13 @@ def test_script_of_blank_lines_is_runnable() -> None:
 def test_indented_fence_body_loses_the_fence_indent() -> None:
     text = "## a\n\n  ```sh\n    code\n  x\n y\n  ```\n"
     assert parse_mask(text)[0].definition == "  code\nx\ny"
+
+
+def test_heading_shallower_than_its_first_sibling_is_dropped() -> None:
+    # mask nests by the first subcommand's level: `### y` is shallower than the
+    # `####` that opened `a`'s subcommands, so mask drops it.
+    text = (
+        "## a\n\n#### x\n\n```sh\nx\n```\n\n### y\n\n```sh\ny\n```\n\n"
+        "#### z\n\n```sh\nz\n```\n"
+    )
+    assert [t.name for t in parse_mask(text)] == ["a x", "a z"]

@@ -38,22 +38,13 @@ class _Command:
     # Lines of the last blockquote, joined only when read: rebuilding the
     # description per line would be quadratic in a long blockquote.
     quote: list[str] = field(default_factory=list)
-    executor: str = ""
-    source: str = ""
-    # Whether the script block has any line at all: mask runs a script of blank
-    # lines (its source is a bare newline) but not one with no lines.
-    has_body: bool = False
+    # The last block's body, or None when mask cannot run it.
+    script: str | None = None
     subcommands: list[_Command] = field(default_factory=list)
 
     @property
     def description(self) -> str | None:
         return " ".join(part for part in self.quote if part) or None
-
-    @property
-    def runnable(self) -> bool:
-        # mask refuses to run a command whose script lacks a body or a language
-        # tag (the tag selects the interpreter), so neither is listed.
-        return bool(self.executor) and self.has_body
 
 
 def _command_name(text: str) -> str:
@@ -84,9 +75,11 @@ def _take_script(
     if not windows and info in WINDOWS_ONLY_EXECUTORS:
         return
     # Each block overwrites the last: mask runs the final one.
-    command.executor = info
-    command.source = _dedent(body, len(fence) - len(fence.lstrip(" ")))
-    command.has_body = bool(body)
+    # mask refuses to run a script without a language tag (the tag selects the
+    # interpreter) or without any line; a script of blank lines still runs.
+    runnable = bool(info) and bool(body)
+    indent = len(fence) - len(fence.lstrip(" "))
+    command.script = _dedent(body, indent) if runnable else None
 
 
 def _flat_commands(text: str, *, windows: bool) -> list[_Command]:
@@ -151,12 +144,12 @@ def _treeify(commands: list[_Command]) -> list[_Command]:
     """
     tree: list[_Command] = []
     current = commands[0]
-    for index, command in enumerate(commands):
+    for command in commands[1:]:
         if command.level > current.level:
             if command.name.startswith(current.name):
                 command.name = command.name[len(current.name) :].strip()
             current.subcommands.append(command)
-        elif command.level == current.level and index > 0:
+        elif command.level == current.level:
             tree.append(current)
             current = command
     tree.append(current)
@@ -175,14 +168,14 @@ def _tasks(
             log.debug("nur: skipping unnamed mask command under %r", parents)
             continue
         path = (*parents, command.name)
-        if command.runnable:
+        if command.script is not None:
             tasks.append(
                 Task(
                     name=" ".join(path),
                     prefix="mask",
                     argv_base=("mask", *path),
                     description=command.description,
-                    definition=command.source,
+                    definition=command.script,
                     source_file=source_file,
                 )
             )
