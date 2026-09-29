@@ -25,9 +25,6 @@ log = logging.getLogger("nur")
 
 SOURCE_FILE = "maskfile.md"
 
-# An ATX heading's optional closing sequence: hashes preceded by whitespace (or
-# filling the whole heading), which markdown drops from the heading text.
-CLOSING_HASHES = re.compile(r"(?:^|\s+)#+\s*$")
 BLOCKQUOTE = re.compile(r"^ {0,3}>\s?(.*)$")
 # Outside Windows, mask skips these fences entirely, as though they were absent,
 # so a command whose only script is one of them has no script to run.
@@ -38,22 +35,58 @@ WINDOWS_ONLY_EXECUTORS = frozenset({"powershell", "batch", "cmd"})
 class _Command:
     level: int
     name: str = ""
-    description: str | None = None
+    # Lines of the last blockquote, joined only when read: rebuilding the
+    # description per line would be quadratic in a long blockquote.
+    quote: list[str] = field(default_factory=list)
     executor: str = ""
-    source: str | None = None
+    source: str = ""
+    # Whether the script block has any line at all: mask runs a script of blank
+    # lines (its source is a bare newline) but not one with no lines.
+    has_body: bool = False
     subcommands: list[_Command] = field(default_factory=list)
+
+    @property
+    def description(self) -> str | None:
+        return " ".join(part for part in self.quote if part) or None
 
     @property
     def runnable(self) -> bool:
         # mask refuses to run a command whose script lacks a body or a language
         # tag (the tag selects the interpreter), so neither is listed.
-        return bool(self.executor) and bool(self.source)
+        return bool(self.executor) and self.has_body
 
 
 def _command_name(text: str) -> str:
     """Strip a heading's ``(required)`` and ``[optional]`` argument declarations."""
-    text = CLOSING_HASHES.sub("", text.strip())
+    text = text.strip()
+    # Drop an ATX heading's optional closing sequence: hashes that fill the
+    # heading or follow whitespace. Done without a regex, which backtracks
+    # quadratically over a long whitespace run in a hostile heading.
+    head = text.rstrip("#")
+    if head != text and (not head or head[-1].isspace()):
+        text = head.rstrip()
     return re.split(r"[(\[]", text, maxsplit=1)[0].strip()
+
+
+def _dedent(body: list[str], indent: int) -> str:
+    """Join a fence's body, dropping up to the fence's own indent from each line."""
+    return "\n".join(
+        line[min(indent, len(line) - len(line.lstrip(" "))) :] for line in body
+    )
+
+
+def _take_script(
+    command: _Command, fence: str, body: list[str], *, windows: bool
+) -> None:
+    """Make the block opened by the *fence* line *command*'s script."""
+    match = FENCE.match(fence)
+    info = match.group(2).strip() if match is not None else ""
+    if not windows and info in WINDOWS_ONLY_EXECUTORS:
+        return
+    # Each block overwrites the last: mask runs the final one.
+    command.executor = info
+    command.source = _dedent(body, len(fence) - len(fence.lstrip(" ")))
+    command.has_body = bool(body)
 
 
 def _flat_commands(text: str, *, windows: bool) -> list[_Command]:
@@ -76,25 +109,23 @@ def _flat_commands(text: str, *, windows: bool) -> list[_Command]:
     current = _Command(level=1)
     quote: list[str] = []
     for index, line in enumerate(lines):
-        if index in openings and (fence := FENCE.match(line)) is not None:
-            info = fence.group(2).strip()
-            if windows or info not in WINDOWS_ONLY_EXECUTORS:
-                # Each block overwrites the last: mask runs the final one.
-                current.executor = info
-                current.source = "\n".join(lines[index + 1 : openings[index]])
+        if index in openings:
+            _take_script(
+                current, line, lines[index + 1 : openings[index]], windows=windows
+            )
         if index in code:
             quote = []
             continue
         if (match := BLOCKQUOTE.match(line)) is not None:
+            if not quote:
+                # The last blockquote under a heading is its description.
+                current.quote = quote
             quote.append(match.group(1).strip())
-            # The last blockquote under a heading is its description.
-            current.description = " ".join(part for part in quote if part) or None
             continue
         heading = HEADING.match(line)
         if heading is None and quote and quote[-1] and line.strip():
             # A lazy continuation line extends the blockquote's paragraph.
             quote.append(line.strip())
-            current.description = " ".join(part for part in quote if part)
             continue
         quote = []
         if heading is None:
@@ -151,7 +182,7 @@ def _tasks(
                     prefix="mask",
                     argv_base=("mask", *path),
                     description=command.description,
-                    definition=command.source or "",
+                    definition=command.source,
                     source_file=source_file,
                 )
             )

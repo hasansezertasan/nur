@@ -89,7 +89,7 @@ def test_code_block_without_a_language_is_not_runnable() -> None:
     assert parse_mask(text) == []
 
 
-def test_code_block_with_an_empty_body_is_not_runnable() -> None:
+def test_code_block_with_no_lines_is_not_runnable() -> None:
     assert parse_mask("## go\n\n```sh\n```\n") == []
 
 
@@ -234,3 +234,22 @@ def test_batch_blocks_count_only_on_windows() -> None:
     text = "## go\n\n```batch\necho hi\n```\n"
     assert parse_mask(text, windows=False) == []
     assert [t.name for t in parse_mask(text, windows=True)] == ["go"]
+
+
+def test_empty_comment_closes_on_its_own_line() -> None:
+    text = "## a\n<!-->\n\n```sh\nx\n```\n\n<!--->\n## b\n\n```sh\ny\n```\n"
+    assert [t.name for t in parse_mask(text)] == ["a", "b"]
+
+
+def test_non_breaking_space_does_not_make_a_heading() -> None:
+    text = "## a\n\n```sh\nx\n```\n\n##\u00a0b\n\n```sh\ny\n```\n"
+    assert [(t.name, t.definition) for t in parse_mask(text)] == [("a", "y")]
+
+
+def test_script_of_blank_lines_is_runnable() -> None:
+    assert [t.name for t in parse_mask("## a\n\n```sh\n\n```\n")] == ["a"]
+
+
+def test_indented_fence_body_loses_the_fence_indent() -> None:
+    text = "## a\n\n  ```sh\n    code\n  x\n y\n  ```\n"
+    assert parse_mask(text)[0].definition == "  code\nx\ny"

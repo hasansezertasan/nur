@@ -207,8 +207,8 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   becomes a task only when its script is a fenced block with a language tag,
   since mask needs the tag to pick an interpreter; `powershell`, `batch`, and
   `cmd` blocks count only on Windows, as in mask. Commands inside HTML comments
-  are ignored. Setext (underlined) headings, indented code blocks, and fences
-  nested in lists or blockquotes are not recognised, and inline markup such as
+  are ignored. Setext (underlined) headings, indented code blocks, other HTML
+  blocks, and fences nested in lists or blockquotes are not recognised, and inline markup such as
   emphasis in a heading is kept as written.
 - **CLI Application**: run any discovered task by name or qualified `prefix:name`, with `--` passthrough to the underlying runner.
 - **TUI Application**: interactive three-pane task picker built with Textual.

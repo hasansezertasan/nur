@@ -18,6 +18,7 @@ log = logging.getLogger("nur")
 SOURCE_FILE = "README.md"
 
 
+# Like a heading, the marker may carry up to three leading spaces.
 MARKER_COMMENT = re.compile(r"^ {0,3}<!-- xc-heading -->\s*$")
 # Four or more leading spaces (or a leading tab) is an indented code block, not
 # prose -- such lines must not be folded into a task's description.
@@ -39,7 +40,10 @@ def _heading(line: str) -> tuple[int, str] | None:
     if match is None:
         return None
     hashes, text = match.groups()
-    text = (text or "").strip().rstrip("#").strip()
+    if text is None:
+        # xc needs a space after the hashes, so a bare `##` line is prose.
+        return None
+    text = text.strip().rstrip("#").strip()
     # xc reads heading text from the markdown AST, so a code span or emphasis
     # around the name is markup, not part of it: ``### `build` `` is `build`.
     # copier-pyproject writes every task heading as an inline code span.

@@ -337,3 +337,17 @@ def test_this_repository_readme_parses_to_its_documented_tasks() -> None:
 def test_backticks_in_an_info_string_do_not_open_a_fence() -> None:
     text = "## Tasks\n\n``` sh ```\n\n### build\n\n```sh\nuv build\n```\n"
     assert [t.name for t in parse_xc(text)] == ["build"]
+
+
+def test_bare_hash_line_is_prose_not_a_heading() -> None:
+    # xc needs a space after the hashes, so neither line ends the section.
+    text = (
+        "## Tasks\n#\n### build\n\n```sh\nmake all\n```\n\n##\n\n"
+        "### test\n\n```sh\npytest\n```\n"
+    )
+    assert [t.name for t in parse_xc(text)] == ["build", "test"]
+
+
+def test_bare_hash_line_after_the_marker_is_not_the_section() -> None:
+    text = "<!-- xc-heading -->\n##\n\n## Tasks\n\n### build\n\n```sh\nmake\n```\n"
+    assert [t.name for t in parse_xc(text)] == ["build"]

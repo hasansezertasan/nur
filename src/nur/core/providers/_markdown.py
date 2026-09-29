@@ -15,11 +15,13 @@ if TYPE_CHECKING:
 __all__ = ["FENCE", "HEADING", "code_lines", "comment_lines", "fence_blocks"]
 
 
-# Markdown allows up to three leading spaces before a heading or fence; a fourth
-# makes the line an indented code block instead. Without that bound, a file that
-# shows indented examples would advertise phantom tasks.
-# A bare run of hashes is an empty heading, so the text group is optional.
-HEADING = re.compile(r"^ {0,3}(#{1,6})(?:\s+(.*))?$")
+# Markdown allows up to three leading spaces before a heading, fence, or HTML
+# block; a fourth makes the line an indented code block instead. Without that
+# bound, a file that shows indented examples would advertise phantom tasks.
+# Only a space or tab may separate the hashes from the text. CommonMark reads a
+# bare run of hashes as an empty heading, so the text group is optional; a
+# provider whose runner disagrees (xc) checks for the missing group itself.
+HEADING = re.compile(r"^ {0,3}(#{1,6})(?:[ \t]+(.*))?$")
 # The trailing group is a fence's info string. Only an opening fence may carry
 # one: a closing fence must have nothing but whitespace after its delimiter.
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
@@ -107,5 +109,6 @@ def comment_lines(lines: list[str]) -> set[int]:
             opener = match.group(1)
         elif COMMENT_OPEN.match(line) is not None:
             comments.add(index)
-            in_comment = "-->" not in line.split("<!--", 1)[1]
+            # The whole opening line counts: `<!-->` closes where it opens.
+            in_comment = "-->" not in line
     return comments
