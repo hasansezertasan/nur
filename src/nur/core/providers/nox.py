@@ -187,20 +187,18 @@ def _collect_reads(node: ast.AST, reads: set[str], *, local: frozenset[str]) -> 
                 _collect_reads(default, reads, local=local)
         return
     if isinstance(node, ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp):
-        # The first iterable runs in the enclosing scope, before any target is
-        # bound; everything else sees the comprehension's own names.
-        first, *rest = node.generators
-        _collect_reads(first.iter, reads, local=local)
-        inner = local | _stores(node)
-        others: list[ast.AST] = [
-            *first.ifs,
-            *(part for gen in rest for part in (gen.iter, *gen.ifs)),
-        ]
-        if isinstance(node, ast.DictComp):
-            others += [node.key, node.value]
-        else:
-            others.append(node.elt)
-        for part in others:
+        # Each generator's iterable is read before its own target is bound (the
+        # first one in the enclosing scope); its filters and everything after
+        # see that target, and the element sees all of them.
+        inner = local
+        for generator in node.generators:
+            _collect_reads(generator.iter, reads, local=inner)
+            inner |= _stores(generator.target) | _stores(*generator.ifs)
+            for condition in generator.ifs:
+                _collect_reads(condition, reads, local=inner)
+        parts = [node.key, node.value] if isinstance(node, ast.DictComp) else [node.elt]
+        inner |= _stores(*parts)
+        for part in parts:
             _collect_reads(part, reads, local=inner)
         return
     if (
@@ -593,7 +591,11 @@ class _Walker:
             # does not model, so a `try` with one is unpredictable.
             raise _Unpredictable
         body = self.block(node.body, bound, top=False)
-        completed = None if body is None else self.block(node.orelse, body, top=False)
+        if body is None:
+            # The body certainly fails (say, a NameError); whether a handler
+            # catches that depends on its class, which nur does not model.
+            raise _Unpredictable
+        completed = self.block(node.orelse, body, top=False)
         # A handler may start after any statement of the body ran.
         start = _without(bound, _stores(*node.body))
         paths = [completed]

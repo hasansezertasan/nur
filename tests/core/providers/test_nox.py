@@ -227,6 +227,11 @@ def test_if_blocks_merge_their_branches() -> None:
     assert _names(nested_def + SESSION) == ["s"]  # Only top-level defs register.
 
 
+def test_try_whose_body_always_fails_is_unpredictable() -> None:
+    text = "import nox\ntry:\n    missing\nexcept TypeError:\n    pass\n"
+    assert _names(text + SESSION) == []
+
+
 def test_try_blocks_merge_body_and_handlers() -> None:
     nested = (
         "import nox\ntry:\n    import tomllib as toml\nexcept ImportError:\n"
@@ -359,6 +364,8 @@ def test_comprehension_first_iterable_reads_the_enclosing_scope() -> None:
     assert _names(ok + SESSION) == ["s"]
     nested = "import nox\nxs = [[1]]\nitems = [y for x in xs for y in x]\n"
     assert _names(nested + SESSION) == ["s"]
+    later_target = "import nox\nitems = [x for x in [1] for y in y]\n"
+    assert _names(later_target + SESSION) == []
 
 
 def test_session_keywords_must_be_accepted() -> None:
