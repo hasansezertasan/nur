@@ -332,3 +332,8 @@ def test_this_repository_readme_parses_to_its_documented_tasks() -> None:
     ]
     assert tasks[0].definition == "uv sync"
     assert tasks[0].description == "Install the dependencies:"
+
+
+def test_backticks_in_an_info_string_do_not_open_a_fence() -> None:
+    text = "## Tasks\n\n``` sh ```\n\n### build\n\n```sh\nuv build\n```\n"
+    assert [t.name for t in parse_xc(text)] == ["build"]

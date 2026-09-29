@@ -39,7 +39,7 @@ def _heading(line: str) -> tuple[int, str] | None:
     if match is None:
         return None
     hashes, text = match.groups()
-    text = text.strip().rstrip("#").strip()
+    text = (text or "").strip().rstrip("#").strip()
     # xc reads heading text from the markdown AST, so a code span or emphasis
     # around the name is markup, not part of it: ``### `build` `` is `build`.
     # copier-pyproject writes every task heading as an inline code span.

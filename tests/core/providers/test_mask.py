@@ -178,3 +178,59 @@ def test_provider_skips_an_undecodable_file(tmp_path, caplog) -> None:
     (tmp_path / "maskfile.md").write_bytes(b"\xff\xfe\x00")
     assert MaskProvider().discover(tmp_path) == []
     assert "skipping maskfile.md" in caplog.text
+
+
+def test_commented_out_commands_are_ignored() -> None:
+    text = (
+        "## a\n\n```sh\nx\n```\n\n<!--\n## hidden\n\n```sh\necho\n```\n-->\n\n"
+        "<!-- one line -->\n## b\n\n```sh\ny\n```\n"
+    )
+    assert [t.name for t in parse_mask(text)] == ["a", "b"]
+
+
+def test_comment_inside_a_script_is_script_content() -> None:
+    text = "## a\n\n```sh\n<!--\necho x\n```\n\n## b\n\n```sh\ny\n```\n"
+    tasks = parse_mask(text)
+    assert [t.name for t in tasks] == ["a", "b"]
+    assert tasks[0].definition == "<!--\necho x"
+
+
+def test_backticks_in_an_info_string_do_not_open_a_fence() -> None:
+    text = "## a\n``` sh ```\n## b\n\n```sh\nx\n```\n"
+    assert [t.name for t in parse_mask(text)] == ["b"]
+
+
+def test_bare_hashes_start_an_empty_heading() -> None:
+    # The script after `##` belongs to that unnamed command, not to `a`.
+    assert parse_mask("## a\n##\n```sh\nx\n```\n") == []
+
+
+def test_lazy_blockquote_continuation_joins_the_description() -> None:
+    text = "## a\n> one\nlazy\n\n```sh\nx\n```\n"
+    assert parse_mask(text)[0].description == "one lazy"
+
+
+def test_duplicate_command_keeps_the_last_definition() -> None:
+    text = "## a\n\n```sh\nfirst\n```\n\n## a\n\n```sh\nsecond\n```\n"
+    assert [(t.name, t.definition) for t in parse_mask(text)] == [("a", "second")]
+
+
+def test_tilde_fences_and_unclosed_fences_are_scripts() -> None:
+    text = "## a\n\n~~~bash\nx\n~~~\n\n## b\n\n```sh\ny\n"
+    assert [(t.name, t.definition) for t in parse_mask(text)] == [
+        ("a", "x"),
+        ("b", "y"),
+    ]
+
+
+def test_crlf_line_endings_are_handled() -> None:
+    text = "## a\r\n> desc\r\n\r\n```sh\r\nx\r\n```\r\n"
+    assert [(t.name, t.description, t.definition) for t in parse_mask(text)] == [
+        ("a", "desc", "x")
+    ]
+
+
+def test_batch_blocks_count_only_on_windows() -> None:
+    text = "## go\n\n```batch\necho hi\n```\n"
+    assert parse_mask(text, windows=False) == []
+    assert [t.name for t in parse_mask(text, windows=True)] == ["go"]

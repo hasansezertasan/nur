@@ -7,7 +7,13 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from nur.core.models import Task
-from nur.core.providers._markdown import FENCE, HEADING, code_lines, fence_blocks
+from nur.core.providers._markdown import (
+    FENCE,
+    HEADING,
+    code_lines,
+    comment_lines,
+    fence_blocks,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -57,7 +63,11 @@ def _flat_commands(text: str, *, windows: bool) -> list[_Command]:
     unnamed root when there is none). A second level-1 heading ends the command
     list once any command has been seen -- mask stops parsing there.
     """
-    lines = text.splitlines()
+    # Blank out HTML comments first so a commented-out command, heading and
+    # fence alike, reads as empty lines.
+    raw = text.splitlines()
+    comments = comment_lines(raw)
+    lines = ["" if index in comments else line for index, line in enumerate(raw)]
     blocks = fence_blocks(lines)
     code = code_lines(lines, blocks)
     openings = dict(blocks)
@@ -80,15 +90,21 @@ def _flat_commands(text: str, *, windows: bool) -> list[_Command]:
             # The last blockquote under a heading is its description.
             current.description = " ".join(part for part in quote if part) or None
             continue
+        heading = HEADING.match(line)
+        if heading is None and quote and quote[-1] and line.strip():
+            # A lazy continuation line extends the blockquote's paragraph.
+            quote.append(line.strip())
+            current.description = " ".join(part for part in quote if part)
+            continue
         quote = []
-        if (heading := HEADING.match(line)) is None:
+        if heading is None:
             continue
         level = len(heading.group(1))
         if level > 1:
             commands.append(current)
         elif commands:
             break
-        current = _Command(level=level, name=_command_name(heading.group(2)))
+        current = _Command(level=level, name=_command_name(heading.group(2) or ""))
     commands.append(current)
     return commands
 
@@ -156,7 +172,10 @@ def parse_mask(
     ``cmd`` blocks count, as they do only in mask's Windows build.
     """
     root = _treeify(_flat_commands(text, windows=windows))[0]
-    return _tasks(root.subcommands, (), source_file)
+    # mask resolves a repeated command name to its last definition, so a later
+    # duplicate replaces the earlier task rather than listing both.
+    unique = {task.name: task for task in _tasks(root.subcommands, (), source_file)}
+    return list(unique.values())
 
 
 class MaskProvider:
