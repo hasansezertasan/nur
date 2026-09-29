@@ -530,8 +530,10 @@ def _session_names(func: ast.FunctionDef, bound: dict[str, _Kind]) -> list[str]:
     return names
 
 
-def _decorator_fails(decorator: ast.expr, bound: dict[str, _Kind]) -> bool:
-    """Return True if a nox decorator expression certainly (or may) raise.
+def _decorator_fails(
+    decorator: ast.expr, bound: dict[str, _Kind], *, certain: bool = False
+) -> bool:
+    """Return True if a nox decorator expression may (or, if *certain*, must) raise.
 
     A session call with positional arguments or an unaccepted keyword raises,
     and one with ``**mapping`` may; so does ``parametrize`` used bare or
@@ -540,10 +542,11 @@ def _decorator_fails(decorator: ast.expr, bound: dict[str, _Kind]) -> bool:
     call = decorator if isinstance(decorator, ast.Call) else None
     target = call.func if call is not None else decorator
     accepted = _session_kwargs(target, bound)
+    if accepted is not None and call is not None:
+        keywords = [kw.arg for kw in call.keywords if kw.arg is not None or not certain]
+        return bool(call.args) or any(kw not in accepted for kw in keywords)
     if accepted is not None:
-        return call is not None and (
-            bool(call.args) or any(kw.arg not in accepted for kw in call.keywords)
-        )
+        return False
     if _is_parametrize_ref(target, bound):
         return call is None or not _valid_parametrize_call(call)
     return False
@@ -648,32 +651,51 @@ class _Walker:
     ) -> dict[str, _Kind] | None:
         if isinstance(node, ast.Import | ast.ImportFrom):
             return self._import(node, bound, top=top)
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            return self._function(node, bound, top=top)
+        if isinstance(node, ast.ClassDef):
+            return self._class(node, bound)
+        if isinstance(node, _PLAIN | ast.Raise):
+            # A `raise` ends this path; other plain statements only bind names.
+            return None if isinstance(node, ast.Raise) else _bind(node, bound)
+        if isinstance(node, ast.If):
+            return self._if(node, bound)
+        if isinstance(node, ast.Try):
+            return self._try(node, bound)
+        raise _Unpredictable  # Loops, `with`, `match`, `assert`, `except*`, ...
+
+    def _class(
+        self, node: ast.ClassDef, bound: dict[str, _Kind]
+    ) -> dict[str, _Kind] | None:
+        if _deletes_within(node):
+            # A class-scope `del` only sees the class namespace, which the
+            # module-level bindings nur passes in do not separate out.
+            raise _Unpredictable
+        if self.block(node.body, bound, top=False) is None:
+            # A class body runs at import, under the same rules as module code;
+            # one that always raises means the import always fails.
+            return None
+        return _bind(node, bound)
+
+    def _function(
+        self,
+        node: ast.FunctionDef | ast.AsyncFunctionDef,
+        bound: dict[str, _Kind],
+        *,
+        top: bool,
+    ) -> dict[str, _Kind] | None:
+        seen = _without(bound, _stores(*node.decorator_list))
+        if any(_decorator_fails(d, seen, certain=True) for d in node.decorator_list):
+            # e.g. `@nox.session(typo=True)` raises while the file loads, so
+            # nothing after it registers either.
+            return None
         if isinstance(node, ast.FunctionDef) and top:
             # A later definition under the same name replaces the earlier one,
             # as in nox's own registry, while keeping the first one's position.
             description = _first_line(node)
             for name in _session_names(node, bound):
                 self.sessions[name] = description
-        if isinstance(node, ast.ClassDef) and _deletes_within(node):
-            # A class-scope `del` only sees the class namespace, which the
-            # module-level bindings nur passes in do not separate out.
-            raise _Unpredictable
-        if (
-            isinstance(node, ast.ClassDef)
-            and self.block(node.body, bound, top=False) is None
-        ):
-            # A class body runs at import, under the same rules as module code;
-            # one that always raises means the import always fails.
-            return None
-        if isinstance(node, _PLAIN):
-            return _bind(node, bound)
-        if isinstance(node, ast.Raise):
-            return None
-        if isinstance(node, ast.If):
-            return self._if(node, bound)
-        if isinstance(node, ast.Try):
-            return self._try(node, bound)
-        raise _Unpredictable  # Loops, `with`, `match`, `assert`, `except*`, ...
+        return _bind(node, bound)
 
     def _import(
         self, node: ast.Import | ast.ImportFrom, bound: dict[str, _Kind], *, top: bool

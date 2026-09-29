@@ -114,7 +114,6 @@ def test_explicit_name_handling() -> None:
         "import nox\nNAME = 'x'\nKW = {'name': 'y'}\n"
         "@nox.session(name=NAME)\ndef computed(session): ...\n"
         "@nox.session(**KW)\ndef splatted(session): ...\n"
-        "@nox.session('3.14')\ndef positional(session): ...\n"
         "@nox.session(name=None)\ndef default(session): ...\n"
         "@nox.session(name='')\ndef empty(session): ...\n"
         "@nox.session()\ndef bare_call(session): ...\n"
@@ -238,6 +237,20 @@ def test_invalid_decorator_in_a_stack_registers_nothing() -> None:
         "import nox\nNAME = 'x'\n@nox.session(name=NAME)\n@nox.session\ndef f(s): ...\n"
     )
     assert _names(computed) == ["f"]  # A computed name is unknown, not an error.
+
+
+def test_invalid_decorator_stops_the_whole_import() -> None:
+    text = (
+        "import nox\n@nox.session(typo=True)\ndef broken(session): ...\n"
+        "@nox.session\ndef later(session): ...\n"
+    )
+    assert _names(text) == []
+    positional = "import nox\n@nox.session('3.14')\ndef f(session): ...\n" + SESSION
+    assert _names(positional) == []  # nox.session('3.14') raises at import.
+    splat = "import nox\nKW = {}\n@nox.session(**KW)\ndef f(session): ...\n" + SESSION
+    assert _names(splat) == ["s"]  # `**KW` only may fail: skip just that one.
+    earlier = "import nox\n@nox.session\ndef first(session): ...\n"
+    assert _names(earlier + "@nox.session(typo=True)\ndef broken(s): ...\n") == []
 
 
 def test_failing_branch_under_a_literal_condition_is_unpredictable() -> None:
