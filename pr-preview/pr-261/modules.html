@@ -137,6 +137,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#nur.core.providers.vscode.VsCodeProvider.discover"><code class="docutils literal notranslate"><span class="pre">VsCodeProvider.discover()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#nur.core.providers.nox.parse_noxfile"><code class="docutils literal notranslate"><span class="pre">parse_noxfile()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#tui-nur-tui">TUI (<code class="docutils literal notranslate"><span class="pre">nur.tui</span></code>)</a><ul>
@@ -393,7 +394,7 @@ characters around it stop the text from naming a real variable.</p>
 <section id="providers-nur-core-providers">
 <h2>Providers (<code class="docutils literal notranslate"><span class="pre">nur.core.providers</span></code>)<a class="headerlink" href="#providers-nur-core-providers" title="Link to this heading">#</a></h2>
 <p>One module per supported task source (make, npm, deno, composer, just, taskfile,
-pre-commit, pdm, poe, tox, mise, cargo-make, moon, xc, VS Code tasks).</p>
+pre-commit, pdm, poe, tox, mise, cargo-make, moon, xc, VS Code tasks, nox).</p>
 <dl class="py function" id="module-nur.core.providers.make">
 <dt class="sig sig-object py" id="nur.core.providers.make.parse_targets">
 <span class="sig-prename descclassname"><span class="pre">nur.core.providers.make.</span></span><span class="sig-name descname"><span class="pre">parse_targets</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/core/providers/make.html#parse_targets"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.core.providers.make.parse_targets" title="Link to this definition">#</a></dt>
@@ -587,6 +588,35 @@ documented at <a class="reference external" href="https://xcfile.dev/task-syntax
 </dl>
 </dd></dl>
 
+</dd></dl>
+
+<dl class="py function" id="module-nur.core.providers.nox">
+<dt class="sig sig-object py" id="nur.core.providers.nox.parse_noxfile">
+<span class="sig-prename descclassname"><span class="pre">nur.core.providers.nox.</span></span><span class="sig-name descname"><span class="pre">parse_noxfile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'noxfile.py'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/core/providers/nox.html#parse_noxfile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.core.providers.nox.parse_noxfile" title="Link to this definition">#</a></dt>
+<dd><p>Extract nox sessions from <em>text</em> by AST parsing, never importing it.</p>
+<p><code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">--list</span></code> imports and executes <code class="docutils literal notranslate"><span class="pre">noxfile.py</span></code> to build its registry, so
+discovery reads <code class="docutils literal notranslate"><span class="pre">&#64;nox.session</span></code>-decorated functions from the syntax tree
+instead. It only trusts straight-line noxfiles: module code may use
+imports, plain statements (assignment, <code class="docutils literal notranslate"><span class="pre">del</span></code>, expression, <code class="docutils literal notranslate"><span class="pre">pass</span></code>,
+<code class="docutils literal notranslate"><span class="pre">def</span></code>, <code class="docutils literal notranslate"><span class="pre">class</span></code>), and <code class="docutils literal notranslate"><span class="pre">if</span></code>/<code class="docutils literal notranslate"><span class="pre">try</span></code> blocks made of those, where a
+<code class="docutils literal notranslate"><span class="pre">raise</span></code> ends its branch. Sessions register only from top-level <code class="docutils literal notranslate"><span class="pre">def</span></code>
+statements. Anything else (loops, <code class="docutils literal notranslate"><span class="pre">with</span></code>, <code class="docutils literal notranslate"><span class="pre">match</span></code>, <code class="docutils literal notranslate"><span class="pre">assert</span></code>,
+<code class="docutils literal notranslate"><span class="pre">except*</span></code>, a star import from another module) makes nox’s registry
+depend on control flow nur does not follow, so nothing is listed rather
+than a session nox may not register. <code class="docutils literal notranslate"><span class="pre">python=[...]</span></code> and
+<code class="docutils literal notranslate"><span class="pre">&#64;nox.parametrize</span></code> variants are surfaced under their base name
+(<code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">-s</span> <span class="pre">&lt;name&gt;</span></code> still runs every variant).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>text</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>source_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.14)">list</a>[<a class="reference internal" href="#nur.core.models.Task" title="nur.core.models.Task"><em>Task</em></a>]</p>
+</dd>
+</dl>
 </dd></dl>
 
 </section>
