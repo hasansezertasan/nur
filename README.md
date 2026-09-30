@@ -204,12 +204,12 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   heading is its script, and a `>` blockquote is its description. A subcommand
   is named by its path and runs with it, so `### test lint` under `## test` is
   the task `test lint` (`nur "test lint"` runs `mask test lint`). A heading
-  becomes a task only when its script is a fenced block with a language tag,
+  becomes a task only when its last code block is fenced with a language tag,
   since mask needs the tag to pick an interpreter; `powershell`, `batch`, and
-  `cmd` blocks count only on Windows, as in mask. Commands inside HTML comments
-  are ignored. Setext (underlined) headings, indented code blocks, other HTML
-  blocks, and fences nested in lists or blockquotes are not recognised, and inline markup such as
-  emphasis in a heading is kept as written.
+  `cmd` blocks count only on Windows, as in mask. Headings and fences inside
+  HTML blocks (comments, `<details>`, and the like) are ignored. Fences nested
+  in blockquotes, or in list items below the item's first line, are not
+  recognised, and emphasis in a heading is kept as written.
 - **CLI Application**: run any discovered task by name or qualified `prefix:name`, with `--` passthrough to the underlying runner.
 - **TUI Application**: interactive three-pane task picker built with Textual.
 - **Safe by default**: discovery parses files; it never shells out to a runner just to list tasks.

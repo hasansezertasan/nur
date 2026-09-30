@@ -7,13 +7,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from nur.core.models import Task
-from nur.core.providers._markdown import (
-    FENCE,
-    HEADING,
-    code_lines,
-    comment_lines,
-    fence_blocks,
-)
+from nur.core.providers._markdown import HEADING, LIST_ITEM_FENCE, scan
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -25,7 +19,23 @@ log = logging.getLogger("nur")
 
 SOURCE_FILE = "maskfile.md"
 
+# CommonMark ends lines only at these; str.splitlines also splits on form
+# feeds and Unicode separators, which would invent headings.
+LINE_ENDING = re.compile(r"\r\n|\r|\n")
 BLOCKQUOTE = re.compile(r"^ {0,3}>\s?(.*)$")
+# An indented code block: four spaces or a tab, where a paragraph cannot
+# continue (after a blank line or another block).
+INDENTED_CODE = re.compile(r"^(?: {4,}|\t| {1,3}\t)\S")
+LIST_ITEM = re.compile(r"^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)")
+THEMATIC_BREAK = re.compile(
+    r"^ {0,3}(?:(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$"
+)
+# A setext heading's underline: `===` for level 1, `---` for level 2.
+SETEXT_UNDERLINE = re.compile(r"^ {0,3}(=+|-+)[ \t]*$")
+# List items that end a blockquote's paragraph instead of lazily continuing it.
+PARAGRAPH_INTERRUPT = re.compile(r"^ {0,3}(?:[-*+]|1[.)])(?:[ \t]|$)")
+# An inline link in a heading names the command by its text, as in mask.
+LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 # Outside Windows, mask skips these fences entirely, as though they were absent,
 # so a command whose only script is one of them has no script to run.
 WINDOWS_ONLY_EXECUTORS = frozenset({"powershell", "batch", "cmd"})
@@ -36,7 +46,8 @@ class _Command:
     level: int
     name: str = ""
     # Lines of the last blockquote, joined only when read: rebuilding the
-    # description per line would be quadratic in a long blockquote.
+    # description per line would be quadratic in a long blockquote. An empty
+    # entry separates the quote's paragraphs.
     quote: list[str] = field(default_factory=list)
     # The last block's body, or None when mask cannot run it.
     script: str | None = None
@@ -44,12 +55,20 @@ class _Command:
 
     @property
     def description(self) -> str | None:
-        return " ".join(part for part in self.quote if part) or None
+        # mask keeps only a blockquote's last paragraph.
+        last: list[str] = []
+        paragraph: list[str] = []
+        for part in self.quote:
+            if part:
+                paragraph.append(part)
+            elif paragraph:
+                last, paragraph = paragraph, []
+        return " ".join(paragraph or last) or None
 
 
 def _command_name(text: str) -> str:
     """Strip a heading's ``(required)`` and ``[optional]`` argument declarations."""
-    text = text.strip()
+    text = LINK.sub(r"\1", text.strip())
     # Drop an ATX heading's optional closing sequence: hashes that fill the
     # heading or follow whitespace. Done without a regex, which backtracks
     # quadratically over a long whitespace run in a hostile heading.
@@ -70,7 +89,7 @@ def _take_script(
     command: _Command, fence: str, body: list[str], *, windows: bool
 ) -> None:
     """Make the block opened by the *fence* line *command*'s script."""
-    match = FENCE.match(fence)
+    match = LIST_ITEM_FENCE.match(fence)
     info = match.group(2).strip() if match is not None else ""
     if not windows and info in WINDOWS_ONLY_EXECUTORS:
         return
@@ -78,8 +97,79 @@ def _take_script(
     # mask refuses to run a script without a language tag (the tag selects the
     # interpreter) or without any line; a script of blank lines still runs.
     runnable = bool(info) and bool(body)
-    indent = len(fence) - len(fence.lstrip(" "))
+    indent = match.start(1) if match is not None else 0
     command.script = _dedent(body, indent) if runnable else None
+
+
+@dataclass
+class _Reader:
+    """Block state carried between the lines outside fenced code."""
+
+    quote: list[str] = field(default_factory=list)
+    # The lines of an open top-level paragraph, which a setext underline turns
+    # into a heading.
+    paragraph: list[str] = field(default_factory=list)
+    # Whether the previous line was blank or ended a block, so that an indented
+    # line starts a code block rather than continuing a paragraph.
+    boundary: bool = True
+    in_list: bool = False
+
+    def reset(self) -> None:
+        self.quote, self.paragraph, self.boundary, self.in_list = [], [], True, False
+
+    def read(self, command: _Command, line: str) -> tuple[int, str] | None:
+        """Read one line under *command*; return a heading's (level, text)."""
+        if self.boundary and not self.in_list and INDENTED_CODE.match(line):
+            # mask runs its last code block, and an indented one has no
+            # language tag, so mask cannot run this command.
+            command.script = None
+            return None
+        if (match := BLOCKQUOTE.match(line)) is not None:
+            if not self.quote:
+                # The last blockquote under a heading is its description.
+                command.quote = self.quote
+            self.quote.append(match.group(1).strip())
+            self.paragraph, self.boundary = [], False
+            return None
+        heading = HEADING.match(line)
+        if heading is None and self._continues_quote(line):
+            self.quote.append(line.strip())
+            return None
+        self.quote = []
+        after_boundary = self.boundary
+        self.boundary = not line.strip() or heading is not None
+        if heading is not None:
+            self.paragraph = []
+            return len(heading.group(1)), heading.group(2) or ""
+        return self._read_text(line, after_boundary=after_boundary)
+
+    def _continues_quote(self, line: str) -> bool:
+        """Whether *line* lazily continues the blockquote's paragraph."""
+        return (
+            bool(self.quote and self.quote[-1] and line.strip())
+            and THEMATIC_BREAK.match(line) is None
+            and PARAGRAPH_INTERRUPT.match(line) is None
+        )
+
+    def _read_text(self, line: str, *, after_boundary: bool) -> tuple[int, str] | None:
+        if not line.strip():
+            self.paragraph = []
+            return None
+        if self.paragraph and (underline := SETEXT_UNDERLINE.match(line)):
+            text = " ".join(self.paragraph)
+            self.paragraph, self.boundary = [], True
+            return (1 if underline.group(1)[0] == "=" else 2), text
+        if THEMATIC_BREAK.match(line):
+            self.paragraph, self.boundary, self.in_list = [], True, False
+            return None
+        if LIST_ITEM.match(line):
+            self.paragraph, self.in_list = [], True
+            return None
+        if self.in_list and (not after_boundary or line.startswith((" ", "\t"))):
+            return None  # the list item continues
+        self.in_list = False
+        self.paragraph.append(line.strip())
+        return None
 
 
 def _flat_commands(text: str, *, windows: bool) -> list[_Command]:
@@ -89,46 +179,35 @@ def _flat_commands(text: str, *, windows: bool) -> list[_Command]:
     unnamed root when there is none). A second level-1 heading ends the command
     list once any command has been seen -- mask stops parsing there.
     """
-    # Blank out HTML comments first so a commented-out command, heading and
+    # Blank out HTML blocks first so a commented-out command, heading and
     # fence alike, reads as empty lines.
-    raw = text.splitlines()
-    comments = comment_lines(raw)
-    lines = ["" if index in comments else line for index, line in enumerate(raw)]
-    blocks = fence_blocks(lines)
-    code = code_lines(lines, blocks)
-    openings = dict(blocks)
+    raw = LINE_ENDING.split(text)
+    if not raw[-1]:
+        raw.pop()
+    fences, hidden = scan(raw, list_items=True, html=True)
+    lines = ["" if index in hidden else line for index, line in enumerate(raw)]
+    code = {index for block in fences for index in range(block.open, block.end)}
+    openings = {block.open: block.body_end for block in fences}
 
     commands: list[_Command] = []
     current = _Command(level=1)
-    quote: list[str] = []
+    reader = _Reader()
     for index, line in enumerate(lines):
         if index in openings:
             _take_script(
                 current, line, lines[index + 1 : openings[index]], windows=windows
             )
         if index in code:
-            quote = []
+            reader.reset()
             continue
-        if (match := BLOCKQUOTE.match(line)) is not None:
-            if not quote:
-                # The last blockquote under a heading is its description.
-                current.quote = quote
-            quote.append(match.group(1).strip())
+        if (heading := reader.read(current, line)) is None:
             continue
-        heading = HEADING.match(line)
-        if heading is None and quote and quote[-1] and line.strip():
-            # A lazy continuation line extends the blockquote's paragraph.
-            quote.append(line.strip())
-            continue
-        quote = []
-        if heading is None:
-            continue
-        level = len(heading.group(1))
+        level, text = heading
         if level > 1:
             commands.append(current)
         elif commands:
             break
-        current = _Command(level=level, name=_command_name(heading.group(2) or ""))
+        current = _Command(level=level, name=_command_name(text))
     commands.append(current)
     return commands
 
@@ -196,9 +275,12 @@ def parse_mask(
     ``cmd`` blocks count, as they do only in mask's Windows build.
     """
     root = _treeify(_flat_commands(text, windows=windows))[0]
-    # mask resolves a repeated command name to its last definition, so a later
-    # duplicate replaces the earlier task rather than listing both.
-    unique = {task.name: task for task in _tasks(root.subcommands, (), source_file)}
+    # mask resolves a repeated command to its last definition, so a later
+    # duplicate replaces the earlier task rather than listing both. Commands
+    # that only render alike (`## deploy prod` vs `prod` under `## deploy`)
+    # run differently, so both stay.
+    tasks = _tasks(root.subcommands, (), source_file)
+    unique = {task.argv_base: task for task in tasks}
     return list(unique.values())
 
 

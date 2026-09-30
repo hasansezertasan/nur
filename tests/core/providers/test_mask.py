@@ -260,3 +260,106 @@ def test_heading_shallower_than_its_first_sibling_is_dropped() -> None:
         "#### z\n\n```sh\nz\n```\n"
     )
     assert [t.name for t in parse_mask(text)] == ["a x", "a z"]
+
+
+# Each case's expected (argv, description, definition) is what mask 0.11.7's
+# `--introspect` reports for the same file.
+MASK_PARITY = {
+    "list_item_fence": (
+        (
+            "## a\n\n- ```sh\n  echo a\n  ```\n\n"
+            "## b\n\n```sh\necho b\n```\n\n## c\n\n```sh\necho c\n```\n"
+        ),
+        [
+            (("mask", "a"), None, "echo a"),
+            (("mask", "b"), None, "echo b"),
+            (("mask", "c"), None, "echo c"),
+        ],
+    ),
+    "list_item_fence_ends_with_item": (
+        "## a\n\n- ```sh\n  echo a\n## b\n\n```sh\necho b\n```\n",
+        [(("mask", "a"), None, "echo a"), (("mask", "b"), None, "echo b")],
+    ),
+    "indented_after_fence": (
+        "## a\n\n```sh\necho hi\n```\n\n    mask a\n\n## b\n\n```sh\necho b\n```\n",
+        [(("mask", "b"), None, "echo b")],
+    ),
+    "indented_in_list": (
+        "## a\n\n- item\n\n    continued\n\n```sh\necho a\n```\n",
+        [(("mask", "a"), None, "echo a")],
+    ),
+    "indented_para_continuation": (
+        "## a\n\ntext\n    more text\n\n```sh\necho a\n```\n",
+        [(("mask", "a"), None, "echo a")],
+    ),
+    "details_block": (
+        "## a\n\n```sh\necho a\n```\n\n<details>\n## b\n\n```sh\necho b\n```\n",
+        [(("mask", "a"), None, "echo b")],
+    ),
+    "div_hides_fence": ("## a\n\n<div>\n```sh\necho hidden\n```\n</div>\n", []),
+    "lone_tag": ('# T\n<img src="x">\n## a\n\n```sh\necho\n```\n', []),
+    "lone_tag_after_paragraph": (
+        '## a\ntext\n<img src="x">\n```sh\necho\n```\n',
+        [(("mask", "a"), None, "echo")],
+    ),
+    "link_heading": (
+        "## [build](docs/build.md)\n\n```sh\necho\n```\n",
+        [(("mask", "build"), None, "echo")],
+    ),
+    "same_name_different_argv": (
+        (
+            "## deploy prod\n\n```sh\necho top\n```\n\n"
+            "## deploy\n\n```sh\necho d\n```\n\n### prod\n\n```sh\necho sub\n```\n"
+        ),
+        [
+            (("mask", "deploy prod"), None, "echo top"),
+            (("mask", "deploy"), None, "echo d"),
+            (("mask", "deploy", "prod"), None, "echo sub"),
+        ],
+    ),
+    "form_feed": (
+        "## a\n\n```sh\necho\x0c## x\n```\n",
+        [(("mask", "a"), None, "echo\x0c## x")],
+    ),
+    "line_separator": ("text\u2028## a\n\n```sh\necho\n```\n", []),
+    "setext_h2": (
+        "build\n-----\n\n```sh\necho b\n```\n",
+        [(("mask", "build"), None, "echo b")],
+    ),
+    "setext_h1_ends": (
+        "## a\n\n```sh\nx\n```\n\nTwo\n===\n\n## b\n\n```sh\ny\n```\n",
+        [(("mask", "a"), None, "x")],
+    ),
+    "thematic_not_setext": (
+        "## a\n\n---\n\n```sh\nx\n```\n",
+        [(("mask", "a"), None, "x")],
+    ),
+    "list_then_dash": (
+        "## a\n- item\n---\n\n```sh\nx\n```\n",
+        [(("mask", "a"), None, "x")],
+    ),
+    "quote_list_interrupt": (
+        "## a\n> Build it\n- flag\n\n```sh\nx\n```\n",
+        [(("mask", "a"), "Build it", "x")],
+    ),
+    "quote_thematic": (
+        "## a\n> Build it\n---\n\n```sh\nx\n```\n",
+        [(("mask", "a"), "Build it", "x")],
+    ),
+    "quote_last_paragraph": (
+        "## a\n> first\n>\n> second\n\n```sh\nx\n```\n",
+        [(("mask", "a"), "second", "x")],
+    ),
+    "quote_trailing_empty": (
+        "## a\n> desc\n>\n\n```sh\nx\n```\n",
+        [(("mask", "a"), "desc", "x")],
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"), list(MASK_PARITY.values()), ids=list(MASK_PARITY)
+)
+def test_matches_mask_on_block_structure(text, expected) -> None:
+    tasks = parse_mask(text, windows=False)
+    assert [(t.argv_base, t.description, t.definition) for t in tasks] == expected
