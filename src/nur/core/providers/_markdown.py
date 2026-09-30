@@ -17,9 +17,12 @@ __all__ = [
     "FENCE",
     "HEADING",
     "LIST_ITEM_FENCE",
+    "SETEXT_UNDERLINE",
+    "THEMATIC_BREAK",
     "Fence",
     "code_lines",
     "fence_blocks",
+    "indent_width",
     "scan",
 ]
 
@@ -50,9 +53,13 @@ _BLOCK_TAGS = (
     "summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul"
 )
 HTML_BLOCKS: tuple[tuple[re.Pattern[str], re.Pattern[str]], ...] = (
-    (
-        re.compile(r"^ {0,3}<(?:pre|script|style|textarea)(?:\s|>|$)", re.IGNORECASE),
-        re.compile(r"</(?:pre|script|style|textarea)>", re.IGNORECASE),
+    # A raw-text block ends only at its own closing tag.
+    *(
+        (
+            re.compile(rf"^ {{0,3}}<{tag}(?:\s|>|$)", re.IGNORECASE),
+            re.compile(rf"</{tag}>", re.IGNORECASE),
+        )
+        for tag in ("pre", "script", "style", "textarea")
     ),
     (re.compile(r"^ {0,3}<!--"), re.compile(r"-->")),
     (re.compile(r"^ {0,3}<\?"), re.compile(r"\?>")),
@@ -64,6 +71,12 @@ HTML_BLOCKS: tuple[tuple[re.Pattern[str], re.Pattern[str]], ...] = (
     ),
 )
 _ATTRIBUTE = r"""\s+[A-Za-z_:][\w.:-]*(?:\s*=\s*(?:[^\s"'=<>`]+|'[^']*'|"[^"]*"))?"""
+THEMATIC_BREAK = re.compile(
+    r"^ {0,3}(?:(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$"
+)
+# A setext heading's underline: `===` for level 1, `---` for level 2.
+SETEXT_UNDERLINE = re.compile(r"^ {0,3}(=+|-+)[ \t]*$")
+EMPTY_QUOTE = re.compile(r"^ {0,3}>\s*$")
 # Any other complete opening or closing tag alone on its line (`<img ...>`).
 HTML_LONE_TAG = re.compile(
     rf"^ {{0,3}}(?:<[A-Za-z][A-Za-z0-9-]*(?:{_ATTRIBUTE})*\s*/?>"
@@ -115,7 +128,7 @@ def _leading_spaces(line: str) -> int:
     return len(line) - len(line.lstrip(" "))
 
 
-def _indent_width(line: str) -> int:
+def indent_width(line: str) -> int:
     """Return *line*'s indentation in columns, a tab advancing to a multiple of 4."""
     width = 0
     for char in line:
@@ -131,7 +144,7 @@ def _indent_width(line: str) -> int:
 def _fence_ends(fence: _Open, line: str, index: int) -> Fence | None:
     """Return the finished block if *line* ends the open *fence*."""
     if fence.in_item:
-        if line.strip() and _indent_width(line) < fence.indent:
+        if line.strip() and indent_width(line) < fence.indent:
             # The list item ends here, and a fence inside it ends with it.
             return Fence(fence.index, index, index)
         line = line[min(fence.indent, _leading_spaces(line)) :]
@@ -153,6 +166,20 @@ def _html_block_end(line: str, *, paragraph: bool) -> re.Pattern[str] | None:
     if not paragraph and HTML_LONE_TAG.match(line) is not None:
         return BLANK_LINE
     return None
+
+
+def _leaves_paragraph_open(line: str, *, paragraph: bool) -> bool:
+    """Whether a paragraph is still open after *line*.
+
+    A lone tag on the next line then continues the paragraph instead of
+    starting an HTML block.
+    """
+    if not line.strip() or HEADING.match(line) or EMPTY_QUOTE.match(line):
+        return False
+    if THEMATIC_BREAK.match(line):
+        return False
+    # An underline under a paragraph turns it into a setext heading.
+    return not (paragraph and SETEXT_UNDERLINE.match(line))
 
 
 def _still_open(end: re.Pattern[str], line: str) -> re.Pattern[str] | None:
@@ -215,7 +242,7 @@ def scan(
             # The whole opening line counts: `<!-->` closes where it opens.
             end, paragraph = _still_open(end, line), False
             continue
-        paragraph = bool(line.strip()) and HEADING.match(line) is None
+        paragraph = _leaves_paragraph_open(line, paragraph=paragraph)
     if fence is not None:
         fences.append(Fence(fence.index, len(lines), len(lines)))
     return fences, hidden

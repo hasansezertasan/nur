@@ -354,6 +354,56 @@ MASK_PARITY = {
         "## a\n> desc\n>\n\n```sh\nx\n```\n",
         [(("mask", "a"), "desc", "x")],
     ),
+    "link_after_text": (
+        "## x [a](u) y\n\n```sh\necho\n```\n",
+        [(("mask", "a y"), None, "echo")],
+    ),
+    "image_heading": (
+        "## x ![img](u)\n\n```sh\necho\n```\n",
+        [(("mask", "img"), None, "echo")],
+    ),
+    "two_links": (
+        "## x [a](u) y [b](v)\n\n```sh\necho\n```\n",
+        [(("mask", "b"), None, "echo")],
+    ),
+    "escape_heading": (
+        "## a\\_b\n\n```sh\necho\n```\n",
+        [(("mask", "a_b"), None, "echo")],
+    ),
+    "entity_heading": (
+        "## a &amp; b\n\n```sh\necho\n```\n",
+        [(("mask", "a & b"), None, "echo")],
+    ),
+    "lone_tag_after_thematic": (
+        '## a\n\n```sh\nx\n```\n---\n<img src="x">\n## b\n\n```sh\ny\n```\n',
+        [(("mask", "a"), None, "y")],
+    ),
+    "lone_tag_after_setext": (
+        "## a\n\n```sh\nx\n```\nfoo\n---\n<br>\n## b\n\n```sh\ny\n```\n",
+        [(("mask", "a"), None, "x"), (("mask", "foo"), None, "y")],
+    ),
+    "lone_tag_after_empty_quote": (
+        "## a\n\n```sh\nx\n```\n>\n<br>\n## b\n\n```sh\ny\n```\n",
+        [(("mask", "a"), None, "y")],
+    ),
+    "list_fence_then_indented": (
+        "## a\n\n- ```sh\n  echo\n  ```\n    cont\n",
+        [(("mask", "a"), None, "echo")],
+    ),
+    "indented_code_in_list": ("## a\n\n```sh\necho\n```\n\n- x\n\n      code\n", []),
+    "heading_in_list_item": (
+        "## a\n\n```sh\nx\n```\n\n- ## b\n\n```sh\ny\n```\n",
+        [(("mask", "a"), None, "x"), (("mask", "b"), None, "y")],
+    ),
+    "title_in_quote_stops": (
+        "## a\n\n```sh\nx\n```\n\n> # T2\n\n## b\n\n```sh\ny\n```\n",
+        [(("mask", "a"), None, "x")],
+    ),
+    "pre_closed_by_script": (
+        "## a\n\n```sh\nx\n```\n\n<pre>\n</script>\n### c\n```js\ny\n```\n",
+        [(("mask", "a"), None, "x")],
+    ),
+    "lone_cr": ("# T\r## a\r```sh\recho\r```\r", []),
 }
 
 
@@ -363,3 +413,10 @@ MASK_PARITY = {
 def test_matches_mask_on_block_structure(text, expected) -> None:
     tasks = parse_mask(text, windows=False)
     assert [(t.argv_base, t.description, t.definition) for t in tasks] == expected
+
+
+def test_hostile_bracket_heading_is_parsed() -> None:
+    # A run of unclosed `[` must not make link matching backtrack
+    # quadratically; mask names the command up to the first bracket.
+    text = "## " + "[" * 50_000 + "\n\n```sh\necho\n```\n"
+    assert parse_mask(text) == []

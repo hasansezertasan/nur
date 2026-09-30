@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import logging
 import os
 import re
@@ -7,7 +8,14 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from nur.core.models import Task
-from nur.core.providers._markdown import HEADING, LIST_ITEM_FENCE, scan
+from nur.core.providers._markdown import (
+    HEADING,
+    LIST_ITEM_FENCE,
+    SETEXT_UNDERLINE,
+    THEMATIC_BREAK,
+    indent_width,
+    scan,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -19,23 +27,20 @@ log = logging.getLogger("nur")
 
 SOURCE_FILE = "maskfile.md"
 
-# CommonMark ends lines only at these; str.splitlines also splits on form
-# feeds and Unicode separators, which would invent headings.
-LINE_ENDING = re.compile(r"\r\n|\r|\n")
+# mask ends lines only at these (not at a lone carriage return, unlike
+# CommonMark); str.splitlines also splits on form feeds and Unicode
+# separators, which would invent headings.
+LINE_ENDING = re.compile(r"\r?\n")
 BLOCKQUOTE = re.compile(r"^ {0,3}>\s?(.*)$")
-# An indented code block: four spaces or a tab, where a paragraph cannot
-# continue (after a blank line or another block).
-INDENTED_CODE = re.compile(r"^(?: {4,}|\t| {1,3}\t)\S")
-LIST_ITEM = re.compile(r"^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)")
-THEMATIC_BREAK = re.compile(
-    r"^ {0,3}(?:(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$"
-)
-# A setext heading's underline: `===` for level 1, `---` for level 2.
-SETEXT_UNDERLINE = re.compile(r"^ {0,3}(=+|-+)[ \t]*$")
+# A list item's marker and the one to four spaces setting its content column.
+LIST_ITEM = re.compile(r"^( {0,3}(?:[-*+]|\d{1,9}[.)]))([ \t]{1,4}|$)")
 # List items that end a blockquote's paragraph instead of lazily continuing it.
-PARAGRAPH_INTERRUPT = re.compile(r"^ {0,3}(?:[-*+]|1[.)])(?:[ \t]|$)")
-# An inline link in a heading names the command by its text, as in mask.
-LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+PARAGRAPH_INTERRUPT = re.compile(r"^ {0,3}(?:[-*]|1[.)])(?:[ \t]|$)")
+# An inline link or image. Neither bracket may repeat inside, which keeps a
+# scan from every `[` of a hostile heading linear.
+LINK = re.compile(r"!?\[([^\[\]]*)\]\([^()]*\)")
+# A backslash escape of ASCII punctuation, which markdown reads as the literal.
+ESCAPE = re.compile(r"\\([!-/:-@\[-`{-~])")
 # Outside Windows, mask skips these fences entirely, as though they were absent,
 # so a command whose only script is one of them has no script to run.
 WINDOWS_ONLY_EXECUTORS = frozenset({"powershell", "batch", "cmd"})
@@ -68,13 +73,18 @@ class _Command:
 
 def _command_name(text: str) -> str:
     """Strip a heading's ``(required)`` and ``[optional]`` argument declarations."""
-    text = LINK.sub(r"\1", text.strip())
+    text = text.strip()
     # Drop an ATX heading's optional closing sequence: hashes that fill the
     # heading or follow whitespace. Done without a regex, which backtracks
     # quadratically over a long whitespace run in a hostile heading.
     head = text.rstrip("#")
     if head != text and (not head or head[-1].isspace()):
         text = head.rstrip()
+    # mask restarts a heading's text at each link or image, so the last one
+    # names the command from its own text onward: `## x [a](u) y` is `a y`.
+    if links := list(LINK.finditer(text)):
+        text = links[-1].group(1) + text[links[-1].end() :]
+    text = html.unescape(ESCAPE.sub(r"\1", text))
     return re.split(r"[(\[]", text, maxsplit=1)[0].strip()
 
 
@@ -101,6 +111,13 @@ def _take_script(
     command.script = _dedent(body, indent) if runnable else None
 
 
+def _list_item(line: str) -> tuple[int, str] | None:
+    """Return a list item's content column and content, if *line* opens one."""
+    if THEMATIC_BREAK.match(line) or (match := LIST_ITEM.match(line)) is None:
+        return None
+    return match.end(), line[match.end() :]
+
+
 @dataclass
 class _Reader:
     """Block state carried between the lines outside fenced code."""
@@ -112,36 +129,61 @@ class _Reader:
     # Whether the previous line was blank or ended a block, so that an indented
     # line starts a code block rather than continuing a paragraph.
     boundary: bool = True
-    in_list: bool = False
+    # The content column of the list item being continued, if any.
+    list_indent: int | None = None
 
-    def reset(self) -> None:
-        self.quote, self.paragraph, self.boundary, self.in_list = [], [], True, False
+    def reset(self, *, list_indent: int | None) -> None:
+        self.quote, self.paragraph, self.boundary = [], [], True
+        self.list_indent = list_indent
+
+    def fence_list_indent(self, line: str) -> int | None:
+        """Return the list content column a fence opening on *line* sits in."""
+        if (item := _list_item(line)) is not None:
+            return item[0]
+        if self.list_indent is not None and indent_width(line) >= self.list_indent:
+            return self.list_indent
+        return None
 
     def read(self, command: _Command, line: str) -> tuple[int, str] | None:
         """Read one line under *command*; return a heading's (level, text)."""
-        if self.boundary and not self.in_list and INDENTED_CODE.match(line):
-            # mask runs its last code block, and an indented one has no
-            # language tag, so mask cannot run this command.
+        base = self.list_indent or 0
+        if self.boundary and line.strip() and indent_width(line) >= base + 4:
+            # An indented code block. mask runs its last code block, and this
+            # one has no language tag, so mask cannot run this command.
             command.script = None
             return None
         if (match := BLOCKQUOTE.match(line)) is not None:
-            if not self.quote:
-                # The last blockquote under a heading is its description.
-                command.quote = self.quote
-            self.quote.append(match.group(1).strip())
-            self.paragraph, self.boundary = [], False
-            return None
+            return self._read_quote(command, match.group(1))
         heading = HEADING.match(line)
         if heading is None and self._continues_quote(line):
             self.quote.append(line.strip())
             return None
         self.quote = []
-        after_boundary = self.boundary
-        self.boundary = not line.strip() or heading is not None
         if heading is not None:
-            self.paragraph = []
-            return len(heading.group(1)), heading.group(2) or ""
+            return self._heading(heading)
+        after_boundary = self.boundary
+        self.boundary = not line.strip()
         return self._read_text(line, after_boundary=after_boundary)
+
+    def _read_quote(self, command: _Command, content: str) -> tuple[int, str] | None:
+        if (heading := HEADING.match(content)) is not None:
+            return self._heading(heading)
+        if not self.quote:
+            # The last blockquote under a heading is its description.
+            command.quote = self.quote
+        self.quote.append(content.strip())
+        self.paragraph, self.boundary = [], False
+        return None
+
+    def _read_list_item(self, indent: int, content: str) -> tuple[int, str] | None:
+        self.paragraph, self.list_indent = [], indent
+        # A heading may sit on the item's own line: `- ## build`.
+        heading = HEADING.match(content)
+        return self._heading(heading) if heading is not None else None
+
+    def _heading(self, heading: re.Match[str]) -> tuple[int, str]:
+        self.quote, self.paragraph, self.boundary = [], [], True
+        return len(heading.group(1)), heading.group(2) or ""
 
     def _continues_quote(self, line: str) -> bool:
         """Whether *line* lazily continues the blockquote's paragraph."""
@@ -160,14 +202,15 @@ class _Reader:
             self.paragraph, self.boundary = [], True
             return (1 if underline.group(1)[0] == "=" else 2), text
         if THEMATIC_BREAK.match(line):
-            self.paragraph, self.boundary, self.in_list = [], True, False
+            self.paragraph, self.boundary, self.list_indent = [], True, None
             return None
-        if LIST_ITEM.match(line):
-            self.paragraph, self.in_list = [], True
-            return None
-        if self.in_list and (not after_boundary or line.startswith((" ", "\t"))):
+        if (item := _list_item(line)) is not None:
+            return self._read_list_item(*item)
+        if self.list_indent is not None and (
+            not after_boundary or indent_width(line) >= self.list_indent
+        ):
             return None  # the list item continues
-        self.in_list = False
+        self.list_indent = None
         self.paragraph.append(line.strip())
         return None
 
@@ -192,13 +235,15 @@ def _flat_commands(text: str, *, windows: bool) -> list[_Command]:
     commands: list[_Command] = []
     current = _Command(level=1)
     reader = _Reader()
+    fence_list: int | None = None
     for index, line in enumerate(lines):
         if index in openings:
             _take_script(
                 current, line, lines[index + 1 : openings[index]], windows=windows
             )
+            fence_list = reader.fence_list_indent(line)
         if index in code:
-            reader.reset()
+            reader.reset(list_indent=fence_list)
             continue
         if (heading := reader.read(current, line)) is None:
             continue
