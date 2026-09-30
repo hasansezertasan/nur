@@ -33,6 +33,7 @@ def test_providers_registry_order() -> None:
         "moon",
         "xc",
         "vscode",
+        "nox",
     ]
 
 
