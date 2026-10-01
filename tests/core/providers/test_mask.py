@@ -634,6 +634,18 @@ MASK_PARITY = {
         "## a\n\n- outer\n  - inner\n  ```sh\n  echo a\n\n## b\n\n```sh\necho b\n```\n",
         [(("mask", "a"), None, "echo a"), (("mask", "b"), None, "echo b")],
     ),
+    "dash_heading_after_quote": (
+        "## a\n> desc\n- ## b\n\n```sh\necho b\n```\n",
+        [(("mask", "b"), None, "echo b")],
+    ),
+    "empty_definition": (
+        "## x [build] y\n\n```sh\necho\n```\n\n[build]:\n",
+        [(("mask", "x"), None, "echo")],
+    ),
+    "definition_dest_next_line": (
+        "## x [build] y\n\n```sh\necho\n```\n\n[build]:\n  /url\n",
+        [(("mask", "build y"), None, "echo")],
+    ),
 }
 
 
@@ -757,3 +769,12 @@ def test_hostile_inline_markup_is_parsed(heading) -> None:
     # Emphasis and code-span matching must stay linear on unmatched delimiters.
     tasks = parse_mask(f"## {heading}\n\n```sh\necho\n```\n")
     assert len(tasks) <= 1
+
+
+def test_plus_item_does_not_interrupt_a_quote_paragraph() -> None:
+    # pulldown-cmark 0.5, which mask uses, keeps `+ ## b` in the quote's lazy
+    # paragraph: no `b` command, and the script stays with `a`.
+    text = "## a\n> desc\n+ ## b\n\n```sh\necho b\n```\n"
+    assert [(t.argv_base, t.definition) for t in parse_mask(text)] == [
+        (("mask", "a"), "echo b")
+    ]

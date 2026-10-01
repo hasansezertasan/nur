@@ -217,6 +217,22 @@ class _Reader:
         return None
 
 
+def _definition_labels(lines: list[str], code: set[int]) -> frozenset[str]:
+    """Collect the labels of the link reference definitions outside code.
+
+    Definitions may follow the headings that use them. Each needs a
+    destination, on its own line or the next one: `[build]:` alone is text.
+    """
+    labels: set[str] = set()
+    for index, line in enumerate(lines):
+        if index in code or (match := DEFINITION.match(line)) is None:
+            continue
+        following = lines[index + 1] if index + 1 < len(lines) else ""
+        if line[match.end() :].strip() or (index + 1 not in code and following.strip()):
+            labels.add(normalize_label(match.group(1)))
+    return frozenset(labels)
+
+
 def _flat_commands(text: str, *, windows: bool) -> list[_Command]:
     """Collect one command per heading, in file order, as mask's parser does.
 
@@ -233,12 +249,7 @@ def _flat_commands(text: str, *, windows: bool) -> list[_Command]:
     lines = ["" if index in hidden else line for index, line in enumerate(raw)]
     code = {index for block in fences for index in range(block.open, block.end)}
     openings = {block.open: block for block in fences}
-    # Link reference definitions may follow the headings that use them.
-    labels = frozenset(
-        normalize_label(match.group(1))
-        for index, line in enumerate(lines)
-        if index not in code and (match := DEFINITION.match(line)) is not None
-    )
+    labels = _definition_labels(lines, code)
 
     commands: list[_Command] = []
     current = _Command(level=1)
