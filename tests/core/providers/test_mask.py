@@ -666,6 +666,25 @@ MASK_PARITY = {
         "## x [build] y\n\n```sh\necho\n```\n\n[build]: /url trailing garbage\n",
         [(("mask", "x"), None, "echo")],
     ),
+    "setext_in_list_col4": (
+        (
+            "## a\n\n```sh\necho a\n```\n\n1.  child\n    -----\n\n```sh\n"
+            "echo child\n```\n"
+        ),
+        [(("mask", "a"), None, "echo a"), (("mask", "child"), None, "echo child")],
+    ),
+    "atx_on_list_continuation_col4": (
+        "## a\n\n```sh\necho a\n```\n\n1.  item\n\n    ## b\n\n```sh\necho b\n```\n",
+        [(("mask", "a"), None, "echo a"), (("mask", "b"), None, "echo b")],
+    ),
+    "atx_on_list_continuation_col2": (
+        "## a\n\n```sh\necho a\n```\n\n- item\n\n  ## b\n\n```sh\necho b\n```\n",
+        [(("mask", "a"), None, "echo a"), (("mask", "b"), None, "echo b")],
+    ),
+    "quote_on_list_continuation_col4": (
+        "## a\n\n```sh\necho a\n```\n\n1.  item\n\n    > desc\n\n```sh\necho b\n```\n",
+        [(("mask", "a"), "desc", "echo b")],
+    ),
 }
 
 

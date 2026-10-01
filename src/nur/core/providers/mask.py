@@ -41,6 +41,8 @@ SOURCE_FILE = "maskfile.md"
 LINE_ENDING = re.compile(r"\r?\n")
 BLOCKQUOTE = re.compile(r"^ {0,3}>\s?(.*)$")
 # A list item's marker and the one to four spaces setting its content column.
+# The indentation, in columns, that makes a line an indented code block.
+INDENTED_CODE = 4
 # List items that end a blockquote's paragraph instead of lazily continuing it.
 PARAGRAPH_INTERRUPT = re.compile(r"^ {0,3}(?:[-*]|1[.)])(?:[ \t]|$)")
 # Outside Windows, mask skips these fences entirely, as though they were absent,
@@ -134,26 +136,33 @@ class _Reader:
             return self.list_indent
         return None
 
+    def _in_item(self, line: str) -> bool:
+        """Whether *line* is indented into the open list item's content."""
+        return self.list_indent is not None and indent_width(line) >= self.list_indent
+
     def read(self, command: _Command, line: str) -> tuple[int, str] | None:
         """Read one line under *command*; return a heading's (level, text)."""
-        base = self.list_indent or 0
-        if self.boundary and line.strip() and indent_width(line) >= base + 4:
+        # Inside a list item, block structure is read relative to its content.
+        inside = self._in_item(line) and bool(line.strip())
+        inner = strip_columns(line, self.list_indent or 0) if inside else line
+        if self.boundary and inner.strip() and indent_width(inner) >= INDENTED_CODE:
             # An indented code block. mask runs its last code block, and this
             # one has no language tag, so mask cannot run this command.
             command.script = None
             return None
-        if (match := BLOCKQUOTE.match(line)) is not None:
+        if (match := BLOCKQUOTE.match(inner)) is not None:
             return self._read_quote(command, match.group(1))
-        heading = HEADING.match(line)
-        if heading is None and self._continues_quote(line):
-            self.quote.append(line.strip())
+        heading = HEADING.match(inner)
+        if heading is None and self._continues_quote(inner):
+            self.quote.append(inner.strip())
             return None
         self.quote = []
         if heading is not None:
             return self._heading(heading)
         after_boundary = self.boundary
         self.boundary = not line.strip()
-        return self._read_text(line, after_boundary=after_boundary)
+        offset = (self.list_indent or 0) if inside else 0
+        return self._read_text(line, inner, offset, after_boundary=after_boundary)
 
     def _read_quote(self, command: _Command, content: str) -> tuple[int, str] | None:
         if (heading := HEADING.match(content)) is not None:
@@ -199,26 +208,34 @@ class _Reader:
             and PARAGRAPH_INTERRUPT.match(line) is None
         )
 
-    def _read_text(self, line: str, *, after_boundary: bool) -> tuple[int, str] | None:
+    def _read_text(
+        self, line: str, inner: str, offset: int, *, after_boundary: bool
+    ) -> tuple[int, str] | None:
+        """Read a line of text.
+
+        *inner* is the line within the open list item, if any, whose content
+        starts *offset* columns in.
+        """
         if not line.strip():
             self.paragraph = []
             return None
         # Inside a list item, an underline must be indented into its content;
         # an unindented one ends the list instead.
-        in_item = self.list_indent is None or indent_width(line) >= self.list_indent
-        if self.paragraph and in_item and (underline := SETEXT_UNDERLINE.match(line)):
+        in_item = self.list_indent is None or self._in_item(line)
+        if self.paragraph and in_item and (underline := SETEXT_UNDERLINE.match(inner)):
             text = " ".join(self.paragraph)
             self.paragraph, self.boundary = [], True
             return (1 if underline.group(1)[0] == "=" else 2), text
-        thematic = THEMATIC_BREAK.match(line) is not None
-        if thematic or (not self.paragraph and DEFINITION.match(line)):
-            # A thematic break ends any list; a link reference definition is
-            # not paragraph text, so neither can become a setext heading.
+        thematic = THEMATIC_BREAK.match(inner) is not None
+        if thematic or (not self.paragraph and DEFINITION.match(inner)):
+            # A thematic break outside an item ends the list; a link reference
+            # definition is not paragraph text, so neither becomes a heading.
             if thematic:
-                self.paragraph, self.boundary, self.list_indent = [], True, None
+                self.paragraph, self.boundary = [], True
+                self.list_indent = self.list_indent if offset else None
             return None
-        if (item := _list_item(line, paragraph=bool(self.paragraph))) is not None:
-            return self._read_list_item(*item)
+        if (item := _list_item(inner, paragraph=bool(self.paragraph))) is not None:
+            return self._read_list_item(offset + item[0], item[1])
         if self.list_indent is not None and (
             not after_boundary or indent_width(line) >= self.list_indent
         ):
