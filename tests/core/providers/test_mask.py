@@ -447,6 +447,34 @@ MASK_PARITY = {
         ),
         [(("mask", "a"), None, "echo h")],
     ),
+    "link_balanced_parens": (
+        "## [build](docs/(v2).md)\n\n```sh\necho\n```\n",
+        [(("mask", "build"), None, "echo")],
+    ),
+    "link_escaped_paren": (
+        "## [build](docs/v2\\).md)\n\n```sh\necho\n```\n",
+        [(("mask", "build"), None, "echo")],
+    ),
+    "entity_without_semicolon": (
+        "## copy &copy files\n\n```sh\necho\n```\n",
+        [(("mask", "copy &copy files"), None, "echo")],
+    ),
+    "entity_with_semicolon": (
+        "## copy &copy; files\n\n```sh\necho\n```\n",
+        [(("mask", "copy © files"), None, "echo")],
+    ),
+    "numeric_entity": (
+        "## a &#38; b &#x26; c\n\n```sh\necho\n```\n",
+        [(("mask", "a & b & c"), None, "echo")],
+    ),
+    "escaped_ampersand": (
+        "## a \\&copy; b\n\n```sh\necho\n```\n",
+        [(("mask", "a &copy; b"), None, "echo")],
+    ),
+    "unknown_entity": (
+        "## a &nosuch; b\n\n```sh\necho\n```\n",
+        [(("mask", "a &nosuch; b"), None, "echo")],
+    ),
 }
 
 
@@ -543,3 +571,11 @@ def test_setext_heading_inside_a_blockquote_is_a_command() -> None:
         (("mask", "a"), "echo a"),
         (("mask", "child"), "echo child"),
     ]
+
+
+def test_hostile_link_destinations_are_parsed() -> None:
+    # Unclosed link destinations must not make link matching backtrack.
+    parens = "## [a](" + "(" * 30_000 + "\n\n```sh\necho\n```\n"
+    links = "## " + "[a](" * 20_000 + "\n\n```sh\necho\n```\n"
+    assert parse_mask(parens) == []
+    assert parse_mask(links) == []

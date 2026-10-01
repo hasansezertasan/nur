@@ -38,11 +38,16 @@ BLOCKQUOTE = re.compile(r"^ {0,3}>\s?(.*)$")
 # A list item's marker and the one to four spaces setting its content column.
 # List items that end a blockquote's paragraph instead of lazily continuing it.
 PARAGRAPH_INTERRUPT = re.compile(r"^ {0,3}(?:[-*]|1[.)])(?:[ \t]|$)")
-# An inline link or image. Neither bracket may repeat inside, which keeps a
-# scan from every `[` of a hostile heading linear.
-LINK = re.compile(r"!?\[([^\[\]]*)\]\([^()]*\)")
-# A backslash escape of ASCII punctuation, which markdown reads as the literal.
-ESCAPE = re.compile(r"\\([!-/:-@\[-`{-~])")
+# An inline link or image, whose destination may hold escaped or one level of
+# balanced parentheses. No bracket may repeat inside, which keeps a scan from
+# every `[` of a hostile heading linear.
+LINK = re.compile(r"!?\[([^\[\]]*)\]\((?:[^()\\]|\\.|\([^()]*\))*\)")
+# A backslash escape of ASCII punctuation, which markdown reads as the literal,
+# or a character reference, which markdown decodes only with its semicolon.
+# One pass, so an escaped `\&` stays literal rather than starting a reference.
+ESCAPE = re.compile(
+    r"\\([!-/:-@\[-`{-~])|(&(?:#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});)"
+)
 # Outside Windows, mask skips these fences entirely, as though they were absent,
 # so a command whose only script is one of them has no script to run.
 WINDOWS_ONLY_EXECUTORS = frozenset({"powershell", "batch", "cmd"})
@@ -73,6 +78,11 @@ class _Command:
         return " ".join(paragraph or last) or None
 
 
+def _unescape(match: re.Match[str]) -> str:
+    escaped, reference = match.groups()
+    return escaped if escaped is not None else html.unescape(reference)
+
+
 def _command_name(text: str) -> str:
     """Strip a heading's ``(required)`` and ``[optional]`` argument declarations."""
     text = text.strip()
@@ -86,7 +96,7 @@ def _command_name(text: str) -> str:
     # names the command from its own text onward: `## x [a](u) y` is `a y`.
     if links := list(LINK.finditer(text)):
         text = links[-1].group(1) + text[links[-1].end() :]
-    text = html.unescape(ESCAPE.sub(r"\1", text))
+    text = ESCAPE.sub(_unescape, text)
     return re.split(r"[(\[]", text, maxsplit=1)[0].strip()
 
 
