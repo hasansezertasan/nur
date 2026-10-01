@@ -410,68 +410,91 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="283">    <span class="k">return</span> <span class="n">tree</span>
 </span><span data-line="284">
 </span><span data-line="285">
-</span><span data-line="286"><span class="k">def</span><span class="w"> </span><span class="nf">_tasks</span><span class="p">(</span>
-</span><span data-line="287">    <span class="n">commands</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">_Command</span><span class="p">],</span> <span class="n">parents</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">source_file</span><span class="p">:</span> <span class="nb">str</span>
-</span><span data-line="288"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
-</span><span data-line="289">    <span class="n">tasks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="290">    <span class="k">for</span> <span class="n">command</span> <span class="ow">in</span> <span class="n">commands</span><span class="p">:</span>
-</span><span data-line="291">        <span class="k">if</span> <span class="ow">not</span> <span class="n">command</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
-</span><span data-line="292">            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"nur: skipping unnamed mask command under </span><span class="si">%r</span><span class="s2">"</span><span class="p">,</span> <span class="n">parents</span><span class="p">)</span>
-</span><span data-line="293">            <span class="k">continue</span>
-</span><span data-line="294">        <span class="n">path</span> <span class="o">=</span> <span class="p">(</span><span class="o">*</span><span class="n">parents</span><span class="p">,</span> <span class="n">command</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-</span><span data-line="295">        <span class="k">if</span> <span class="n">command</span><span class="o">.</span><span class="n">script</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="296">            <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-</span><span data-line="297">                <span class="n">Task</span><span class="p">(</span>
-</span><span data-line="298">                    <span class="n">name</span><span class="o">=</span><span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">),</span>
-</span><span data-line="299">                    <span class="n">prefix</span><span class="o">=</span><span class="s2">"mask"</span><span class="p">,</span>
-</span><span data-line="300">                    <span class="n">argv_base</span><span class="o">=</span><span class="p">(</span><span class="s2">"mask"</span><span class="p">,</span> <span class="o">*</span><span class="n">path</span><span class="p">),</span>
-</span><span data-line="301">                    <span class="n">description</span><span class="o">=</span><span class="n">command</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
-</span><span data-line="302">                    <span class="n">definition</span><span class="o">=</span><span class="n">command</span><span class="o">.</span><span class="n">script</span><span class="p">,</span>
-</span><span data-line="303">                    <span class="n">source_file</span><span class="o">=</span><span class="n">source_file</span><span class="p">,</span>
-</span><span data-line="304">                <span class="p">)</span>
-</span><span data-line="305">            <span class="p">)</span>
-</span><span data-line="306">        <span class="n">tasks</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">_tasks</span><span class="p">(</span><span class="n">command</span><span class="o">.</span><span class="n">subcommands</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">source_file</span><span class="p">))</span>
-</span><span data-line="307">    <span class="k">return</span> <span class="n">tasks</span>
-</span><span data-line="308">
-</span><span data-line="309">
+</span><span data-line="286"><span class="k">def</span><span class="w"> </span><span class="nf">_runnable</span><span class="p">(</span><span class="n">accepted</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">_Command</span><span class="p">],</span> <span class="n">run</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">_Command</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">_Command</span><span class="p">]:</span>
+</span><span data-line="287"><span class="w">    </span><span class="sd">"""Resolve repeated sibling names the way mask's CLI does.</span>
+</span><span data-line="288">
+</span><span data-line="289"><span class="sd">    mask's argument parser accepts a path through the *first* command of a</span>
+</span><span data-line="290"><span class="sd">    repeated name, but then runs the *last* one, looking up the rest of the</span>
+</span><span data-line="291"><span class="sd">    path among that command's subcommands. So a repeated command runs its last</span>
+</span><span data-line="292"><span class="sd">    definition, and a subcommand under it is runnable as itself only when both</span>
+</span><span data-line="293"><span class="sd">    definitions have one of that name; nor does the bare name run when the</span>
+</span><span data-line="294"><span class="sd">    first definition is a group without a script. Commands that only render alike</span>
+</span><span data-line="295"><span class="sd">    (``## deploy prod`` vs ``prod`` under ``## deploy``) are distinct and stay.</span>
+</span><span data-line="296"><span class="sd">    """</span>
+</span><span data-line="297">    <span class="n">first</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">_Command</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="298">    <span class="k">for</span> <span class="n">command</span> <span class="ow">in</span> <span class="n">accepted</span><span class="p">:</span>
+</span><span data-line="299">        <span class="n">first</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">command</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">command</span><span class="p">)</span>
+</span><span data-line="300">    <span class="n">last</span> <span class="o">=</span> <span class="p">{</span><span class="n">command</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">command</span> <span class="k">for</span> <span class="n">command</span> <span class="ow">in</span> <span class="n">run</span><span class="p">}</span>
+</span><span data-line="301">    <span class="n">resolved</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">_Command</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="302">    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">command</span> <span class="ow">in</span> <span class="n">last</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span data-line="303">        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">first</span><span class="p">:</span>
+</span><span data-line="304">            <span class="k">if</span> <span class="n">first</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">script</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">first</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">subcommands</span><span class="p">:</span>
+</span><span data-line="305">                <span class="c1"># The parser demands a subcommand after a command it knows</span>
+</span><span data-line="306">                <span class="c1"># only as a group, so the bare name cannot run.</span>
+</span><span data-line="307">                <span class="n">command</span><span class="o">.</span><span class="n">script</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="308">            <span class="n">command</span><span class="o">.</span><span class="n">subcommands</span> <span class="o">=</span> <span class="n">_runnable</span><span class="p">(</span>
+</span><span data-line="309">                <span class="n">first</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">subcommands</span><span class="p">,</span> <span class="n">command</span><span class="o">.</span><span class="n">subcommands</span>
+</span><span data-line="310">            <span class="p">)</span>
+</span><span data-line="311">            <span class="n">resolved</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+</span><span data-line="312">    <span class="k">return</span> <span class="n">resolved</span>
+</span><span data-line="313">
+</span><span data-line="314">
+</span><span data-line="315"><span class="k">def</span><span class="w"> </span><span class="nf">_tasks</span><span class="p">(</span>
+</span><span data-line="316">    <span class="n">commands</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">_Command</span><span class="p">],</span> <span class="n">parents</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">source_file</span><span class="p">:</span> <span class="nb">str</span>
+</span><span data-line="317"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="318">    <span class="n">tasks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="319">    <span class="k">for</span> <span class="n">command</span> <span class="ow">in</span> <span class="n">commands</span><span class="p">:</span>
+</span><span data-line="320">        <span class="k">if</span> <span class="ow">not</span> <span class="n">command</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+</span><span data-line="321">            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"nur: skipping unnamed mask command under </span><span class="si">%r</span><span class="s2">"</span><span class="p">,</span> <span class="n">parents</span><span class="p">)</span>
+</span><span data-line="322">            <span class="k">continue</span>
+</span><span data-line="323">        <span class="n">path</span> <span class="o">=</span> <span class="p">(</span><span class="o">*</span><span class="n">parents</span><span class="p">,</span> <span class="n">command</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="324">        <span class="k">if</span> <span class="n">command</span><span class="o">.</span><span class="n">script</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="325">            <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+</span><span data-line="326">                <span class="n">Task</span><span class="p">(</span>
+</span><span data-line="327">                    <span class="n">name</span><span class="o">=</span><span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">),</span>
+</span><span data-line="328">                    <span class="n">prefix</span><span class="o">=</span><span class="s2">"mask"</span><span class="p">,</span>
+</span><span data-line="329">                    <span class="n">argv_base</span><span class="o">=</span><span class="p">(</span><span class="s2">"mask"</span><span class="p">,</span> <span class="o">*</span><span class="n">path</span><span class="p">),</span>
+</span><span data-line="330">                    <span class="n">description</span><span class="o">=</span><span class="n">command</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+</span><span data-line="331">                    <span class="n">definition</span><span class="o">=</span><span class="n">command</span><span class="o">.</span><span class="n">script</span><span class="p">,</span>
+</span><span data-line="332">                    <span class="n">source_file</span><span class="o">=</span><span class="n">source_file</span><span class="p">,</span>
+</span><span data-line="333">                <span class="p">)</span>
+</span><span data-line="334">            <span class="p">)</span>
+</span><span data-line="335">        <span class="n">tasks</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">_tasks</span><span class="p">(</span><span class="n">command</span><span class="o">.</span><span class="n">subcommands</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">source_file</span><span class="p">))</span>
+</span><span data-line="336">    <span class="k">return</span> <span class="n">tasks</span>
+</span><span data-line="337">
+</span><span data-line="338">
 <div class="viewcode-block" id="parse_mask">
 <a class="viewcode-back" href="../../../../modules.html#nur.core.providers.mask.parse_mask">[docs]</a>
-</span><span data-line="310"><span class="k">def</span><span class="w"> </span><span class="nf">parse_mask</span><span class="p">(</span>
-</span><span data-line="311">    <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">source_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">SOURCE_FILE</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">windows</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">"nt"</span>
-</span><span data-line="312"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
-</span><span data-line="313"><span class="w">    </span><span class="sd">"""Parse mask commands out of a maskfile *text* without executing anything.</span>
-</span><span data-line="314">
-</span><span data-line="315"><span class="sd">    Mirrors mask's own parser (https://github.com/jacobdeichert/mask): headings</span>
-</span><span data-line="316"><span class="sd">    are commands, nested headings are subcommands, the last fenced block under</span>
-</span><span data-line="317"><span class="sd">    a heading is its script, and the last blockquote its description. A</span>
-</span><span data-line="318"><span class="sd">    subcommand is named by its path (``test lint``) and runs as</span>
-</span><span data-line="319"><span class="sd">    ``mask test lint``. *windows* selects whether ``powershell``/``batch``/</span>
-</span><span data-line="320"><span class="sd">    ``cmd`` blocks count, as they do only in mask's Windows build.</span>
-</span><span data-line="321"><span class="sd">    """</span>
-</span><span data-line="322">    <span class="n">root</span> <span class="o">=</span> <span class="n">_treeify</span><span class="p">(</span><span class="n">_flat_commands</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">windows</span><span class="o">=</span><span class="n">windows</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
-</span><span data-line="323">    <span class="c1"># mask resolves a repeated command to its last definition, so a later</span>
-</span><span data-line="324">    <span class="c1"># duplicate replaces the earlier task rather than listing both. Commands</span>
-</span><span data-line="325">    <span class="c1"># that only render alike (`## deploy prod` vs `prod` under `## deploy`)</span>
-</span><span data-line="326">    <span class="c1"># run differently, so both stay.</span>
-</span><span data-line="327">    <span class="n">tasks</span> <span class="o">=</span> <span class="n">_tasks</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">subcommands</span><span class="p">,</span> <span class="p">(),</span> <span class="n">source_file</span><span class="p">)</span>
-</span><span data-line="328">    <span class="n">unique</span> <span class="o">=</span> <span class="p">{</span><span class="n">task</span><span class="o">.</span><span class="n">argv_base</span><span class="p">:</span> <span class="n">task</span> <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">}</span>
-</span><span data-line="329">    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">unique</span><span class="o">.</span><span class="n">values</span><span class="p">())</span></div>
+</span><span data-line="339"><span class="k">def</span><span class="w"> </span><span class="nf">parse_mask</span><span class="p">(</span>
+</span><span data-line="340">    <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">source_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">SOURCE_FILE</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">windows</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">"nt"</span>
+</span><span data-line="341"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="342"><span class="w">    </span><span class="sd">"""Parse mask commands out of a maskfile *text* without executing anything.</span>
+</span><span data-line="343">
+</span><span data-line="344"><span class="sd">    Mirrors mask's own parser (https://github.com/jacobdeichert/mask): headings</span>
+</span><span data-line="345"><span class="sd">    are commands, nested headings are subcommands, the last fenced block under</span>
+</span><span data-line="346"><span class="sd">    a heading is its script, and the last blockquote its description. A</span>
+</span><span data-line="347"><span class="sd">    subcommand is named by its path (``test lint``) and runs as</span>
+</span><span data-line="348"><span class="sd">    ``mask test lint``. *windows* selects whether ``powershell``/``batch``/</span>
+</span><span data-line="349"><span class="sd">    ``cmd`` blocks count, as they do only in mask's Windows build.</span>
+</span><span data-line="350"><span class="sd">    """</span>
+</span><span data-line="351">    <span class="n">root</span> <span class="o">=</span> <span class="n">_treeify</span><span class="p">(</span><span class="n">_flat_commands</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">windows</span><span class="o">=</span><span class="n">windows</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="352">    <span class="k">return</span> <span class="n">_tasks</span><span class="p">(</span><span class="n">_runnable</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">subcommands</span><span class="p">,</span> <span class="n">root</span><span class="o">.</span><span class="n">subcommands</span><span class="p">),</span> <span class="p">(),</span> <span class="n">source_file</span><span class="p">)</span></div>
 
-</span><span data-line="330">
-</span><span data-line="331">
-</span><span data-line="332"><span class="k">class</span><span class="w"> </span><span class="nc">MaskProvider</span><span class="p">:</span>
-</span><span data-line="333">    <span class="n">prefix</span> <span class="o">=</span> <span class="s2">"mask"</span>
-</span><span data-line="334">
-</span><span data-line="335">    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span data-line="336">        <span class="k">return</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">SOURCE_FILE</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span>
-</span><span data-line="337">
-</span><span data-line="338">    <span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
-</span><span data-line="339">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="340">            <span class="n">text</span> <span class="o">=</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">SOURCE_FILE</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
-</span><span data-line="341">        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">UnicodeDecodeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span data-line="342">            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span> <span class="n">SOURCE_FILE</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
-</span><span data-line="343">            <span class="k">return</span> <span class="p">[]</span>
-</span><span data-line="344">        <span class="k">return</span> <span class="n">parse_mask</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">SOURCE_FILE</span><span class="p">)</span>
+</span><span data-line="353">
+</span><span data-line="354">
+</span><span data-line="355"><span class="k">class</span><span class="w"> </span><span class="nc">MaskProvider</span><span class="p">:</span>
+</span><span data-line="356">    <span class="n">prefix</span> <span class="o">=</span> <span class="s2">"mask"</span>
+</span><span data-line="357">
+</span><span data-line="358">    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="359">        <span class="k">return</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">SOURCE_FILE</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span>
+</span><span data-line="360">
+</span><span data-line="361">    <span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="362">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="363">            <span class="n">text</span> <span class="o">=</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">SOURCE_FILE</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
+</span><span data-line="364">        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">UnicodeDecodeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="365">            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span> <span class="n">SOURCE_FILE</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+</span><span data-line="366">            <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="367">        <span class="k">return</span> <span class="n">parse_mask</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">SOURCE_FILE</span><span class="p">)</span>
 </span></pre></div>
         </article><button class="back-to-top" type="button">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
