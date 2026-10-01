@@ -14,7 +14,9 @@ from nur.core.providers._markdown import (
     LIST_ITEM_FENCE,
     SETEXT_UNDERLINE,
     THEMATIC_BREAK,
+    fence_column,
     indent_width,
+    list_item_content,
     scan,
 )
 
@@ -34,9 +36,6 @@ SOURCE_FILE = "maskfile.md"
 LINE_ENDING = re.compile(r"\r?\n")
 BLOCKQUOTE = re.compile(r"^ {0,3}>\s?(.*)$")
 # A list item's marker and the one to four spaces setting its content column.
-# Past four spaces, the content starts one space after the marker and the rest
-# of the line is an indented code block.
-LIST_ITEM = re.compile(r"^( {0,3}(?:[-*+]|\d{1,9}[.)]))(?:[ \t]{1,4}(?=\S)|[ \t]|$)")
 # List items that end a blockquote's paragraph instead of lazily continuing it.
 PARAGRAPH_INTERRUPT = re.compile(r"^ {0,3}(?:[-*]|1[.)])(?:[ \t]|$)")
 # An inline link or image. Neither bracket may repeat inside, which keeps a
@@ -110,15 +109,15 @@ def _take_script(
     # mask refuses to run a script without a language tag (the tag selects the
     # interpreter) or without any line; a script of blank lines still runs.
     runnable = bool(info) and bool(body)
-    indent = match.start(1) if match is not None else 0
+    indent = (fence_column(fence, match) or 0) if match is not None else 0
     command.script = _dedent(body, indent) if runnable else None
 
 
 def _list_item(line: str) -> tuple[int, str] | None:
     """Return a list item's content column and content, if *line* opens one."""
-    if THEMATIC_BREAK.match(line) or (match := LIST_ITEM.match(line)) is None:
+    if (item := list_item_content(line)) is None:
         return None
-    return match.end(), line[match.end() :]
+    return item[0], line[item[1] :]
 
 
 @dataclass

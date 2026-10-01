@@ -21,8 +21,11 @@ __all__ = [
     "THEMATIC_BREAK",
     "Fence",
     "code_lines",
+    "column",
     "fence_blocks",
+    "fence_column",
     "indent_width",
+    "list_item_content",
     "scan",
 ]
 
@@ -38,13 +41,16 @@ HEADING = re.compile(r"^ {0,3}(#{1,6})(?:[ \t]+(.*))?$")
 # one: a closing fence must have nothing but whitespace after its delimiter.
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 # A fence may also open on a list item's marker line, e.g. ``- ```sh``.
-# Past four spaces after the marker, the line is an indented code block instead.
+# Past four columns of padding after the marker, the line is an indented code
+# block instead; fence_column checks that, since a tab spans several columns.
 LIST_ITEM_FENCE = re.compile(
-    r"^ {0,3}(?:(?:[-*+]|\d{1,9}[.)])[ \t]{1,4})?(`{3,}|~{3,})(.*)$"
+    r"^ {0,3}(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?(`{3,}|~{3,})(.*)$"
 )
-# The markers of a blockquote, or of a list item, that may precede an HTML block.
-QUOTE_PREFIX = re.compile(r"^(?: {0,3}> ?)+")
-LIST_MARKER = re.compile(r"^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:[ \t]{1,4}(?=\S)|[ \t])")
+LIST_MARKER = re.compile(r"^ {0,3}(?:[-*+]|\d{1,9}[.)])(?=[ \t]|$)")
+# Columns of padding a list item's content may start after its marker.
+MAX_LIST_PADDING = 4
+# One level of blockquote marker.
+QUOTE_MARK = re.compile(r"^ {0,3}> ?")
 
 # HTML block start conditions (CommonMark 4.6), each paired with the pattern
 # that ends the block, or BLANK_LINE for a block that runs to a blank line.
@@ -131,6 +137,41 @@ class _Open:
     in_item: bool
 
 
+def column(text: str) -> int:
+    """Return the column *text* ends at, a tab advancing to a multiple of 4."""
+    return len(text.expandtabs(4))
+
+
+def list_item_content(line: str) -> tuple[int, int] | None:
+    """Return a list item's content column and content index on *line*, if any.
+
+    The content starts after one to four columns of padding; with more, it
+    starts one column after the marker and the rest is an indented code block.
+    """
+    if THEMATIC_BREAK.match(line) or (marker := LIST_MARKER.match(line)) is None:
+        return None
+    rest = line[marker.end() :]
+    padded = len(rest) - len(rest.lstrip(" \t"))
+    end = marker.end() + padded
+    width = column(line[:end]) - column(line[: marker.end()])
+    if not rest.strip() or not 1 <= width <= MAX_LIST_PADDING:
+        return column(line[: marker.end()]) + 1, min(marker.end() + 1, len(line))
+    return column(line[:end]), end
+
+
+def fence_column(line: str, match: re.Match[str]) -> int | None:
+    """Return the column an opening fence's delimiter starts at.
+
+    None when a list marker precedes the delimiter by more than four columns
+    of padding, which makes the line an indented code block, not a fence.
+    """
+    start = column(line[: match.start(1)])
+    if match.start(1) <= _leading_spaces(line):
+        return start
+    item = list_item_content(line)
+    return start if item is not None and item[1] == match.start(1) else None
+
+
 def _leading_spaces(line: str) -> int:
     return len(line) - len(line.lstrip(" "))
 
@@ -177,9 +218,9 @@ def _html_block_end(line: str, *, paragraph: bool) -> re.Pattern[str] | None:
 
 def _html_block_at(line: str, *, paragraph: bool) -> _HtmlBlock | None:
     """Return the HTML block opening on *line*, inside any container, if any."""
-    content, quoted, indent = _container_content(line)
+    content, containers = _container_content(line)
     end = _html_block_end(content, paragraph=paragraph)
-    return _HtmlBlock(end, quoted, indent) if end is not None else None
+    return _HtmlBlock(end, containers) if end is not None else None
 
 
 def _leaves_paragraph_open(line: str, *, paragraph: bool) -> bool:
@@ -199,19 +240,38 @@ def _leaves_paragraph_open(line: str, *, paragraph: bool) -> bool:
 @dataclass
 class _HtmlBlock:
     end: re.Pattern[str]
-    # The container the block opened in: a blockquote, or a list item's
-    # content column. The block ends with its container.
-    quoted: bool
-    indent: int | None
+    # The containers the block opened in, outermost first: None for a
+    # blockquote level, else a list item's content column. The block ends
+    # with any of them.
+    containers: tuple[int | None, ...]
 
 
-def _container_content(line: str) -> tuple[str, bool, int | None]:
-    """Split a blockquote's or list item's markers off *line*."""
-    if (match := QUOTE_PREFIX.match(line)) is not None:
-        return line[match.end() :], True, None
-    if not THEMATIC_BREAK.match(line) and (match := LIST_MARKER.match(line)):
-        return line[match.end() :], False, match.end()
-    return line, False, None
+def _container_content(line: str) -> tuple[str, tuple[int | None, ...]]:
+    """Split the nested blockquote and list item markers off *line*."""
+    containers: list[int | None] = []
+    while True:
+        if (quote := QUOTE_MARK.match(line)) is not None:
+            containers.append(None)
+            line = line[quote.end() :]
+        elif (item := list_item_content(line)) is not None:
+            containers.append(item[0])
+            line = line[item[1] :]
+        else:
+            return line, tuple(containers)
+
+
+def _inside(containers: tuple[int | None, ...], line: str) -> str | None:
+    """Return *line*'s content within *containers*, or None if one has ended."""
+    for content_column in containers:
+        if content_column is None:
+            if (quote := QUOTE_MARK.match(line)) is None:
+                return None
+            line = line[quote.end() :]
+        elif line.strip() and indent_width(line) < content_column:
+            return None
+        else:
+            line = line[min(content_column, _leading_spaces(line)) :]
+    return line
 
 
 def _html_continues(block: _HtmlBlock, line: str) -> bool | None:
@@ -221,11 +281,8 @@ def _html_continues(block: _HtmlBlock, line: str) -> bool | None:
     afresh; False when a blank line ends the block (the line is not part of
     it); True when the line is hidden inside the block.
     """
-    if block.quoted and QUOTE_PREFIX.match(line) is None:
+    if (content := _inside(block.containers, line)) is None:
         return None
-    if block.indent is not None and line.strip() and indent_width(line) < block.indent:
-        return None
-    content = QUOTE_PREFIX.sub("", line, count=1) if block.quoted else line
     return not (block.end is BLANK_LINE and not content.strip())
 
 
@@ -254,9 +311,9 @@ class _Scanner:
         if self.block is not None and self._in_html(self.block, index, line):
             return
         opening = LIST_ITEM_FENCE if self.list_items else FENCE
-        if _opens(match := opening.match(line)):
-            indent = match.start(1)
-            in_item = indent > _leading_spaces(line)
+        match = opening.match(line)
+        if _opens(match) and (indent := fence_column(line, match)) is not None:
+            in_item = match.start(1) > _leading_spaces(line)
             self.fence = _Open(index, match.group(1), indent, in_item)
             self.paragraph = False
         elif self.html and (block := _html_block_at(line, paragraph=self.paragraph)):

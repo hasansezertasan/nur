@@ -428,6 +428,25 @@ MASK_PARITY = {
         "## a\n\n```sh\necho a\n```\n\n> <div>\n> ## hidden\n\n```sh\necho h\n```\n",
         [(("mask", "a"), None, "echo h")],
     ),
+    "two_tab_marker_padding": ("## a\n\n-\t\t```sh\n   echo a\n   ```\n", []),
+    "one_tab_marker_padding": (
+        "## a\n\n-\t```sh\n    echo a\n    ```\n",
+        [(("mask", "a"), None, "echo a")],
+    ),
+    "comment_in_list_in_quote": (
+        (
+            "## a\n\n```sh\necho a\n```\n\n"
+            "> - <!--\n>   ## hidden\n>   -->\n\n```sh\necho h\n```\n"
+        ),
+        [(("mask", "a"), None, "echo h")],
+    ),
+    "quote_in_list_comment": (
+        (
+            "## a\n\n```sh\necho a\n```\n\n"
+            "- > <!--\n  > ## hidden\n  > -->\n\n```sh\necho h\n```\n"
+        ),
+        [(("mask", "a"), None, "echo h")],
+    ),
 }
 
 
