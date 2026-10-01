@@ -34,7 +34,9 @@ SOURCE_FILE = "maskfile.md"
 LINE_ENDING = re.compile(r"\r?\n")
 BLOCKQUOTE = re.compile(r"^ {0,3}>\s?(.*)$")
 # A list item's marker and the one to four spaces setting its content column.
-LIST_ITEM = re.compile(r"^( {0,3}(?:[-*+]|\d{1,9}[.)]))([ \t]{1,4}|$)")
+# Past four spaces, the content starts one space after the marker and the rest
+# of the line is an indented code block.
+LIST_ITEM = re.compile(r"^( {0,3}(?:[-*+]|\d{1,9}[.)]))(?:[ \t]{1,4}(?=\S)|[ \t]|$)")
 # List items that end a blockquote's paragraph instead of lazily continuing it.
 PARAGRAPH_INTERRUPT = re.compile(r"^ {0,3}(?:[-*]|1[.)])(?:[ \t]|$)")
 # An inline link or image. Neither bracket may repeat inside, which keeps a
@@ -169,6 +171,19 @@ class _Reader:
     def _read_quote(self, command: _Command, content: str) -> tuple[int, str] | None:
         if (heading := HEADING.match(content)) is not None:
             return self._heading(heading)
+        if (
+            self.quote
+            and self.quote[-1]
+            and (underline := SETEXT_UNDERLINE.match(content))
+        ):
+            # The quote's open paragraph becomes a setext heading.
+            start = len(self.quote)
+            while start and self.quote[start - 1]:
+                start -= 1
+            text = " ".join(self.quote[start:])
+            del self.quote[start:]
+            self.paragraph, self.boundary = [], True
+            return (1 if underline.group(1)[0] == "=" else 2), text
         if not self.quote:
             # The last blockquote under a heading is its description.
             command.quote = self.quote

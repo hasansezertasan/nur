@@ -7,7 +7,7 @@ headings and fenced code blocks, so they share how those are recognised.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, NamedTuple
 
 if TYPE_CHECKING:
@@ -38,9 +38,13 @@ HEADING = re.compile(r"^ {0,3}(#{1,6})(?:[ \t]+(.*))?$")
 # one: a closing fence must have nothing but whitespace after its delimiter.
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 # A fence may also open on a list item's marker line, e.g. ``- ```sh``.
+# Past four spaces after the marker, the line is an indented code block instead.
 LIST_ITEM_FENCE = re.compile(
-    r"^ {0,3}(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?(`{3,}|~{3,})(.*)$"
+    r"^ {0,3}(?:(?:[-*+]|\d{1,9}[.)])[ \t]{1,4})?(`{3,}|~{3,})(.*)$"
 )
+# The markers of a blockquote, or of a list item, that may precede an HTML block.
+QUOTE_PREFIX = re.compile(r"^(?: {0,3}> ?)+")
+LIST_MARKER = re.compile(r"^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:[ \t]{1,4}(?=\S)|[ \t])")
 
 # HTML block start conditions (CommonMark 4.6), each paired with the pattern
 # that ends the block, or BLANK_LINE for a block that runs to a blank line.
@@ -171,6 +175,13 @@ def _html_block_end(line: str, *, paragraph: bool) -> re.Pattern[str] | None:
     return None
 
 
+def _html_block_at(line: str, *, paragraph: bool) -> _HtmlBlock | None:
+    """Return the HTML block opening on *line*, inside any container, if any."""
+    content, quoted, indent = _container_content(line)
+    end = _html_block_end(content, paragraph=paragraph)
+    return _HtmlBlock(end, quoted, indent) if end is not None else None
+
+
 def _leaves_paragraph_open(line: str, *, paragraph: bool) -> bool:
     """Whether a paragraph is still open after *line*.
 
@@ -185,11 +196,100 @@ def _leaves_paragraph_open(line: str, *, paragraph: bool) -> bool:
     return not (paragraph and SETEXT_UNDERLINE.match(line))
 
 
+@dataclass
+class _HtmlBlock:
+    end: re.Pattern[str]
+    # The container the block opened in: a blockquote, or a list item's
+    # content column. The block ends with its container.
+    quoted: bool
+    indent: int | None
+
+
+def _container_content(line: str) -> tuple[str, bool, int | None]:
+    """Split a blockquote's or list item's markers off *line*."""
+    if (match := QUOTE_PREFIX.match(line)) is not None:
+        return line[match.end() :], True, None
+    if not THEMATIC_BREAK.match(line) and (match := LIST_MARKER.match(line)):
+        return line[match.end() :], False, match.end()
+    return line, False, None
+
+
+def _html_continues(block: _HtmlBlock, line: str) -> bool | None:
+    """Whether *line* belongs to the open HTML *block*.
+
+    Returns None when the block's container ends first, so the line is read
+    afresh; False when a blank line ends the block (the line is not part of
+    it); True when the line is hidden inside the block.
+    """
+    if block.quoted and QUOTE_PREFIX.match(line) is None:
+        return None
+    if block.indent is not None and line.strip() and indent_width(line) < block.indent:
+        return None
+    content = QUOTE_PREFIX.sub("", line, count=1) if block.quoted else line
+    return not (block.end is BLANK_LINE and not content.strip())
+
+
 def _still_open(end: re.Pattern[str], line: str) -> re.Pattern[str] | None:
     """Return *end* if an HTML block stays open after its *line*, else None."""
     if end is not BLANK_LINE and end.search(line) is not None:
         return None
     return end
+
+
+@dataclass
+class _Scanner:
+    """The fence or HTML block open while :func:`scan` walks the lines."""
+
+    list_items: bool
+    html: bool
+    fences: list[Fence] = field(default_factory=list)
+    hidden: set[int] = field(default_factory=set)
+    fence: _Open | None = None
+    block: _HtmlBlock | None = None
+    paragraph: bool = False
+
+    def read(self, index: int, line: str) -> None:
+        if self.fence is not None and self._in_fence(self.fence, index, line):
+            return
+        if self.block is not None and self._in_html(self.block, index, line):
+            return
+        opening = LIST_ITEM_FENCE if self.list_items else FENCE
+        if _opens(match := opening.match(line)):
+            indent = match.start(1)
+            in_item = indent > _leading_spaces(line)
+            self.fence = _Open(index, match.group(1), indent, in_item)
+            self.paragraph = False
+        elif self.html and (block := _html_block_at(line, paragraph=self.paragraph)):
+            self.hidden.add(index)
+            # The whole opening line counts: `<!-->` closes where it opens.
+            self.block = block if _still_open(block.end, line) else None
+            self.paragraph = False
+        else:
+            self.paragraph = _leaves_paragraph_open(line, paragraph=self.paragraph)
+
+    def _in_fence(self, fence: _Open, index: int, line: str) -> bool:
+        """Consume *line* if it belongs to the open *fence*, closing it if done."""
+        if (block := _fence_ends(fence, line, index)) is None:
+            return True
+        self.fences.append(block)
+        self.fence, self.paragraph = None, False
+        # A closing fence line is the fence's; otherwise the item ended and
+        # the line is read afresh.
+        return block.end > index
+
+    def _in_html(self, block: _HtmlBlock, index: int, line: str) -> bool:
+        """Consume *line* if it belongs to the open HTML *block*."""
+        inside = _html_continues(block, line)
+        if inside is None:
+            self.block = None  # its container ended; read the line afresh
+            return False
+        if inside:
+            self.hidden.add(index)
+            if _still_open(block.end, line) is None:
+                self.block = None
+        else:
+            self.block, self.paragraph = None, False
+        return True
 
 
 def scan(
@@ -213,42 +313,13 @@ def scan(
     ``-->``, a ``<div>``-style block to the next blank line. HTML inside a fence
     is script content, and a fence inside HTML is not a fence.
     """
-    opening = LIST_ITEM_FENCE if list_items else FENCE
-    fences: list[Fence] = []
-    hidden: set[int] = set()
-    fence: _Open | None = None
-    end: re.Pattern[str] | None = None
-    paragraph = False
+    scanner = _Scanner(list_items, html)
     for index, line in enumerate(lines):
-        if fence is not None:
-            if (block := _fence_ends(fence, line, index)) is None:
-                continue
-            fences.append(block)
-            fence = None
-            paragraph = False
-            if block.end > index:
-                continue  # a closing fence line; otherwise read the line anew
-        if end is not None:
-            if end is BLANK_LINE and not line.strip():
-                end, paragraph = None, False
-            else:
-                hidden.add(index)
-                end = _still_open(end, line)
-            continue
-        if _opens(match := opening.match(line)):
-            indent = match.start(1)
-            fence = _Open(index, match.group(1), indent, indent > _leading_spaces(line))
-            paragraph = False
-            continue
-        if html and (end := _html_block_end(line, paragraph=paragraph)) is not None:
-            hidden.add(index)
-            # The whole opening line counts: `<!-->` closes where it opens.
-            end, paragraph = _still_open(end, line), False
-            continue
-        paragraph = _leaves_paragraph_open(line, paragraph=paragraph)
-    if fence is not None:
-        fences.append(Fence(fence.index, len(lines), len(lines)))
-    return fences, hidden
+        scanner.read(index, line)
+    if scanner.fence is not None:
+        start = scanner.fence.index
+        scanner.fences.append(Fence(start, len(lines), len(lines)))
+    return scanner.fences, scanner.hidden
 
 
 def fence_blocks(lines: list[str]) -> list[tuple[int, int]]:

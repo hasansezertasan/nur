@@ -405,6 +405,29 @@ MASK_PARITY = {
         [(("mask", "a"), None, "x")],
     ),
     "lone_cr": ("# T\r## a\r```sh\recho\r```\r", []),
+    "list_marker_5_spaces": ("## a\n\n-     ```sh\n      echo a\n      ```\n", []),
+    "list_marker_4_spaces": (
+        "## a\n\n-    ```sh\n     echo a\n     ```\n",
+        [(("mask", "a"), None, "echo a")],
+    ),
+    "comment_in_quote": (
+        (
+            "## a\n\n```sh\necho a\n```\n\n"
+            "> <!--\n> ## hidden\n> -->\n\n```sh\necho h\n```\n"
+        ),
+        [(("mask", "a"), None, "echo h")],
+    ),
+    "comment_in_list": (
+        (
+            "## a\n\n```sh\necho a\n```\n\n"
+            "- <!--\n  ## hidden\n  -->\n\n```sh\necho h\n```\n"
+        ),
+        [(("mask", "a"), None, "echo h")],
+    ),
+    "div_in_quote": (
+        "## a\n\n```sh\necho a\n```\n\n> <div>\n> ## hidden\n\n```sh\necho h\n```\n",
+        [(("mask", "a"), None, "echo h")],
+    ),
 }
 
 
@@ -493,3 +516,11 @@ def test_command_with_a_space_and_a_subcommand_path_stay_distinct() -> None:
     assert registry.resolve("'deploy prod'").argv_base == ("mask", "deploy prod")
     assert registry.resolve("deploy prod").argv_base == ("mask", "deploy", "prod")
     assert registry.resolve("mask:deploy prod").argv_base == ("mask", "deploy", "prod")
+
+
+def test_setext_heading_inside_a_blockquote_is_a_command() -> None:
+    text = "## a\n\n```sh\necho a\n```\n\n> child\n> -----\n\n```sh\necho child\n```\n"
+    assert [(t.argv_base, t.definition) for t in parse_mask(text)] == [
+        (("mask", "a"), "echo a"),
+        (("mask", "child"), "echo child"),
+    ]
