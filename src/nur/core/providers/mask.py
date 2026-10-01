@@ -78,6 +78,14 @@ class _Command:
         return " ".join(paragraph or last) or None
 
 
+def _escaped(text: str, link: re.Match[str]) -> bool:
+    """Whether the link's `[` is escaped by an odd run of backslashes."""
+    start = bracket = link.start() + (text[link.start()] == "!")
+    while start and text[start - 1] == "\\":
+        start -= 1
+    return (bracket - start) % 2 == 1
+
+
 def _unescape(match: re.Match[str]) -> str:
     escaped, reference = match.groups()
     return escaped if escaped is not None else html.unescape(reference)
@@ -94,7 +102,7 @@ def _command_name(text: str) -> str:
         text = head.rstrip()
     # mask restarts a heading's text at each link or image, so the last one
     # names the command from its own text onward: `## x [a](u) y` is `a y`.
-    if links := list(LINK.finditer(text)):
+    if links := [link for link in LINK.finditer(text) if not _escaped(text, link)]:
         text = links[-1].group(1) + text[links[-1].end() :]
     text = ESCAPE.sub(_unescape, text)
     return re.split(r"[(\[]", text, maxsplit=1)[0].strip()

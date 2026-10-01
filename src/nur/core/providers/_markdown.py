@@ -47,6 +47,8 @@ LIST_ITEM_FENCE = re.compile(
     r"^ {0,3}(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?(`{3,}|~{3,})(.*)$"
 )
 LIST_MARKER = re.compile(r"^ {0,3}(?:[-*+]|\d{1,9}[.)])(?=[ \t]|$)")
+# The indentation, in columns, that makes a line an indented code block.
+INDENTED_CODE_COLUMNS = 4
 # Columns of padding a list item's content may start after its marker.
 MAX_LIST_PADDING = 4
 # One level of blockquote marker.
@@ -233,6 +235,8 @@ def _leaves_paragraph_open(line: str, *, paragraph: bool) -> bool:
         return False
     if THEMATIC_BREAK.match(line):
         return False
+    if not paragraph and indent_width(line) >= INDENTED_CODE_COLUMNS:
+        return False  # an indented code block, which a lone tag may follow
     # An underline under a paragraph turns it into a setext heading.
     return not (paragraph and SETEXT_UNDERLINE.match(line))
 

@@ -475,6 +475,25 @@ MASK_PARITY = {
         "## a &nosuch; b\n\n```sh\necho\n```\n",
         [(("mask", "a &nosuch; b"), None, "echo")],
     ),
+    "lone_tag_after_indented_code": (
+        (
+            "## a\n\n```sh\necho a\n```\n\n"
+            '    code\n<img src="x">\n## hidden\n\n```sh\necho h\n```\n'
+        ),
+        [(("mask", "a"), None, "echo h")],
+    ),
+    "escaped_bracket": (
+        "## x \\[a](u)\n\n```sh\necho\n```\n",
+        [(("mask", "x"), None, "echo")],
+    ),
+    "double_backslash_bracket": (
+        "## x \\\\[a](u)\n\n```sh\necho\n```\n",
+        [(("mask", "a"), None, "echo")],
+    ),
+    "escaped_bang_image": (
+        "## x \\![a](u)\n\n```sh\necho\n```\n",
+        [(("mask", "a"), None, "echo")],
+    ),
 }
 
 
