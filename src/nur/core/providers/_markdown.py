@@ -22,6 +22,8 @@ __all__ = [
     "Fence",
     "code_lines",
     "column",
+    "container_content",
+    "container_line",
     "fence_blocks",
     "fence_column",
     "indent_width",
@@ -244,7 +246,7 @@ def _html_block_end(line: str, *, paragraph: bool) -> re.Pattern[str] | None:
 
 def _html_block_at(line: str, *, paragraph: bool) -> _HtmlBlock | None:
     """Return the HTML block opening on *line*, inside any container, if any."""
-    content, containers = _container_content(line)
+    content, containers = container_content(line)
     end = _html_block_end(content, paragraph=paragraph)
     return _HtmlBlock(end, containers) if end is not None else None
 
@@ -274,7 +276,7 @@ class _HtmlBlock:
     containers: tuple[int | None, ...]
 
 
-def _container_content(line: str) -> tuple[str, tuple[int | None, ...]]:
+def container_content(line: str) -> tuple[str, tuple[int | None, ...]]:
     """Split the nested blockquote and list item markers off *line*."""
     containers: list[int | None] = []
     while True:
@@ -288,7 +290,7 @@ def _container_content(line: str) -> tuple[str, tuple[int | None, ...]]:
             return line, tuple(containers)
 
 
-def _inside(containers: tuple[int | None, ...], line: str) -> str | None:
+def container_line(containers: tuple[int | None, ...], line: str) -> str | None:
     """Return *line*'s content within *containers*, or None if one has ended."""
     for content_column in containers:
         if content_column is None:
@@ -309,7 +311,7 @@ def _html_continues(block: _HtmlBlock, line: str) -> bool | None:
     afresh; False when a blank line ends the block (the line is not part of
     it); True when the line is hidden inside the block.
     """
-    if (content := _inside(block.containers, line)) is None:
+    if (content := container_line(block.containers, line)) is None:
         return None
     return not (block.end is BLANK_LINE and not content.strip())
 

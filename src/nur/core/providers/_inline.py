@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import bisect
 import html
+import operator
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -51,6 +52,7 @@ class _Delimiter:
 
     char: str
     count: int
+    length: int
     can_open: bool
     can_close: bool
     opens: bool = False
@@ -75,9 +77,10 @@ def _delimiter(text: str, start: int, end: int) -> _Delimiter:
         not _is_punctuation(before) or after.isspace() or _is_punctuation(after)
     )
     if text[start] == "*":
-        return _Delimiter("*", end - start, can_open=left, can_close=right)
+        return _Delimiter("*", end - start, end - start, can_open=left, can_close=right)
     return _Delimiter(
         "_",
+        end - start,
         end - start,
         can_open=left and (not right or _is_punctuation(before)),
         can_close=right and (not left or _is_punctuation(after)),
@@ -158,22 +161,45 @@ class _Tokenizer:
 
 def _match_emphasis(tokens: list[_Token]) -> None:
     """Pair openers with closers, marking each opener that starts emphasis."""
-    openers: dict[str, list[_Delimiter]] = {"*": [], "_": []}
-    for token in tokens:
+    # Six buckets per character keep incompatible dual-purpose runs available
+    # for later closers without repeatedly scanning them (quadratic on hostile
+    # input). Pairing uses the original run lengths, even after partial use.
+    openers: dict[str, dict[tuple[bool, int], list[tuple[int, _Delimiter]]]] = {
+        char: {(closes, mod): [] for closes in (False, True) for mod in range(3)}
+        for char in "*_"
+    }
+    for index, token in enumerate(tokens):
         if not isinstance(token, _Delimiter):
             continue
-        stack = openers[token.char]
-        while token.can_close and token.count and stack:
-            opener = stack[-1]
+        buckets = openers[token.char]
+        while token.can_close and token.count:
+            candidates = [
+                stack[-1]
+                for (closes, mod), stack in buckets.items()
+                if stack
+                and not (
+                    (closes or token.can_open)
+                    and (mod + token.length) % 3 == 0
+                    and (mod != 0 or token.length % 3 != 0)
+                )
+            ]
+            if not candidates:
+                break
+            position, opener = max(candidates, key=operator.itemgetter(0))
+            # Openers between a matched pair cannot participate in a later
+            # crossing pair. Each discarded run is popped only once.
+            for stack in buckets.values():
+                while stack and stack[-1][0] > position:
+                    stack.pop()
             strong = opener.count >= STRONG and token.count >= STRONG
             used = STRONG if strong else 1
             opener.count -= used
             token.count -= used
             opener.opens = True
             if not opener.count:
-                stack.pop()
+                buckets[(opener.can_close, opener.length % 3)].pop()
         if token.can_open and token.count:
-            stack.append(token)
+            buckets[(token.can_close, token.length % 3)].append((index, token))
 
 
 def heading_text(text: str, labels: frozenset[str] = frozenset()) -> str:

@@ -801,8 +801,9 @@ def test_hostile_link_destinations_are_parsed() -> None:
         "_a " * 17_000,
         "`a" * 25_000,
         "*a_ [b](c) `d` " * 5_000,
+        "**a*" * 10_000,
     ],
-    ids=["stars", "trailing-stars", "underscores", "backticks", "mixed"],
+    ids=["stars", "trailing-stars", "underscores", "backticks", "mixed", "ambiguous"],
 )
 def test_hostile_inline_markup_is_parsed(heading) -> None:
     # Emphasis and code-span matching must stay linear on unmatched delimiters.
@@ -817,3 +818,43 @@ def test_plus_item_does_not_interrupt_a_quote_paragraph() -> None:
     assert [(t.argv_base, t.definition) for t in parse_mask(text)] == [
         (("mask", "a"), "echo b")
     ]
+
+
+@pytest.mark.parametrize(
+    ("heading", "name"),
+    [
+        ("**foo*bar**", "foo*bar"),
+        ("**foo*bar***", "bar"),
+        ("***foo**bar*", "foobar"),
+        ("**foo**bar**", "foobar**"),
+    ],
+)
+def test_emphasis_delimiter_run_pairing(heading, name) -> None:
+    # Command names verified with mask 0.11.7 --introspect, including runs
+    # that can both open and close and the multiple-of-three exception.
+    text = f"## {heading}\n\n```sh\necho\n```\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", name)]
+
+
+@pytest.mark.parametrize(
+    "definition",
+    [
+        "> [build]: /url",
+        "- [build]: /url",
+        "> - [build]: /url",
+        "- > [build]: /url",
+        "> - [build]:\n>   /url",
+        "1.  item\n\n    [build]: /url",
+    ],
+)
+def test_reference_definitions_in_containers(definition) -> None:
+    # Definitions are document-wide even when nested or on a continuation
+    # line. The heading deliberately precedes the definition.
+    text = f"## x [build] y\n\n```sh\necho\n```\n\n{definition}\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", "build y")]
+
+
+@pytest.mark.parametrize("definition", [">     [build]: /url", "-     [build]: /url"])
+def test_indented_code_in_containers_is_not_a_reference_definition(definition) -> None:
+    text = f"## x [build] y\n\n```sh\necho\n```\n\n{definition}\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", "x")]

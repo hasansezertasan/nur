@@ -19,6 +19,8 @@ from nur.core.providers._markdown import (
     SETEXT_UNDERLINE,
     THEMATIC_BREAK,
     Fence,
+    container_content,
+    container_line,
     indent_width,
     list_item_content,
     scan,
@@ -257,12 +259,23 @@ def _definition_labels(lines: list[str], code: set[int]) -> frozenset[str]:
     `[build]:` alone, or with trailing text, is not a definition.
     """
     labels: set[str] = set()
+    containers: tuple[int | None, ...] = ()
     for index, line in enumerate(lines):
-        if index in code or (match := DEFINITION.match(line)) is None:
+        if index in code:
             continue
-        target = line[match.end() :]
+        # Reuse the block scanner's container rules, including nested markers
+        # and list continuation indentation. Code and HTML remain excluded.
+        inner = container_line(containers, line)
+        if inner is None:
+            containers = ()
+            inner = line
+        content, opened = container_content(inner)
+        containers += opened
+        if (match := DEFINITION.match(content)) is None:
+            continue
+        target = content[match.end() :]
         if not target.strip() and index + 1 < len(lines) and index + 1 not in code:
-            target = lines[index + 1]
+            target = container_line(containers, lines[index + 1]) or ""
         if DEFINITION_TARGET.match(target):
             labels.add(normalize_label(match.group(1)))
     return frozenset(labels)
