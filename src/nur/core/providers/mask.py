@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import html
 import logging
 import os
 import re
@@ -9,15 +8,16 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from nur.core.models import Task
+from nur.core.providers._inline import heading_text
 from nur.core.providers._markdown import (
     HEADING,
-    LIST_ITEM_FENCE,
     SETEXT_UNDERLINE,
     THEMATIC_BREAK,
-    fence_column,
+    Fence,
     indent_width,
     list_item_content,
     scan,
+    strip_columns,
 )
 
 if TYPE_CHECKING:
@@ -38,16 +38,6 @@ BLOCKQUOTE = re.compile(r"^ {0,3}>\s?(.*)$")
 # A list item's marker and the one to four spaces setting its content column.
 # List items that end a blockquote's paragraph instead of lazily continuing it.
 PARAGRAPH_INTERRUPT = re.compile(r"^ {0,3}(?:[-*]|1[.)])(?:[ \t]|$)")
-# An inline link or image, whose destination may hold escaped or one level of
-# balanced parentheses. No bracket may repeat inside, which keeps a scan from
-# every `[` of a hostile heading linear.
-LINK = re.compile(r"!?\[([^\[\]]*)\]\((?:[^()\\]|\\.|\([^()]*\))*\)")
-# A backslash escape of ASCII punctuation, which markdown reads as the literal,
-# or a character reference, which markdown decodes only with its semicolon.
-# One pass, so an escaped `\&` stays literal rather than starting a reference.
-ESCAPE = re.compile(
-    r"\\([!-/:-@\[-`{-~])|(&(?:#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});)"
-)
 # Outside Windows, mask skips these fences entirely, as though they were absent,
 # so a command whose only script is one of them has no script to run.
 WINDOWS_ONLY_EXECUTORS = frozenset({"powershell", "batch", "cmd"})
@@ -78,19 +68,6 @@ class _Command:
         return " ".join(paragraph or last) or None
 
 
-def _escaped(text: str, link: re.Match[str]) -> bool:
-    """Whether the link's `[` is escaped by an odd run of backslashes."""
-    start = bracket = link.start() + (text[link.start()] == "!")
-    while start and text[start - 1] == "\\":
-        start -= 1
-    return (bracket - start) % 2 == 1
-
-
-def _unescape(match: re.Match[str]) -> str:
-    escaped, reference = match.groups()
-    return escaped if escaped is not None else html.unescape(reference)
-
-
 def _command_name(text: str) -> str:
     """Strip a heading's ``(required)`` and ``[optional]`` argument declarations."""
     text = text.strip()
@@ -100,35 +77,23 @@ def _command_name(text: str) -> str:
     head = text.rstrip("#")
     if head != text and (not head or head[-1].isspace()):
         text = head.rstrip()
-    # mask restarts a heading's text at each link or image, so the last one
-    # names the command from its own text onward: `## x [a](u) y` is `a y`.
-    if links := [link for link in LINK.finditer(text) if not _escaped(text, link)]:
-        text = links[-1].group(1) + text[links[-1].end() :]
-    text = ESCAPE.sub(_unescape, text)
-    return re.split(r"[(\[]", text, maxsplit=1)[0].strip()
-
-
-def _dedent(body: list[str], indent: int) -> str:
-    """Join a fence's body, dropping up to the fence's own indent from each line."""
-    return "\n".join(
-        line[min(indent, len(line) - len(line.lstrip(" "))) :] for line in body
-    )
+    return re.split(r"[(\[]", heading_text(text), maxsplit=1)[0].strip()
 
 
 def _take_script(
-    command: _Command, fence: str, body: list[str], *, windows: bool
+    command: _Command, fence: Fence, body: list[str], *, windows: bool
 ) -> None:
-    """Make the block opened by the *fence* line *command*'s script."""
-    match = LIST_ITEM_FENCE.match(fence)
-    info = match.group(2).strip() if match is not None else ""
+    """Make the *fence*'s *body* lines *command*'s script."""
+    info = fence.info
     if not windows and info in WINDOWS_ONLY_EXECUTORS:
         return
     # Each block overwrites the last: mask runs the final one.
     # mask refuses to run a script without a language tag (the tag selects the
     # interpreter) or without any line; a script of blank lines still runs.
     runnable = bool(info) and bool(body)
-    indent = (fence_column(fence, match) or 0) if match is not None else 0
-    command.script = _dedent(body, indent) if runnable else None
+    # Each body line loses up to the fence's own indentation, by columns.
+    script = "\n".join(strip_columns(line, fence.indent) for line in body)
+    command.script = script if runnable else None
 
 
 def _list_item(line: str) -> tuple[int, str] | None:
@@ -263,7 +228,7 @@ def _flat_commands(text: str, *, windows: bool) -> list[_Command]:
     fences, hidden = scan(raw, list_items=True, html=True)
     lines = ["" if index in hidden else line for index, line in enumerate(raw)]
     code = {index for block in fences for index in range(block.open, block.end)}
-    openings = {block.open: block.body_end for block in fences}
+    openings = {block.open: block for block in fences}
 
     commands: list[_Command] = []
     current = _Command(level=1)
@@ -271,9 +236,9 @@ def _flat_commands(text: str, *, windows: bool) -> list[_Command]:
     fence_list: int | None = None
     for index, line in enumerate(lines):
         if index in openings:
-            _take_script(
-                current, line, lines[index + 1 : openings[index]], windows=windows
-            )
+            fence = openings[index]
+            body = lines[index + 1 : fence.body_end]
+            _take_script(current, fence, body, windows=windows)
             fence_list = reader.fence_list_indent(line)
         if index in code:
             reader.reset(list_indent=fence_list)

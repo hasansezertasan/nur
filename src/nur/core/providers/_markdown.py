@@ -27,6 +27,7 @@ __all__ = [
     "indent_width",
     "list_item_content",
     "scan",
+    "strip_columns",
 ]
 
 
@@ -127,16 +128,21 @@ class Fence(NamedTuple):
     open: int
     body_end: int
     end: int
+    # The opening fence's info string, and the column its delimiter starts at,
+    # which is how much indentation its body lines lose.
+    info: str = ""
+    indent: int = 0
 
 
 @dataclass
 class _Open:
     index: int
     delimiter: str
-    # The column the fence's content starts at, and whether the fence sits on a
-    # list item's marker line (so the item's end also ends the fence).
+    info: str
+    # The column the fence's delimiter starts at, and the content column of
+    # the list item it sits in, if any (the item's end also ends the fence).
     indent: int
-    in_item: bool
+    container: int | None
 
 
 def column(text: str) -> int:
@@ -191,15 +197,31 @@ def indent_width(line: str) -> int:
     return width
 
 
+def strip_columns(line: str, columns: int) -> str:
+    """Remove up to *columns* columns of leading spaces and tabs from *line*.
+
+    A tab that only partly fits leaves its remaining columns as spaces.
+    """
+    width = 0
+    for index, char in enumerate(line):
+        if width >= columns or char not in " \t":
+            return line[index:]
+        step = 1 if char == " " else 4 - width % 4
+        if width + step > columns:
+            return " " * (width + step - columns) + line[index + 1 :]
+        width += step
+    return ""
+
+
 def _fence_ends(fence: _Open, line: str, index: int) -> Fence | None:
     """Return the finished block if *line* ends the open *fence*."""
-    if fence.in_item:
-        if line.strip() and indent_width(line) < fence.indent:
+    if fence.container is not None:
+        if line.strip() and indent_width(line) < fence.container:
             # The list item ends here, and a fence inside it ends with it.
-            return Fence(fence.index, index, index)
-        line = line[min(fence.indent, _leading_spaces(line)) :]
+            return Fence(fence.index, index, index, fence.info, fence.indent)
+        line = strip_columns(line, fence.container)
     if _closes(FENCE.match(line), fence.delimiter):
-        return Fence(fence.index, index, index + 1)
+        return Fence(fence.index, index, index + 1, fence.info, fence.indent)
     return None
 
 
@@ -308,18 +330,18 @@ class _Scanner:
     fence: _Open | None = None
     block: _HtmlBlock | None = None
     paragraph: bool = False
+    # The content column of the list item that later lines may continue.
+    list_column: int | None = None
 
     def read(self, index: int, line: str) -> None:
         if self.fence is not None and self._in_fence(self.fence, index, line):
             return
         if self.block is not None and self._in_html(self.block, index, line):
             return
-        opening = LIST_ITEM_FENCE if self.list_items else FENCE
-        match = opening.match(line)
-        if _opens(match) and (indent := fence_column(line, match)) is not None:
-            in_item = match.start(1) > _leading_spaces(line)
-            self.fence = _Open(index, match.group(1), indent, in_item)
-            self.paragraph = False
+        if self.list_items:
+            self._track_list(line)
+        if (fence := self._opening(index, line)) is not None:
+            self.fence, self.paragraph = fence, False
         elif self.html and (block := _html_block_at(line, paragraph=self.paragraph)):
             self.hidden.add(index)
             # The whole opening line counts: `<!-->` closes where it opens.
@@ -327,6 +349,37 @@ class _Scanner:
             self.paragraph = False
         else:
             self.paragraph = _leaves_paragraph_open(line, paragraph=self.paragraph)
+
+    def _track_list(self, line: str) -> None:
+        if (item := list_item_content(line)) is not None:
+            self.list_column = item[0]
+        elif (
+            self.list_column is not None
+            and line.strip()
+            and indent_width(line) < self.list_column
+        ):
+            self.list_column = None
+
+    def _opening(self, index: int, line: str) -> _Open | None:
+        """Return the fence opening on *line*, inside the current list item too."""
+        within = self.list_column is not None and (
+            indent_width(line) >= self.list_column
+        )
+        if within and self.list_column is not None:
+            # Inside a list item, a fence is indented relative to its content.
+            inner = strip_columns(line, self.list_column)
+            match = FENCE.match(inner)
+            if _opens(match):
+                indent = self.list_column + column(inner[: match.start(1)])
+                info = match.group(2).strip()
+                return _Open(index, match.group(1), info, indent, self.list_column)
+        opening = LIST_ITEM_FENCE if self.list_items else FENCE
+        match = opening.match(line)
+        if not _opens(match) or (start := fence_column(line, match)) is None:
+            return None
+        on_marker = match.start(1) > _leading_spaces(line)
+        container = start if on_marker else None
+        return _Open(index, match.group(1), match.group(2).strip(), start, container)
 
     def _in_fence(self, fence: _Open, index: int, line: str) -> bool:
         """Consume *line* if it belongs to the open *fence*, closing it if done."""
@@ -377,9 +430,9 @@ def scan(
     scanner = _Scanner(list_items, html)
     for index, line in enumerate(lines):
         scanner.read(index, line)
-    if scanner.fence is not None:
-        start = scanner.fence.index
-        scanner.fences.append(Fence(start, len(lines), len(lines)))
+    if (fence := scanner.fence) is not None:
+        end = len(lines)
+        scanner.fences.append(Fence(fence.index, end, end, fence.info, fence.indent))
     return scanner.fences, scanner.hidden
 
 

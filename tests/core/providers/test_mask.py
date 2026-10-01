@@ -494,6 +494,59 @@ MASK_PARITY = {
         "## x \\![a](u)\n\n```sh\necho\n```\n",
         [(("mask", "a"), None, "echo")],
     ),
+    "strong_name": (
+        "## **build**\n\n```sh\necho\n```\n",
+        [(("mask", "build"), None, "echo")],
+    ),
+    "code_name": (
+        "## `build`\n\n```sh\necho\n```\n",
+        [(("mask", "`build`"), None, "echo")],
+    ),
+    "emph_middle": (
+        "## a *b* c\n\n```sh\necho\n```\n",
+        [(("mask", "b c"), None, "echo")],
+    ),
+    "emph_start": ("## *a* b\n\n```sh\necho\n```\n", [(("mask", "a b"), None, "echo")]),
+    "underscore_intraword": (
+        "## a_b_c\n\n```sh\necho\n```\n",
+        [(("mask", "a_b_c"), None, "echo")],
+    ),
+    "underscore_strong": (
+        "## __a__ b\n\n```sh\necho\n```\n",
+        [(("mask", "a b"), None, "echo")],
+    ),
+    "strong_link": (
+        "## **a [b](u)** c\n\n```sh\necho\n```\n",
+        [(("mask", "b c"), None, "echo")],
+    ),
+    "unclosed_star": (
+        "## *unclosed\n\n```sh\necho\n```\n",
+        [(("mask", "*unclosed"), None, "echo")],
+    ),
+    "spaced_stars": (
+        "## a * b * c\n\n```sh\necho\n```\n",
+        [(("mask", "a * b * c"), None, "echo")],
+    ),
+    "nested_emph": (
+        "## *a **b** c* d\n\n```sh\necho\n```\n",
+        [(("mask", "b c d"), None, "echo")],
+    ),
+    "link_then_emph": (
+        "## [x](u) *y* z\n\n```sh\necho\n```\n",
+        [(("mask", "y z"), None, "echo")],
+    ),
+    "emph_then_link": (
+        "## *y* [x](u) z\n\n```sh\necho\n```\n",
+        [(("mask", "x z"), None, "echo")],
+    ),
+    "list_item_col4_fence": (
+        "## a\n\n1.  item\n\n    ```sh\n    echo a\n    ```\n",
+        [(("mask", "a"), None, "echo a")],
+    ),
+    "tab_closer": (
+        "## a\n\n-\t```sh\n\techo a\n\t```\n\n## b\n\n```sh\necho\n```\n",
+        [(("mask", "a"), None, "echo a"), (("mask", "b"), None, "echo")],
+    ),
 }
 
 
@@ -598,3 +651,20 @@ def test_hostile_link_destinations_are_parsed() -> None:
     links = "## " + "[a](" * 20_000 + "\n\n```sh\necho\n```\n"
     assert parse_mask(parens) == []
     assert parse_mask(links) == []
+
+
+@pytest.mark.parametrize(
+    "heading",
+    [
+        "*" * 50_000,
+        "a*" * 25_000,
+        "_a " * 17_000,
+        "`a" * 25_000,
+        "*a_ [b](c) `d` " * 5_000,
+    ],
+    ids=["stars", "trailing-stars", "underscores", "backticks", "mixed"],
+)
+def test_hostile_inline_markup_is_parsed(heading) -> None:
+    # Emphasis and code-span matching must stay linear on unmatched delimiters.
+    tasks = parse_mask(f"## {heading}\n\n```sh\necho\n```\n")
+    assert len(tasks) <= 1

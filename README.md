@@ -210,8 +210,8 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   since mask needs the tag to pick an interpreter; `powershell`, `batch`, and
   `cmd` blocks count only on Windows, as in mask. Headings and fences inside
   HTML blocks (comments, `<details>`, and the like) are ignored. Fences nested
-  in blockquotes, or in list items below the item's first line, are not
-  recognised, and emphasis in a heading is kept as written.
+  in blockquotes are not recognised. Like mask, a heading's inline markup
+  restarts its name, so `## a *b* c` is the task `b c`.
 - **CLI Application**: run any discovered task by name or qualified `prefix:name`, with `--` passthrough to the underlying runner.
 - **TUI Application**: interactive three-pane task picker built with Textual.
 - **Safe by default**: discovery parses files; it never shells out to a runner just to list tasks.
