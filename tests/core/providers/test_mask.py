@@ -646,6 +646,26 @@ MASK_PARITY = {
         "## x [build] y\n\n```sh\necho\n```\n\n[build]:\n  /url\n",
         [(("mask", "build y"), None, "echo")],
     ),
+    "setext_in_list_item": (
+        "## a\n\n```sh\necho a\n```\n\n- child\n  -----\n\n```sh\necho child\n```\n",
+        [(("mask", "a"), None, "echo a"), (("mask", "child"), None, "echo child")],
+    ),
+    "tab_after_unaligned_container": (
+        "## a\n\n- outer\n  \t```sh\n  \techo a\n  \t```\n",
+        [(("mask", "a"), None, "echo a")],
+    ),
+    "definition_continuation_garbage": (
+        "## x [build] y\n\n```sh\necho\n```\n\n[build]:\n/url trailing garbage\n",
+        [(("mask", "x"), None, "echo")],
+    ),
+    "definition_continuation_title": (
+        '## x [build] y\n\n```sh\necho\n```\n\n[build]:\n/url "title"\n',
+        [(("mask", "build y"), None, "echo")],
+    ),
+    "definition_same_line_garbage": (
+        "## x [build] y\n\n```sh\necho\n```\n\n[build]: /url trailing garbage\n",
+        [(("mask", "x"), None, "echo")],
+    ),
 }
 
 

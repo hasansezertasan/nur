@@ -204,17 +204,15 @@ def indent_width(line: str) -> int:
 def strip_columns(line: str, columns: int) -> str:
     """Remove up to *columns* columns of leading spaces and tabs from *line*.
 
-    A tab that only partly fits leaves its remaining columns as spaces.
+    The indentation left over is rewritten as spaces measured from the column
+    it really starts at, so a tab keeps its width once the text before it is
+    gone: two columns in, a tab spans two columns, not four.
     """
-    width = 0
-    for index, char in enumerate(line):
-        if width >= columns or char not in " \t":
-            return line[index:]
-        step = 1 if char == " " else 4 - width % 4
-        if width + step > columns:
-            return " " * (width + step - columns) + line[index + 1 :]
-        width += step
-    return ""
+    width = index = 0
+    while index < len(line) and line[index] in " \t":
+        width += 1 if line[index] == " " else 4 - width % 4
+        index += 1
+    return " " * max(width - columns, 0) + line[index:]
 
 
 def _fence_ends(fence: _Open, line: str, index: int) -> Fence | None:

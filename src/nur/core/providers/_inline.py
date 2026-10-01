@@ -16,7 +16,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
-__all__ = ["DEFINITION", "heading_text", "normalize_label"]
+__all__ = ["DEFINITION", "DEFINITION_TARGET", "heading_text", "normalize_label"]
 
 
 ESCAPED = re.compile(r"\\([!-/:-@\[-`{-~])")
@@ -33,8 +33,13 @@ LINK = re.compile(rf"!?\[([^\[\]]*)\]\(\s*{_DESTINATION}(?:\s+{_TITLE})?\s*\)")
 # shortcut one, `[text]`; each is a link only when the document defines it.
 FULL_REFERENCE = re.compile(r"!?\[([^\[\]]*)\]\[([^\[\]]*)\]")
 SHORTCUT_REFERENCE = re.compile(r"!?\[([^\[\]]+)\](?![(\[])")
-# A link reference definition line, `[label]: destination`.
+# A link reference definition line, `[label]: destination`, and what may follow
+# its colon (here or on the next line): a destination and an optional title.
 DEFINITION = re.compile(r"^ {0,3}\[((?:[^\[\]\\]|\\.)+)\]:(?:[ \t]|$)")
+DEFINITION_TARGET = re.compile(
+    r"""^[ \t]*(?:<[^<>\n]*>|[^\s<]\S*)(?:[ \t]+"""
+    r"""(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\((?:[^()\\]|\\.)*\)))?[ \t]*$"""
+)
 BACKTICKS = re.compile(r"`+")
 # Delimiters a strong emphasis consumes from each side; plain emphasis takes one.
 STRONG = 2

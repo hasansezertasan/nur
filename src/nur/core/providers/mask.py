@@ -8,7 +8,12 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from nur.core.models import Task
-from nur.core.providers._inline import DEFINITION, heading_text, normalize_label
+from nur.core.providers._inline import (
+    DEFINITION,
+    DEFINITION_TARGET,
+    heading_text,
+    normalize_label,
+)
 from nur.core.providers._markdown import (
     HEADING,
     SETEXT_UNDERLINE,
@@ -174,10 +179,13 @@ class _Reader:
         return None
 
     def _read_list_item(self, indent: int, content: str) -> tuple[int, str] | None:
-        self.paragraph, self.list_indent = [], indent
-        # A heading may sit on the item's own line: `- ## build`.
-        heading = HEADING.match(content)
-        return self._heading(heading) if heading is not None else None
+        self.list_indent = indent
+        # A heading may sit on the item's own line: `- ## build`. Otherwise
+        # its text opens a paragraph, which an underline can make a heading.
+        if (heading := HEADING.match(content)) is not None:
+            return self._heading(heading)
+        self.paragraph = [content.strip()] if content.strip() else []
+        return None
 
     def _heading(self, heading: re.Match[str]) -> tuple[int, str]:
         self.quote, self.paragraph, self.boundary = [], [], True
@@ -195,7 +203,10 @@ class _Reader:
         if not line.strip():
             self.paragraph = []
             return None
-        if self.paragraph and (underline := SETEXT_UNDERLINE.match(line)):
+        # Inside a list item, an underline must be indented into its content;
+        # an unindented one ends the list instead.
+        in_item = self.list_indent is None or indent_width(line) >= self.list_indent
+        if self.paragraph and in_item and (underline := SETEXT_UNDERLINE.match(line)):
             text = " ".join(self.paragraph)
             self.paragraph, self.boundary = [], True
             return (1 if underline.group(1)[0] == "=" else 2), text
@@ -211,7 +222,11 @@ class _Reader:
         if self.list_indent is not None and (
             not after_boundary or indent_width(line) >= self.list_indent
         ):
-            return None  # the list item continues
+            # The list item continues: its paragraph, or a new one after a gap.
+            if after_boundary:
+                self.paragraph = []
+            self.paragraph.append(line.strip())
+            return None
         self.list_indent = None
         self.paragraph.append(line.strip())
         return None
@@ -220,15 +235,18 @@ class _Reader:
 def _definition_labels(lines: list[str], code: set[int]) -> frozenset[str]:
     """Collect the labels of the link reference definitions outside code.
 
-    Definitions may follow the headings that use them. Each needs a
-    destination, on its own line or the next one: `[build]:` alone is text.
+    Definitions may follow the headings that use them. Each needs exactly a
+    destination and an optional title, after its colon or on the next line:
+    `[build]:` alone, or with trailing text, is not a definition.
     """
     labels: set[str] = set()
     for index, line in enumerate(lines):
         if index in code or (match := DEFINITION.match(line)) is None:
             continue
-        following = lines[index + 1] if index + 1 < len(lines) else ""
-        if line[match.end() :].strip() or (index + 1 not in code and following.strip()):
+        target = line[match.end() :]
+        if not target.strip() and index + 1 < len(lines) and index + 1 not in code:
+            target = lines[index + 1]
+        if DEFINITION_TARGET.match(target):
             labels.add(normalize_label(match.group(1)))
     return frozenset(labels)
 
