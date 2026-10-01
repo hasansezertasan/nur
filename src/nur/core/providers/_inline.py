@@ -29,7 +29,8 @@ REFERENCE = re.compile(
 # title may follow. No bracket may repeat inside, which keeps matching linear.
 _DESTINATION = r"(?:<[^<>\n]*>|(?:[^()\s\\]|\\.|\([^()\s]*\))*)"
 _TITLE = r"""(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\((?:[^()\\]|\\.)*\))"""
-LINK = re.compile(rf"!?\[([^\[\]]*)\]\(\s*{_DESTINATION}(?:\s+{_TITLE})?\s*\)")
+_LINK_TEXT = r"(?:[^\[\]\\]|\\.)*"
+LINK = re.compile(rf"!?\[({_LINK_TEXT})\]\(\s*{_DESTINATION}(?:\s+{_TITLE})?\s*\)")
 # A full or collapsed reference link, `[text][label]` or `[text][]`, and a
 # shortcut one, `[text]`; each is a link only when the document defines it.
 FULL_REFERENCE = re.compile(r"!?\[([^\[\]]*)\]\[([^\[\]]*)\]")
@@ -38,7 +39,7 @@ SHORTCUT_REFERENCE = re.compile(r"!?\[([^\[\]]+)\](?![(\[])")
 # its colon (here or on the next line): a destination and an optional title.
 DEFINITION = re.compile(r"^ {0,3}\[((?:[^\[\]\\]|\\.)+)\]:(?:[ \t]|$)")
 DEFINITION_TARGET = re.compile(
-    r"""^[ \t]*(?:<[^<>\n]*>|[^\s<]\S*)(?:[ \t]+"""
+    r"""^[ \t]*(<[^<>\n]*>|[^\s<]\S*)(?:[ \t]+"""
     r"""(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\((?:[^()\\]|\\.)*\)))?[ \t]*$"""
 )
 BACKTICKS = re.compile(r"`+")

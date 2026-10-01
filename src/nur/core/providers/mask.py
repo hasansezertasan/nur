@@ -251,6 +251,32 @@ class _Reader:
         return None
 
 
+def _valid_definition_target(target: str) -> bool:
+    """Whether mask accepts a reference destination and its optional title."""
+    match = DEFINITION_TARGET.match(target)
+    if match is None:
+        return False
+    destination = match.group(1)
+    if destination.startswith("<"):
+        return True
+    # pulldown-cmark 0.5 accepts unmatched opening parentheses in reference
+    # destinations, unlike current CommonMark, but rejects unmatched closers.
+    depth = 0
+    escaped = False
+    for char in destination:
+        if escaped:
+            escaped = False
+        elif char == "\\":
+            escaped = True
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            if not depth:
+                return False
+            depth -= 1
+    return True
+
+
 def _definition_labels(lines: list[str], code: set[int]) -> frozenset[str]:
     """Collect the labels of the link reference definitions outside code.
 
@@ -276,7 +302,7 @@ def _definition_labels(lines: list[str], code: set[int]) -> frozenset[str]:
         target = content[match.end() :]
         if not target.strip() and index + 1 < len(lines) and index + 1 not in code:
             target = container_line(containers, lines[index + 1]) or ""
-        if DEFINITION_TARGET.match(target):
+        if _valid_definition_target(target):
             labels.add(normalize_label(match.group(1)))
     return frozenset(labels)
 

@@ -858,3 +858,31 @@ def test_reference_definitions_in_containers(definition) -> None:
 def test_indented_code_in_containers_is_not_a_reference_definition(definition) -> None:
     text = f"## x [build] y\n\n```sh\necho\n```\n\n{definition}\n"
     assert [task.argv_base for task in parse_mask(text)] == [("mask", "x")]
+
+
+@pytest.mark.parametrize(
+    ("heading", "name"),
+    [
+        (r"x [bu\]ild](url) y", "bu]ild y"),
+        (r"x [bu\[ild](url) y", "bu"),
+        (r"x [bu\\](url) y", "bu\\ y"),
+    ],
+)
+def test_escaped_brackets_in_inline_link_text(heading, name) -> None:
+    text = f"## {heading}\n\n```sh\necho\n```\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", name)]
+
+
+@pytest.mark.parametrize(
+    ("destination", "name"),
+    [
+        ("foo(bar", "build y"),
+        ("foo)bar", "x"),
+        ("foo(bar)", "build y"),
+        (r"foo\(bar", "build y"),
+        ("<foo(bar>", "build y"),
+    ],
+)
+def test_mask_reference_destination_parentheses(destination, name) -> None:
+    text = f"## x [build] y\n\n```sh\necho\n```\n\n[build]: {destination}\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", name)]
