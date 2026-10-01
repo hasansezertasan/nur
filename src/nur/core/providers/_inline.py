@@ -23,9 +23,12 @@ ESCAPED = re.compile(r"\\([!-/:-@\[-`{-~])")
 REFERENCE = re.compile(
     r"&(?:#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});"
 )
-# A link or image whose destination may hold escaped parentheses or one level
-# of balanced ones. No bracket may repeat inside, which keeps matching linear.
-LINK = re.compile(r"!?\[([^\[\]]*)\]\((?:[^()\\]|\\.|\([^()]*\))*\)")
+# A link or image. Its destination is `<...>`, or bare: no whitespace, with
+# escaped or one level of balanced parentheses. A quoted or parenthesized
+# title may follow. No bracket may repeat inside, which keeps matching linear.
+_DESTINATION = r"(?:<[^<>\n]*>|(?:[^()\s\\]|\\.|\([^()\s]*\))*)"
+_TITLE = r"""(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\((?:[^()\\]|\\.)*\))"""
+LINK = re.compile(rf"!?\[([^\[\]]*)\]\(\s*{_DESTINATION}(?:\s+{_TITLE})?\s*\)")
 # A full or collapsed reference link, `[text][label]` or `[text][]`, and a
 # shortcut one, `[text]`; each is a link only when the document defines it.
 FULL_REFERENCE = re.compile(r"!?\[([^\[\]]*)\]\[([^\[\]]*)\]")

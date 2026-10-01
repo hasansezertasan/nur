@@ -611,6 +611,29 @@ MASK_PARITY = {
         "## x [build][Docs  Page] y\n\n```sh\necho\n```\n\n[docs page]: /url\n",
         [(("mask", "build y"), None, "echo")],
     ),
+    "link_dest_space": (
+        "## x [build](foo bar)\n\n```sh\necho\n```\n",
+        [(("mask", "x"), None, "echo")],
+    ),
+    "link_dest_title": (
+        '## x [build](foo "the title") y\n\n```sh\necho\n```\n',
+        [(("mask", "build y"), None, "echo")],
+    ),
+    "link_dest_angle": (
+        "## x [build](<foo bar>) y\n\n```sh\necho\n```\n",
+        [(("mask", "build y"), None, "echo")],
+    ),
+    "tab_html_continuation": (
+        (
+            "## a\n\n```sh\necho a\n```\n\n-\t> <!--\n\t> ## hidden\n\t> -->\n\n"
+            "```sh\necho h\n```\n"
+        ),
+        [(("mask", "a"), None, "echo h")],
+    ),
+    "nested_list_outer_fence": (
+        "## a\n\n- outer\n  - inner\n  ```sh\n  echo a\n\n## b\n\n```sh\necho b\n```\n",
+        [(("mask", "a"), None, "echo a"), (("mask", "b"), None, "echo b")],
+    ),
 }
 
 
@@ -618,8 +641,10 @@ MASK_PARITY = {
     ("text", "expected"), list(MASK_PARITY.values()), ids=list(MASK_PARITY)
 )
 def test_matches_mask_on_block_structure(text, expected) -> None:
+    # The expected scripts are mask's sources with trailing newlines trimmed.
     tasks = parse_mask(text, windows=False)
-    assert [(t.argv_base, t.description, t.definition) for t in tasks] == expected
+    got = [(t.argv_base, t.description, t.definition.rstrip("\n")) for t in tasks]
+    assert got == expected
 
 
 def test_hostile_bracket_heading_is_parsed() -> None:

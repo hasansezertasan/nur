@@ -300,7 +300,7 @@ def _inside(containers: tuple[int | None, ...], line: str) -> str | None:
         elif line.strip() and indent_width(line) < content_column:
             return None
         else:
-            line = line[min(content_column, _leading_spaces(line)) :]
+            line = strip_columns(line, content_column)
     return line
 
 
@@ -334,8 +334,9 @@ class _Scanner:
     fence: _Open | None = None
     block: _HtmlBlock | None = None
     paragraph: bool = False
-    # The content column of the list item that later lines may continue.
-    list_column: int | None = None
+    # The content columns of the nested list items later lines may continue,
+    # outermost first.
+    lists: list[int] = field(default_factory=list)
 
     def read(self, index: int, line: str) -> None:
         if self.fence is not None and self._in_fence(self.fence, index, line):
@@ -354,39 +355,43 @@ class _Scanner:
         else:
             self.paragraph = _leaves_paragraph_open(line, paragraph=self.paragraph)
 
+    def _container(self, line: str) -> int | None:
+        """Return the content column of the innermost list item *line* is in."""
+        width = indent_width(line)
+        return next((col for col in reversed(self.lists) if width >= col), None)
+
     def _html_opening(self, line: str) -> _HtmlBlock | None:
         """Return the HTML block opening on *line*, inside the current list item too."""
-        if self.list_column is not None and indent_width(line) >= self.list_column:
-            inner = strip_columns(line, self.list_column)
+        if (container := self._container(line)) is not None:
+            inner = strip_columns(line, container)
             block = _html_block_at(inner, paragraph=self.paragraph)
             if block is not None:
-                block.containers = (self.list_column, *block.containers)
+                block.containers = (container, *block.containers)
                 return block
         return _html_block_at(line, paragraph=self.paragraph)
 
     def _track_list(self, line: str) -> None:
+        """Open, close, and return to list items as *line* indents and dedents."""
+        width = indent_width(line)
         if (item := list_item_content(line, paragraph=self.paragraph)) is not None:
-            self.list_column = item[0]
-        elif (
-            self.list_column is not None
-            and line.strip()
-            and indent_width(line) < self.list_column
-        ):
-            self.list_column = None
+            # A marker closes the items nested deeper than it, then opens its own.
+            while self.lists and self.lists[-1] > width:
+                self.lists.pop()
+            self.lists.append(item[0])
+        elif line.strip():
+            while self.lists and width < self.lists[-1]:
+                self.lists.pop()
 
     def _opening(self, index: int, line: str) -> _Open | None:
         """Return the fence opening on *line*, inside the current list item too."""
-        within = self.list_column is not None and (
-            indent_width(line) >= self.list_column
-        )
-        if within and self.list_column is not None:
+        if (container := self._container(line)) is not None:
             # Inside a list item, a fence is indented relative to its content.
-            inner = strip_columns(line, self.list_column)
+            inner = strip_columns(line, container)
             match = FENCE.match(inner)
             if _opens(match):
-                indent = self.list_column + column(inner[: match.start(1)])
+                indent = container + column(inner[: match.start(1)])
                 info = match.group(2).strip()
-                return _Open(index, match.group(1), info, indent, self.list_column)
+                return _Open(index, match.group(1), info, indent, container)
         opening = LIST_ITEM_FENCE if self.list_items else FENCE
         match = opening.match(line)
         if not _opens(match) or (start := fence_column(line, match)) is None:
