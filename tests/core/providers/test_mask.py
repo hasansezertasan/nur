@@ -1,6 +1,7 @@
 import pytest
 
 from nur.core.providers.mask import MaskProvider, parse_mask
+from nur.core.registry import Registry
 
 BASIC = """\
 # My Project Tasks
@@ -479,3 +480,16 @@ def test_html_style_comment_end_does_not_close_a_markdown_comment() -> None:
     # Markdown ends a comment block only at `-->`; mask hides `## b` here.
     text = "## a\n\n```sh\na\n```\n\n<!--\n--!>\n## b\n\n```sh\nb\n```\n-->\n"
     assert [t.name for t in parse_mask(text)] == ["a"]
+
+
+def test_command_with_a_space_and_a_subcommand_path_stay_distinct() -> None:
+    # Task names are the shell words after `mask`, so a one-word command whose
+    # name has a space is quoted and both commands stay reachable by name.
+    text = (
+        "## deploy prod\n\n```sh\necho top\n```\n\n"
+        "## deploy\n\n### prod\n\n```sh\necho sub\n```\n"
+    )
+    registry = Registry(parse_mask(text))
+    assert registry.resolve("'deploy prod'").argv_base == ("mask", "deploy prod")
+    assert registry.resolve("deploy prod").argv_base == ("mask", "deploy", "prod")
+    assert registry.resolve("mask:deploy prod").argv_base == ("mask", "deploy", "prod")

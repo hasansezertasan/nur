@@ -4,6 +4,7 @@ import html
 import logging
 import os
 import re
+import shlex
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -324,7 +325,10 @@ def _tasks(
         if command.script is not None:
             tasks.append(
                 Task(
-                    name=" ".join(path),
+                    # Named as the shell words after `mask`, so `deploy prod`
+                    # (a subcommand) and `'deploy prod'` (one command whose
+                    # name has a space) stay distinct.
+                    name=shlex.join(path),
                     prefix="mask",
                     argv_base=("mask", *path),
                     description=command.description,

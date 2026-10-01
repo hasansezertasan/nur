@@ -203,7 +203,9 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   a command, a deeper heading is its subcommand, the last fenced block under a
   heading is its script, and a `>` blockquote is its description. A subcommand
   is named by its path and runs with it, so `### test lint` under `## test` is
-  the task `test lint` (`nur "test lint"` runs `mask test lint`). A heading
+  the task `test lint` (`nur "test lint"` runs `mask test lint`). Task names
+  are the shell words after `mask`, so one command whose own name has a space
+  is quoted: `## deploy prod` is the task `'deploy prod'`. A heading
   becomes a task only when its last code block is fenced with a language tag,
   since mask needs the tag to pick an interpreter; `powershell`, `batch`, and
   `cmd` blocks count only on Windows, as in mask. Headings and fences inside
