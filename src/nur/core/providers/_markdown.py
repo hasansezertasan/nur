@@ -61,6 +61,9 @@ HTML_BLOCKS: tuple[tuple[re.Pattern[str], re.Pattern[str]], ...] = (
         )
         for tag in ("pre", "script", "style", "textarea")
     ),
+    # Markdown, unlike an HTML parser, ends a comment block only at `-->`:
+    # mask still hides a heading after `--!>`, so that must not end it here.
+    # This reads markdown structure; it is not an HTML sanitizer.
     (re.compile(r"^ {0,3}<!--"), re.compile(r"-->")),
     (re.compile(r"^ {0,3}<\?"), re.compile(r"\?>")),
     (re.compile(r"^ {0,3}<![A-Za-z]"), re.compile(r">")),

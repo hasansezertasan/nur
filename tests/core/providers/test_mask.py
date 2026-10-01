@@ -420,3 +420,62 @@ def test_hostile_bracket_heading_is_parsed() -> None:
     # quadratically; mask names the command up to the first bracket.
     text = "## " + "[" * 50_000 + "\n\n```sh\necho\n```\n"
     assert parse_mask(text) == []
+
+
+def _section(level: int, name: str, script: str | None = None) -> str:
+    fence = f"```sh\n{script}\n```\n\n" if script else ""
+    return f"{'#' * level} {name}\n\n{fence}"
+
+
+# Each case lists the tasks that real mask 0.11.7 runs with exactly that script.
+# Its parser accepts a path through the first command of a repeated name, then
+# runs the last one, so other paths fail or run a different command's script.
+DUPLICATES = {
+    "children of overridden parent": (
+        _section(2, "group")
+        + _section(3, "old", "old")
+        + _section(2, "group")
+        + _section(3, "new", "new"),
+        [],
+    ),
+    "later definition without children": (
+        _section(2, "group", "g1")
+        + _section(3, "old", "old")
+        + _section(2, "group", "g2"),
+        [(("mask", "group"), "g2")],
+    ),
+    "first definition is a scriptless group": (
+        _section(2, "group") + _section(3, "old", "old") + _section(2, "group", "g2"),
+        [],
+    ),
+    "child in both definitions": (
+        _section(2, "group")
+        + _section(3, "x", "x1")
+        + _section(2, "group")
+        + _section(3, "x", "x2")
+        + _section(3, "y", "y2"),
+        [(("mask", "group", "x"), "x2")],
+    ),
+    "nested repeat": (
+        _section(2, "p")
+        + _section(3, "q")
+        + _section(4, "r", "r1")
+        + _section(3, "q")
+        + _section(4, "r", "r2")
+        + _section(4, "s", "s2"),
+        [(("mask", "p", "q", "r"), "r2")],
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"), list(DUPLICATES.values()), ids=list(DUPLICATES)
+)
+def test_repeated_commands_resolve_as_mask_runs_them(text, expected) -> None:
+    assert [(t.argv_base, t.definition) for t in parse_mask(text)] == expected
+
+
+def test_html_style_comment_end_does_not_close_a_markdown_comment() -> None:
+    # Markdown ends a comment block only at `-->`; mask hides `## b` here.
+    text = "## a\n\n```sh\na\n```\n\n<!--\n--!>\n## b\n\n```sh\nb\n```\n-->\n"
+    assert [t.name for t in parse_mask(text)] == ["a"]

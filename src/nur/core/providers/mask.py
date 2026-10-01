@@ -283,6 +283,35 @@ def _treeify(commands: list[_Command]) -> list[_Command]:
     return tree
 
 
+def _runnable(accepted: list[_Command], run: list[_Command]) -> list[_Command]:
+    """Resolve repeated sibling names the way mask's CLI does.
+
+    mask's argument parser accepts a path through the *first* command of a
+    repeated name, but then runs the *last* one, looking up the rest of the
+    path among that command's subcommands. So a repeated command runs its last
+    definition, and a subcommand under it is runnable as itself only when both
+    definitions have one of that name; nor does the bare name run when the
+    first definition is a group without a script. Commands that only render alike
+    (``## deploy prod`` vs ``prod`` under ``## deploy``) are distinct and stay.
+    """
+    first: dict[str, _Command] = {}
+    for command in accepted:
+        first.setdefault(command.name, command)
+    last = {command.name: command for command in run}
+    resolved: list[_Command] = []
+    for name, command in last.items():
+        if name in first:
+            if first[name].script is None and first[name].subcommands:
+                # The parser demands a subcommand after a command it knows
+                # only as a group, so the bare name cannot run.
+                command.script = None
+            command.subcommands = _runnable(
+                first[name].subcommands, command.subcommands
+            )
+            resolved.append(command)
+    return resolved
+
+
 def _tasks(
     commands: list[_Command], parents: tuple[str, ...], source_file: str
 ) -> list[Task]:
@@ -320,13 +349,7 @@ def parse_mask(
     ``cmd`` blocks count, as they do only in mask's Windows build.
     """
     root = _treeify(_flat_commands(text, windows=windows))[0]
-    # mask resolves a repeated command to its last definition, so a later
-    # duplicate replaces the earlier task rather than listing both. Commands
-    # that only render alike (`## deploy prod` vs `prod` under `## deploy`)
-    # run differently, so both stay.
-    tasks = _tasks(root.subcommands, (), source_file)
-    unique = {task.argv_base: task for task in tasks}
-    return list(unique.values())
+    return _tasks(_runnable(root.subcommands, root.subcommands), (), source_file)
 
 
 class MaskProvider:
