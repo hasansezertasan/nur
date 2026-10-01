@@ -886,3 +886,31 @@ def test_escaped_brackets_in_inline_link_text(heading, name) -> None:
 def test_mask_reference_destination_parentheses(destination, name) -> None:
     text = f"## x [build] y\n\n```sh\necho\n```\n\n[build]: {destination}\n"
     assert [task.argv_base for task in parse_mask(text)] == [("mask", name)]
+
+
+@pytest.mark.parametrize(
+    ("heading", "definition", "name"),
+    [
+        (r"x [bu\]ild][docs] y", "[docs]: /url", "bu]ild y"),
+        (r"x [bu\]ild][] y", r"[bu\]ild]: /url", "bu]ild y"),
+        (r"x [bu\]ild] y", r"[bu\]ild]: /url", "bu]ild y"),
+        (r"x [bu\[ild][docs] y", "[docs]: /url", "bu"),
+    ],
+)
+def test_escaped_brackets_in_reference_link_text(heading, definition, name) -> None:
+    text = f"## {heading}\n\n```sh\necho\n```\n\n{definition}\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", name)]
+
+
+@pytest.mark.parametrize(
+    ("separator", "name"),
+    [
+        (" ", "foo"),
+        ("\t", "foo\t###"),
+        ("\u00a0", "foo\u00a0###"),
+        ("\u2003", "foo\u2003###"),
+    ],
+)
+def test_closing_heading_hashes_require_an_ascii_space(separator, name) -> None:
+    text = f"## foo{separator}###\n\n```sh\necho\n```\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", name)]

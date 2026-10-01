@@ -81,10 +81,11 @@ def _command_name(text: str, labels: frozenset[str] = frozenset()) -> str:
     """Strip a heading's ``(required)`` and ``[optional]`` argument declarations."""
     text = text.strip()
     # Drop an ATX heading's optional closing sequence: hashes that fill the
-    # heading or follow whitespace. Done without a regex, which backtracks
+    # heading or follow an ASCII space (pulldown-cmark 0.5 keeps a tab).
+    # Done without a regex, which backtracks
     # quadratically over a long whitespace run in a hostile heading.
     head = text.rstrip("#")
-    if head != text and (not head or head[-1].isspace()):
+    if head != text and (not head or head[-1] == " "):
         text = head.rstrip()
     return re.split(r"[(\[]", heading_text(text, labels), maxsplit=1)[0].strip()
 

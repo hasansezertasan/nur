@@ -29,12 +29,13 @@ REFERENCE = re.compile(
 # title may follow. No bracket may repeat inside, which keeps matching linear.
 _DESTINATION = r"(?:<[^<>\n]*>|(?:[^()\s\\]|\\.|\([^()\s]*\))*)"
 _TITLE = r"""(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\((?:[^()\\]|\\.)*\))"""
-_LINK_TEXT = r"(?:[^\[\]\\]|\\.)*"
+_LINK_CHAR = r"(?:[^\[\]\\]|\\.)"
+_LINK_TEXT = rf"{_LINK_CHAR}*"
 LINK = re.compile(rf"!?\[({_LINK_TEXT})\]\(\s*{_DESTINATION}(?:\s+{_TITLE})?\s*\)")
 # A full or collapsed reference link, `[text][label]` or `[text][]`, and a
 # shortcut one, `[text]`; each is a link only when the document defines it.
-FULL_REFERENCE = re.compile(r"!?\[([^\[\]]*)\]\[([^\[\]]*)\]")
-SHORTCUT_REFERENCE = re.compile(r"!?\[([^\[\]]+)\](?![(\[])")
+FULL_REFERENCE = re.compile(rf"!?\[({_LINK_TEXT})\]\[({_LINK_TEXT})\]")
+SHORTCUT_REFERENCE = re.compile(rf"!?\[({_LINK_CHAR}+)\](?![(\[])")
 # A link reference definition line, `[label]: destination`, and what may follow
 # its colon (here or on the next line): a destination and an optional title.
 DEFINITION = re.compile(r"^ {0,3}\[((?:[^\[\]\\]|\\.)+)\]:(?:[ \t]|$)")
