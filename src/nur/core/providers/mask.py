@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from nur.core.models import Task
-from nur.core.providers._inline import heading_text
+from nur.core.providers._inline import DEFINITION, heading_text, normalize_label
 from nur.core.providers._markdown import (
     HEADING,
     SETEXT_UNDERLINE,
@@ -68,7 +68,7 @@ class _Command:
         return " ".join(paragraph or last) or None
 
 
-def _command_name(text: str) -> str:
+def _command_name(text: str, labels: frozenset[str] = frozenset()) -> str:
     """Strip a heading's ``(required)`` and ``[optional]`` argument declarations."""
     text = text.strip()
     # Drop an ATX heading's optional closing sequence: hashes that fill the
@@ -77,7 +77,7 @@ def _command_name(text: str) -> str:
     head = text.rstrip("#")
     if head != text and (not head or head[-1].isspace()):
         text = head.rstrip()
-    return re.split(r"[(\[]", heading_text(text), maxsplit=1)[0].strip()
+    return re.split(r"[(\[]", heading_text(text, labels), maxsplit=1)[0].strip()
 
 
 def _take_script(
@@ -96,9 +96,9 @@ def _take_script(
     command.script = script if runnable else None
 
 
-def _list_item(line: str) -> tuple[int, str] | None:
+def _list_item(line: str, *, paragraph: bool = False) -> tuple[int, str] | None:
     """Return a list item's content column and content, if *line* opens one."""
-    if (item := list_item_content(line)) is None:
+    if (item := list_item_content(line, paragraph=paragraph)) is None:
         return None
     return item[0], line[item[1] :]
 
@@ -199,10 +199,14 @@ class _Reader:
             text = " ".join(self.paragraph)
             self.paragraph, self.boundary = [], True
             return (1 if underline.group(1)[0] == "=" else 2), text
-        if THEMATIC_BREAK.match(line):
-            self.paragraph, self.boundary, self.list_indent = [], True, None
+        thematic = THEMATIC_BREAK.match(line) is not None
+        if thematic or (not self.paragraph and DEFINITION.match(line)):
+            # A thematic break ends any list; a link reference definition is
+            # not paragraph text, so neither can become a setext heading.
+            if thematic:
+                self.paragraph, self.boundary, self.list_indent = [], True, None
             return None
-        if (item := _list_item(line)) is not None:
+        if (item := _list_item(line, paragraph=bool(self.paragraph))) is not None:
             return self._read_list_item(*item)
         if self.list_indent is not None and (
             not after_boundary or indent_width(line) >= self.list_indent
@@ -229,6 +233,12 @@ def _flat_commands(text: str, *, windows: bool) -> list[_Command]:
     lines = ["" if index in hidden else line for index, line in enumerate(raw)]
     code = {index for block in fences for index in range(block.open, block.end)}
     openings = {block.open: block for block in fences}
+    # Link reference definitions may follow the headings that use them.
+    labels = frozenset(
+        normalize_label(match.group(1))
+        for index, line in enumerate(lines)
+        if index not in code and (match := DEFINITION.match(line)) is not None
+    )
 
     commands: list[_Command] = []
     current = _Command(level=1)
@@ -250,7 +260,7 @@ def _flat_commands(text: str, *, windows: bool) -> list[_Command]:
             commands.append(current)
         elif commands:
             break
-        current = _Command(level=level, name=_command_name(text))
+        current = _Command(level=level, name=_command_name(text, labels))
     commands.append(current)
     return commands
 

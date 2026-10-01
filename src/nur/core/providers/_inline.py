@@ -16,7 +16,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
-__all__ = ["heading_text"]
+__all__ = ["DEFINITION", "heading_text", "normalize_label"]
 
 
 ESCAPED = re.compile(r"\\([!-/:-@\[-`{-~])")
@@ -26,6 +26,12 @@ REFERENCE = re.compile(
 # A link or image whose destination may hold escaped parentheses or one level
 # of balanced ones. No bracket may repeat inside, which keeps matching linear.
 LINK = re.compile(r"!?\[([^\[\]]*)\]\((?:[^()\\]|\\.|\([^()]*\))*\)")
+# A full or collapsed reference link, `[text][label]` or `[text][]`, and a
+# shortcut one, `[text]`; each is a link only when the document defines it.
+FULL_REFERENCE = re.compile(r"!?\[([^\[\]]*)\]\[([^\[\]]*)\]")
+SHORTCUT_REFERENCE = re.compile(r"!?\[([^\[\]]+)\](?![(\[])")
+# A link reference definition line, `[label]: destination`.
+DEFINITION = re.compile(r"^ {0,3}\[((?:[^\[\]\\]|\\.)+)\]:(?:[ \t]|$)")
 BACKTICKS = re.compile(r"`+")
 # Delimiters a strong emphasis consumes from each side; plain emphasis takes one.
 STRONG = 2
@@ -70,9 +76,15 @@ def _delimiter(text: str, start: int, end: int) -> _Delimiter:
     )
 
 
+def normalize_label(label: str) -> str:
+    """Return the form two link labels must share to match: case and spacing fold."""
+    return " ".join(label.split()).casefold()
+
+
 class _Tokenizer:
-    def __init__(self, text: str) -> None:
+    def __init__(self, text: str, labels: frozenset[str]) -> None:
         self.text = text
+        self.labels = labels
         # Backtick runs by length, so a code span finds its closer by bisection
         # instead of rescanning the rest of the heading.
         self.runs: dict[int, list[int]] = {}
@@ -91,7 +103,7 @@ class _Tokenizer:
                 index = reference.end()
             elif char == "`":
                 index = self._code(index, stop, out)
-            elif char in "[!" and (link := LINK.match(text, index, stop)) is not None:
+            elif char in "[!" and (link := self._link(index, stop)) is not None:
                 out.append(None)
                 out.extend(self.tokens(link.start(1), link.end(1)))
                 index = link.end()
@@ -105,6 +117,19 @@ class _Tokenizer:
                 out.append(char)
                 index += 1
         return out
+
+    def _link(self, index: int, stop: int) -> re.Match[str] | None:
+        """Return the inline or defined reference link starting at *index*."""
+        text = self.text
+        if (link := LINK.match(text, index, stop)) is not None:
+            return link
+        if (full := FULL_REFERENCE.match(text, index, stop)) is not None:
+            label = full.group(2) or full.group(1)
+            return full if normalize_label(label) in self.labels else None
+        short = SHORTCUT_REFERENCE.match(text, index, stop)
+        if short is not None and normalize_label(short.group(1)) in self.labels:
+            return short
+        return None
 
     def _code(self, index: int, stop: int, out: list[_Token]) -> int:
         """Append the code span opening at *index*, or its backticks as text."""
@@ -143,9 +168,12 @@ def _match_emphasis(tokens: list[_Token]) -> None:
             stack.append(token)
 
 
-def heading_text(text: str) -> str:
-    """Return the text mask names a heading by, from its raw inline markdown."""
-    tokens = _Tokenizer(text).tokens(0, len(text))
+def heading_text(text: str, labels: frozenset[str] = frozenset()) -> str:
+    """Return the text mask names a heading by, from its raw inline markdown.
+
+    *labels* are the document's link reference definitions, normalized.
+    """
+    tokens = _Tokenizer(text, labels).tokens(0, len(text))
     _match_emphasis(tokens)
     starts = [
         index

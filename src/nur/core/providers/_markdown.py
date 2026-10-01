@@ -47,7 +47,7 @@ FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 LIST_ITEM_FENCE = re.compile(
     r"^ {0,3}(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?(`{3,}|~{3,})(.*)$"
 )
-LIST_MARKER = re.compile(r"^ {0,3}(?:[-*+]|\d{1,9}[.)])(?=[ \t]|$)")
+LIST_MARKER = re.compile(r"^ {0,3}(?:[-*+]|(\d{1,9})[.)])(?=[ \t]|$)")
 # The indentation, in columns, that makes a line an indented code block.
 INDENTED_CODE_COLUMNS = 4
 # Columns of padding a list item's content may start after its marker.
@@ -150,15 +150,19 @@ def column(text: str) -> int:
     return len(text.expandtabs(4))
 
 
-def list_item_content(line: str) -> tuple[int, int] | None:
+def list_item_content(line: str, *, paragraph: bool = False) -> tuple[int, int] | None:
     """Return a list item's content column and content index on *line*, if any.
 
     The content starts after one to four columns of padding; with more, it
     starts one column after the marker and the rest is an indented code block.
+    After an open *paragraph*, only a nonempty item may start a list, and an
+    ordered one only from 1; otherwise the line continues the paragraph.
     """
     if THEMATIC_BREAK.match(line) or (marker := LIST_MARKER.match(line)) is None:
         return None
     rest = line[marker.end() :]
+    if paragraph and (not rest.strip() or marker.group(1) not in {None, "1"}):
+        return None
     padded = len(rest) - len(rest.lstrip(" \t"))
     end = marker.end() + padded
     width = column(line[:end]) - column(line[: marker.end()])
@@ -342,7 +346,7 @@ class _Scanner:
             self._track_list(line)
         if (fence := self._opening(index, line)) is not None:
             self.fence, self.paragraph = fence, False
-        elif self.html and (block := _html_block_at(line, paragraph=self.paragraph)):
+        elif self.html and (block := self._html_opening(line)) is not None:
             self.hidden.add(index)
             # The whole opening line counts: `<!-->` closes where it opens.
             self.block = block if _still_open(block.end, line) else None
@@ -350,8 +354,18 @@ class _Scanner:
         else:
             self.paragraph = _leaves_paragraph_open(line, paragraph=self.paragraph)
 
+    def _html_opening(self, line: str) -> _HtmlBlock | None:
+        """Return the HTML block opening on *line*, inside the current list item too."""
+        if self.list_column is not None and indent_width(line) >= self.list_column:
+            inner = strip_columns(line, self.list_column)
+            block = _html_block_at(inner, paragraph=self.paragraph)
+            if block is not None:
+                block.containers = (self.list_column, *block.containers)
+                return block
+        return _html_block_at(line, paragraph=self.paragraph)
+
     def _track_list(self, line: str) -> None:
-        if (item := list_item_content(line)) is not None:
+        if (item := list_item_content(line, paragraph=self.paragraph)) is not None:
             self.list_column = item[0]
         elif (
             self.list_column is not None
@@ -378,6 +392,8 @@ class _Scanner:
         if not _opens(match) or (start := fence_column(line, match)) is None:
             return None
         on_marker = match.start(1) > _leading_spaces(line)
+        if on_marker and list_item_content(line, paragraph=self.paragraph) is None:
+            return None  # the marker cannot start a list here, so no fence
         container = start if on_marker else None
         return _Open(index, match.group(1), match.group(2).strip(), start, container)
 

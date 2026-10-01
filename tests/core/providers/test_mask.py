@@ -547,6 +547,70 @@ MASK_PARITY = {
         "## a\n\n-\t```sh\n\techo a\n\t```\n\n## b\n\n```sh\necho\n```\n",
         [(("mask", "a"), None, "echo a"), (("mask", "b"), None, "echo")],
     ),
+    "html_on_list_continuation": (
+        (
+            "## a\n\n```sh\necho a\n```\n\n1. item\n\n   <!--\n   ```sh\n"
+            "   echo hidden\n   ```\n   -->\n"
+        ),
+        [(("mask", "a"), None, "echo a")],
+    ),
+    "reference_link_heading": (
+        "## x [build][docs] y\n\n```sh\necho\n```\n\n[docs]: /url\n",
+        [(("mask", "build y"), None, "echo")],
+    ),
+    "collapsed_reference": (
+        "## x [build][] y\n\n```sh\necho\n```\n\n[build]: /url\n",
+        [(("mask", "build y"), None, "echo")],
+    ),
+    "shortcut_reference": (
+        "## x [build] y\n\n```sh\necho\n```\n\n[build]: /url\n",
+        [(("mask", "build y"), None, "echo")],
+    ),
+    "undefined_reference": (
+        "## x [build][nope] y\n\n```sh\necho\n```\n",
+        [(("mask", "x"), None, "echo")],
+    ),
+    "ordered_2_interrupts_paragraph": (
+        "## a\n\nsome prose\n2. ```sh\n   echo a\n   ```\n",
+        [],
+    ),
+    "ordered_1_interrupts_paragraph": (
+        "## a\n\nsome prose\n1. ```sh\n   echo a\n   ```\n",
+        [(("mask", "a"), None, "echo a")],
+    ),
+    "ordered_2_after_blank": (
+        "## a\n\nsome prose\n\n2. ```sh\n   echo a\n   ```\n",
+        [(("mask", "a"), None, "echo a")],
+    ),
+    "html_on_list_continuation_4sp": (
+        (
+            "## a\n\n```sh\necho a\n```\n\n1. item\n\n    <!--\n    ```sh\n"
+            "    echo hidden\n    ```\n    -->\n"
+        ),
+        [(("mask", "a"), None, "echo a")],
+    ),
+    "html_on_list_continuation_4sp_dash": (
+        (
+            "## a\n\n```sh\necho a\n```\n\n-   item\n\n      <!--\n      ```sh\n"
+            "      echo hidden\n      ```\n      -->\n"
+        ),
+        [(("mask", "a"), None, "echo a")],
+    ),
+    "div_on_list_continuation": (
+        (
+            "## a\n\n```sh\necho a\n```\n\n1. item\n\n    <div>\n    ## hidden\n\n"
+            "```sh\necho h\n```\n"
+        ),
+        [(("mask", "a"), None, "echo h")],
+    ),
+    "definition_then_dash": (
+        "## a\n\n```sh\necho a\n```\n\n[x]: /u\n---\n\n```sh\necho b\n```\n",
+        [(("mask", "a"), None, "echo b")],
+    ),
+    "case_folded_label": (
+        "## x [build][Docs  Page] y\n\n```sh\necho\n```\n\n[docs page]: /url\n",
+        [(("mask", "build y"), None, "echo")],
+    ),
 }
 
 
