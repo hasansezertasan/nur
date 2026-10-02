@@ -1136,3 +1136,23 @@ def test_quoted_fence_ends_with_its_quote() -> None:
 def test_escaped_angles_in_reference_destinations(destination) -> None:
     text = f"## x [build] y\n\n```sh\necho\n```\n\n[build]: {destination}\n"
     assert [task.argv_base for task in parse_mask(text)] == [("mask", "build y")]
+
+
+@pytest.mark.parametrize("tag", ["<div>", "<img>"])
+@pytest.mark.parametrize("space", ["\u00a0", "\u2003"])
+def test_unicode_whitespace_does_not_end_an_html_block(tag, space) -> None:
+    text = f"{tag}\n{space}\n## build\n\n```sh\necho build\n```\n"
+    # The blank line before the fence ends the HTML block only after it has
+    # already hidden the heading, so there is no named command for the script.
+    assert parse_mask(text) == []
+
+
+@pytest.mark.parametrize("space", [" ", "\t", " \t ", "\f", "\v"])
+def test_ascii_whitespace_ends_an_html_block(space) -> None:
+    text = f"<div>\n{space}\n## build\n\n```sh\necho build\n```\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", "build")]
+
+
+def test_unicode_whitespace_does_not_end_quoted_html() -> None:
+    text = "> <div>\n> \u00a0\n> ## build\n\n```sh\necho build\n```\n"
+    assert parse_mask(text) == []

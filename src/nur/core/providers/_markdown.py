@@ -60,7 +60,9 @@ QUOTE_MARK = re.compile(r"^ {0,3}> ?")
 
 # HTML block start conditions (CommonMark 4.6), each paired with the pattern
 # that ends the block, or BLANK_LINE for a block that runs to a blank line.
-BLANK_LINE = re.compile(r"^\s*$")
+# Mask's pulldown-cmark version accepts ASCII whitespace (including form
+# feed and vertical tab) here, but Unicode spaces do not end an HTML block.
+BLANK_LINE = re.compile(r"^\s*$", re.ASCII)
 _BLOCK_TAGS = (
     "address|article|aside|base|basefont|blockquote|body|caption|center|col|"
     "colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|"
@@ -166,12 +168,14 @@ def list_item_content(line: str, *, paragraph: bool = False) -> tuple[int, int] 
     if THEMATIC_BREAK.match(line) or (marker := LIST_MARKER.match(line)) is None:
         return None
     rest = line[marker.end() :]
-    if paragraph and (not rest.strip() or marker.group(1) not in {None, "1"}):
+    if paragraph and (
+        BLANK_LINE.fullmatch(rest) is not None or marker.group(1) not in {None, "1"}
+    ):
         return None
     padded = len(rest) - len(rest.lstrip(" \t"))
     end = marker.end() + padded
     width = column(line[:end]) - column(line[: marker.end()])
-    if not rest.strip() or not 1 <= width <= MAX_LIST_PADDING:
+    if BLANK_LINE.fullmatch(rest) is not None or not 1 <= width <= MAX_LIST_PADDING:
         return column(line[: marker.end()]) + 1, min(marker.end() + 1, len(line))
     return column(line[:end]), end
 
@@ -230,7 +234,7 @@ def _fence_ends(fence: _Open, line: str, index: int) -> Fence | None:
             )
         line = content
     if fence.container is not None:
-        if line.strip() and indent_width(line) < fence.container:
+        if BLANK_LINE.fullmatch(line) is None and indent_width(line) < fence.container:
             # The list item ends here, and a fence inside it ends with it.
             return Fence(
                 fence.index, index, index, fence.info, fence.indent, fence.containers
@@ -271,7 +275,11 @@ def leaves_paragraph_open(line: str, *, paragraph: bool) -> bool:
     A lone tag on the next line then continues the paragraph instead of
     starting an HTML block.
     """
-    if not line.strip() or HEADING.match(line) or EMPTY_QUOTE.match(line):
+    if (
+        BLANK_LINE.fullmatch(line) is not None
+        or HEADING.match(line)
+        or EMPTY_QUOTE.match(line)
+    ):
         return False
     if THEMATIC_BREAK.match(line):
         return False
@@ -311,7 +319,7 @@ def container_line(containers: tuple[int | None, ...], line: str) -> str | None:
             if (quote := QUOTE_MARK.match(line)) is None:
                 return None
             line = line[quote.end() :]
-        elif line.strip() and indent_width(line) < content_column:
+        elif BLANK_LINE.fullmatch(line) is None and indent_width(line) < content_column:
             return None
         else:
             line = strip_columns(line, content_column)
@@ -327,7 +335,7 @@ def _html_continues(block: _HtmlBlock, line: str) -> bool | None:
     """
     if (content := container_line(block.containers, line)) is None:
         return None
-    return not (block.end is BLANK_LINE and not content.strip())
+    return not (block.end is BLANK_LINE and BLANK_LINE.fullmatch(content) is not None)
 
 
 def _still_open(end: re.Pattern[str], line: str) -> re.Pattern[str] | None:
@@ -397,7 +405,7 @@ class _Scanner:
         marker = LIST_MARKER.match(inner)
         kind = marker.group().strip()[-1] if marker is not None else ""
         self.sibling = (width, kind) in self.markers
-        if line.strip():
+        if BLANK_LINE.fullmatch(line) is None:
             while self.lists and width < self.lists[-1]:
                 self.lists.pop()
                 self.markers.pop()
