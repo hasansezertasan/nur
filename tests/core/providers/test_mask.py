@@ -1194,3 +1194,18 @@ def test_reference_label_limit_matches_mask(label, linked, form) -> None:
     source = f"## x {reference} y\n\n```sh\necho\n```\n\n[{label}]: /url\n"
     name = ("build" if form.startswith("[build]") else label) + " y" if linked else "x"
     assert [task.argv_base for task in parse_mask(source)] == [("mask", name)]
+
+
+@pytest.mark.parametrize(
+    ("markers", "indent"), [("- -", "    "), ("1. -", "     "), ("- - -", "      ")]
+)
+def test_fences_on_stacked_list_marker_lines(markers, indent) -> None:
+    source = f"## build\n{markers} ```sh\n{indent}echo build\n{indent}```\n"
+    assert [(task.argv_base, task.definition) for task in parse_mask(source)] == [
+        (("mask", "build"), "echo build")
+    ]
+
+
+def test_stacked_ordered_markers_cannot_interrupt_a_paragraph() -> None:
+    source = "## build\nprose\n2. - ```sh\n     echo build\n     ```\n"
+    assert parse_mask(source) == []

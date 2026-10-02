@@ -471,12 +471,16 @@ class _Scanner:
             self.lists.append(offset + item[0])
             self.markers.append((width, kind))
 
-    def _quoted_opening(self, index: int, line: str) -> _Open | None:
+    def _nested_opening(self, index: int, line: str) -> _Open | None:
         """Open a fence within nested quote/list containers, if present."""
         offset = self._container(line)
         inner = strip_columns(line, offset) if offset is not None else line
         content, containers = container_content(inner)
-        if None not in containers:
+        if None not in containers and (
+            len(containers) <= 1
+            or list_item_content(inner, paragraph=self.paragraph and not self.sibling)
+            is None
+        ):
             return None
         match = FENCE.match(content)
         if not _opens(match):
@@ -496,7 +500,7 @@ class _Scanner:
         """Return the fence opening on *line*, inside the current list item too."""
         if (
             self.list_items
-            and (quoted := self._quoted_opening(index, line)) is not None
+            and (quoted := self._nested_opening(index, line)) is not None
         ):
             return quoted
         if (container := self._container(line)) is not None:
