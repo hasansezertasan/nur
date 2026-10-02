@@ -856,7 +856,7 @@ def test_reference_definitions_in_containers(definition) -> None:
 
 @pytest.mark.parametrize("definition", [">     [build]: /url", "-     [build]: /url"])
 def test_indented_code_in_containers_is_not_a_reference_definition(definition) -> None:
-    text = f"## x [build] y\n\n```sh\necho\n```\n\n{definition}\n"
+    text = f"{definition}\n\n## x [build] y\n\n```sh\necho\n```\n"
     assert [task.argv_base for task in parse_mask(text)] == [("mask", "x")]
 
 
@@ -1209,3 +1209,33 @@ def test_fences_on_stacked_list_marker_lines(markers, indent) -> None:
 def test_stacked_ordered_markers_cannot_interrupt_a_paragraph() -> None:
     source = "## build\nprose\n2. - ```sh\n     echo build\n     ```\n"
     assert parse_mask(source) == []
+
+
+@pytest.mark.parametrize("padding", ["\u00a0", "\u2003", "\t", "\f", "\v"])
+def test_closing_fence_only_accepts_space_padding(padding) -> None:
+    source = (
+        f"## build\n```sh\necho build\n```{padding}\n## test\n```sh\necho test\n```\n"
+    )
+    script = f"echo build\n```{padding}\n## test\n```sh\necho test"
+    assert [(task.argv_base, task.definition) for task in parse_mask(source)] == [
+        (("mask", "build"), script)
+    ]
+
+
+@pytest.mark.parametrize("padding", ["\u00a0", "\u2003", "\f", "\v"])
+def test_quote_marker_cannot_consume_unicode_or_control_padding(padding) -> None:
+    source = f">{padding}## build\n\n```sh\necho\n```\n"
+    assert parse_mask(source) == []
+
+
+@pytest.mark.parametrize(
+    "content", [">\n>     echo later", ">     echo later", "> >\n> >     echo later"]
+)
+def test_quoted_indented_code_replaces_runnable_script(content) -> None:
+    source = f"## build\n```sh\necho build\n```\n{content}\n"
+    assert parse_mask(source) == []
+
+
+def test_quote_indentation_cannot_interrupt_a_paragraph() -> None:
+    source = "## build\n```sh\necho build\n```\n> text\n>     echo later\n"
+    assert [task.definition for task in parse_mask(source)] == ["echo build"]

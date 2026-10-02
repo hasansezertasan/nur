@@ -127,7 +127,9 @@ def _closes(match: re.Match[str] | None, opener: str) -> bool:
         return False
     delimiter, info = match.groups()
     return (
-        delimiter[0] == opener[0] and len(delimiter) >= len(opener) and not info.strip()
+        delimiter[0] == opener[0]
+        and len(delimiter) >= len(opener)
+        and not info.strip(" ")
     )
 
 

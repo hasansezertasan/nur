@@ -45,7 +45,7 @@ SOURCE_FILE = "maskfile.md"
 # CommonMark); str.splitlines also splits on form feeds and Unicode
 # separators, which would invent headings.
 LINE_ENDING = re.compile(r"\r?\n")
-BLOCKQUOTE = re.compile(r"^ {0,3}>\s?(.*)$")
+BLOCKQUOTE = re.compile(r"^ {0,3}>[ \t]?(.*)$")
 # A list item's marker and the one to four spaces setting its content column.
 # The indentation, in columns, that makes a line an indented code block.
 INDENTED_CODE = 4
@@ -195,10 +195,21 @@ class _Reader:
 
     def _read_quote(self, command: _Command, content: str) -> tuple[int, str] | None:
         content, _ = container_content(content)
+        if not self.quote:
+            # The last blockquote under a heading is its description.
+            command.quote = self.quote
+        if (self.boundary or not self.quote or not self.quote[-1]) and indent_width(
+            content
+        ) >= INDENTED_CODE:
+            command.script = None
+            self.quote.append(content.strip())
+            self.paragraph, self.boundary = [], True
+            return None
         if (heading := HEADING.match(content)) is not None:
             return self._heading(heading)
         if (
             self.quote
+            and not self.boundary
             and self.quote[-1]
             and (underline := SETEXT_UNDERLINE.match(content))
         ):
@@ -210,11 +221,8 @@ class _Reader:
             del self.quote[start:]
             self.paragraph, self.boundary = [], True
             return (1 if underline.group(1)[0] == "=" else 2), text
-        if not self.quote:
-            # The last blockquote under a heading is its description.
-            command.quote = self.quote
         self.quote.append(content.strip())
-        self.paragraph, self.boundary = [], False
+        self.paragraph, self.boundary = [], not content.strip()
         return None
 
     def _read_list_item(self, indent: int, content: str) -> tuple[int, str] | None:
