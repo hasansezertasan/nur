@@ -1245,3 +1245,22 @@ def test_quote_indentation_cannot_interrupt_a_paragraph() -> None:
 def test_unicode_quote_content_keeps_a_paragraph_open(space) -> None:
     text = f"## build\n```sh\necho build\n```\n>{space}\n>     echo later\n"
     assert [task.definition for task in parse_mask(text)] == ["echo build"]
+
+
+@pytest.mark.parametrize("entity", ["&copycat;", "&notit;", "&ampersand;"])
+def test_unknown_named_entities_do_not_decode_a_prefix(entity) -> None:
+    text = f"## build {entity}\n\n```sh\necho\n```\n"
+    assert [task.argv_base for task in parse_mask(text)] == [
+        ("mask", f"build {entity}")
+    ]
+
+
+@pytest.mark.parametrize(
+    "markup",
+    ["<em>bar</em>", "<!-- ignored -->bar", "<?ignored?>bar", "<!DOCTYPE ignored>bar"],
+)
+def test_inline_html_remains_literal_in_mask_heading_names(markup) -> None:
+    text = f"## foo {markup} baz\n\n```sh\necho\n```\n"
+    assert [task.argv_base for task in parse_mask(text)] == [
+        ("mask", f"foo {markup} baz")
+    ]

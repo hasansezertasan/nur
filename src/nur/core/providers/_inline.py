@@ -16,6 +16,7 @@ import operator
 import re
 import unicodedata
 from dataclasses import dataclass
+from html.entities import html5
 from typing import NamedTuple
 
 __all__ = [
@@ -103,6 +104,13 @@ def _delimiter(text: str, start: int, end: int) -> _Delimiter:
         can_open=left and (not right or _is_punctuation(before)),
         can_close=right and (not left or _is_punctuation(after)),
     )
+
+
+def _reference_text(reference: str) -> str:
+    """Decode numeric references and only exact named entity entries."""
+    if reference.startswith("&#"):
+        return html.unescape(reference)
+    return html5.get(reference[1:], reference)
 
 
 def normalize_label(label: str) -> str:
@@ -305,7 +313,7 @@ class _Tokenizer:
                 out.append(escaped.group(1))
                 index = escaped.end()
             elif (reference := REFERENCE.match(text, index, stop)) is not None:
-                out.append(html.unescape(reference.group()))
+                out.append(_reference_text(reference.group()))
                 index = reference.end()
             elif char == "<" and (autolink := AUTOLINK.match(text, index, stop)):
                 out.extend((None, autolink.group(1)))
