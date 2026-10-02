@@ -426,7 +426,7 @@ class _Scanner:
         if match is None or not valid_reference_label(match.group(1)):
             return None
         target, end = content[match.end() :], index + 1
-        if not target.strip():
+        if not target.strip(" \t"):
             if end >= len(lines):
                 return None
             target = container_line(containers, lines[end]) or ""
@@ -437,7 +437,7 @@ class _Scanner:
         if (
             end < len(lines)
             and target_match is not None
-            and target.strip() == target_match.group(1)
+            and target.strip(" \t") == target_match.group(1)
             and (title := container_line(containers, lines[end])) is not None
             and DEFINITION_TITLE.match(title) is not None
         ):

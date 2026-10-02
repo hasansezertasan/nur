@@ -1321,3 +1321,18 @@ def test_setext_marker_can_be_a_continued_reference_destination() -> None:
 def test_reference_label_matching_preserves_raw_escapes(label, definition) -> None:
     source = f"## x [{label}] y\n\n```sh\necho\n```\n\n[{definition}]: /url\n"
     assert [task.argv_base for task in parse_mask(source)] == [("mask", "x")]
+
+
+@pytest.mark.parametrize("space", ["\u00a0", "\u2003"])
+def test_unicode_only_reference_destinations_do_not_consume_html(space) -> None:
+    text = f"[ref]: {space}\n<img>\n## build\n\n```sh\necho\n```\n"
+    assert parse_mask(text) == []
+
+
+@pytest.mark.parametrize("space", ["\u00a0", "\u2003", "\x85"])
+@pytest.mark.parametrize(
+    "destination", ["foo{space}bar", "{space}foo", "foo{space}", "foo({space})"]
+)
+def test_inline_destinations_accept_unicode_whitespace(space, destination) -> None:
+    text = f"## x [build]({destination.format(space=space)}) y\n\n```sh\necho\n```\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", "build y")]

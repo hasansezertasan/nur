@@ -39,7 +39,7 @@ REFERENCE = re.compile(
 _TITLE = r"""(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\((?:[^()\\]|\\.)*\))"""
 ANGLE_DESTINATION = re.compile(r"<(?:[^<>\n\\]|\\.)*>")
 LINK_TITLE = re.compile(_TITLE)
-EMPTY_DESTINATION_TITLE = re.compile(rf"{_TITLE}\s*\)")
+EMPTY_DESTINATION_TITLE = re.compile(rf"{_TITLE}\s*\)", re.ASCII)
 DEFINITION_TITLE = re.compile(rf"^[ \t]*{_TITLE}[ \t]*$")
 _LINK_CHAR = r"(?:[^\[\]\\]|\\.)"
 _LINK_TEXT = rf"{_LINK_CHAR}*"
@@ -60,6 +60,7 @@ AUTOLINK = re.compile(
     rf"|[A-Za-z0-9.!#$%&'*+/=?^_`{{|}}~-]+@{_DOMAIN_LABEL}(?:\.{_DOMAIN_LABEL})*)>"
 )
 BACKTICKS = re.compile(r"`+")
+LINK_WHITESPACE = " \t\r\n\f\v"
 MAX_REFERENCE_LABEL = 999
 CONTROL_LIMIT = 0x20
 # Delimiters a strong emphasis consumes from each side; plain emphasis takes one.
@@ -224,7 +225,9 @@ class _Tokenizer:
             char = self.text[index]
             breaks.append(
                 breaks[-1]
-                + int(char.isspace() or char in "<>" or ord(char) < CONTROL_LIMIT)
+                + int(
+                    char in LINK_WHITESPACE or char in "<>" or ord(char) < CONTROL_LIMIT
+                )
             )
             if char == "(":
                 stack.append(index)
@@ -239,7 +242,7 @@ class _Tokenizer:
         if opening >= stop or text[opening] != "(":
             return None
         index = opening + 1
-        while index < stop and text[index].isspace():
+        while index < stop and text[index] in LINK_WHITESPACE:
             index += 1
         if index > opening + 1 and (
             title := EMPTY_DESTINATION_TITLE.match(text, index, stop)
@@ -253,21 +256,23 @@ class _Tokenizer:
             if destination_end is None:
                 return None
             index = destination_end
-        while index < stop and text[index].isspace():
+        while index < stop and text[index] in LINK_WHITESPACE:
             index += 1
         if index < stop and text[index] == ")":
             return index + 1
         if (title := LINK_TITLE.match(text, index, stop)) is None:
             return None
         index = title.end()
-        while index < stop and text[index].isspace():
+        while index < stop and text[index] in LINK_WHITESPACE:
             index += 1
         return index + 1 if index < stop and text[index] == ")" else None
 
     def _bare_destination(self, index: int, stop: int) -> int | None:
         """Scan a bare destination, jumping balanced spans without rescanning."""
         while (
-            index < stop and not self.text[index].isspace() and self.text[index] != ")"
+            index < stop
+            and self.text[index] not in LINK_WHITESPACE
+            and self.text[index] != ")"
         ):
             char = self.text[index]
             if (escape := ESCAPED.match(self.text, index, stop)) is not None:

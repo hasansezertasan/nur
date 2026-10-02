@@ -312,7 +312,7 @@ def _following_definition_title(
 ) -> bool:
     """Whether the definition's optional title is on *lines[index]*."""
     match = DEFINITION_TARGET.match(target)
-    if index >= len(lines) or match is None or target.strip() != match.group(1):
+    if index >= len(lines) or match is None or target.strip(" \t") != match.group(1):
         return False
     content = container_line(containers, lines[index])
     return content is not None and DEFINITION_TITLE.match(content) is not None
@@ -366,7 +366,7 @@ def _definitions(lines: list[str], code: set[int]) -> tuple[frozenset[str], set[
             continue
         target = content[match.end() :]
         next_line = (
-            not target.strip() and index + 1 < len(lines) and index + 1 not in code
+            not target.strip(" \t") and index + 1 < len(lines) and index + 1 not in code
         )
         if next_line:
             target = container_line(containers, lines[index + 1]) or ""
