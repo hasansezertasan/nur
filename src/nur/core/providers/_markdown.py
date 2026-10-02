@@ -27,6 +27,7 @@ __all__ = [
     "fence_blocks",
     "fence_column",
     "indent_width",
+    "leaves_paragraph_open",
     "list_item_content",
     "scan",
     "strip_columns",
@@ -251,7 +252,7 @@ def _html_block_at(line: str, *, paragraph: bool) -> _HtmlBlock | None:
     return _HtmlBlock(end, containers) if end is not None else None
 
 
-def _leaves_paragraph_open(line: str, *, paragraph: bool) -> bool:
+def leaves_paragraph_open(line: str, *, paragraph: bool) -> bool:
     """Whether a paragraph is still open after *line*.
 
     A lone tag on the next line then continues the paragraph instead of
@@ -337,6 +338,8 @@ class _Scanner:
     # The content columns of the nested list items later lines may continue,
     # outermost first.
     lists: list[int] = field(default_factory=list)
+    markers: list[tuple[int, str]] = field(default_factory=list)
+    sibling: bool = False
 
     def read(self, index: int, line: str) -> None:
         if self.fence is not None and self._in_fence(self.fence, index, line):
@@ -356,7 +359,7 @@ class _Scanner:
             container = self._container(line) if self.list_items else None
             inner = strip_columns(line, container) if container is not None else line
             content = container_content(inner)[0] if self.list_items else inner
-            self.paragraph = _leaves_paragraph_open(content, paragraph=self.paragraph)
+            self.paragraph = leaves_paragraph_open(content, paragraph=self.paragraph)
 
     def _container(self, line: str) -> int | None:
         """Return the content column of the innermost list item *line* is in."""
@@ -376,13 +379,22 @@ class _Scanner:
     def _track_list(self, line: str) -> None:
         """Open, close, and return to list items as *line* indents and dedents."""
         width = indent_width(line)
+        offset = next((col for col in reversed(self.lists) if width >= col), 0)
+        inner = strip_columns(line, offset)
+        marker = LIST_MARKER.match(inner)
+        kind = marker.group().strip()[-1] if marker is not None else ""
+        self.sibling = (width, kind) in self.markers
         if line.strip():
             while self.lists and width < self.lists[-1]:
                 self.lists.pop()
-        offset = self.lists[-1] if self.lists else 0
-        inner = strip_columns(line, offset)
-        if (item := list_item_content(inner, paragraph=self.paragraph)) is not None:
+                self.markers.pop()
+        if (
+            item := list_item_content(
+                inner, paragraph=self.paragraph and not self.sibling
+            )
+        ) is not None:
             self.lists.append(offset + item[0])
+            self.markers.append((width, kind))
 
     def _opening(self, index: int, line: str) -> _Open | None:
         """Return the fence opening on *line*, inside the current list item too."""
@@ -399,7 +411,11 @@ class _Scanner:
         if not _opens(match) or (start := fence_column(line, match)) is None:
             return None
         on_marker = match.start(1) > _leading_spaces(line)
-        if on_marker and list_item_content(line, paragraph=self.paragraph) is None:
+        if (
+            on_marker
+            and list_item_content(line, paragraph=self.paragraph and not self.sibling)
+            is None
+        ):
             return None  # the marker cannot start a list here, so no fence
         container = start if on_marker else None
         return _Open(index, match.group(1), match.group(2).strip(), start, container)

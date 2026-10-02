@@ -982,3 +982,27 @@ def test_provider_preserves_mask_line_endings(tmp_path, newline, names) -> None:
 def test_autolinks_reset_the_mask_command_name(heading, name) -> None:
     text = f"## {heading}\n\n```sh\necho\n```\n"
     assert [task.argv_base for task in parse_mask(text)] == [("mask", name)]
+
+
+@pytest.mark.parametrize("marker", ["2.", "3.", "2)"])
+def test_ordered_list_sibling_fence_does_not_interrupt_a_new_paragraph(marker) -> None:
+    first = "1)" if marker.endswith(")") else "1."
+    text = f"## a\n\n{first} item\n{marker} ```sh\n   echo a\n   ```\n"
+    assert [(task.argv_base, task.definition) for task in parse_mask(text)] == [
+        (("mask", "a"), "echo a")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("definition", "name"),
+    [
+        ("prose\n[build]: /url", "x"),
+        ("> prose\n> [build]: /url", "x"),
+        ("- prose\n  [build]: /url", "x"),
+        ("prose\n\n[build]: /url", "build y"),
+        ("> prose\n>\n> [build]: /url", "build y"),
+    ],
+)
+def test_reference_definitions_cannot_interrupt_paragraphs(definition, name) -> None:
+    text = f"## x [build] y\n\n```sh\necho\n```\n\n{definition}\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", name)]

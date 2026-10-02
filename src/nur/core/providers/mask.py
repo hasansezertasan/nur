@@ -22,6 +22,7 @@ from nur.core.providers._markdown import (
     container_content,
     container_line,
     indent_width,
+    leaves_paragraph_open,
     list_item_content,
     scan,
     strip_columns,
@@ -307,24 +308,40 @@ def _definition_labels(lines: list[str], code: set[int]) -> frozenset[str]:
     """
     labels: set[str] = set()
     containers: tuple[int | None, ...] = ()
+    paragraph = False
+    continuation: int | None = None
     for index, line in enumerate(lines):
         if index in code:
+            paragraph = False
             continue
         # Reuse the block scanner's container rules, including nested markers
         # and list continuation indentation. Code and HTML remain excluded.
         inner = container_line(containers, line)
         if inner is None:
             containers = ()
+            paragraph = False
             inner = line
         content, opened = container_content(inner)
+        if opened:
+            paragraph = False
         containers += opened
-        if (match := DEFINITION.match(content)) is None:
+        if index == continuation:
+            continue
+        match = None if paragraph else DEFINITION.match(content)
+        if match is None:
+            paragraph = leaves_paragraph_open(content, paragraph=paragraph)
             continue
         target = content[match.end() :]
-        if not target.strip() and index + 1 < len(lines) and index + 1 not in code:
+        next_line = (
+            not target.strip() and index + 1 < len(lines) and index + 1 not in code
+        )
+        if next_line:
             target = container_line(containers, lines[index + 1]) or ""
         if _valid_definition_target(target):
             labels.add(normalize_label(match.group(1)))
+            continuation = index + 1 if next_line else None
+        else:
+            paragraph = True
     return frozenset(labels)
 
 
