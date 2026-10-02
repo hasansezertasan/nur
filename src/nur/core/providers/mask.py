@@ -477,7 +477,7 @@ class MaskProvider:
 
     def discover(self, cwd: Path) -> list[Task]:
         try:
-            text = (cwd / SOURCE_FILE).read_text(encoding="utf-8")
+            text = (cwd / SOURCE_FILE).read_bytes().decode("utf-8")
         except (OSError, UnicodeDecodeError) as exc:
             log.warning("nur: skipping %s (%s)", SOURCE_FILE, exc)
             return []

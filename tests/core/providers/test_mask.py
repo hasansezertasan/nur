@@ -957,3 +957,12 @@ def test_balanced_brackets_in_link_text(heading, definition, name) -> None:
 def test_hostile_balanced_brackets_are_parsed() -> None:
     heading = "[" * 25_000 + "x" + "]" * 25_000
     assert parse_mask(f"## {heading}\n\n```sh\necho\n```\n") == []
+
+
+@pytest.mark.parametrize(
+    ("newline", "names"), [(b"\r", []), (b"\r\n", ["build"]), (b"\n", ["build"])]
+)
+def test_provider_preserves_mask_line_endings(tmp_path, newline, names) -> None:
+    content = b"## build\n\n```sh\necho build\n```\n".replace(b"\n", newline)
+    (tmp_path / "maskfile.md").write_bytes(content)
+    assert [task.name for task in MaskProvider().discover(tmp_path)] == names
