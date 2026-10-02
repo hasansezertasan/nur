@@ -45,7 +45,7 @@ REFERENCE_LABEL = re.compile(rf"\[({_LINK_TEXT})\]")
 # its colon (here or on the next line): a destination and an optional title.
 DEFINITION = re.compile(r"^ {0,3}\[((?:[^\[\]\\]|\\.)+)\]:(?:[ \t]|$)")
 DEFINITION_TARGET = re.compile(
-    r"""^[ \t]*(<[^<>\n]*>|[^\s<]\S*)(?:[ \t]+"""
+    rf"""^[ \t]*({ANGLE_DESTINATION.pattern}|[^\s<]\S*)(?:[ \t]+"""
     r"""(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\((?:[^()\\]|\\.)*\)))?[ \t]*$"""
 )
 # CommonMark URI schemes have 2--32 characters; autolinks exclude spaces,

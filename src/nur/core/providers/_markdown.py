@@ -135,6 +135,7 @@ class Fence(NamedTuple):
     # which is how much indentation its body lines lose.
     info: str = ""
     indent: int = 0
+    containers: tuple[int | None, ...] = ()
 
 
 @dataclass
@@ -146,6 +147,7 @@ class _Open:
     # the list item it sits in, if any (the item's end also ends the fence).
     indent: int
     container: int | None
+    containers: tuple[int | None, ...] = ()
 
 
 def column(text: str) -> int:
@@ -220,13 +222,24 @@ def strip_columns(line: str, columns: int) -> str:
 
 def _fence_ends(fence: _Open, line: str, index: int) -> Fence | None:
     """Return the finished block if *line* ends the open *fence*."""
+    if fence.containers:
+        content = container_line(fence.containers, line)
+        if content is None:
+            return Fence(
+                fence.index, index, index, fence.info, fence.indent, fence.containers
+            )
+        line = content
     if fence.container is not None:
         if line.strip() and indent_width(line) < fence.container:
             # The list item ends here, and a fence inside it ends with it.
-            return Fence(fence.index, index, index, fence.info, fence.indent)
+            return Fence(
+                fence.index, index, index, fence.info, fence.indent, fence.containers
+            )
         line = strip_columns(line, fence.container)
     if _closes(FENCE.match(line), fence.delimiter):
-        return Fence(fence.index, index, index + 1, fence.info, fence.indent)
+        return Fence(
+            fence.index, index, index + 1, fence.info, fence.indent, fence.containers
+        )
     return None
 
 
@@ -396,8 +409,34 @@ class _Scanner:
             self.lists.append(offset + item[0])
             self.markers.append((width, kind))
 
+    def _quoted_opening(self, index: int, line: str) -> _Open | None:
+        """Open a fence within nested quote/list containers, if present."""
+        offset = self._container(line)
+        inner = strip_columns(line, offset) if offset is not None else line
+        content, containers = container_content(inner)
+        if None not in containers:
+            return None
+        match = FENCE.match(content)
+        if not _opens(match):
+            return None
+        if offset is not None:
+            containers = (offset, *containers)
+        return _Open(
+            index,
+            match.group(1),
+            match.group(2).strip(),
+            column(content[: match.start(1)]),
+            None,
+            containers,
+        )
+
     def _opening(self, index: int, line: str) -> _Open | None:
         """Return the fence opening on *line*, inside the current list item too."""
+        if (
+            self.list_items
+            and (quoted := self._quoted_opening(index, line)) is not None
+        ):
+            return quoted
         if (container := self._container(line)) is not None:
             # Inside a list item, a fence is indented relative to its content.
             inner = strip_columns(line, container)
@@ -486,7 +525,9 @@ def scan(
         scanner.read(index, line)
     if (fence := scanner.fence) is not None:
         end = len(lines)
-        scanner.fences.append(Fence(fence.index, end, end, fence.info, fence.indent))
+        scanner.fences.append(
+            Fence(fence.index, end, end, fence.info, fence.indent, fence.containers)
+        )
     return scanner.fences, scanner.hidden
 
 

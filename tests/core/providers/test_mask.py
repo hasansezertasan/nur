@@ -1106,3 +1106,33 @@ def test_nested_marker_fence_ends_when_its_item_ends() -> None:
     assert [(task.argv_base, task.definition) for task in parse_mask(text)] == [
         (("mask", "build"), "echo outer")
     ]
+
+
+@pytest.mark.parametrize(
+    ("opening", "body", "closing"),
+    [
+        ("> ```sh", "> echo build", "> ```"),
+        ("> > ```sh", "> > echo build", "> > ```"),
+        ("- > ```sh", "  > echo build", "  > ```"),
+        ("> - ```sh", ">   echo build", ">   ```"),
+    ],
+)
+def test_scripts_in_blockquote_containers(opening, body, closing) -> None:
+    text = f"## build\n\n{opening}\n{body}\n{closing}\n"
+    assert [
+        (task.argv_base, task.definition, task.description) for task in parse_mask(text)
+    ] == [(("mask", "build"), "echo build", "echo build")]
+
+
+def test_quoted_fence_ends_with_its_quote() -> None:
+    text = "## build\n\n> ```sh\n> echo build\n## test\n\n```sh\necho test\n```\n"
+    assert [(task.argv_base, task.definition) for task in parse_mask(text)] == [
+        (("mask", "build"), "echo build"),
+        (("mask", "test"), "echo test"),
+    ]
+
+
+@pytest.mark.parametrize("destination", [r"<foo\>bar>", r"<foo\<bar>"])
+def test_escaped_angles_in_reference_destinations(destination) -> None:
+    text = f"## x [build] y\n\n```sh\necho\n```\n\n[build]: {destination}\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", "build y")]

@@ -97,14 +97,19 @@ def _take_script(
 ) -> None:
     """Make the *fence*'s *body* lines *command*'s script."""
     info = fence.info
-    if not windows and info in WINDOWS_ONLY_EXECUTORS:
-        return
     # Each block overwrites the last: mask runs the final one.
     # mask refuses to run a script without a language tag (the tag selects the
     # interpreter) or without any line; a script of blank lines still runs.
     runnable = bool(info) and bool(body)
     # Each body line loses up to the fence's own indentation, by columns.
-    script = "\n".join(strip_columns(line, fence.indent) for line in body)
+    script = "\n".join(
+        strip_columns(container_line(fence.containers, line) or "", fence.indent)
+        for line in body
+    )
+    if None in fence.containers:
+        command.quote = [script]
+    if not windows and info in WINDOWS_ONLY_EXECUTORS:
+        return
     command.script = script if runnable else None
 
 
