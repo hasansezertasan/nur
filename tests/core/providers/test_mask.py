@@ -1032,3 +1032,39 @@ def test_deeply_nested_images_do_not_recurse() -> None:
     heading = "![" * 2_000 + "x" + "](u)" * 2_000
     text = f"## {heading}\n\n```sh\necho\n```\n"
     assert [task.argv_base for task in parse_mask(text)] == [("mask", "x")]
+
+
+@pytest.mark.parametrize(
+    "destination",
+    [
+        "foo((bar))",
+        "foo((bar(baz)))",
+        r"foo(bar\(baz\))",
+        "<foo(bar>",
+        'foo((bar)) "title"',
+        ' "some title"',
+    ],
+)
+def test_nested_parentheses_in_inline_link_destinations(destination) -> None:
+    text = f"## x [build]({destination}) y\n\n```sh\necho\n```\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", "build y")]
+
+
+@pytest.mark.parametrize(
+    "definition",
+    [
+        '[ref]: /url\n  "title"',
+        "[ref]: /url\n  'title'",
+        "[ref]: /url\n  (title)",
+        '[ref]:\n/url\n  "title"',
+    ],
+)
+def test_reference_title_lines_do_not_become_setext_headings(definition) -> None:
+    text = f"## a\n\n{definition}\n---\n\n```sh\necho\n```\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", "a")]
+
+
+def test_deeply_nested_link_destination_is_parsed() -> None:
+    destination = "(" * 10_000 + "x" + ")" * 10_000
+    text = f"## [build]({destination})\n\n```sh\necho\n```\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", "build")]

@@ -18,21 +18,28 @@ import unicodedata
 from dataclasses import dataclass
 from typing import NamedTuple
 
-__all__ = ["DEFINITION", "DEFINITION_TARGET", "heading_text", "normalize_label"]
+__all__ = [
+    "DEFINITION",
+    "DEFINITION_TARGET",
+    "DEFINITION_TITLE",
+    "heading_text",
+    "normalize_label",
+]
 
 
 ESCAPED = re.compile(r"\\([!-/:-@\[-`{-~])")
 REFERENCE = re.compile(
     r"&(?:#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});"
 )
-# A link or image. Its destination is `<...>`, or bare: no whitespace, with
-# escaped or one level of balanced parentheses. A quoted or parenthesized
-# title may follow. Link text uses precomputed balanced bracket pairs.
-_DESTINATION = r"(?:<[^<>\n]*>|(?:[^()\s\\]|\\.|\([^()\s]*\))*)"
+# Link destinations may contain arbitrarily nested balanced parentheses.
+# Titles are quoted or parenthesized, with punctuation escapes.
 _TITLE = r"""(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\((?:[^()\\]|\\.)*\))"""
+ANGLE_DESTINATION = re.compile(r"<(?:[^<>\n\\]|\\.)*>")
+LINK_TITLE = re.compile(_TITLE)
+EMPTY_DESTINATION_TITLE = re.compile(rf"{_TITLE}\s*\)")
+DEFINITION_TITLE = re.compile(rf"^[ \t]*{_TITLE}[ \t]*$")
 _LINK_CHAR = r"(?:[^\[\]\\]|\\.)"
 _LINK_TEXT = rf"{_LINK_CHAR}*"
-LINK_TARGET = re.compile(rf"\(\s*{_DESTINATION}(?:\s+{_TITLE})?\s*\)")
 REFERENCE_LABEL = re.compile(rf"\[({_LINK_TEXT})\]")
 # A link reference definition line, `[label]: destination`, and what may follow
 # its colon (here or on the next line): a destination and an optional title.
@@ -49,6 +56,7 @@ AUTOLINK = re.compile(
     rf"|[A-Za-z0-9.!#$%&'*+/=?^_`{{|}}~-]+@{_DOMAIN_LABEL}(?:\.{_DOMAIN_LABEL})*)>"
 )
 BACKTICKS = re.compile(r"`+")
+CONTROL_LIMIT = 0x20
 # Delimiters a strong emphasis consumes from each side; plain emphasis takes one.
 STRONG = 2
 
@@ -117,6 +125,7 @@ class _Tokenizer:
         self.nested: set[int] = set()
         self.images: set[int] = set()
         self.brackets = self._bracket_pairs()
+        self.parens, self.breaks = self._parenthesis_pairs()
         self.links = self._matched_links()
 
     def _bracket_pairs(self) -> dict[int, int]:
@@ -152,6 +161,83 @@ class _Tokenizer:
                 pairs[stack.pop()] = index
             index += 1
         return pairs
+
+    def _parenthesis_pairs(self) -> tuple[dict[int, int], list[int]]:
+        """Pair destination parentheses and count forbidden characters in spans."""
+        pairs: dict[int, int] = {}
+        stack: list[int] = []
+        breaks = [0]
+        index = 0
+        while index < len(self.text):
+            if (escape := ESCAPED.match(self.text, index)) is not None:
+                breaks.extend([breaks[-1]] * (escape.end() - index))
+                index = escape.end()
+                continue
+            char = self.text[index]
+            breaks.append(
+                breaks[-1]
+                + int(char.isspace() or char in "<>" or ord(char) < CONTROL_LIMIT)
+            )
+            if char == "(":
+                stack.append(index)
+            elif char == ")" and stack:
+                pairs[stack.pop()] = index
+            index += 1
+        return pairs, breaks
+
+    def _target(self, opening: int, stop: int) -> int | None:
+        """Return the end of a parenthesized link destination and optional title."""
+        text = self.text
+        if opening >= stop or text[opening] != "(":
+            return None
+        index = opening + 1
+        while index < stop and text[index].isspace():
+            index += 1
+        if index > opening + 1 and (
+            title := EMPTY_DESTINATION_TITLE.match(text, index, stop)
+        ):
+            return title.end()
+        angle = ANGLE_DESTINATION.match(text, index, stop)
+        if angle is not None:
+            index = angle.end()
+        else:
+            destination_end = self._bare_destination(index, stop)
+            if destination_end is None:
+                return None
+            index = destination_end
+        while index < stop and text[index].isspace():
+            index += 1
+        if index < stop and text[index] == ")":
+            return index + 1
+        if (title := LINK_TITLE.match(text, index, stop)) is None:
+            return None
+        index = title.end()
+        while index < stop and text[index].isspace():
+            index += 1
+        return index + 1 if index < stop and text[index] == ")" else None
+
+    def _bare_destination(self, index: int, stop: int) -> int | None:
+        """Scan a bare destination, jumping balanced spans without rescanning."""
+        while (
+            index < stop and not self.text[index].isspace() and self.text[index] != ")"
+        ):
+            char = self.text[index]
+            if (escape := ESCAPED.match(self.text, index, stop)) is not None:
+                index = escape.end()
+            elif char == "(":
+                close = self.parens.get(index)
+                if (
+                    close is None
+                    or close >= stop
+                    or self.breaks[close] != self.breaks[index]
+                ):
+                    return None
+                index = close + 1
+            elif char in "<>" or ord(char) < CONTROL_LIMIT:
+                return None
+            else:
+                index += 1
+        return index
 
     def _matched_links(self) -> dict[int, _Link]:
         """Form inner links first; each disables enclosing regular link openers."""
@@ -216,8 +302,8 @@ class _Tokenizer:
         close = self.brackets.get(bracket)
         if close is None or close >= stop:
             return None
-        if (target := LINK_TARGET.match(text, close + 1, stop)) is not None:
-            return _Link(bracket + 1, close, target.end())
+        if (target := self._target(close + 1, stop)) is not None:
+            return _Link(bracket + 1, close, target)
         if (label := REFERENCE_LABEL.match(text, close + 1, stop)) is not None:
             name = label.group(1) or text[bracket + 1 : close]
             if normalize_label(name) in self.labels:

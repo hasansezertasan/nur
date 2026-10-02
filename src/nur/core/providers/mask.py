@@ -11,6 +11,7 @@ from nur.core.models import Task
 from nur.core.providers._inline import (
     DEFINITION,
     DEFINITION_TARGET,
+    DEFINITION_TITLE,
     heading_text,
     normalize_label,
 )
@@ -299,6 +300,31 @@ def _valid_definition_target(target: str) -> bool:
     return True
 
 
+def _following_definition_title(
+    lines: list[str], index: int, containers: tuple[int | None, ...], target: str
+) -> bool:
+    """Whether the definition's optional title is on *lines[index]*."""
+    match = DEFINITION_TARGET.match(target)
+    if index >= len(lines) or match is None or target.strip() != match.group(1):
+        return False
+    content = container_line(containers, lines[index])
+    return content is not None and DEFINITION_TITLE.match(content) is not None
+
+
+def _definition_lines(
+    lines: list[str],
+    span: range,
+    containers: tuple[int | None, ...],
+    code: set[int],
+    target: str,
+) -> set[int]:
+    """Return the definition marker, destination, and any following title line."""
+    end = span.stop
+    if end not in code and _following_definition_title(lines, end, containers, target):
+        end += 1
+    return set(range(span.start, end))
+
+
 def _definitions(lines: list[str], code: set[int]) -> tuple[frozenset[str], set[int]]:
     """Collect the labels of the link reference definitions outside code.
 
@@ -310,7 +336,6 @@ def _definitions(lines: list[str], code: set[int]) -> tuple[frozenset[str], set[
     consumed: set[int] = set()
     containers: tuple[int | None, ...] = ()
     paragraph = False
-    continuation: int | None = None
     for index, line in enumerate(lines):
         if index in code:
             paragraph = False
@@ -326,7 +351,7 @@ def _definitions(lines: list[str], code: set[int]) -> tuple[frozenset[str], set[
         if opened:
             paragraph = False
         containers += opened
-        if index == continuation:
+        if index in consumed:
             continue
         match = None if paragraph else DEFINITION.match(content)
         if match is None:
@@ -340,10 +365,15 @@ def _definitions(lines: list[str], code: set[int]) -> tuple[frozenset[str], set[
             target = container_line(containers, lines[index + 1]) or ""
         if _valid_definition_target(target):
             labels.add(normalize_label(match.group(1)))
-            consumed.add(index)
-            continuation = index + 1 if next_line else None
-            if continuation is not None:
-                consumed.add(continuation)
+            consumed.update(
+                _definition_lines(
+                    lines,
+                    range(index, index + (2 if next_line else 1)),
+                    containers,
+                    code,
+                    target,
+                )
+            )
         else:
             paragraph = True
     return frozenset(labels), consumed
