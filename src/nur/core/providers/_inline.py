@@ -41,6 +41,13 @@ DEFINITION_TARGET = re.compile(
     r"""^[ \t]*(<[^<>\n]*>|[^\s<]\S*)(?:[ \t]+"""
     r"""(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\((?:[^()\\]|\\.)*\)))?[ \t]*$"""
 )
+# CommonMark URI schemes have 2--32 characters; autolinks exclude spaces,
+# controls, and angle brackets. Email domains contain DNS-style labels.
+_DOMAIN_LABEL = r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+AUTOLINK = re.compile(
+    r"<([A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\x00-\x20]*"
+    rf"|[A-Za-z0-9.!#$%&'*+/=?^_`{{|}}~-]+@{_DOMAIN_LABEL}(?:\.{_DOMAIN_LABEL})*)>"
+)
 BACKTICKS = re.compile(r"`+")
 # Delimiters a strong emphasis consumes from each side; plain emphasis takes one.
 STRONG = 2
@@ -142,6 +149,9 @@ class _Tokenizer:
             elif (reference := REFERENCE.match(text, index, stop)) is not None:
                 out.append(html.unescape(reference.group()))
                 index = reference.end()
+            elif char == "<" and (autolink := AUTOLINK.match(text, index, stop)):
+                out.extend((None, autolink.group(1)))
+                index = autolink.end()
             elif char == "`":
                 index = self._code(index, stop, out)
             elif char in "[!" and (link := self._link(index, stop)) is not None:

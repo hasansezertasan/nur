@@ -966,3 +966,19 @@ def test_provider_preserves_mask_line_endings(tmp_path, newline, names) -> None:
     content = b"## build\n\n```sh\necho build\n```\n".replace(b"\n", newline)
     (tmp_path / "maskfile.md").write_bytes(content)
     assert [task.name for task in MaskProvider().discover(tmp_path)] == names
+
+
+@pytest.mark.parametrize(
+    ("heading", "name"),
+    [
+        ("x <https://example.com> y", "https://example.com y"),
+        ("x <build@example.com> y", "build@example.com y"),
+        ("x <mailto:build@example.com> y", "mailto:build@example.com y"),
+        ("x <https://example.com?x=&copy;> y", "https://example.com?x=&copy; y"),
+        (r"x \<https://example.com> y", "x <https://example.com> y"),
+        ("x <a:foo> y", "x <a:foo> y"),
+    ],
+)
+def test_autolinks_reset_the_mask_command_name(heading, name) -> None:
+    text = f"## {heading}\n\n```sh\necho\n```\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", name)]
