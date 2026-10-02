@@ -10,6 +10,14 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, NamedTuple
 
+from nur.core.providers._inline import (
+    DEFINITION,
+    DEFINITION_TARGET,
+    DEFINITION_TITLE,
+    valid_definition_target,
+    valid_reference_label,
+)
+
 if TYPE_CHECKING:
     from typing import TypeIs
 
@@ -74,8 +82,8 @@ HTML_BLOCKS: tuple[tuple[re.Pattern[str], re.Pattern[str]], ...] = (
     # A raw-text block ends only at its own closing tag.
     *(
         (
-            re.compile(rf"^ {{0,3}}<{tag}(?:\s|>|$)", re.IGNORECASE),
-            re.compile(rf"</{tag}>", re.IGNORECASE),
+            re.compile(rf"^ {{0,3}}<{tag}(?:\s|>|$)", re.IGNORECASE | re.ASCII),
+            re.compile(rf"</{tag}>", re.IGNORECASE | re.ASCII),
         )
         for tag in ("pre", "script", "style", "textarea")
     ),
@@ -101,7 +109,8 @@ EMPTY_QUOTE = re.compile(r"^ {0,3}>\s*$")
 # Any other complete opening or closing tag alone on its line (`<img ...>`).
 HTML_LONE_TAG = re.compile(
     rf"^ {{0,3}}(?:<[A-Za-z][A-Za-z0-9-]*(?:{_ATTRIBUTE})*\s*/?>"
-    r"|</[A-Za-z][A-Za-z0-9-]*\s*>)\s*$"
+    r"|</[A-Za-z][A-Za-z0-9-]*\s*>)\s*$",
+    re.ASCII,
 )
 
 
@@ -262,13 +271,6 @@ def _html_block_end(line: str, *, paragraph: bool) -> re.Pattern[str] | None:
     return None
 
 
-def _html_block_at(line: str, *, paragraph: bool) -> _HtmlBlock | None:
-    """Return the HTML block opening on *line*, inside any container, if any."""
-    content, containers = container_content(line)
-    end = _html_block_end(content, paragraph=paragraph)
-    return _HtmlBlock(end, containers) if end is not None else None
-
-
 def leaves_paragraph_open(line: str, *, paragraph: bool) -> bool:
     """Whether a paragraph is still open after *line*.
 
@@ -351,6 +353,8 @@ class _Scanner:
 
     list_items: bool
     html: bool
+    definition_end: int = 0
+    paragraph_containers: tuple[int | None, ...] = ()
     fences: list[Fence] = field(default_factory=list)
     hidden: set[int] = field(default_factory=set)
     fence: _Open | None = None
@@ -362,25 +366,78 @@ class _Scanner:
     markers: list[tuple[int, str]] = field(default_factory=list)
     sibling: bool = False
 
-    def read(self, index: int, line: str) -> None:
+    def read(self, index: int, line: str, lines: list[str]) -> None:
+        if index < self.definition_end:
+            return
         if self.fence is not None and self._in_fence(self.fence, index, line):
             return
         if self.block is not None and self._in_html(self.block, index, line):
             return
         if self.list_items:
             self._track_list(line)
+        content, containers = self._content(line)
+        paragraph = self.paragraph and self.paragraph_containers == containers
         if (fence := self._opening(index, line)) is not None:
             self.fence, self.paragraph = fence, False
+        elif (
+            self.list_items
+            and (
+                end := self._definition_end(
+                    index, lines, containers, paragraph=paragraph
+                )
+            )
+            is not None
+        ):
+            self.definition_end, self.paragraph = end, False
         elif self.html and (block := self._html_opening(line)) is not None:
             self.hidden.add(index)
             # The whole opening line counts: `<!-->` closes where it opens.
             self.block = block if _still_open(block.end, line) else None
             self.paragraph = False
         else:
-            container = self._container(line) if self.list_items else None
-            inner = strip_columns(line, container) if container is not None else line
-            content = container_content(inner)[0] if self.list_items else inner
-            self.paragraph = leaves_paragraph_open(content, paragraph=self.paragraph)
+            self.paragraph = leaves_paragraph_open(content, paragraph=paragraph)
+        self.paragraph_containers = containers
+
+    def _content(self, line: str) -> tuple[str, tuple[int | None, ...]]:
+        """Return content and containers relative to the active list item."""
+        offset = self._container(line) if self.list_items else None
+        inner = strip_columns(line, offset) if offset is not None else line
+        content, containers = (
+            container_content(inner) if self.list_items else (inner, ())
+        )
+        return content, (offset, *containers) if offset is not None else containers
+
+    def _definition_end(
+        self,
+        index: int,
+        lines: list[str],
+        containers: tuple[int | None, ...],
+        *,
+        paragraph: bool,
+    ) -> int | None:
+        """Return the end of a valid definition outside a paragraph."""
+        content = self._content(lines[index])[0]
+        match = None if paragraph else DEFINITION.match(content)
+        if match is None or not valid_reference_label(match.group(1)):
+            return None
+        target, end = content[match.end() :], index + 1
+        if not target.strip():
+            if end >= len(lines):
+                return None
+            target = container_line(containers, lines[end]) or ""
+            end += 1
+        if not valid_definition_target(target):
+            return None
+        target_match = DEFINITION_TARGET.match(target)
+        if (
+            end < len(lines)
+            and target_match is not None
+            and target.strip() == target_match.group(1)
+            and (title := container_line(containers, lines[end])) is not None
+            and DEFINITION_TITLE.match(title) is not None
+        ):
+            end += 1
+        return end
 
     def _container(self, line: str) -> int | None:
         """Return the content column of the innermost list item *line* is in."""
@@ -389,13 +446,10 @@ class _Scanner:
 
     def _html_opening(self, line: str) -> _HtmlBlock | None:
         """Return the HTML block opening on *line*, inside the current list item too."""
-        if (container := self._container(line)) is not None:
-            inner = strip_columns(line, container)
-            block = _html_block_at(inner, paragraph=self.paragraph)
-            if block is not None:
-                block.containers = (container, *block.containers)
-                return block
-        return _html_block_at(line, paragraph=self.paragraph)
+        content, containers = self._content(line)
+        paragraph = self.paragraph and self.paragraph_containers == containers
+        end = _html_block_end(content, paragraph=paragraph)
+        return _HtmlBlock(end, containers) if end is not None else None
 
     def _track_list(self, line: str) -> None:
         """Open, close, and return to list items as *line* indents and dedents."""
@@ -530,7 +584,7 @@ def scan(
     """
     scanner = _Scanner(list_items, html)
     for index, line in enumerate(lines):
-        scanner.read(index, line)
+        scanner.read(index, line, lines)
     if (fence := scanner.fence) is not None:
         end = len(lines)
         scanner.fences.append(

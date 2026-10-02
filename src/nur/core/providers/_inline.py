@@ -24,6 +24,8 @@ __all__ = [
     "DEFINITION_TITLE",
     "heading_text",
     "normalize_label",
+    "valid_definition_target",
+    "valid_reference_label",
 ]
 
 
@@ -56,6 +58,7 @@ AUTOLINK = re.compile(
     rf"|[A-Za-z0-9.!#$%&'*+/=?^_`{{|}}~-]+@{_DOMAIN_LABEL}(?:\.{_DOMAIN_LABEL})*)>"
 )
 BACKTICKS = re.compile(r"`+")
+MAX_REFERENCE_LABEL = 999
 CONTROL_LIMIT = 0x20
 # Delimiters a strong emphasis consumes from each side; plain emphasis takes one.
 STRONG = 2
@@ -105,6 +108,40 @@ def _delimiter(text: str, start: int, end: int) -> _Delimiter:
 def normalize_label(label: str) -> str:
     """Return the form two link labels must share to match: case and spacing fold."""
     return " ".join(label.split()).casefold()
+
+
+def valid_reference_label(label: str) -> bool:
+    """Apply the reference-label limit used by Mask's pulldown-cmark version."""
+    # Its ASCII fast path is unlimited; non-ASCII labels have a UTF-8 byte limit.
+    return bool(normalize_label(label)) and (
+        label.isascii() or len(label.encode("utf-8")) <= MAX_REFERENCE_LABEL
+    )
+
+
+def valid_definition_target(target: str) -> bool:
+    """Whether mask accepts a reference destination and its optional title."""
+    match = DEFINITION_TARGET.match(target)
+    if match is None:
+        return False
+    destination = match.group(1)
+    if destination.startswith("<"):
+        return True
+    # pulldown-cmark 0.5 accepts unmatched opening parentheses in reference
+    # destinations, unlike current CommonMark, but rejects unmatched closers.
+    depth = 0
+    escaped = False
+    for char in destination:
+        if escaped:
+            escaped = False
+        elif char == "\\":
+            escaped = True
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            if not depth:
+                return False
+            depth -= 1
+    return True
 
 
 class _Link(NamedTuple):
@@ -306,7 +343,7 @@ class _Tokenizer:
             return _Link(bracket + 1, close, target)
         if (label := REFERENCE_LABEL.match(text, close + 1, stop)) is not None:
             name = label.group(1) or text[bracket + 1 : close]
-            if normalize_label(name) in self.labels:
+            if valid_reference_label(name) and normalize_label(name) in self.labels:
                 return _Link(bracket + 1, close, label.end())
             return None
         if (
@@ -318,7 +355,8 @@ class _Tokenizer:
         content = text[bracket + 1 : close]
         return (
             _Link(bracket + 1, close, close + 1)
-            if content and normalize_label(content) in self.labels
+            if valid_reference_label(content)
+            and normalize_label(content) in self.labels
             else None
         )
 

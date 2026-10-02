@@ -14,6 +14,8 @@ from nur.core.providers._inline import (
     DEFINITION_TITLE,
     heading_text,
     normalize_label,
+    valid_definition_target,
+    valid_reference_label,
 )
 from nur.core.providers._markdown import (
     HEADING,
@@ -288,32 +290,6 @@ class _Reader:
         return None
 
 
-def _valid_definition_target(target: str) -> bool:
-    """Whether mask accepts a reference destination and its optional title."""
-    match = DEFINITION_TARGET.match(target)
-    if match is None:
-        return False
-    destination = match.group(1)
-    if destination.startswith("<"):
-        return True
-    # pulldown-cmark 0.5 accepts unmatched opening parentheses in reference
-    # destinations, unlike current CommonMark, but rejects unmatched closers.
-    depth = 0
-    escaped = False
-    for char in destination:
-        if escaped:
-            escaped = False
-        elif char == "\\":
-            escaped = True
-        elif char == "(":
-            depth += 1
-        elif char == ")":
-            if not depth:
-                return False
-            depth -= 1
-    return True
-
-
 def _following_definition_title(
     lines: list[str], index: int, containers: tuple[int | None, ...], target: str
 ) -> bool:
@@ -368,7 +344,7 @@ def _definitions(lines: list[str], code: set[int]) -> tuple[frozenset[str], set[
         if index in consumed:
             continue
         match = None if paragraph else DEFINITION.match(content)
-        if match is None:
+        if match is None or not valid_reference_label(match.group(1)):
             paragraph = leaves_paragraph_open(content, paragraph=paragraph)
             continue
         target = content[match.end() :]
@@ -377,7 +353,7 @@ def _definitions(lines: list[str], code: set[int]) -> tuple[frozenset[str], set[
         )
         if next_line:
             target = container_line(containers, lines[index + 1]) or ""
-        if _valid_definition_target(target):
+        if valid_definition_target(target):
             labels.add(normalize_label(match.group(1)))
             consumed.update(
                 _definition_lines(

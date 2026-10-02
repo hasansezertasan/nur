@@ -1156,3 +1156,41 @@ def test_ascii_whitespace_ends_an_html_block(space) -> None:
 def test_unicode_whitespace_does_not_end_quoted_html() -> None:
     text = "> <div>\n> \u00a0\n> ## build\n\n```sh\necho build\n```\n"
     assert parse_mask(text) == []
+
+
+@pytest.mark.parametrize("definition", ["[ref]: /url", '[ref]:\n/url\n"title"'])
+@pytest.mark.parametrize(
+    ("prefix", "continuation"), [("", ""), ("> ", "> "), ("- ", "  ")]
+)
+def test_reference_definition_ends_paragraph_before_html(
+    definition, prefix, continuation
+) -> None:
+    lines = definition.split("\n")
+    source = prefix + lines[0] + "\n"
+    source += "".join(continuation + line + "\n" for line in lines[1:])
+    source += f"{continuation}<img>\n{continuation}## build\n\n```sh\necho\n```\n"
+    assert parse_mask(source) == []
+
+
+@pytest.mark.parametrize("tag", ["script", "pre", "style", "textarea", "img"])
+@pytest.mark.parametrize("space", ["\u00a0", "\u2003"])
+def test_unicode_whitespace_does_not_open_raw_or_lone_html(tag, space) -> None:
+    source = f"<{tag}{space}>\n## build\n\n```sh\necho\n```\n"
+    assert [task.argv_base for task in parse_mask(source)] == [("mask", "build")]
+
+
+@pytest.mark.parametrize("space", ["\u00a0", "\u2003"])
+def test_block_tags_accept_unicode_opening_whitespace(space) -> None:
+    source = f"<div{space}>\n## build\n\n```sh\necho\n```\n"
+    assert parse_mask(source) == []
+
+
+@pytest.mark.parametrize(
+    ("label", "linked"), [("a" * 1000, True), ("é" * 499, True), ("é" * 500, False)]
+)
+@pytest.mark.parametrize("form", ["[{label}]", "[{label}][]", "[build][{label}]"])
+def test_reference_label_limit_matches_mask(label, linked, form) -> None:
+    reference = form.format(label=label)
+    source = f"## x {reference} y\n\n```sh\necho\n```\n\n[{label}]: /url\n"
+    name = ("build" if form.startswith("[build]") else label) + " y" if linked else "x"
+    assert [task.argv_base for task in parse_mask(source)] == [("mask", name)]
