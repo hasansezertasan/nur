@@ -16,6 +16,7 @@ import operator
 import re
 import unicodedata
 from dataclasses import dataclass
+from typing import NamedTuple
 
 __all__ = ["DEFINITION", "DEFINITION_TARGET", "heading_text", "normalize_label"]
 
@@ -26,16 +27,13 @@ REFERENCE = re.compile(
 )
 # A link or image. Its destination is `<...>`, or bare: no whitespace, with
 # escaped or one level of balanced parentheses. A quoted or parenthesized
-# title may follow. No bracket may repeat inside, which keeps matching linear.
+# title may follow. Link text uses precomputed balanced bracket pairs.
 _DESTINATION = r"(?:<[^<>\n]*>|(?:[^()\s\\]|\\.|\([^()\s]*\))*)"
 _TITLE = r"""(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\((?:[^()\\]|\\.)*\))"""
 _LINK_CHAR = r"(?:[^\[\]\\]|\\.)"
 _LINK_TEXT = rf"{_LINK_CHAR}*"
-LINK = re.compile(rf"!?\[({_LINK_TEXT})\]\(\s*{_DESTINATION}(?:\s+{_TITLE})?\s*\)")
-# A full or collapsed reference link, `[text][label]` or `[text][]`, and a
-# shortcut one, `[text]`; each is a link only when the document defines it.
-FULL_REFERENCE = re.compile(rf"!?\[({_LINK_TEXT})\]\[({_LINK_TEXT})\]")
-SHORTCUT_REFERENCE = re.compile(rf"!?\[({_LINK_CHAR}+)\](?![(\[])")
+LINK_TARGET = re.compile(rf"\(\s*{_DESTINATION}(?:\s+{_TITLE})?\s*\)")
+REFERENCE_LABEL = re.compile(rf"\[({_LINK_TEXT})\]")
 # A link reference definition line, `[label]: destination`, and what may follow
 # its colon (here or on the next line): a destination and an optional title.
 DEFINITION = re.compile(r"^ {0,3}\[((?:[^\[\]\\]|\\.)+)\]:(?:[ \t]|$)")
@@ -94,6 +92,12 @@ def normalize_label(label: str) -> str:
     return " ".join(label.split()).casefold()
 
 
+class _Link(NamedTuple):
+    start: int
+    stop: int
+    end: int
+
+
 class _Tokenizer:
     def __init__(self, text: str, labels: frozenset[str]) -> None:
         self.text = text
@@ -103,6 +107,30 @@ class _Tokenizer:
         self.runs: dict[int, list[int]] = {}
         for run in BACKTICKS.finditer(text):
             self.runs.setdefault(len(run.group()), []).append(run.start())
+        self.nested: set[int] = set()
+        self.brackets = self._bracket_pairs()
+
+    def _bracket_pairs(self) -> dict[int, int]:
+        """Pair brackets once, skipping escaped brackets and code spans."""
+        pairs: dict[int, int] = {}
+        stack: list[int] = []
+        index = 0
+        while index < len(self.text):
+            if (escape := ESCAPED.match(self.text, index)) is not None:
+                index = escape.end()
+                continue
+            char = self.text[index]
+            if char == "`":
+                index = self._code(index, len(self.text), [])
+                continue
+            if char == "[":
+                if stack:
+                    self.nested.add(stack[-1])
+                stack.append(index)
+            elif char == "]" and stack:
+                pairs[stack.pop()] = index
+            index += 1
+        return pairs
 
     def tokens(self, start: int, stop: int) -> list[_Token]:
         text, out, index = self.text, [], start
@@ -118,8 +146,8 @@ class _Tokenizer:
                 index = self._code(index, stop, out)
             elif char in "[!" and (link := self._link(index, stop)) is not None:
                 out.append(None)
-                out.extend(self.tokens(link.start(1), link.end(1)))
-                index = link.end()
+                out.extend(self.tokens(link.start, link.stop))
+                index = link.end
             elif char in "*_":
                 end = index
                 while end < stop and text[end] == char:
@@ -131,18 +159,32 @@ class _Tokenizer:
                 index += 1
         return out
 
-    def _link(self, index: int, stop: int) -> re.Match[str] | None:
+    def _link(self, index: int, stop: int) -> _Link | None:
         """Return the inline or defined reference link starting at *index*."""
         text = self.text
-        if (link := LINK.match(text, index, stop)) is not None:
-            return link
-        if (full := FULL_REFERENCE.match(text, index, stop)) is not None:
-            label = full.group(2) or full.group(1)
-            return full if normalize_label(label) in self.labels else None
-        short = SHORTCUT_REFERENCE.match(text, index, stop)
-        if short is not None and normalize_label(short.group(1)) in self.labels:
-            return short
-        return None
+        bracket = index + 1 if text[index] == "!" else index
+        close = self.brackets.get(bracket)
+        if close is None or close >= stop:
+            return None
+        if (target := LINK_TARGET.match(text, close + 1, stop)) is not None:
+            return _Link(bracket + 1, close, target.end())
+        if (label := REFERENCE_LABEL.match(text, close + 1, stop)) is not None:
+            name = label.group(1) or text[bracket + 1 : close]
+            if normalize_label(name) in self.labels:
+                return _Link(bracket + 1, close, label.end())
+            return None
+        if (
+            not self.labels
+            or bracket in self.nested
+            or (close + 1 < stop and text[close + 1] in "([")
+        ):
+            return None
+        content = text[bracket + 1 : close]
+        return (
+            _Link(bracket + 1, close, close + 1)
+            if content and normalize_label(content) in self.labels
+            else None
+        )
 
     def _code(self, index: int, stop: int, out: list[_Token]) -> int:
         """Append the code span opening at *index*, or its backticks as text."""

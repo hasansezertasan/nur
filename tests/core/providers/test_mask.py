@@ -914,3 +914,46 @@ def test_escaped_brackets_in_reference_link_text(heading, definition, name) -> N
 def test_closing_heading_hashes_require_an_ascii_space(separator, name) -> None:
     text = f"## foo{separator}###\n\n```sh\necho\n```\n"
     assert [task.argv_base for task in parse_mask(text)] == [("mask", name)]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "1.  item\n    ## build\n    <img>\n    ```sh\n    echo hidden\n    ```\n",
+        (
+            "1.  item\n    - ## build\n      <img>\n      ```sh\n"
+            "      echo hidden\n      ```\n"
+        ),
+    ],
+)
+def test_heading_in_list_closes_scanner_paragraph_before_html(text) -> None:
+    assert parse_mask(text) == []
+
+
+@pytest.mark.parametrize("marker", ["1.  ", "-   "])
+def test_heading_after_nested_list_returns_to_outer_item(marker) -> None:
+    text = (
+        f"## a\n\n{marker}outer\n    - inner\n    ## build\n\n```sh\necho build\n```\n"
+    )
+    assert [(task.argv_base, task.definition) for task in parse_mask(text)] == [
+        (("mask", "build"), "echo build")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("heading", "definition", "name"),
+    [
+        ("[foo [bar]](/url)", "", "foo"),
+        ("x [foo [bar [baz]]](/url) y", "", "foo"),
+        ("[foo `]` bar](/url) y", "", "foo `]` bar y"),
+        ("[foo [bar]][docs]", "[docs]: /url", "foo"),
+    ],
+)
+def test_balanced_brackets_in_link_text(heading, definition, name) -> None:
+    text = f"## {heading}\n\n```sh\necho\n```\n\n{definition}\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", name)]
+
+
+def test_hostile_balanced_brackets_are_parsed() -> None:
+    heading = "[" * 25_000 + "x" + "]" * 25_000
+    assert parse_mask(f"## {heading}\n\n```sh\necho\n```\n") == []

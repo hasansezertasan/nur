@@ -125,11 +125,22 @@ class _Reader:
     # line starts a code block rather than continuing a paragraph.
     boundary: bool = True
     # The content column of the list item being continued, if any.
-    list_indent: int | None = None
+    lists: list[int] = field(default_factory=list)
+
+    @property
+    def list_indent(self) -> int | None:
+        """The content column of the innermost open list item."""
+        return self.lists[-1] if self.lists else None
 
     def reset(self, *, list_indent: int | None) -> None:
         self.quote, self.paragraph, self.boundary = [], [], True
-        self.list_indent = list_indent
+        if list_indent is None:
+            self.lists.clear()
+        else:
+            while self.lists and self.lists[-1] > list_indent:
+                self.lists.pop()
+            if not self.lists or self.lists[-1] != list_indent:
+                self.lists.append(list_indent)
 
     def fence_list_indent(self, line: str) -> int | None:
         """Return the list content column a fence opening on *line* sits in."""
@@ -145,6 +156,12 @@ class _Reader:
 
     def read(self, command: _Command, line: str) -> tuple[int, str] | None:
         """Read one line under *command*; return a heading's (level, text)."""
+        # A dedent can return to an outer item; keep every content column.
+        if line.strip():
+            width = indent_width(line)
+            while self.lists and width < self.lists[-1]:
+                self.lists.pop()
+                self.paragraph = []
         # Inside a list item, block structure is read relative to its content.
         inside = self._in_item(line) and bool(line.strip())
         inner = strip_columns(line, self.list_indent or 0) if inside else line
@@ -191,7 +208,9 @@ class _Reader:
         return None
 
     def _read_list_item(self, indent: int, content: str) -> tuple[int, str] | None:
-        self.list_indent = indent
+        while self.lists and self.lists[-1] >= indent:
+            self.lists.pop()
+        self.lists.append(indent)
         # A heading may sit on the item's own line: `- ## build`. Otherwise
         # its text opens a paragraph, which an underline can make a heading.
         if (heading := HEADING.match(content)) is not None:
@@ -235,7 +254,8 @@ class _Reader:
             # definition is not paragraph text, so neither becomes a heading.
             if thematic:
                 self.paragraph, self.boundary = [], True
-                self.list_indent = self.list_indent if offset else None
+                if not offset:
+                    self.lists.clear()
             return None
         if (item := _list_item(inner, paragraph=bool(self.paragraph))) is not None:
             return self._read_list_item(offset + item[0], item[1])
@@ -247,7 +267,7 @@ class _Reader:
                 self.paragraph = []
             self.paragraph.append(line.strip())
             return None
-        self.list_indent = None
+        self.lists.clear()
         self.paragraph.append(line.strip())
         return None
 

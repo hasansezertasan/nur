@@ -353,7 +353,10 @@ class _Scanner:
             self.block = block if _still_open(block.end, line) else None
             self.paragraph = False
         else:
-            self.paragraph = _leaves_paragraph_open(line, paragraph=self.paragraph)
+            container = self._container(line) if self.list_items else None
+            inner = strip_columns(line, container) if container is not None else line
+            content = container_content(inner)[0] if self.list_items else inner
+            self.paragraph = _leaves_paragraph_open(content, paragraph=self.paragraph)
 
     def _container(self, line: str) -> int | None:
         """Return the content column of the innermost list item *line* is in."""
@@ -373,14 +376,13 @@ class _Scanner:
     def _track_list(self, line: str) -> None:
         """Open, close, and return to list items as *line* indents and dedents."""
         width = indent_width(line)
-        if (item := list_item_content(line, paragraph=self.paragraph)) is not None:
-            # A marker closes the items nested deeper than it, then opens its own.
-            while self.lists and self.lists[-1] > width:
-                self.lists.pop()
-            self.lists.append(item[0])
-        elif line.strip():
+        if line.strip():
             while self.lists and width < self.lists[-1]:
                 self.lists.pop()
+        offset = self.lists[-1] if self.lists else 0
+        inner = strip_columns(line, offset)
+        if (item := list_item_content(inner, paragraph=self.paragraph)) is not None:
+            self.lists.append(offset + item[0])
 
     def _opening(self, index: int, line: str) -> _Open | None:
         """Return the fence opening on *line*, inside the current list item too."""
