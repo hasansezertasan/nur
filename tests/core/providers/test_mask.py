@@ -1273,3 +1273,22 @@ def test_unicode_only_paragraph_lines_preserve_runnable_script(
 ) -> None:
     text = f"## build\n```sh\necho build\n```\n{prefix}{space}\n{indent}echo later\n"
     assert [task.definition for task in parse_mask(text)] == ["echo build"]
+
+
+@pytest.mark.parametrize("control", ["\x00", "\x01", "\x1f"])
+@pytest.mark.parametrize("escape", ["", "\\"])
+def test_bare_reference_destinations_reject_controls(control, escape) -> None:
+    text = f"## x [build] y\n\n```sh\necho\n```\n\n[build]: /url{escape}{control}\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", "x")]
+
+
+@pytest.mark.parametrize("character", ["\x7f", "\x85", "\u00a0", "\u2003"])
+def test_bare_reference_destinations_accept_non_ascii_whitespace(character) -> None:
+    text = f"## x [build] y\n\n```sh\necho\n```\n\n[build]: /url{character}\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", "build y")]
+
+
+@pytest.mark.parametrize("control", ["\x00", "\x01", "\x1f"])
+def test_angle_reference_destinations_accept_controls(control) -> None:
+    text = f"## x [build] y\n\n```sh\necho\n```\n\n[build]: </url{control}>\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", "build y")]

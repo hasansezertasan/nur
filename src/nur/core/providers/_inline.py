@@ -49,7 +49,8 @@ REFERENCE_LABEL = re.compile(rf"\[({_LINK_TEXT})\]")
 DEFINITION = re.compile(r"^ {0,3}\[((?:[^\[\]\\]|\\.)+)\]:(?:[ \t]|$)")
 DEFINITION_TARGET = re.compile(
     rf"""^[ \t]*({ANGLE_DESTINATION.pattern}|[^\s<]\S*)(?:[ \t]+"""
-    r"""(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\((?:[^()\\]|\\.)*\)))?[ \t]*$"""
+    r"""(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\((?:[^()\\]|\\.)*\)))?[ \t]*$""",
+    re.ASCII,
 )
 # CommonMark URI schemes have 2--32 characters; autolinks exclude spaces,
 # controls, and angle brackets. Email domains contain DNS-style labels.
@@ -134,6 +135,8 @@ def valid_definition_target(target: str) -> bool:
     destination = match.group(1)
     if destination.startswith("<"):
         return True
+    if any(ord(char) < CONTROL_LIMIT for char in destination):
+        return False
     # pulldown-cmark 0.5 accepts unmatched opening parentheses in reference
     # destinations, unlike current CommonMark, but rejects unmatched closers.
     depth = 0
