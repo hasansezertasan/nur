@@ -299,7 +299,7 @@ def _valid_definition_target(target: str) -> bool:
     return True
 
 
-def _definition_labels(lines: list[str], code: set[int]) -> frozenset[str]:
+def _definitions(lines: list[str], code: set[int]) -> tuple[frozenset[str], set[int]]:
     """Collect the labels of the link reference definitions outside code.
 
     Definitions may follow the headings that use them. Each needs exactly a
@@ -307,6 +307,7 @@ def _definition_labels(lines: list[str], code: set[int]) -> frozenset[str]:
     `[build]:` alone, or with trailing text, is not a definition.
     """
     labels: set[str] = set()
+    consumed: set[int] = set()
     containers: tuple[int | None, ...] = ()
     paragraph = False
     continuation: int | None = None
@@ -339,10 +340,13 @@ def _definition_labels(lines: list[str], code: set[int]) -> frozenset[str]:
             target = container_line(containers, lines[index + 1]) or ""
         if _valid_definition_target(target):
             labels.add(normalize_label(match.group(1)))
+            consumed.add(index)
             continuation = index + 1 if next_line else None
+            if continuation is not None:
+                consumed.add(continuation)
         else:
             paragraph = True
-    return frozenset(labels)
+    return frozenset(labels), consumed
 
 
 def _flat_commands(text: str, *, windows: bool) -> list[_Command]:
@@ -361,7 +365,7 @@ def _flat_commands(text: str, *, windows: bool) -> list[_Command]:
     lines = ["" if index in hidden else line for index, line in enumerate(raw)]
     code = {index for block in fences for index in range(block.open, block.end)}
     openings = {block.open: block for block in fences}
-    labels = _definition_labels(lines, code)
+    labels, definitions = _definitions(lines, code)
 
     commands: list[_Command] = []
     current = _Command(level=1)
@@ -370,9 +374,13 @@ def _flat_commands(text: str, *, windows: bool) -> list[_Command]:
     for index, line in enumerate(lines):
         if index in openings:
             fence = openings[index]
-            body = lines[index + 1 : fence.body_end]
-            _take_script(current, fence, body, windows=windows)
+            _take_script(
+                current, fence, lines[index + 1 : fence.body_end], windows=windows
+            )
             fence_list = reader.fence_list_indent(line)
+        if index in definitions:
+            reader.reset(list_indent=reader.list_indent)
+            continue
         if index in code:
             reader.reset(list_indent=fence_list)
             continue

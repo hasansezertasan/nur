@@ -1006,3 +1006,29 @@ def test_ordered_list_sibling_fence_does_not_interrupt_a_new_paragraph(marker) -
 def test_reference_definitions_cannot_interrupt_paragraphs(definition, name) -> None:
     text = f"## x [build] y\n\n```sh\necho\n```\n\n{definition}\n"
     assert [task.argv_base for task in parse_mask(text)] == [("mask", name)]
+
+
+@pytest.mark.parametrize(
+    ("heading", "name"),
+    [
+        ("[outer [inner](u)](v)", "inner]"),
+        ("[outer ![inner](u)](v)", "inner"),
+        ("![outer [inner](u)](v)", "inner"),
+        ("[outer <https://example.com>](v)", "https://example.com"),
+    ],
+)
+def test_nested_links_deactivate_outer_link_openers(heading, name) -> None:
+    text = f"## {heading}\n\n```sh\necho\n```\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", name)]
+
+
+@pytest.mark.parametrize("definition", ["[ref]:\n/url", "[ref]: /url"])
+def test_reference_definition_lines_do_not_become_setext_headings(definition) -> None:
+    text = f"## a\n\n{definition}\n---\n\n```sh\necho\n```\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", "a")]
+
+
+def test_deeply_nested_images_do_not_recurse() -> None:
+    heading = "![" * 2_000 + "x" + "](u)" * 2_000
+    text = f"## {heading}\n\n```sh\necho\n```\n"
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", "x")]

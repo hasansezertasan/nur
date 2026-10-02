@@ -115,22 +115,36 @@ class _Tokenizer:
         for run in BACKTICKS.finditer(text):
             self.runs.setdefault(len(run.group()), []).append(run.start())
         self.nested: set[int] = set()
+        self.images: set[int] = set()
         self.brackets = self._bracket_pairs()
+        self.links = self._matched_links()
 
     def _bracket_pairs(self) -> dict[int, int]:
         """Pair brackets once, skipping escaped brackets and code spans."""
         pairs: dict[int, int] = {}
         stack: list[int] = []
         index = 0
+        escaped_bangs: set[int] = set()
         while index < len(self.text):
             if (escape := ESCAPED.match(self.text, index)) is not None:
+                if escape.group(1) == "!":
+                    escaped_bangs.add(escape.end() - 1)
                 index = escape.end()
                 continue
             char = self.text[index]
             if char == "`":
                 index = self._code(index, len(self.text), [])
                 continue
+            if char == "<" and (autolink := AUTOLINK.match(self.text, index)):
+                index = autolink.end()
+                continue
             if char == "[":
+                if (
+                    index
+                    and self.text[index - 1] == "!"
+                    and index - 1 not in escaped_bangs
+                ):
+                    self.images.add(index)
                 if stack:
                     self.nested.add(stack[-1])
                 stack.append(index)
@@ -139,9 +153,30 @@ class _Tokenizer:
             index += 1
         return pairs
 
+    def _matched_links(self) -> dict[int, _Link]:
+        """Form inner links first; each disables enclosing regular link openers."""
+        links: dict[int, _Link] = {}
+        last_link = -1
+        # Bracket pairs are inserted in closing order.
+        for bracket in self.brackets:
+            candidate = self._raw_link(bracket, len(self.text))
+            if candidate is None:
+                continue
+            image = bracket in self.images
+            if not image and last_link > bracket:
+                continue
+            links[bracket] = candidate
+            if not image:
+                last_link = bracket
+        return links
+
     def tokens(self, start: int, stop: int) -> list[_Token]:
         text, out, index = self.text, [], start
-        while index < stop:
+        spans: list[tuple[int, int]] = []
+        while index < stop or spans:
+            if index >= stop:
+                index, stop = spans.pop()
+                continue
             char = text[index]
             if (escaped := ESCAPED.match(text, index, stop)) is not None:
                 out.append(escaped.group(1))
@@ -156,8 +191,8 @@ class _Tokenizer:
                 index = self._code(index, stop, out)
             elif char in "[!" and (link := self._link(index, stop)) is not None:
                 out.append(None)
-                out.extend(self.tokens(link.start, link.stop))
-                index = link.end
+                spans.append((link.end, stop))
+                index, stop = link.start, link.stop
             elif char in "*_":
                 end = index
                 while end < stop and text[end] == char:
@@ -170,6 +205,11 @@ class _Tokenizer:
         return out
 
     def _link(self, index: int, stop: int) -> _Link | None:
+        bracket = index + 1 if self.text[index] == "!" else index
+        link = self.links.get(bracket)
+        return link if link is not None and link.end <= stop else None
+
+    def _raw_link(self, index: int, stop: int) -> _Link | None:
         """Return the inline or defined reference link starting at *index*."""
         text = self.text
         bracket = index + 1 if text[index] == "!" else index
