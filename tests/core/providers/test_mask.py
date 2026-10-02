@@ -1068,3 +1068,21 @@ def test_deeply_nested_link_destination_is_parsed() -> None:
     destination = "(" * 10_000 + "x" + ")" * 10_000
     text = f"## [build]({destination})\n\n```sh\necho\n```\n"
     assert [task.argv_base for task in parse_mask(text)] == [("mask", "build")]
+
+
+@pytest.mark.parametrize(
+    "heading",
+    [
+        "> > ## build",
+        "> - ## build",
+        "- > ## build",
+        "- - ## build",
+        "> - > ## build",
+        "1.  - > ## build",
+    ],
+)
+def test_headings_inside_nested_containers_are_commands(heading) -> None:
+    text = f"{heading}\n\n```sh\necho build\n```\n"
+    assert [(task.argv_base, task.definition) for task in parse_mask(text)] == [
+        (("mask", "build"), "echo build")
+    ]

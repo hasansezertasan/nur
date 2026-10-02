@@ -187,6 +187,7 @@ class _Reader:
         return self._read_text(line, inner, offset, after_boundary=after_boundary)
 
     def _read_quote(self, command: _Command, content: str) -> tuple[int, str] | None:
+        content, _ = container_content(content)
         if (heading := HEADING.match(content)) is not None:
             return self._heading(heading)
         if (
@@ -213,6 +214,14 @@ class _Reader:
         while self.lists and self.lists[-1] >= indent:
             self.lists.pop()
         self.lists.append(indent)
+        content, containers = container_content(content)
+        # Nested marker lines can open several list levels at once. Columns
+        # after a quote belong to that quote, not the outer list's indentation.
+        for width in containers:
+            if width is None:
+                break
+            indent += width
+            self.lists.append(indent)
         # A heading may sit on the item's own line: `- ## build`. Otherwise
         # its text opens a paragraph, which an underline can make a heading.
         if (heading := HEADING.match(content)) is not None:
