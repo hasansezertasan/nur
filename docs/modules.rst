@@ -57,7 +57,7 @@ Providers (``nur.core.providers``)
 --------------------------------------
 
 One module per supported task source (make, npm, deno, composer, just, taskfile,
-pre-commit, pdm, poe, tox, mise, cargo-make, moon, xc, VS Code tasks, nox).
+pre-commit, pdm, poe, tox, mise, cargo-make, moon, xc, VS Code tasks, nox, mask).
 
 .. automodule:: nur.core.providers.make
 
@@ -90,6 +90,8 @@ pre-commit, pdm, poe, tox, mise, cargo-make, moon, xc, VS Code tasks, nox).
 .. automodule:: nur.core.providers.vscode
 
 .. automodule:: nur.core.providers.nox
+
+.. automodule:: nur.core.providers.mask
 
 TUI (``nur.tui``)
 ---------------------------
