@@ -1336,3 +1336,31 @@ def test_unicode_only_reference_destinations_do_not_consume_html(space) -> None:
 def test_inline_destinations_accept_unicode_whitespace(space, destination) -> None:
     text = f"## x [build]({destination.format(space=space)}) y\n\n```sh\necho\n```\n"
     assert [task.argv_base for task in parse_mask(text)] == [("mask", "build y")]
+
+
+@pytest.mark.parametrize(("marker", "padding"), [("1. ", "    "), ("-", "  ")])
+@pytest.mark.parametrize("quote", ["> ", "> > "])
+def test_fences_on_quoted_list_continuation_lines(marker, padding, quote) -> None:
+    source = (
+        f"## build\n{quote}{marker} item\n{quote}{padding}```sh\n"
+        f"{quote}{padding}echo build\n{quote}{padding}```\n"
+    )
+    assert [(task.argv_base, task.definition) for task in parse_mask(source)] == [
+        (("mask", "build"), "echo build")
+    ]
+
+
+def test_nested_quoted_list_continuation_fences() -> None:
+    source = (
+        "## build\n> 1.  outer\n>     - inner\n>       ```sh\n"
+        ">       echo build\n>       ```\n"
+    )
+    assert [task.definition for task in parse_mask(source)] == ["echo build"]
+
+
+def test_quoted_list_dedent_ends_its_fence() -> None:
+    source = (
+        "## build\n> 1.  item\n>     ```sh\n>     echo build\n"
+        "> ```sh\n> echo replacement\n> ```\n"
+    )
+    assert [task.definition for task in parse_mask(source)] == ["echo replacement"]

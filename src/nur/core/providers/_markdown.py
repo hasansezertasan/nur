@@ -410,7 +410,21 @@ class _Scanner:
         content, containers = (
             container_content(inner) if self.list_items else (inner, ())
         )
-        return content, (offset, *containers) if offset is not None else containers
+        if offset is not None:
+            containers = (offset, *containers)
+        previous = self.paragraph_containers
+        # A quoted list's markers appear only on its first line. Continue its
+        # content columns until a dedent or the enclosing quote ends.
+        if (
+            containers
+            and None in previous
+            and previous[: len(containers)] == containers
+            and (continued := container_line(previous[len(containers) :], content))
+            is not None
+        ):
+            content, nested = container_content(continued)
+            containers = (*previous, *nested)
+        return content, containers
 
     def _definition_end(
         self,
@@ -478,9 +492,8 @@ class _Scanner:
 
     def _nested_opening(self, index: int, line: str) -> _Open | None:
         """Open a fence within nested quote/list containers, if present."""
-        offset = self._container(line)
-        inner = strip_columns(line, offset) if offset is not None else line
-        content, containers = container_content(inner)
+        content, containers = self._content(line)
+        inner = strip_columns(line, self._container(line) or 0)
         if None not in containers and (
             len(containers) <= 1
             or list_item_content(inner, paragraph=self.paragraph and not self.sibling)
@@ -490,8 +503,6 @@ class _Scanner:
         match = FENCE.match(content)
         if not _opens(match):
             return None
-        if offset is not None:
-            containers = (offset, *containers)
         return _Open(
             index,
             match.group(1),
