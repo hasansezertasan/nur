@@ -1364,3 +1364,24 @@ def test_quoted_list_dedent_ends_its_fence() -> None:
         "> ```sh\n> echo replacement\n> ```\n"
     )
     assert [task.definition for task in parse_mask(source)] == ["echo replacement"]
+
+
+@pytest.mark.parametrize(
+    "heading", [r"build \``", r"build \``code`", r"build \```", r"build \```code``"]
+)
+def test_adjacent_escaped_and_unescaped_backticks_do_not_crash(heading) -> None:
+    source = f"## {heading}\n\n```sh\necho\n```\n"
+    assert [task.definition for task in parse_mask(source)] == ["echo"]
+
+
+@pytest.mark.parametrize(
+    "destination", ["foo<bar", "foo>bar", ">foo", "foo(<bar)", "foo(>bar)", "foo<bar>"]
+)
+def test_bare_inline_destinations_accept_angles_after_the_start(destination) -> None:
+    source = f"## x [build]({destination}) y\n\n```sh\necho\n```\n"
+    assert [task.argv_base for task in parse_mask(source)] == [("mask", "build y")]
+
+
+def test_unclosed_angle_destination_cannot_fall_back_to_bare() -> None:
+    source = "## x [build](<foo) y\n\n```sh\necho\n```\n"
+    assert [task.argv_base for task in parse_mask(source)] == [("mask", "x")]

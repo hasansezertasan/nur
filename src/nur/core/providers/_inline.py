@@ -224,10 +224,7 @@ class _Tokenizer:
                 continue
             char = self.text[index]
             breaks.append(
-                breaks[-1]
-                + int(
-                    char in LINK_WHITESPACE or char in "<>" or ord(char) < CONTROL_LIMIT
-                )
+                breaks[-1] + int(char in LINK_WHITESPACE or ord(char) < CONTROL_LIMIT)
             )
             if char == "(":
                 stack.append(index)
@@ -269,6 +266,8 @@ class _Tokenizer:
 
     def _bare_destination(self, index: int, stop: int) -> int | None:
         """Scan a bare destination, jumping balanced spans without rescanning."""
+        if index < stop and self.text[index] == "<":
+            return None
         while (
             index < stop
             and self.text[index] not in LINK_WHITESPACE
@@ -286,7 +285,7 @@ class _Tokenizer:
                 ):
                     return None
                 index = close + 1
-            elif char in "<>" or ord(char) < CONTROL_LIMIT:
+            elif ord(char) < CONTROL_LIMIT:
                 return None
             else:
                 index += 1
@@ -380,7 +379,7 @@ class _Tokenizer:
         """Append the code span opening at *index*, or its backticks as text."""
         run = BACKTICKS.match(self.text, index)
         length = len(run.group()) if run is not None else 1
-        runs = self.runs[length]
+        runs = self.runs.get(length, [])
         position = bisect.bisect_right(runs, index)
         close = runs[position] if position < len(runs) else None
         if close is None or close + length > stop:
