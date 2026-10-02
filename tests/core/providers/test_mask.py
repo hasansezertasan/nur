@@ -1264,3 +1264,12 @@ def test_inline_html_remains_literal_in_mask_heading_names(markup) -> None:
     assert [task.argv_base for task in parse_mask(text)] == [
         ("mask", f"foo {markup} baz")
     ]
+
+
+@pytest.mark.parametrize("space", ["\u00a0", "\u2003"])
+@pytest.mark.parametrize(("prefix", "indent"), [("", "    "), ("- ", "      ")])
+def test_unicode_only_paragraph_lines_preserve_runnable_script(
+    space, prefix, indent
+) -> None:
+    text = f"## build\n```sh\necho build\n```\n{prefix}{space}\n{indent}echo later\n"
+    assert [task.definition for task in parse_mask(text)] == ["echo build"]

@@ -167,15 +167,19 @@ class _Reader:
     def read(self, command: _Command, line: str) -> tuple[int, str] | None:
         """Read one line under *command*; return a heading's (level, text)."""
         # A dedent can return to an outer item; keep every content column.
-        if line.strip():
+        if BLANK_LINE.fullmatch(line) is None:
             width = indent_width(line)
             while self.lists and width < self.lists[-1]:
                 self.lists.pop()
                 self.paragraph = []
         # Inside a list item, block structure is read relative to its content.
-        inside = self._in_item(line) and bool(line.strip())
+        inside = self._in_item(line) and (BLANK_LINE.fullmatch(line) is None)
         inner = strip_columns(line, self.list_indent or 0) if inside else line
-        if self.boundary and inner.strip() and indent_width(inner) >= INDENTED_CODE:
+        if (
+            self.boundary
+            and BLANK_LINE.fullmatch(inner) is None
+            and indent_width(inner) >= INDENTED_CODE
+        ):
             # An indented code block. mask runs its last code block, and this
             # one has no language tag, so mask cannot run this command.
             command.script = None
@@ -184,13 +188,13 @@ class _Reader:
             return self._read_quote(command, match.group(1))
         heading = HEADING.match(inner)
         if heading is None and self._continues_quote(inner):
-            self.quote.append(inner.strip())
+            self.quote.append(inner.strip(" \t\r\n\f\v"))
             return None
         self.quote = []
         if heading is not None:
             return self._heading(heading)
         after_boundary = self.boundary
-        self.boundary = not line.strip()
+        self.boundary = BLANK_LINE.fullmatch(line) is not None
         offset = (self.list_indent or 0) if inside else 0
         return self._read_text(line, inner, offset, after_boundary=after_boundary)
 
@@ -242,7 +246,11 @@ class _Reader:
         # its text opens a paragraph, which an underline can make a heading.
         if (heading := HEADING.match(content)) is not None:
             return self._heading(heading)
-        self.paragraph = [content.strip()] if content.strip() else []
+        self.paragraph = (
+            [content.strip(" \t\r\n\f\v")]
+            if BLANK_LINE.fullmatch(content) is None
+            else []
+        )
         return None
 
     def _heading(self, heading: re.Match[str]) -> tuple[int, str]:
@@ -252,7 +260,8 @@ class _Reader:
     def _continues_quote(self, line: str) -> bool:
         """Whether *line* lazily continues the blockquote's paragraph."""
         return (
-            bool(self.quote and self.quote[-1] and line.strip())
+            bool(self.quote and self.quote[-1])
+            and BLANK_LINE.fullmatch(line) is None
             and THEMATIC_BREAK.match(line) is None
             and PARAGRAPH_INTERRUPT.match(line) is None
         )
@@ -265,7 +274,7 @@ class _Reader:
         *inner* is the line within the open list item, if any, whose content
         starts *offset* columns in.
         """
-        if not line.strip():
+        if BLANK_LINE.fullmatch(line) is not None:
             self.paragraph = []
             return None
         # Inside a list item, an underline must be indented into its content;
@@ -292,10 +301,10 @@ class _Reader:
             # The list item continues: its paragraph, or a new one after a gap.
             if after_boundary:
                 self.paragraph = []
-            self.paragraph.append(line.strip())
+            self.paragraph.append(line.strip(" \t\r\n\f\v"))
             return None
         self.lists.clear()
-        self.paragraph.append(line.strip())
+        self.paragraph.append(line.strip(" \t\r\n\f\v"))
         return None
 
 
