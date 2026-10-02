@@ -1086,3 +1086,23 @@ def test_headings_inside_nested_containers_are_commands(heading) -> None:
     assert [(task.argv_base, task.definition) for task in parse_mask(text)] == [
         (("mask", "build"), "echo build")
     ]
+
+
+@pytest.mark.parametrize("marker", ["-", "1.", "1)"])
+def test_fences_on_nested_list_marker_lines(marker) -> None:
+    padding = " " if marker == "-" else ""
+    text = (
+        f"## build\n\n1.  outer\n    {marker} {padding}```sh\n"
+        "       echo build\n       ```\n"
+    )
+    assert [task.argv_base for task in parse_mask(text)] == [("mask", "build")]
+
+
+def test_nested_marker_fence_ends_when_its_item_ends() -> None:
+    text = (
+        "## build\n\n1.  outer\n    - ```sh\n      echo inner\n"
+        "    ```sh\n    echo outer\n    ```\n"
+    )
+    assert [(task.argv_base, task.definition) for task in parse_mask(text)] == [
+        (("mask", "build"), "echo outer")
+    ]

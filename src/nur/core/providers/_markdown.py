@@ -401,11 +401,26 @@ class _Scanner:
         if (container := self._container(line)) is not None:
             # Inside a list item, a fence is indented relative to its content.
             inner = strip_columns(line, container)
-            match = FENCE.match(inner)
-            if _opens(match):
-                indent = container + column(inner[: match.start(1)])
+            match = LIST_ITEM_FENCE.match(inner)
+            if _opens(match) and (start := fence_column(inner, match)) is not None:
+                on_marker = match.start(1) > _leading_spaces(inner)
+                if (
+                    on_marker
+                    and list_item_content(
+                        inner, paragraph=self.paragraph and not self.sibling
+                    )
+                    is None
+                ):
+                    return None
+                indent = container + start
                 info = match.group(2).strip()
-                return _Open(index, match.group(1), info, indent, container)
+                return _Open(
+                    index,
+                    match.group(1),
+                    info,
+                    indent,
+                    indent if on_marker else container,
+                )
         opening = LIST_ITEM_FENCE if self.list_items else FENCE
         match = opening.match(line)
         if not _opens(match) or (start := fence_column(line, match)) is None:
