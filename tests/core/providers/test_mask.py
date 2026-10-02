@@ -1292,3 +1292,32 @@ def test_bare_reference_destinations_accept_non_ascii_whitespace(character) -> N
 def test_angle_reference_destinations_accept_controls(control) -> None:
     text = f"## x [build] y\n\n```sh\necho\n```\n\n[build]: </url{control}>\n"
     assert [task.argv_base for task in parse_mask(text)] == [("mask", "build y")]
+
+
+@pytest.mark.parametrize(
+    "definition", ["[bad]: foo)bar", "[bad]: <invalid", '[bad]: /url "unclosed']
+)
+def test_invalid_definition_lines_can_be_setext_headings(definition) -> None:
+    source = f"## a\n```sh\nfirst\n```\n\n{definition}\n---\n```sh\nsecond\n```\n"
+    assert [(task.argv_base, task.definition) for task in parse_mask(source)] == [
+        (("mask", "a"), "first")
+    ]
+
+
+def test_setext_marker_can_be_a_continued_reference_destination() -> None:
+    source = "## a\n```sh\nfirst\n```\n\n[bad]:\n---\n```sh\nsecond\n```\n"
+    assert [task.definition for task in parse_mask(source)] == ["second"]
+
+
+@pytest.mark.parametrize(
+    ("label", "definition"),
+    [
+        ("build!", r"build\!"),
+        (r"build\!", "build!"),
+        ("build&", "build&amp;"),
+        ("build&amp;", "build&"),
+    ],
+)
+def test_reference_label_matching_preserves_raw_escapes(label, definition) -> None:
+    source = f"## x [{label}] y\n\n```sh\necho\n```\n\n[{definition}]: /url\n"
+    assert [task.argv_base for task in parse_mask(source)] == [("mask", "x")]

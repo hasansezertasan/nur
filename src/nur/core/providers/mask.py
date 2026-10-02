@@ -285,13 +285,12 @@ class _Reader:
             self.paragraph, self.boundary = [], True
             return (1 if underline.group(1)[0] == "=" else 2), text
         thematic = THEMATIC_BREAK.match(inner) is not None
-        if thematic or (not self.paragraph and DEFINITION.match(inner)):
-            # A thematic break outside an item ends the list; a link reference
-            # definition is not paragraph text, so neither becomes a heading.
-            if thematic:
-                self.paragraph, self.boundary = [], True
-                if not offset:
-                    self.lists.clear()
+        if thematic:
+            # A thematic break outside an item ends the list. Valid reference
+            # definitions have already been consumed by the definition pass.
+            self.paragraph, self.boundary = [], True
+            if not offset:
+                self.lists.clear()
             return None
         if (item := _list_item(inner, paragraph=bool(self.paragraph))) is not None:
             return self._read_list_item(offset + item[0], item[1])
