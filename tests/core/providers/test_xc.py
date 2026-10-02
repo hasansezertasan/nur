@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from nur.core.providers.xc import XcProvider, parse_xc
 
 REPO_README = Path(__file__).resolve().parents[3] / "README.md"
@@ -351,3 +353,15 @@ def test_bare_hash_line_is_prose_not_a_heading() -> None:
 def test_bare_hash_line_after_the_marker_is_not_the_section() -> None:
     text = "<!-- xc-heading -->\n##\n\n## Tasks\n\n### build\n\n```sh\nmake\n```\n"
     assert [t.name for t in parse_xc(text)] == ["build"]
+
+
+@pytest.mark.parametrize("padding", ["\t", " \t "])
+def test_tab_padded_closing_fences_preserve_following_tasks(padding) -> None:
+    text = (
+        f"## Tasks\n### build\n```sh\nmake\n```{padding}\n"
+        "### test\n```sh\npytest\n```\n"
+    )
+    assert [(task.name, task.definition) for task in parse_xc(text)] == [
+        ("build", "make"),
+        ("test", "pytest"),
+    ]

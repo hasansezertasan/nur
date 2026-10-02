@@ -1239,3 +1239,9 @@ def test_quoted_indented_code_replaces_runnable_script(content) -> None:
 def test_quote_indentation_cannot_interrupt_a_paragraph() -> None:
     source = "## build\n```sh\necho build\n```\n> text\n>     echo later\n"
     assert [task.definition for task in parse_mask(source)] == ["echo build"]
+
+
+@pytest.mark.parametrize("space", ["\u00a0", "\u2003"])
+def test_unicode_quote_content_keeps_a_paragraph_open(space) -> None:
+    text = f"## build\n```sh\necho build\n```\n>{space}\n>     echo later\n"
+    assert [task.definition for task in parse_mask(text)] == ["echo build"]

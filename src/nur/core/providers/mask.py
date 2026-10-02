@@ -18,6 +18,7 @@ from nur.core.providers._inline import (
     valid_reference_label,
 )
 from nur.core.providers._markdown import (
+    BLANK_LINE,
     HEADING,
     SETEXT_UNDERLINE,
     THEMATIC_BREAK,
@@ -202,7 +203,7 @@ class _Reader:
             content
         ) >= INDENTED_CODE:
             command.script = None
-            self.quote.append(content.strip())
+            self.quote.append(content.strip(" \t\r\n\f\v"))
             self.paragraph, self.boundary = [], True
             return None
         if (heading := HEADING.match(content)) is not None:
@@ -221,8 +222,8 @@ class _Reader:
             del self.quote[start:]
             self.paragraph, self.boundary = [], True
             return (1 if underline.group(1)[0] == "=" else 2), text
-        self.quote.append(content.strip())
-        self.paragraph, self.boundary = [], not content.strip()
+        self.quote.append(content.strip(" \t\r\n\f\v"))
+        self.paragraph, self.boundary = [], BLANK_LINE.fullmatch(content) is not None
         return None
 
     def _read_list_item(self, indent: int, content: str) -> tuple[int, str] | None:

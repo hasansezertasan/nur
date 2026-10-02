@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from typing import TypeIs
 
 __all__ = [
+    "BLANK_LINE",
     "FENCE",
     "HEADING",
     "LIST_ITEM_FENCE",
@@ -122,14 +123,14 @@ def _opens(match: re.Match[str] | None) -> TypeIs[re.Match[str]]:
     )
 
 
-def _closes(match: re.Match[str] | None, opener: str) -> bool:
+def _closes(match: re.Match[str] | None, opener: str, *, padding: str | None) -> bool:
     if match is None:
         return False
     delimiter, info = match.groups()
     return (
         delimiter[0] == opener[0]
         and len(delimiter) >= len(opener)
-        and not info.strip(" ")
+        and not info.strip(padding)
     )
 
 
@@ -235,7 +236,9 @@ def strip_columns(line: str, columns: int) -> str:
     return " " * max(width - columns, 0) + line[index:]
 
 
-def _fence_ends(fence: _Open, line: str, index: int) -> Fence | None:
+def _fence_ends(
+    fence: _Open, line: str, index: int, *, padding: str | None
+) -> Fence | None:
     """Return the finished block if *line* ends the open *fence*."""
     if fence.containers:
         content = container_line(fence.containers, line)
@@ -251,7 +254,7 @@ def _fence_ends(fence: _Open, line: str, index: int) -> Fence | None:
                 fence.index, index, index, fence.info, fence.indent, fence.containers
             )
         line = strip_columns(line, fence.container)
-    if _closes(FENCE.match(line), fence.delimiter):
+    if _closes(FENCE.match(line), fence.delimiter, padding=padding):
         return Fence(
             fence.index, index, index + 1, fence.info, fence.indent, fence.containers
         )
@@ -544,7 +547,9 @@ class _Scanner:
 
     def _in_fence(self, fence: _Open, index: int, line: str) -> bool:
         """Consume *line* if it belongs to the open *fence*, closing it if done."""
-        if (block := _fence_ends(fence, line, index)) is None:
+        # Mask accepts only space padding; xc keeps its trailing-whitespace rule.
+        padding = " " if self.list_items else None
+        if (block := _fence_ends(fence, line, index, padding=padding)) is None:
             return True
         self.fences.append(block)
         self.fence, self.paragraph = None, False
