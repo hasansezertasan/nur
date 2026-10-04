@@ -18,6 +18,102 @@ __all__ = ["InvokeProvider", "parse_tasks"]
 log = logging.getLogger("nur")
 _SOURCE_FILE = "tasks.py"
 _ATTRIBUTE_ARGS_MIN = 2
+# Public bindings of the supported Invoke modules. Star imports replace these
+# names, while unrelated project functions and aliases remain bound.
+_STAR_EXPORTS = {
+    "invoke": frozenset([
+        "metadata",
+        "Any",
+        "Collection",
+        "Config",
+        "Context",
+        "MockContext",
+        "AmbiguousEnvVar",
+        "AuthFailure",
+        "CollectionNotFound",
+        "CommandTimedOut",
+        "Exit",
+        "ParseError",
+        "PlatformError",
+        "ResponseNotAccepted",
+        "SubprocessPipeError",
+        "ThreadException",
+        "UncastableEnvVar",
+        "UnexpectedExit",
+        "UnknownFileType",
+        "UnpicklableConfigMember",
+        "WatcherError",
+        "Executor",
+        "FilesystemLoader",
+        "Argument",
+        "Parser",
+        "ParserContext",
+        "ParseResult",
+        "Program",
+        "Failure",
+        "Local",
+        "Promise",
+        "Result",
+        "Runner",
+        "Call",
+        "Task",
+        "call",
+        "task",
+        "pty_size",
+        "FailingResponder",
+        "Responder",
+        "StreamWatcher",
+        "run",
+        "sudo",
+        "collection",
+        "config",
+        "context",
+        "exceptions",
+        "executor",
+        "loader",
+        "parser",
+        "program",
+        "runners",
+        "tasks",
+        "terminals",
+        "watchers",
+        "util",
+        "env",
+        "completion",
+        "vendor",
+    ]),
+    "invoke.tasks": frozenset([
+        "inspect",
+        "types",
+        "deepcopy",
+        "update_wrapper",
+        "TYPE_CHECKING",
+        "Any",
+        "Callable",
+        "Dict",
+        "Generic",
+        "Iterable",
+        "List",
+        "Optional",
+        "Set",
+        "Tuple",
+        "Type",
+        "TypeVar",
+        "Union",
+        "Context",
+        "Argument",
+        "ParseResult",
+        "translate_underscores",
+        "T",
+        "Task",
+        "task",
+        "Call",
+        "call",
+    ]),
+}
+_BUILTIN_HELPERS = frozenset({"setattr", "delattr", "vars"})
+
+
 # Custom klass= is excluded because it may change naming/registration semantics.
 _TASK_OPTIONS = frozenset({
     "name",
@@ -67,21 +163,14 @@ def _module_kind(
 
 
 def _builtin_name(expression: ast.expr, bindings: dict[str, str]) -> str | None:
-    builtins = {"setattr", "delattr", "vars"}
     if isinstance(expression, ast.Name):
-        kind = bindings.get(expression.id)
-        return (
-            kind
-            if kind in builtins
-            else expression.id
-            if expression.id in builtins
-            else None
-        )
+        kind = bindings.get(expression.id, expression.id)
+        return kind if kind in _BUILTIN_HELPERS else None
     if (
         isinstance(expression, ast.Attribute)
         and isinstance(expression.value, ast.Name)
         and bindings.get(expression.value.id) == "builtins"
-        and expression.attr in builtins
+        and expression.attr in _BUILTIN_HELPERS
     ):
         return expression.attr
     return None
@@ -157,11 +246,11 @@ def _invalid_literal_option(keyword: ast.keyword) -> bool:
         # Computed option values are not evaluated by discovery.
         return False
     iterable = isinstance(value, (str, bytes, list, tuple, dict, set))
-    if keyword.arg == "optional":
-        return not iterable
-    if keyword.arg == "positional":
-        return value is not None and not iterable
-    if keyword.arg in {"iterable", "incrementable", "pre", "post"}:
+    if keyword.arg in {"optional", "positional"}:
+        return not iterable and not (keyword.arg == "positional" and value is None)
+    if keyword.arg in {"pre", "post"}:
+        return bool(value)
+    if keyword.arg in {"iterable", "incrementable"}:
         return bool(value) and not iterable
     if keyword.arg == "help":
         return bool(value) and not isinstance(value, dict)
@@ -321,7 +410,16 @@ def _bind_import(
 ) -> None:
     for alias in statement.names:
         if alias.name == "*":
-            bindings.clear()
+            exported_names = (
+                _STAR_EXPORTS.get(statement.module or "")
+                if isinstance(statement, ast.ImportFrom) and not statement.level
+                else None
+            )
+            if exported_names is None:
+                bindings.clear()
+            else:
+                for name in exported_names:
+                    bindings.pop(name, None)
             if (
                 isinstance(statement, ast.ImportFrom)
                 and not statement.level
@@ -341,6 +439,8 @@ def _bind_import(
         bindings.pop(bound, None)
         if kind is not None:
             bindings[bound] = kind
+        elif bound in _BUILTIN_HELPERS:
+            bindings[bound] = "shadowed"
 
 
 def _module_children(node: ast.AST) -> list[ast.AST]:
@@ -371,6 +471,17 @@ def _module_children(node: ast.AST) -> list[ast.AST]:
         # still bind in the containing scope and are visited normally.
         return [node.iter, *node.ifs]
     return list(ast.iter_child_nodes(node))
+
+
+def _import_writes(node: ast.Import | ast.ImportFrom) -> set[str]:
+    if (
+        isinstance(node, ast.ImportFrom)
+        and not node.level
+        and any(alias.name == "*" for alias in node.names)
+        and node.module in _STAR_EXPORTS
+    ):
+        return set(_STAR_EXPORTS[node.module])
+    return {alias.asname or alias.name.split(".")[0] for alias in node.names}
 
 
 def _written_names(
@@ -407,9 +518,7 @@ def _written_names(
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             names.add(node.name)
         elif isinstance(node, (ast.Import, ast.ImportFrom)):
-            names.update(
-                alias.asname or alias.name.split(".")[0] for alias in node.names
-            )
+            names.update(_import_writes(node))
         elif (
             isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar))
             and node.name
@@ -513,10 +622,13 @@ def _class_block_effects(
         mutations.update(mutation)
         if "*" in written:
             class_bindings.clear()
+        deleted = _deleted_names(statement)
         for bound in written | nested_writes:
             class_bindings.pop(bound, None)
+            if bound in _BUILTIN_HELPERS and bound not in deleted:
+                class_bindings[bound] = "shadowed"
         # Removing a class-local shadow resumes lookup in module globals.
-        for bound in _deleted_names(statement) - globals_:
+        for bound in deleted - globals_:
             if module_bindings is not None and bound in module_bindings:
                 class_bindings[bound] = module_bindings[bound]
         # A branch may leave an imported alias in class scope. Retain possible

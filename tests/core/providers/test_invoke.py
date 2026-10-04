@@ -851,3 +851,56 @@ def test_qualified_and_aliased_builtin_mutations(imports: str, mutation: str) ->
         )
         == []
     )
+
+
+@pytest.mark.parametrize("module", ["invoke", "invoke.tasks"])
+def test_star_import_preserves_existing_tasks(module: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n@task\ndef build(c): ...\nfrom {module} import *\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("module", ["invoke", "invoke.tasks"])
+def test_star_import_replaces_exported_task_binding(module: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n@task\ndef Task(c): ...\nfrom {module} import *\n"
+    )
+    assert tasks == []
+
+
+@pytest.mark.parametrize(
+    "option", ["pre=['setup']", "post=[1]", "pre='setup'", "post={'key': 'value'}"]
+)
+def test_literal_hook_collections_are_skipped(option: str) -> None:
+    assert (
+        parse_tasks(f"from invoke import task\n@task({option})\ndef build(c): ...\n")
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "shadow",
+    [
+        "setattr = lambda *args: None",
+        "def setattr(*args): pass",
+        "from other import setattr",
+    ],
+)
+def test_shadowed_builtin_is_not_a_mutation(shadow: str) -> None:
+    tasks = parse_tasks(
+        f"import invoke\n{shadow}\nsetattr(invoke, 'task', None)\n"
+        "@invoke.task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_deleted_shadow_restores_builtin() -> None:
+    assert (
+        parse_tasks(
+            "import invoke\nsetattr = other\ndel setattr\n"
+            "setattr(invoke, 'task', None)\n"
+            "@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )
