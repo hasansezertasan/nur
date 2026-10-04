@@ -667,3 +667,21 @@ def test_deep_class_blocks_are_inspected_once(mocker: MockerFixture) -> None:
     inspect = mocker.spy(invoke_module, "_class_mutates_tasks")
     assert parse_tasks(source) == []
     assert inspect.call_count == depth
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "if True:\n import invoke as inv\n inv.task = replacement",
+        "if True:\n import invoke as inv\ninv.task = replacement",
+        "if True:\n import invoke as inv\n class Helper:\n  inv.task = replacement",
+        (
+            "try:\n import invoke as inv\n inv.task = replacement\n"
+            "except Exception:\n pass"
+        ),
+    ],
+)
+def test_module_branches_track_alias_mutations(body: str) -> None:
+    assert (
+        parse_tasks(f"import invoke\n{body}\n@invoke.task\ndef build(c): ...\n") == []
+    )

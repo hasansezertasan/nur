@@ -337,7 +337,7 @@ def _merge_possible_modules(
 def _class_block_effects(
     statements: list[ast.stmt],
     bindings: dict[str, str],
-    module_bindings: dict[str, str],
+    module_bindings: dict[str, str] | None,
     tainted: set[str],
     globals_: set[str],
 ) -> tuple[set[str], set[str], dict[str, str]]:
@@ -360,7 +360,9 @@ def _class_block_effects(
             statement,
             class_bindings,
             tainted=class_taints,
-            module_bindings=module_bindings,
+            module_bindings=(
+                class_bindings if module_bindings is None else module_bindings
+            ),
             inspect_classes=not bool(_statement_blocks(statement)),
         )
         global_writes.update(nested_writes | (written & globals_))
@@ -368,11 +370,11 @@ def _class_block_effects(
         mutations.update(mutation)
         if "*" in written:
             class_bindings.clear()
-        for bound in written:
+        for bound in written | nested_writes:
             class_bindings.pop(bound, None)
         # Removing a class-local shadow resumes lookup in module globals.
         for bound in _deleted_names(statement) - globals_:
-            if bound in module_bindings:
+            if module_bindings is not None and bound in module_bindings:
                 class_bindings[bound] = module_bindings[bound]
         # A branch may leave an imported alias in class scope. Retain possible
         # module references for conservative mutation detection after the block.
@@ -406,6 +408,7 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     bindings: dict[str, str] = {}
     functions: dict[str, list[Task]] = {}
     tainted: set[str] = set()
+    possible_bindings: dict[str, str] = {}
     for statement in tree.body:
         # Decorators are evaluated before function defaults. Read the task
         # decorator binding first, then apply writes from definition headers.
@@ -414,7 +417,13 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             if isinstance(statement, ast.FunctionDef)
             else []
         )
-        written, mutation, _ = _written_names(statement, bindings, tainted=tainted)
+        global_writes, mutation, possible_bindings = _class_block_effects(
+            [statement], possible_bindings, None, tainted, set()
+        )
+        written, _, _ = _written_names(
+            statement, bindings, tainted=tainted, inspect_classes=False
+        )
+        written.update(global_writes)
         # Re-imports reuse Python's cached modules; an import cannot restore
         # trust after the decorator export has been replaced or deleted.
         tainted.update(mutation)
