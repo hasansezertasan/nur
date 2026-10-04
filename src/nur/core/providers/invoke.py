@@ -709,6 +709,24 @@ def _copied_defaults(statement: ast.stmt, defaults: set[str]) -> set[str]:
     return {target.id for target in targets if isinstance(target, ast.Name)}
 
 
+def _copied_tasks(
+    statement: ast.stmt, functions: dict[str, list[Task]]
+) -> dict[str, list[Task]]:
+    if isinstance(statement, ast.Assign):
+        targets, value = statement.targets, statement.value
+    elif isinstance(statement, ast.AnnAssign) and statement.value is not None:
+        targets, value = [statement.target], statement.value
+    else:
+        return {}
+    if not isinstance(value, ast.Name) or value.id not in functions:
+        return {}
+    return {
+        target.id: functions[value.id]
+        for target in targets
+        if isinstance(target, ast.Name)
+    }
+
+
 def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     """Read top-level decorated functions and literal names/aliases.
 
@@ -733,6 +751,7 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             else []
         )
         copied_defaults = _copied_defaults(statement, defaults)
+        copied_tasks = _copied_tasks(statement, functions)
         global_writes, mutation, possible_bindings = _class_block_effects(
             [statement], possible_bindings, None, tainted, set()
         )
@@ -752,6 +771,7 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             functions.pop(bound, None)
             defaults.discard(bound)
         defaults.update(copied_defaults)
+        functions.update(copied_tasks)
         if isinstance(statement, (ast.Import, ast.ImportFrom)):
             _bind_import(statement, bindings, tainted)
         elif isinstance(statement, ast.FunctionDef):
@@ -772,8 +792,9 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     if len(defaults) > 1:
         log.warning("nur: skipping %s (colliding Invoke default tasks)", source_file)
         return []
-    tasks = {task.name: task for group in functions.values() for task in group}
-    return list(tasks.values())
+    return list(
+        {task.name: task for group in functions.values() for task in group}.values()
+    )
 
 
 class InvokeProvider:

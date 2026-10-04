@@ -943,7 +943,7 @@ def test_copying_default_to_same_binding_does_not_collide() -> None:
         "from invoke import task\n@task(default=True)\ndef build(c): ...\n"
         "build = build\n@task\ndef publish(c): ...\n"
     )
-    assert [task.name for task in tasks] == ["publish"]
+    assert [task.name for task in tasks] == ["build", "publish"]
 
 
 @pytest.mark.parametrize("name", ["--help", "-h", "-build"])
@@ -998,5 +998,34 @@ def test_replaced_module_alias_does_not_mutate_original() -> None:
     tasks = parse_tasks(
         "import invoke\nalias = invoke\nalias = other\nalias.task = replacement\n"
         "@invoke.task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "copy", ["saved = build", "saved: Task = build", "saved = other = build"]
+)
+@pytest.mark.parametrize("replacement", ["build = None", "del build"])
+def test_task_survives_under_copied_binding(copy: str, replacement: str) -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task(name='compile', aliases=['make'])\n"
+        f'def build(c):\n """Build the project."""\n{copy}\n{replacement}\n'
+    )
+    assert [task.name for task in tasks] == ["compile", "make"]
+    assert all(task.description == "Build the project." for task in tasks)
+
+
+def test_task_copy_chain_survives_deleted_intermediate_bindings() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task\ndef build(c): ...\n"
+        "saved = build\nsecond = saved\ndel build, saved\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_only_surviving_default_copy_remains_discoverable() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task(default=True)\ndef build(c): ...\n"
+        "saved = build\ndel build\n"
     )
     assert [task.name for task in tasks] == ["build"]
