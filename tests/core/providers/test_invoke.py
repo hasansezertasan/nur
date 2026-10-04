@@ -266,3 +266,64 @@ def test_positional_context_signatures(signature: str) -> None:
         f"from invoke import task\n@task\ndef build({signature}): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("annotation", ["task: Callable", "task: Callable = None"])
+def test_annotated_decorator_binding(annotation: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n{annotation}\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ([] if "=" in annotation else ["build"])
+
+
+@pytest.mark.parametrize("annotation", ["build: Task", "build: Task = None"])
+def test_annotated_task_binding(annotation: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n@task\ndef build(c): ...\n{annotation}\n"
+    )
+    assert [task.name for task in tasks] == ([] if "=" in annotation else ["build"])
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        "def helper(value=(task := other)): ...",
+        "async def helper(value=(task := other)): ...",
+        "class Helper((task := other)): ...",
+        "@identity((task := other))\ndef helper(): ...",
+    ],
+)
+def test_definition_headers_rebind_decorators(header: str) -> None:
+    assert (
+        parse_tasks(f"from invoke import task\n{header}\n@task\ndef build(c): ...\n")
+        == []
+    )
+
+
+def test_definition_default_rebinds_existing_task() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\ndef build(c): ...\n"
+            "def helper(value=(build := None)): ...\n"
+        )
+        == []
+    )
+
+
+def test_decorator_binding_is_captured_before_defaults() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task\ndef build(c, value=(task := None)): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "annotation", ["(build := None).attribute: int", "values[(build := None)]: int"]
+)
+def test_annotation_target_expressions_can_rebind_tasks(annotation: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task\ndef build(c): ...\n{annotation}\n"
+        )
+        == []
+    )

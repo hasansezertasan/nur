@@ -158,6 +158,13 @@ def _module_children(node: ast.AST) -> list[ast.AST]:
         return expressions
     if isinstance(node, ast.ClassDef):
         return [*node.decorator_list, *node.bases, *node.keywords]
+    if isinstance(node, ast.AnnAssign):
+        # An annotation alone neither assigns its target nor evaluates the
+        # annotation expression under Python's deferred annotation semantics.
+        if node.value is not None:
+            return [node.target, node.value]
+        # Non-simple annotations still evaluate their object/index expressions.
+        return [] if isinstance(node.target, ast.Name) else [node.target]
     if isinstance(node, ast.comprehension):
         # The iteration target is local. Walrus assignments in the expressions
         # still bind in the containing scope and are visited normally.
@@ -203,15 +210,23 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     bindings: dict[str, str] = {}
     functions: dict[str, list[Task]] = {}
     for statement in tree.body:
+        # Decorators are evaluated before function defaults. Read the task
+        # decorator binding first, then apply writes from definition headers.
+        names = (
+            _task_names(statement, bindings)
+            if isinstance(statement, ast.FunctionDef)
+            else []
+        )
+        written = _written_names(statement)
+        if "*" in written:
+            bindings.clear()
+            functions.clear()
+        for bound in written:
+            bindings.pop(bound, None)
+            functions.pop(bound, None)
         if isinstance(statement, (ast.Import, ast.ImportFrom)):
             _bind_import(statement, bindings)
-            written = _written_names(statement)
-            if "*" in written:
-                functions.clear()
-            for bound in written:
-                functions.pop(bound, None)
         elif isinstance(statement, ast.FunctionDef):
-            names = _task_names(statement, bindings)
             docstring = ast.get_docstring(statement)
             description = docstring.splitlines()[0] if docstring else None
             functions[statement.name] = [
@@ -224,20 +239,6 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
                 )
                 for name in names
             ]
-            bindings.pop(statement.name, None)
-        elif isinstance(statement, (ast.ClassDef, ast.AsyncFunctionDef)):
-            bindings.pop(statement.name, None)
-            functions.pop(statement.name, None)
-        else:
-            # Never infer bindings created by compound statements. Invalidate
-            # names they may overwrite, while leaving unrelated tasks visible.
-            written = _written_names(statement)
-            if "*" in written:
-                bindings.clear()
-                functions.clear()
-            for bound in written:
-                bindings.pop(bound, None)
-                functions.pop(bound, None)
     tasks = {task.name: task for group in functions.values() for task in group}
     return list(tasks.values())
 
