@@ -333,6 +333,14 @@ def _literal_help_matches(function: ast.FunctionDef, decorator: ast.expr) -> boo
     return not keys
 
 
+def _literal_dependency(expression: ast.expr) -> bool:
+    try:
+        ast.literal_eval(expression)
+    except (ValueError, TypeError) as _exc:
+        return False
+    return True
+
+
 def _task_names(
     function: ast.FunctionDef, bindings: dict[str, str], tainted: set[str]
 ) -> list[str]:
@@ -350,7 +358,10 @@ def _task_names(
     if (
         isinstance(decorator, ast.Call)
         and decorator.args
-        and any(keyword.arg == "pre" for keyword in decorator.keywords)
+        and (
+            any(keyword.arg == "pre" for keyword in decorator.keywords)
+            or any(_literal_dependency(argument) for argument in decorator.args)
+        )
     ):
         return []
     metadata = _literal_metadata(decorator, function.name)

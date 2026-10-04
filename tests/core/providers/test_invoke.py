@@ -904,3 +904,13 @@ def test_deleted_shadow_restores_builtin() -> None:
         )
         == []
     )
+
+
+@pytest.mark.parametrize("dependency", ["'setup'", "1", "None", "[]", "{}", "False"])
+def test_literal_positional_dependencies_are_skipped(dependency: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task({dependency})\ndef build(c): ...\n"
+        )
+        == []
+    )
