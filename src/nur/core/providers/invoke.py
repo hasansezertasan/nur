@@ -193,6 +193,36 @@ def _normalize_name(name: str) -> str:
     )
 
 
+def _literal_help_matches(function: ast.FunctionDef, decorator: ast.expr) -> bool:
+    if not isinstance(decorator, ast.Call):
+        return True
+    help_mapping = next(
+        (keyword.value for keyword in decorator.keywords if keyword.arg == "help"), None
+    )
+    if not isinstance(help_mapping, ast.Dict):
+        return True
+    if any(not isinstance(key, ast.Constant) for key in help_mapping.keys):
+        # Computed keys and unpacked mappings remain outside static validation.
+        return True
+    keys = {key.value for key in help_mapping.keys if isinstance(key, ast.Constant)}
+    args = function.args
+    parameters = [*args.posonlyargs, *args.args]
+    if args.vararg:
+        parameters.append(args.vararg)
+    parameters.extend(args.kwonlyargs)
+    if args.kwarg:
+        parameters.append(args.kwarg)
+    for parameter in parameters[1:]:
+        name = parameter.arg
+        dashed = name.strip("_").replace("_", "-") if "_" in name else name
+        # Invoke consumes the dashed key first, then the original spelling.
+        for candidate in (dashed, name):
+            if candidate in keys:
+                keys.remove(candidate)
+                break
+    return not keys
+
+
 def _task_names(
     function: ast.FunctionDef, bindings: dict[str, str], tainted: set[str]
 ) -> list[str]:
@@ -203,7 +233,9 @@ def _task_names(
         return []
     decorator = function.decorator_list[0]
     expression = decorator.func if isinstance(decorator, ast.Call) else decorator
-    if not _decorator_matches(expression, bindings, tainted):
+    if not _decorator_matches(
+        expression, bindings, tainted
+    ) or not _literal_help_matches(function, decorator):
         return []
     if (
         isinstance(decorator, ast.Call)
@@ -215,10 +247,16 @@ def _task_names(
     if metadata is None:
         return []
     name, aliases = metadata
+    if "." in name:
+        return []
     # Invoke's default Collection turns underscores into dashes. Config and
     # explicit Collection wiring are outside this single-module subset.
     return list(
-        dict.fromkeys(_normalize_name(item) for item in [name, *aliases] if item)
+        dict.fromkeys(
+            _normalize_name(item)
+            for item in [name, *aliases]
+            if item and "." not in item
+        )
     )
 
 

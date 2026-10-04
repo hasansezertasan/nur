@@ -112,8 +112,7 @@ def test_missing_file_is_skipped(tmp_path: Path, caplog) -> None:
 
 
 @pytest.mark.parametrize(
-    ("name", "expected"),
-    [("_build_all_", "_build-all_"), ("_", "_"), ("a_.b_c", "a_.b-c")],
+    ("name", "expected"), [("_build_all_", "_build-all_"), ("_", "_")]
 )
 def test_name_normalization(name: str, expected: str) -> None:
     tasks = parse_tasks(
@@ -760,3 +759,45 @@ def test_default_aliases_do_not_collide() -> None:
         "def build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build", "alias"]
+
+
+@pytest.mark.parametrize(
+    ("help_keys", "signature", "expected"),
+    [
+        ("{'missing': 'Help'}", "c, clean=False", []),
+        ("{'c': 'Context'}", "c", []),
+        ("{1: 'Help'}", "c, clean=False", []),
+        ("{'clean': description}", "c, clean=False", ["build"]),
+        ("{'dry_run': 'Help'}", "c, dry_run=False", ["build"]),
+        ("{'dry-run': 'Help'}", "c, dry_run=False", ["build"]),
+        ("{'dry_run': 'Help', 'dry-run': 'Help'}", "c, dry_run=False", []),
+        ("{'dry-run': 'Help'}", "c, _dry_run_=False", ["build"]),
+        ("{'clean': 'Help'}", "c, /, *, clean=False", ["build"]),
+    ],
+)
+def test_literal_help_keys_match_parameters(
+    help_keys: str, signature: str, expected: list[str]
+) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n@task(help={help_keys})\n"
+        f"def build({signature}): ...\n"
+    )
+    assert [task.name for task in tasks] == expected
+
+
+@pytest.mark.parametrize("name", ["deploy.prod", ".deploy", "deploy."])
+def test_dotted_task_names_are_skipped(name: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task(name={name!r})\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_dotted_aliases_are_skipped() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task(aliases=['deploy.prod', 'deploy_all'])\n"
+        "def build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build", "deploy-all"]
