@@ -134,7 +134,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 
 ## Features
 
-- **Zero-config discovery** across seventeen providers, each parsed from a single
+- **Zero-config discovery** across eighteen providers, each parsed from a single
   source file in the current directory:
 
   | Provider | Prefix | Source file |

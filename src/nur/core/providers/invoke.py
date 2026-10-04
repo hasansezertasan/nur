@@ -97,7 +97,9 @@ def _normalize_name(name: str) -> str:
 
 def _task_names(function: ast.FunctionDef, bindings: dict[str, str]) -> list[str]:
     # Other decorators can replace the callable/name or discard the Task object.
-    if len(function.decorator_list) != 1:
+    if len(function.decorator_list) != 1 or not (
+        function.args.posonlyargs or function.args.args or function.args.vararg
+    ):
         return []
     decorator = function.decorator_list[0]
     expression = decorator.func if isinstance(decorator, ast.Call) else decorator
@@ -131,12 +133,14 @@ def _bind_import(
             )
         else:
             bound = alias.asname or alias.name
-            known = (
-                not statement.level
-                and statement.module in {"invoke", "invoke.tasks"}
-                and alias.name == "task"
+            known = not statement.level and (
+                (
+                    statement.module in {"invoke", "invoke.tasks"}
+                    and alias.name == "task"
+                )
+                or (statement.module == "invoke" and alias.name == "tasks")
             )
-            kind = "task"
+            kind = "tasks_module" if alias.name == "tasks" else "task"
         bindings.pop(bound, None)
         if known:
             bindings[bound] = kind

@@ -20,6 +20,8 @@ if TYPE_CHECKING:
         ("import invoke.tasks", "invoke.task"),
         ("import invoke as inv", "inv.task(pre=[])"),
         ("from invoke.tasks import task", "task"),
+        ("from invoke import tasks", "tasks.task"),
+        ("from invoke import tasks as inv", "inv.task"),
     ],
 )
 def test_decorators(imports: str, decorator: str) -> None:
@@ -246,5 +248,21 @@ def test_unknown_decorator_options_are_skipped(options: str) -> None:
 def test_supported_options_preserve_names(options: str) -> None:
     tasks = parse_tasks(
         f"from invoke import task\n@task({options})\ndef build(c, clean=False): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("signature", ["", "*, context", "**kwargs"])
+def test_missing_positional_context_is_skipped(signature: str) -> None:
+    assert (
+        parse_tasks(f"from invoke import task\n@task\ndef build({signature}): ...\n")
+        == []
+    )
+
+
+@pytest.mark.parametrize("signature", ["context, /", "*args"])
+def test_positional_context_signatures(signature: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n@task\ndef build({signature}): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
