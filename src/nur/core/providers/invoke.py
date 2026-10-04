@@ -63,6 +63,18 @@ def _literal_metadata(decorator: ast.expr, name: str) -> tuple[str, list[str]] |
     return name, aliases
 
 
+def _normalize_name(name: str) -> str:
+    return "".join(
+        "-"
+        if character == "_"
+        and 0 < index < len(name) - 1
+        and name[index - 1] != "."
+        and name[index + 1] != "."
+        else character
+        for index, character in enumerate(name)
+    )
+
+
 def _task_names(function: ast.FunctionDef, bindings: dict[str, str]) -> list[str]:
     # Other decorators can replace the callable/name or discard the Task object.
     if len(function.decorator_list) != 1:
@@ -78,7 +90,7 @@ def _task_names(function: ast.FunctionDef, bindings: dict[str, str]) -> list[str
     # Invoke's default Collection turns underscores into dashes. Config and
     # explicit Collection wiring are outside this single-module subset.
     return list(
-        dict.fromkeys(item.replace("_", "-") for item in [name, *aliases] if item)
+        dict.fromkeys(_normalize_name(item) for item in [name, *aliases] if item)
     )
 
 
@@ -106,6 +118,43 @@ def _bind_import(
             bindings[bound] = kind
 
 
+def _written_names(statement: ast.stmt) -> set[str]:
+    """Over-approximate names a compound statement can replace."""
+    names: set[str] = set()
+    pending: list[ast.AST] = [statement]
+    while pending:
+        node = pending.pop()
+        if isinstance(
+            node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+        ):
+            # Comprehension targets are local; assignment expressions bind in
+            # the containing scope, so those still invalidate module names.
+            names.update(
+                child.target.id
+                for child in ast.walk(node)
+                if isinstance(child, ast.NamedExpr)
+                and isinstance(child.target, ast.Name)
+            )
+            continue
+        pending.extend(ast.iter_child_nodes(node))
+        if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            names.add(node.id)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(node.name)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            names.update(
+                alias.asname or alias.name.split(".")[0] for alias in node.names
+            )
+        elif (
+            isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar))
+            and node.name
+        ):
+            names.add(node.name)
+        elif isinstance(node, ast.MatchMapping) and node.rest:
+            names.add(node.rest)
+    return names
+
+
 def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     """Read top-level decorated functions and literal names/aliases.
 
@@ -121,8 +170,10 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     for statement in tree.body:
         if isinstance(statement, (ast.Import, ast.ImportFrom)):
             _bind_import(statement, bindings)
-            for alias in statement.names:
-                bound = alias.asname or alias.name.split(".")[0]
+            written = _written_names(statement)
+            if "*" in written:
+                functions.clear()
+            for bound in written:
                 functions.pop(bound, None)
         elif isinstance(statement, ast.FunctionDef):
             names = _task_names(statement, bindings)
@@ -145,12 +196,13 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
         else:
             # Never infer bindings created by compound statements. Invalidate
             # names they may overwrite, while leaving unrelated tasks visible.
-            for node in ast.walk(statement):
-                if isinstance(node, ast.Name) and isinstance(
-                    node.ctx, (ast.Store, ast.Del)
-                ):
-                    bindings.pop(node.id, None)
-                    functions.pop(node.id, None)
+            written = _written_names(statement)
+            if "*" in written:
+                bindings.clear()
+                functions.clear()
+            for bound in written:
+                bindings.pop(bound, None)
+                functions.pop(bound, None)
     tasks = {task.name: task for group in functions.values() for task in group}
     return list(tasks.values())
 

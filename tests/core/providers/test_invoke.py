@@ -101,3 +101,92 @@ def test_invalid_files_are_skipped(tmp_path: Path, caplog, contents: bytes) -> N
 def test_missing_file_is_skipped(tmp_path: Path, caplog) -> None:
     assert InvokeProvider().discover(tmp_path) == []
     assert "skipping tasks.py" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [("_build_all_", "_build-all_"), ("_", "_"), ("a_.b_c", "a_.b-c")],
+)
+def test_name_normalization(name: str, expected: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n@task(name={name!r})\ndef build(c): ...\n"
+    )
+    assert tasks[0].name == expected
+
+
+@pytest.mark.parametrize(
+    "replacement",
+    [
+        "def build(c): ...",
+        "class build: ...",
+        "from other import build",
+        "import other as build",
+        "from other import *",
+        "build = None",
+    ],
+)
+def test_conditional_task_rebinding(replacement: str) -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\ndef build(c): ...\n"
+            f"if True:\n {replacement}\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "replacement",
+    ["def task(f): return f", "from other import task", "import other as task"],
+)
+def test_conditional_decorator_rebinding(replacement: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\nif True:\n {replacement}\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_source_encoding_cookie(tmp_path: Path) -> None:
+    (tmp_path / "tasks.py").write_bytes(
+        "# coding: latin-1\nfrom invoke import task\n@task\ndef build(c):\n"
+        ' """Construire le café."""\n'.encode("latin-1")
+    )
+    assert InvokeProvider().discover(tmp_path)[0].description == "Construire le café."
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "[build for build in range(3)]",
+        "{build for build in range(3)}",
+        "{build: build for build in range(3)}",
+        "(build for build in range(3))",
+    ],
+)
+def test_comprehension_targets_do_not_rebind_tasks(expression: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n@task\ndef build(c): ...\nvalues = {expression}\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_comprehension_assignment_expression_rebinds_task() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\ndef build(c): ...\n"
+            "values = [(build := None) for index in range(3)]\n"
+        )
+        == []
+    )
+
+
+def test_star_import_may_replace_existing_task() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\ndef build(c): ...\nfrom other import *\n"
+        )
+        == []
+    )
