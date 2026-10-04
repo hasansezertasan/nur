@@ -54,7 +54,7 @@ def _module_kind(
 ) -> str | None:
     if isinstance(namespace, ast.Name):
         kind = bindings.get(namespace.id)
-        return kind if kind in {"module", "tasks_module"} else None
+        return kind if kind in {"module", "tasks_module", "ambiguous_module"} else None
     if (
         isinstance(namespace, ast.Attribute)
         and namespace.attr == "tasks"
@@ -89,6 +89,8 @@ def _mutated_export(
         ("module", "task"): "invoke.task",
         ("module", "tasks"): "invoke.tasks",
         ("tasks_module", "task"): "invoke.tasks.task",
+        ("ambiguous_module", "task"): "invoke.*",
+        ("ambiguous_module", "tasks"): "invoke.tasks",
     }.get((kind or "", attribute))
 
 
@@ -242,20 +244,29 @@ def _written_names(
     *,
     tainted: set[str],
     module_bindings: dict[str, str] | None = None,
-) -> tuple[set[str], set[str]]:
+    inspect_classes: bool = True,
+) -> tuple[set[str], set[str], set[str]]:
     """Over-approximate names a compound statement can replace."""
     module_bindings = bindings if module_bindings is None else module_bindings
     names: set[str] = set()
     mutations: set[str] = set()
+    global_writes: set[str] = set()
     pending: list[ast.AST] = [statement]
     while pending:
         node = pending.pop()
         pending.extend(_module_children(node))
         export = _mutated_export(node, bindings, tainted)
-        if export is not None:
+        if export == "invoke.*":
+            mutations.update({"invoke.task", "invoke.tasks.task"})
+        elif export is not None:
             mutations.add(export)
-        if isinstance(node, ast.ClassDef):
-            mutations.update(_class_mutates_tasks(node, module_bindings, tainted))
+        if inspect_classes and isinstance(node, ast.ClassDef):
+            class_writes, class_mutations = _class_mutates_tasks(
+                node, module_bindings, tainted
+            )
+            names.update(class_writes)
+            global_writes.update(class_writes)
+            mutations.update(class_mutations)
         if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
             names.add(node.id)
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
@@ -271,7 +282,7 @@ def _written_names(
             names.add(node.name)
         elif isinstance(node, ast.MatchMapping) and node.rest:
             names.add(node.rest)
-    return names, mutations
+    return names, mutations, global_writes
 
 
 def _deleted_names(statement: ast.stmt) -> set[str]:
@@ -285,17 +296,74 @@ def _deleted_names(statement: ast.stmt) -> set[str]:
     return names
 
 
-def _class_mutates_tasks(
-    node: ast.ClassDef, bindings: dict[str, str], tainted: set[str]
-) -> set[str]:
-    """Inspect executed class code without leaking its local names outward."""
+def _statement_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
+    """Get compound blocks without crossing function or class scopes."""
+    if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return []
+    blocks: list[list[ast.stmt]] = []
+    for _, value in ast.iter_fields(statement):
+        if isinstance(value, list) and value:
+            if all(isinstance(item, ast.stmt) for item in value):
+                blocks.append(value)
+            elif all(
+                isinstance(item, (ast.ExceptHandler, ast.match_case)) for item in value
+            ):
+                blocks.extend(item.body for item in value)
+    return blocks
+
+
+def _global_names(statements: list[ast.stmt]) -> set[str]:
+    names: set[str] = set()
+    for statement in statements:
+        if isinstance(statement, ast.Global):
+            names.update(statement.names)
+        for block in _statement_blocks(statement):
+            names.update(_global_names(block))
+    return names
+
+
+def _merge_possible_modules(
+    bindings: dict[str, str], possibilities: list[dict[str, str]]
+) -> None:
+    for possible in possibilities:
+        for bound, kind in possible.items():
+            if kind in {"module", "tasks_module", "ambiguous_module"}:
+                previous = bindings.get(bound)
+                bindings[bound] = (
+                    "ambiguous_module" if previous and previous != kind else kind
+                )
+
+
+def _class_block_effects(
+    statements: list[ast.stmt],
+    bindings: dict[str, str],
+    module_bindings: dict[str, str],
+    tainted: set[str],
+    globals_: set[str],
+) -> tuple[set[str], set[str], dict[str, str]]:
     class_bindings = bindings.copy()
     class_taints = tainted.copy()
+    global_writes: set[str] = set()
     mutations: set[str] = set()
-    for statement in node.body:
-        written, mutation = _written_names(
-            statement, class_bindings, tainted=class_taints, module_bindings=bindings
+    for statement in statements:
+        # Inspect each possible block in order with its own local environment.
+        # Imports within a branch are visible to subsequent mutations there.
+        branch_bindings: list[dict[str, str]] = []
+        for block in _statement_blocks(statement):
+            writes, effects, possible = _class_block_effects(
+                block, class_bindings, module_bindings, class_taints, globals_
+            )
+            global_writes.update(writes)
+            mutations.update(effects)
+            branch_bindings.append(possible)
+        written, mutation, nested_writes = _written_names(
+            statement,
+            class_bindings,
+            tainted=class_taints,
+            module_bindings=module_bindings,
+            inspect_classes=not bool(_statement_blocks(statement)),
         )
+        global_writes.update(nested_writes | (written & globals_))
         class_taints.update(mutation)
         mutations.update(mutation)
         if "*" in written:
@@ -303,13 +371,26 @@ def _class_mutates_tasks(
         for bound in written:
             class_bindings.pop(bound, None)
         # Removing a class-local shadow resumes lookup in module globals.
-        # Conditional deletes are treated as possible fallbacks conservatively.
-        for bound in _deleted_names(statement):
-            if bound in bindings:
-                class_bindings[bound] = bindings[bound]
+        for bound in _deleted_names(statement) - globals_:
+            if bound in module_bindings:
+                class_bindings[bound] = module_bindings[bound]
+        # A branch may leave an imported alias in class scope. Retain possible
+        # module references for conservative mutation detection after the block.
+        _merge_possible_modules(class_bindings, branch_bindings)
         if isinstance(statement, (ast.Import, ast.ImportFrom)):
             _bind_import(statement, class_bindings, class_taints)
-    return mutations
+    return global_writes, mutations, class_bindings
+
+
+def _class_mutates_tasks(
+    node: ast.ClassDef, bindings: dict[str, str], tainted: set[str]
+) -> tuple[set[str], set[str]]:
+    """Inspect executed class code and propagate global writes outward."""
+    globals_ = _global_names(node.body)
+    writes, mutations, _ = _class_block_effects(
+        node.body, bindings, bindings, tainted, globals_
+    )
+    return writes, mutations
 
 
 def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
@@ -333,7 +414,7 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             if isinstance(statement, ast.FunctionDef)
             else []
         )
-        written, mutation = _written_names(statement, bindings, tainted=tainted)
+        written, mutation, _ = _written_names(statement, bindings, tainted=tainted)
         # Re-imports reuse Python's cached modules; an import cannot restore
         # trust after the decorator export has been replaced or deleted.
         tainted.update(mutation)

@@ -3,10 +3,13 @@ from typing import TYPE_CHECKING
 import pytest
 
 from nur.core.discovery import discover
+from nur.core.providers import invoke as invoke_module
 from nur.core.providers.invoke import InvokeProvider, parse_tasks
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from pytest_mock import MockerFixture
 
 
 @pytest.mark.parametrize(
@@ -571,3 +574,96 @@ def test_submodule_mutation_persists_after_imports(
         )
         == []
     )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "if True:\n  import invoke as inv\n  inv.task = replacement",
+        (
+            "try:\n  import invoke as inv\n  inv.task = replacement\n"
+            " except Exception:\n  pass"
+        ),
+        "for value in values:\n  import invoke as inv\n  inv.task = replacement",
+        "with manager:\n  import invoke as inv\n  inv.task = replacement",
+        "match value:\n  case 1:\n   import invoke as inv\n   inv.task = replacement",
+    ],
+)
+def test_class_compound_import_precedes_mutation(body: str) -> None:
+    assert (
+        parse_tasks(
+            f"import invoke\nclass Helper:\n {body}\n@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("write", ["invoke = replacement", "del invoke"])
+def test_class_global_writes_invalidate_module_bindings(write: str) -> None:
+    assert (
+        parse_tasks(
+            "import invoke\nclass Helper:\n global invoke\n"
+            f" {write}\n@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_class_global_write_removes_existing_task() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\ndef build(c): ...\n"
+            "class Helper:\n global build\n build = None\n"
+        )
+        == []
+    )
+
+
+def test_nested_class_global_write_invalidates_module_binding() -> None:
+    assert (
+        parse_tasks(
+            "import invoke\nclass Helper:\n class Nested:\n  global invoke\n"
+            "  invoke = replacement\n@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_class_compound_global_write_invalidates_module_binding() -> None:
+    assert (
+        parse_tasks(
+            "import invoke\nclass Helper:\n if True:\n  global invoke\n"
+            "  invoke = replacement\n@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "branch",
+    [
+        "if True:\n  import invoke as inv",
+        "if flag:\n  import invoke.tasks as inv\n else:\n  import invoke as inv",
+    ],
+)
+def test_class_branch_alias_can_mutate_later(branch: str) -> None:
+    assert (
+        parse_tasks(
+            f"import invoke\nclass Helper:\n {branch}\n inv.task = replacement\n"
+            "@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_deep_class_blocks_are_inspected_once(mocker: MockerFixture) -> None:
+    source = "import invoke\n"
+    depth = 20
+    for level in range(depth):
+        source += " " * (level * 2) + f"class Helper{level}:\n"
+        source += " " * (level * 2 + 1) + "if True:\n"
+    source += " " * (depth * 2) + "invoke.task = replacement\n"
+    source += "@invoke.task\ndef build(c): ...\n"
+    inspect = mocker.spy(invoke_module, "_class_mutates_tasks")
+    assert parse_tasks(source) == []
+    assert inspect.call_count == depth
