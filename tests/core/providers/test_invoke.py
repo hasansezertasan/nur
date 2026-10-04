@@ -914,3 +914,33 @@ def test_literal_positional_dependencies_are_skipped(dependency: str) -> None:
         )
         == []
     )
+
+
+@pytest.mark.parametrize(
+    "copy", ["saved = build", "saved: Task = build", "saved = second = build"]
+)
+def test_copied_defaults_collide(copy: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task(default=True)\ndef build(c): ...\n{copy}\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("cleanup", ["saved = None", "del saved"])
+def test_removed_default_copy_does_not_collide(cleanup: str) -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task(default=True)\ndef build(c): ...\n"
+        "saved = build\n"
+        f"{cleanup}\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_copying_default_to_same_binding_does_not_collide() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task(default=True)\ndef build(c): ...\n"
+        "build = build\n@task\ndef publish(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["publish"]

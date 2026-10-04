@@ -661,6 +661,18 @@ def _class_mutates_tasks(
     return writes, mutations
 
 
+def _copied_defaults(statement: ast.stmt, defaults: set[str]) -> set[str]:
+    if isinstance(statement, ast.Assign):
+        targets, value = statement.targets, statement.value
+    elif isinstance(statement, ast.AnnAssign) and statement.value is not None:
+        targets, value = [statement.target], statement.value
+    else:
+        return set()
+    if not isinstance(value, ast.Name) or value.id not in defaults:
+        return set()
+    return {target.id for target in targets if isinstance(target, ast.Name)}
+
+
 def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     """Read top-level decorated functions and literal names/aliases.
 
@@ -684,6 +696,7 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             if isinstance(statement, ast.FunctionDef)
             else []
         )
+        copied_defaults = _copied_defaults(statement, defaults)
         global_writes, mutation, possible_bindings = _class_block_effects(
             [statement], possible_bindings, None, tainted, set()
         )
@@ -702,6 +715,7 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             bindings.pop(bound, None)
             functions.pop(bound, None)
             defaults.discard(bound)
+        defaults.update(copied_defaults)
         if isinstance(statement, (ast.Import, ast.ImportFrom)):
             _bind_import(statement, bindings, tainted)
         elif isinstance(statement, ast.FunctionDef):
