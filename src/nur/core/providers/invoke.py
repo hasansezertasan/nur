@@ -66,6 +66,28 @@ def _module_kind(
     return None
 
 
+def _mapping_write(node: ast.AST) -> tuple[ast.expr, str] | None:
+    if not isinstance(node, ast.Subscript) or not isinstance(
+        node.ctx, (ast.Store, ast.Del)
+    ):
+        return None
+    if not isinstance(node.slice, ast.Constant) or not isinstance(
+        node.slice.value, str
+    ):
+        return None
+    mapping = node.value
+    if isinstance(mapping, ast.Attribute) and mapping.attr == "__dict__":
+        return mapping.value, node.slice.value
+    if (
+        isinstance(mapping, ast.Call)
+        and isinstance(mapping.func, ast.Name)
+        and mapping.func.id == "vars"
+        and len(mapping.args) == 1
+    ):
+        return mapping.args[0], node.slice.value
+    return None
+
+
 def _mutated_export(
     node: ast.AST, bindings: dict[str, str], tainted: set[str]
 ) -> str | None:
@@ -82,6 +104,8 @@ def _mutated_export(
         if not isinstance(value, str):
             return None
         namespace, attribute = node.args[0], value
+    elif (mapping_write := _mapping_write(node)) is not None:
+        namespace, attribute = mapping_write
     else:
         return None
     kind = _module_kind(namespace, bindings, tainted)
@@ -105,12 +129,42 @@ def _literal_aliases(expression: ast.expr) -> list[str] | None:
     return aliases
 
 
+def _invalid_literal_option(keyword: ast.keyword) -> bool:
+    try:
+        value = ast.literal_eval(keyword.value)
+    except (ValueError, TypeError) as _exc:
+        # Computed option values are not evaluated by discovery.
+        return False
+    iterable = isinstance(value, (str, bytes, list, tuple, dict, set))
+    if keyword.arg == "optional":
+        return not iterable
+    if keyword.arg == "positional":
+        return value is not None and not iterable
+    if keyword.arg in {"iterable", "incrementable"}:
+        return bool(value) and not iterable
+    if keyword.arg == "help":
+        return bool(value) and not isinstance(value, dict)
+    return False
+
+
+def _literal_default(function: ast.FunctionDef) -> bool:
+    for decorator in function.decorator_list:
+        if isinstance(decorator, ast.Call):
+            for keyword in decorator.keywords:
+                if keyword.arg == "default":
+                    try:
+                        return bool(ast.literal_eval(keyword.value))
+                    except (ValueError, TypeError) as _exc:
+                        return False
+    return False
+
+
 def _literal_metadata(decorator: ast.expr, name: str) -> tuple[str, list[str]] | None:
     aliases: list[str] = []
     if not isinstance(decorator, ast.Call):
         return name, aliases
     for keyword in decorator.keywords:
-        if keyword.arg not in _TASK_OPTIONS:
+        if keyword.arg not in _TASK_OPTIONS or _invalid_literal_option(keyword):
             return None
         if keyword.arg == "name":
             if not isinstance(keyword.value, ast.Constant):
@@ -407,6 +461,7 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
         compile(tree, source_file, "exec", dont_inherit=True)
     bindings: dict[str, str] = {}
     functions: dict[str, list[Task]] = {}
+    defaults: set[str] = set()
     tainted: set[str] = set()
     possible_bindings: dict[str, str] = {}
     for statement in tree.body:
@@ -430,12 +485,16 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
         if "*" in written:
             bindings.clear()
             functions.clear()
+            defaults.clear()
         for bound in written:
             bindings.pop(bound, None)
             functions.pop(bound, None)
+            defaults.discard(bound)
         if isinstance(statement, (ast.Import, ast.ImportFrom)):
             _bind_import(statement, bindings, tainted)
         elif isinstance(statement, ast.FunctionDef):
+            if names and _literal_default(statement):
+                defaults.add(statement.name)
             docstring = ast.get_docstring(statement)
             description = docstring.splitlines()[0] if docstring else None
             functions[statement.name] = [
@@ -448,6 +507,9 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
                 )
                 for name in names
             ]
+    if len(defaults) > 1:
+        log.warning("nur: skipping %s (colliding Invoke default tasks)", source_file)
+        return []
     tasks = {task.name: task for group in functions.values() for task in group}
     return list(tasks.values())
 

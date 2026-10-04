@@ -685,3 +685,78 @@ def test_module_branches_track_alias_mutations(body: str) -> None:
     assert (
         parse_tasks(f"import invoke\n{body}\n@invoke.task\ndef build(c): ...\n") == []
     )
+
+
+@pytest.mark.parametrize(
+    "option",
+    [
+        "optional=1",
+        "optional=None",
+        "positional=1",
+        "iterable=1",
+        "incrementable=1",
+        "help=1",
+        "help='text'",
+    ],
+)
+def test_invalid_literal_task_options_are_skipped(option: str) -> None:
+    assert (
+        parse_tasks(f"from invoke import task\n@task({option})\ndef build(c): ...\n")
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "option",
+    [
+        "optional=[]",
+        "positional=None",
+        "iterable=None",
+        "incrementable=0",
+        "help=None",
+        "help={}",
+    ],
+)
+def test_valid_literal_task_options(option: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n@task({option})\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        'invoke.__dict__["task"] = replacement',
+        'vars(invoke)["task"] = replacement',
+        'del invoke.__dict__["task"]',
+        'del vars(invoke)["task"]',
+    ],
+)
+def test_namespace_mapping_mutations(mutation: str) -> None:
+    assert (
+        parse_tasks(f"import invoke\n{mutation}\n@invoke.task\ndef build(c): ...\n")
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "later", ["", "del second", "second = None", "@task\ndef second(c): ..."]
+)
+def test_colliding_defaults_respect_surviving_bindings(later: str) -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task(default=True)\ndef first(c): ...\n"
+        f"@task(default=True)\ndef second(c): ...\n{later}\n"
+    )
+    expected = (
+        [] if not later else ["first", "second"] if "@task" in later else ["first"]
+    )
+    assert [task.name for task in tasks] == expected
+
+
+def test_default_aliases_do_not_collide() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task(default=True, aliases=['alias'])\n"
+        "def build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build", "alias"]
