@@ -17,6 +17,7 @@ __all__ = ["InvokeProvider", "parse_tasks"]
 
 log = logging.getLogger("nur")
 _SOURCE_FILE = "tasks.py"
+_ATTRIBUTE_ARGS_MIN = 2
 # Custom klass= is excluded because it may change naming/registration semantics.
 _TASK_OPTIONS = frozenset({
     "name",
@@ -37,16 +38,45 @@ _TASK_OPTIONS = frozenset({
 def _decorator_matches(expression: ast.expr, bindings: dict[str, str]) -> bool:
     if isinstance(expression, ast.Name):
         return bindings.get(expression.id) == "task"
-    if not isinstance(expression, ast.Attribute) or expression.attr != "task":
-        return False
-    namespace = expression.value
-    if isinstance(namespace, ast.Name):
-        return bindings.get(namespace.id) in {"module", "tasks_module"}
     return (
+        isinstance(expression, ast.Attribute)
+        and expression.attr == "task"
+        and _module_binding(expression.value, bindings) is not None
+    )
+
+
+def _module_binding(namespace: ast.expr, bindings: dict[str, str]) -> str | None:
+    if isinstance(namespace, ast.Name):
+        return (
+            namespace.id
+            if bindings.get(namespace.id) in {"module", "tasks_module"}
+            else None
+        )
+    if (
         isinstance(namespace, ast.Attribute)
         and namespace.attr == "tasks"
         and isinstance(namespace.value, ast.Name)
         and bindings.get(namespace.value.id) == "module"
+    ):
+        return namespace.value.id
+    return None
+
+
+def _writes_task_attribute(node: ast.AST, bindings: dict[str, str]) -> bool:
+    if isinstance(node, ast.Attribute):
+        return (
+            node.attr == "task"
+            and isinstance(node.ctx, (ast.Store, ast.Del))
+            and _module_binding(node.value, bindings) is not None
+        )
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id in {"setattr", "delattr"}
+        and len(node.args) >= _ATTRIBUTE_ARGS_MIN
+        and _module_binding(node.args[0], bindings) is not None
+        and isinstance(node.args[1], ast.Constant)
+        and node.args[1].value == "task"
     )
 
 
@@ -164,7 +194,11 @@ def _module_children(node: ast.AST) -> list[ast.AST]:
         if node.value is not None:
             return [node.target, node.value]
         # Non-simple annotations still evaluate their object/index expressions.
-        return [] if isinstance(node.target, ast.Name) else [node.target]
+        return (
+            []
+            if isinstance(node.target, ast.Name)
+            else list(ast.iter_child_nodes(node.target))
+        )
     if isinstance(node, ast.comprehension):
         # The iteration target is local. Walrus assignments in the expressions
         # still bind in the containing scope and are visited normally.
@@ -172,13 +206,22 @@ def _module_children(node: ast.AST) -> list[ast.AST]:
     return list(ast.iter_child_nodes(node))
 
 
-def _written_names(statement: ast.stmt) -> set[str]:
+def _written_names(statement: ast.stmt, bindings: dict[str, str]) -> set[str]:
     """Over-approximate names a compound statement can replace."""
     names: set[str] = set()
     pending: list[ast.AST] = [statement]
     while pending:
         node = pending.pop()
         pending.extend(_module_children(node))
+        if _writes_task_attribute(node, bindings):
+            # Imported module aliases share mutable namespaces. Conservatively
+            # drop module decorator bindings when either export is replaced;
+            # directly imported task objects and existing tasks remain valid.
+            names.update(
+                name
+                for name, kind in bindings.items()
+                if kind in {"module", "tasks_module"}
+            )
         if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
             names.add(node.id)
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
@@ -217,7 +260,7 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             if isinstance(statement, ast.FunctionDef)
             else []
         )
-        written = _written_names(statement)
+        written = _written_names(statement, bindings)
         if "*" in written:
             bindings.clear()
             functions.clear()

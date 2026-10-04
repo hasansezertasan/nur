@@ -327,3 +327,45 @@ def test_annotation_target_expressions_can_rebind_tasks(annotation: str) -> None
         )
         == []
     )
+
+
+@pytest.mark.parametrize(
+    ("imports", "mutation", "decorator"),
+    [
+        ("import invoke", "invoke.task = lambda f: f", "invoke.task"),
+        ("import invoke", "del invoke.task", "invoke.task"),
+        ("import invoke.tasks as inv", "inv.task = other", "inv.task"),
+        ("import invoke.tasks", "invoke.tasks.task = other", "invoke.tasks.task"),
+        ("import invoke as inv\nimport invoke", "inv.task = other", "invoke.task"),
+        ("import invoke", 'setattr(invoke, "task", other)', "invoke.task"),
+        ("import invoke", 'delattr(invoke, "task")', "invoke.task"),
+    ],
+)
+def test_replaced_module_decorators_are_skipped(
+    imports: str, mutation: str, decorator: str
+) -> None:
+    assert (
+        parse_tasks(f"{imports}\n{mutation}\n@{decorator}\ndef build(c): ...\n") == []
+    )
+
+
+def test_module_mutation_preserves_imported_task_object() -> None:
+    tasks = parse_tasks(
+        "import invoke\nfrom invoke import task\ninvoke.task = other\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_later_module_mutation_preserves_existing_tasks() -> None:
+    tasks = parse_tasks(
+        "import invoke\n@invoke.task\ndef build(c): ...\ninvoke.task = other\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_module_attribute_annotation_does_not_replace_decorator() -> None:
+    tasks = parse_tasks(
+        "import invoke\ninvoke.task: Callable\n@invoke.task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
