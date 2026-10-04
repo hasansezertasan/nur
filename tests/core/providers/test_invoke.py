@@ -190,3 +190,29 @@ def test_star_import_may_replace_existing_task() -> None:
         )
         == []
     )
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "if True:\n def helper():\n  build = None",
+        "if True:\n class Helper:\n  build = None",
+        "callback = lambda: (build := None)",
+        "values = [lambda: (build := None) for index in range(3)]",
+    ],
+)
+def test_nested_scopes_do_not_rebind_module_task(statement: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n@task\ndef build(c): ...\n{statement}\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_function_defaults_can_rebind_module_task() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\ndef build(c): ...\n"
+            "if True:\n def helper(value=(build := None)): ...\n"
+        )
+        == []
+    )

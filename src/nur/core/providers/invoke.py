@@ -118,25 +118,32 @@ def _bind_import(
             bindings[bound] = kind
 
 
+def _module_children(node: ast.AST) -> list[ast.AST]:
+    """Traverse expressions evaluated here, excluding nested local scopes."""
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+        expressions: list[ast.AST] = [
+            *node.args.defaults,
+            *(value for value in node.args.kw_defaults if value is not None),
+        ]
+        if not isinstance(node, ast.Lambda):
+            expressions.extend(node.decorator_list)
+        return expressions
+    if isinstance(node, ast.ClassDef):
+        return [*node.decorator_list, *node.bases, *node.keywords]
+    if isinstance(node, ast.comprehension):
+        # The iteration target is local. Walrus assignments in the expressions
+        # still bind in the containing scope and are visited normally.
+        return [node.iter, *node.ifs]
+    return list(ast.iter_child_nodes(node))
+
+
 def _written_names(statement: ast.stmt) -> set[str]:
     """Over-approximate names a compound statement can replace."""
     names: set[str] = set()
     pending: list[ast.AST] = [statement]
     while pending:
         node = pending.pop()
-        if isinstance(
-            node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
-        ):
-            # Comprehension targets are local; assignment expressions bind in
-            # the containing scope, so those still invalidate module names.
-            names.update(
-                child.target.id
-                for child in ast.walk(node)
-                if isinstance(child, ast.NamedExpr)
-                and isinstance(child.target, ast.Name)
-            )
-            continue
-        pending.extend(ast.iter_child_nodes(node))
+        pending.extend(_module_children(node))
         if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
             names.add(node.id)
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
