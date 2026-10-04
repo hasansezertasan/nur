@@ -221,7 +221,7 @@ def test_function_defaults_can_rebind_module_task() -> None:
     )
 
 
-@pytest.mark.parametrize("options", ['aliases=("ship",)', "unknown=True"])
+@pytest.mark.parametrize("options", ['unknown_aliases=("ship",)', "unknown=True"])
 def test_unknown_decorator_options_are_skipped(options: str) -> None:
     assert (
         parse_tasks(f"from invoke import task\n@task({options})\ndef build(c): ...\n")
