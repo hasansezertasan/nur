@@ -147,7 +147,10 @@ def _task_names(function: ast.FunctionDef, bindings: dict[str, str]) -> list[str
 
 
 def _bind_import(
-    statement: ast.Import | ast.ImportFrom, bindings: dict[str, str]
+    statement: ast.Import | ast.ImportFrom,
+    bindings: dict[str, str],
+    *,
+    modules_tainted: bool,
 ) -> None:
     for alias in statement.names:
         if alias.name == "*":
@@ -172,7 +175,7 @@ def _bind_import(
             )
             kind = "tasks_module" if alias.name == "tasks" else "task"
         bindings.pop(bound, None)
-        if known:
+        if known and not modules_tainted:
             bindings[bound] = kind
 
 
@@ -206,14 +209,25 @@ def _module_children(node: ast.AST) -> list[ast.AST]:
     return list(ast.iter_child_nodes(node))
 
 
-def _written_names(statement: ast.stmt, bindings: dict[str, str]) -> set[str]:
+def _written_names(
+    statement: ast.stmt,
+    bindings: dict[str, str],
+    *,
+    module_bindings: dict[str, str] | None = None,
+) -> tuple[set[str], bool]:
     """Over-approximate names a compound statement can replace."""
+    module_bindings = bindings if module_bindings is None else module_bindings
     names: set[str] = set()
+    modules_tainted = False
     pending: list[ast.AST] = [statement]
     while pending:
         node = pending.pop()
         pending.extend(_module_children(node))
-        if _writes_task_attribute(node, bindings):
+        if _writes_task_attribute(node, bindings) or (
+            isinstance(node, ast.ClassDef)
+            and _class_mutates_tasks(node, module_bindings)
+        ):
+            modules_tainted = True
             # Imported module aliases share mutable namespaces. Conservatively
             # drop module decorator bindings when either export is replaced;
             # directly imported task objects and existing tasks remain valid.
@@ -237,7 +251,41 @@ def _written_names(statement: ast.stmt, bindings: dict[str, str]) -> set[str]:
             names.add(node.name)
         elif isinstance(node, ast.MatchMapping) and node.rest:
             names.add(node.rest)
+    return names, modules_tainted
+
+
+def _deleted_names(statement: ast.stmt) -> set[str]:
+    names: set[str] = set()
+    pending: list[ast.AST] = [statement]
+    while pending:
+        node = pending.pop()
+        pending.extend(_module_children(node))
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Del):
+            names.add(node.id)
     return names
+
+
+def _class_mutates_tasks(node: ast.ClassDef, bindings: dict[str, str]) -> bool:
+    """Inspect executed class code without leaking its local names outward."""
+    class_bindings = bindings.copy()
+    modules_tainted = False
+    for statement in node.body:
+        written, mutation = _written_names(
+            statement, class_bindings, module_bindings=bindings
+        )
+        modules_tainted |= mutation
+        if "*" in written:
+            class_bindings.clear()
+        for bound in written:
+            class_bindings.pop(bound, None)
+        # Removing a class-local shadow resumes lookup in module globals.
+        # Conditional deletes are treated as possible fallbacks conservatively.
+        for bound in _deleted_names(statement):
+            if bound in bindings:
+                class_bindings[bound] = bindings[bound]
+        if isinstance(statement, (ast.Import, ast.ImportFrom)):
+            _bind_import(statement, class_bindings, modules_tainted=modules_tainted)
+    return modules_tainted
 
 
 def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
@@ -252,6 +300,7 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
         compile(tree, source_file, "exec", dont_inherit=True)
     bindings: dict[str, str] = {}
     functions: dict[str, list[Task]] = {}
+    modules_tainted = False
     for statement in tree.body:
         # Decorators are evaluated before function defaults. Read the task
         # decorator binding first, then apply writes from definition headers.
@@ -260,7 +309,10 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             if isinstance(statement, ast.FunctionDef)
             else []
         )
-        written = _written_names(statement, bindings)
+        written, mutation = _written_names(statement, bindings)
+        # Re-imports reuse Python's cached modules; an import cannot restore
+        # trust after the decorator export has been replaced or deleted.
+        modules_tainted |= mutation
         if "*" in written:
             bindings.clear()
             functions.clear()
@@ -268,7 +320,7 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             bindings.pop(bound, None)
             functions.pop(bound, None)
         if isinstance(statement, (ast.Import, ast.ImportFrom)):
-            _bind_import(statement, bindings)
+            _bind_import(statement, bindings, modules_tainted=modules_tainted)
         elif isinstance(statement, ast.FunctionDef):
             docstring = ast.get_docstring(statement)
             description = docstring.splitlines()[0] if docstring else None

@@ -369,3 +369,108 @@ def test_module_attribute_annotation_does_not_replace_decorator() -> None:
         "import invoke\ninvoke.task: Callable\n@invoke.task\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "reimport",
+    [
+        "import invoke",
+        "import invoke as inv",
+        "import invoke.tasks as inv",
+        "from invoke import tasks as inv",
+        "from invoke import task as restored",
+        "from invoke.tasks import task as restored",
+    ],
+)
+def test_mutated_modules_remain_untrusted_after_imports(reimport: str) -> None:
+    decorator = (
+        "restored"
+        if "restored" in reimport
+        else "inv.task"
+        if "inv" in reimport.split()
+        else "invoke.task"
+    )
+    assert (
+        parse_tasks(
+            "import invoke\ninvoke.task = lambda f: f\n"
+            f"{reimport}\n@{decorator}\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "invoke.task = lambda f: f",
+        "invoke.tasks.task = lambda f: f",
+        "import invoke as inv\n inv.task = lambda f: f",
+        "if True:\n  invoke.task = lambda f: f",
+        "class Nested:\n  invoke.task = lambda f: f",
+        'setattr(invoke, "task", other)',
+    ],
+)
+def test_executed_class_mutations_invalidate_modules(body: str) -> None:
+    assert (
+        parse_tasks(
+            f"import invoke\nclass Helper:\n {body}\n@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_class_local_shadow_does_not_mutate_imported_module() -> None:
+    tasks = parse_tasks(
+        "import invoke\nclass Helper:\n invoke = other\n invoke.task = replacement\n"
+        "@invoke.task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_method_body_is_not_executed_during_discovery() -> None:
+    tasks = parse_tasks(
+        "import invoke\nclass Helper:\n def mutate(self):\n  invoke.task = other\n"
+        "@invoke.task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_class_import_and_mutation_taints_later_module_import() -> None:
+    assert (
+        parse_tasks(
+            "class Helper:\n import invoke\n invoke.task = other\n"
+            "import invoke\n@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_nested_class_body_uses_module_bindings() -> None:
+    assert (
+        parse_tasks(
+            "import invoke\nclass Helper:\n invoke = other\n"
+            " class Nested:\n  invoke.task = replacement\n"
+            "@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_nested_class_header_uses_enclosing_class_bindings() -> None:
+    tasks = parse_tasks(
+        "import invoke\nclass Helper:\n invoke = other\n"
+        " class Nested((setattr(invoke, 'task', replacement), Base)[1]): ...\n"
+        "@invoke.task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("deletion", ["del invoke", "if True:\n  del invoke"])
+def test_class_deletion_restores_module_lookup(deletion: str) -> None:
+    assert (
+        parse_tasks(
+            f"import invoke\nclass Helper:\n invoke = other\n {deletion}\n"
+            " invoke.task = replacement\n@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )
