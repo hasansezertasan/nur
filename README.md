@@ -193,7 +193,8 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   conditional definitions, custom decorators, and explicit `Collection` wiring
   are not resolved. Explicit namespaces may therefore make the discovered bare
   names unavailable, and configuration disabling automatic dashes is not read.
-  Dotted names and aliases are excluded because they require namespace traversal.
+  Names and aliases containing dots or beginning with a dash are excluded because
+  Invoke interprets them as namespace paths or CLI options.
 
   `nox` parses `noxfile.py` as a Python syntax tree (never importing it, unlike
   `nox --list`) and surfaces top-level `@nox.session`-decorated functions,

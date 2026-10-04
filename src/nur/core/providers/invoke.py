@@ -368,7 +368,7 @@ def _task_names(
     if metadata is None:
         return []
     name, aliases = metadata
-    if "." in name:
+    if "." in name or name.startswith("-"):
         return []
     # Invoke's default Collection turns underscores into dashes. Config and
     # explicit Collection wiring are outside this single-module subset.
@@ -376,7 +376,7 @@ def _task_names(
         dict.fromkeys(
             _normalize_name(item)
             for item in [name, *aliases]
-            if item and "." not in item
+            if item and "." not in item and not item.startswith("-")
         )
     )
 
@@ -597,6 +597,44 @@ def _merge_possible_modules(
                 )
 
 
+def _copied_modules(
+    statement: ast.stmt, bindings: dict[str, str], tainted: set[str]
+) -> dict[str, str]:
+    if isinstance(statement, ast.Assign):
+        targets, value = statement.targets, statement.value
+    elif isinstance(statement, ast.AnnAssign) and statement.value is not None:
+        targets, value = [statement.target], statement.value
+    else:
+        return {}
+    kind = _module_kind(value, bindings, tainted)
+    if isinstance(value, ast.Name) and bindings.get(value.id) == "builtins":
+        kind = "builtins"
+    kind = kind or _builtin_name(value, bindings)
+    if kind is None:
+        return {}
+    return {target.id: kind for target in targets if isinstance(target, ast.Name)}
+
+
+def _forget_class_bindings(
+    statement: ast.stmt,
+    bindings: dict[str, str],
+    module_bindings: dict[str, str] | None,
+    globals_: set[str],
+    written: set[str],
+) -> None:
+    if "*" in written:
+        bindings.clear()
+    deleted = _deleted_names(statement)
+    for bound in written:
+        bindings.pop(bound, None)
+        if bound in _BUILTIN_HELPERS and bound not in deleted:
+            bindings[bound] = "shadowed"
+    # Removing a class-local shadow resumes lookup in module globals.
+    for bound in deleted - globals_:
+        if module_bindings is not None and bound in module_bindings:
+            bindings[bound] = module_bindings[bound]
+
+
 def _class_block_effects(
     statements: list[ast.stmt],
     bindings: dict[str, str],
@@ -611,6 +649,7 @@ def _class_block_effects(
     for statement in statements:
         # Inspect each possible block in order with its own local environment.
         # Imports within a branch are visible to subsequent mutations there.
+        copied_modules = _copied_modules(statement, class_bindings, class_taints)
         branch_bindings: list[dict[str, str]] = []
         for block in _statement_blocks(statement):
             writes, effects, possible = _class_block_effects(
@@ -631,20 +670,17 @@ def _class_block_effects(
         global_writes.update(nested_writes | (written & globals_))
         class_taints.update(mutation)
         mutations.update(mutation)
-        if "*" in written:
-            class_bindings.clear()
-        deleted = _deleted_names(statement)
-        for bound in written | nested_writes:
-            class_bindings.pop(bound, None)
-            if bound in _BUILTIN_HELPERS and bound not in deleted:
-                class_bindings[bound] = "shadowed"
-        # Removing a class-local shadow resumes lookup in module globals.
-        for bound in deleted - globals_:
-            if module_bindings is not None and bound in module_bindings:
-                class_bindings[bound] = module_bindings[bound]
+        _forget_class_bindings(
+            statement,
+            class_bindings,
+            module_bindings,
+            globals_,
+            written | nested_writes,
+        )
         # A branch may leave an imported alias in class scope. Retain possible
         # module references for conservative mutation detection after the block.
         _merge_possible_modules(class_bindings, branch_bindings)
+        class_bindings.update(copied_modules)
         if isinstance(statement, (ast.Import, ast.ImportFrom)):
             _bind_import(statement, class_bindings, class_taints)
     return global_writes, mutations, class_bindings

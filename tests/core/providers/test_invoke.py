@@ -944,3 +944,59 @@ def test_copying_default_to_same_binding_does_not_collide() -> None:
         "build = build\n@task\ndef publish(c): ...\n"
     )
     assert [task.name for task in tasks] == ["publish"]
+
+
+@pytest.mark.parametrize("name", ["--help", "-h", "-build"])
+def test_flag_like_task_names_are_skipped(name: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task(name={name!r})\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_flag_like_aliases_are_skipped() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task(aliases=['-h', '--help', 'compile'])\n"
+        "def build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build", "compile"]
+
+
+@pytest.mark.parametrize(
+    "alias",
+    [
+        "alias = invoke",
+        "alias: Module = invoke",
+        "alias = second = invoke",
+        "alias = invoke.tasks",
+    ],
+)
+def test_copied_module_alias_mutations(alias: str) -> None:
+    decorator = "invoke.tasks.task" if "invoke.tasks" in alias else "invoke.task"
+    assert (
+        parse_tasks(
+            f"import invoke\n{alias}\nalias.task = replacement\n"
+            f"@{decorator}\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_copied_module_alias_in_class_mutates_module() -> None:
+    assert (
+        parse_tasks(
+            "import invoke\nclass Helper:\n alias = invoke\n alias.task = replacement\n"
+            "@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_replaced_module_alias_does_not_mutate_original() -> None:
+    tasks = parse_tasks(
+        "import invoke\nalias = invoke\nalias = other\nalias.task = replacement\n"
+        "@invoke.task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
