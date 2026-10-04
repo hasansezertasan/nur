@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from nur.core.providers.cargo_make import CargoMakeProvider
 from nur.core.providers.composer import ComposerProvider
 from nur.core.providers.deno import DenoProvider
+from nur.core.providers.invoke import InvokeProvider
 from nur.core.providers.just import JustProvider
 from nur.core.providers.make import MakeProvider
 from nur.core.providers.mask import MaskProvider
@@ -39,6 +40,7 @@ PROVIDERS: list[Provider] = [
     VsCodeProvider(),
     NoxProvider(),
     MaskProvider(),
+    InvokeProvider(),
 ]
 
 __all__ = [
@@ -46,6 +48,7 @@ __all__ = [
     "CargoMakeProvider",
     "ComposerProvider",
     "DenoProvider",
+    "InvokeProvider",
     "JustProvider",
     "MakeProvider",
     "MaskProvider",

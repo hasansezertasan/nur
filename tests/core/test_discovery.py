@@ -35,6 +35,7 @@ def test_providers_registry_order() -> None:
         "vscode",
         "nox",
         "mask",
+        "invoke",
     ]
 
 
