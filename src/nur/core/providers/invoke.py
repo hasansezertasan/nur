@@ -66,7 +66,30 @@ def _module_kind(
     return None
 
 
-def _mapping_write(node: ast.AST) -> tuple[ast.expr, str] | None:
+def _builtin_name(expression: ast.expr, bindings: dict[str, str]) -> str | None:
+    builtins = {"setattr", "delattr", "vars"}
+    if isinstance(expression, ast.Name):
+        kind = bindings.get(expression.id)
+        return (
+            kind
+            if kind in builtins
+            else expression.id
+            if expression.id in builtins
+            else None
+        )
+    if (
+        isinstance(expression, ast.Attribute)
+        and isinstance(expression.value, ast.Name)
+        and bindings.get(expression.value.id) == "builtins"
+        and expression.attr in builtins
+    ):
+        return expression.attr
+    return None
+
+
+def _mapping_write(
+    node: ast.AST, bindings: dict[str, str]
+) -> tuple[ast.expr, str] | None:
     if not isinstance(node, ast.Subscript) or not isinstance(
         node.ctx, (ast.Store, ast.Del)
     ):
@@ -80,8 +103,7 @@ def _mapping_write(node: ast.AST) -> tuple[ast.expr, str] | None:
         return mapping.value, node.slice.value
     if (
         isinstance(mapping, ast.Call)
-        and isinstance(mapping.func, ast.Name)
-        and mapping.func.id == "vars"
+        and _builtin_name(mapping.func, bindings) == "vars"
         and len(mapping.args) == 1
     ):
         return mapping.args[0], node.slice.value
@@ -95,8 +117,7 @@ def _mutated_export(
         namespace, attribute = node.value, node.attr
     elif (
         isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id in {"setattr", "delattr"}
+        and _builtin_name(node.func, bindings) in {"setattr", "delattr"}
         and len(node.args) >= _ATTRIBUTE_ARGS_MIN
         and isinstance(node.args[1], ast.Constant)
     ):
@@ -104,7 +125,7 @@ def _mutated_export(
         if not isinstance(value, str):
             return None
         namespace, attribute = node.args[0], value
-    elif (mapping_write := _mapping_write(node)) is not None:
+    elif (mapping_write := _mapping_write(node, bindings)) is not None:
         namespace, attribute = mapping_write
     else:
         return None
@@ -140,7 +161,7 @@ def _invalid_literal_option(keyword: ast.keyword) -> bool:
         return not iterable
     if keyword.arg == "positional":
         return value is not None and not iterable
-    if keyword.arg in {"iterable", "incrementable"}:
+    if keyword.arg in {"iterable", "incrementable", "pre", "post"}:
         return bool(value) and not iterable
     if keyword.arg == "help":
         return bool(value) and not isinstance(value, dict)
@@ -265,6 +286,8 @@ def _import_binding(
 ) -> tuple[str, str | None]:
     if isinstance(statement, ast.Import):
         bound = alias.asname or alias.name.split(".")[0]
+        if alias.name == "builtins":
+            return bound, "builtins"
         if alias.name == "invoke" or (
             alias.name == "invoke.tasks" and not alias.asname
         ):
@@ -276,6 +299,12 @@ def _import_binding(
         )
         return bound, kind
     bound = alias.asname or alias.name
+    if (
+        statement.module == "builtins"
+        and not statement.level
+        and alias.name in {"setattr", "delattr", "vars"}
+    ):
+        return bound, alias.name
     exports = {
         ("invoke", "task"): ("task", "invoke.task"),
         ("invoke.tasks", "task"): ("task", "invoke.tasks.task"),
@@ -293,6 +322,20 @@ def _bind_import(
     for alias in statement.names:
         if alias.name == "*":
             bindings.clear()
+            if (
+                isinstance(statement, ast.ImportFrom)
+                and not statement.level
+                and statement.module in {"invoke", "invoke.tasks"}
+            ):
+                exported = (
+                    ["task", "tasks"] if statement.module == "invoke" else ["task"]
+                )
+                for name in exported:
+                    bound, kind = _import_binding(
+                        statement, ast.alias(name=name), tainted
+                    )
+                    if kind is not None:
+                        bindings[bound] = kind
             continue
         bound, kind = _import_binding(statement, alias, tainted)
         bindings.pop(bound, None)
@@ -419,7 +462,15 @@ def _merge_possible_modules(
 ) -> None:
     for possible in possibilities:
         for bound, kind in possible.items():
-            if kind in {"module", "tasks_module", "ambiguous_module"}:
+            if kind in {
+                "module",
+                "tasks_module",
+                "ambiguous_module",
+                "builtins",
+                "setattr",
+                "delattr",
+                "vars",
+            }:
                 previous = bindings.get(bound)
                 bindings[bound] = (
                     "ambiguous_module" if previous and previous != kind else kind

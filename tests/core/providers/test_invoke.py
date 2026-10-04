@@ -801,3 +801,53 @@ def test_dotted_aliases_are_skipped() -> None:
         "def build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build", "deploy-all"]
+
+
+@pytest.mark.parametrize("module", ["invoke", "invoke.tasks"])
+def test_known_invoke_star_import(module: str) -> None:
+    tasks = parse_tasks(f"from {module} import *\n@task\ndef build(c): ...\n")
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_star_import_respects_mutated_export() -> None:
+    assert (
+        parse_tasks(
+            "import invoke\ninvoke.task = replacement\nfrom invoke import *\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("option", ["pre=1", "post=1", "pre=1.5", "post=True"])
+def test_invalid_literal_hooks_are_skipped(option: str) -> None:
+    assert (
+        parse_tasks(f"from invoke import task\n@task({option})\ndef build(c): ...\n")
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    ("imports", "mutation"),
+    [
+        ("import builtins", "builtins.setattr(invoke, 'task', replacement)"),
+        ("import builtins as b", "b.delattr(invoke, 'task')"),
+        (
+            "from builtins import setattr as replace",
+            "replace(invoke, 'task', replacement)",
+        ),
+        ("from builtins import delattr as remove", "remove(invoke, 'task')"),
+        ("import builtins", "builtins.vars(invoke)['task'] = replacement"),
+        (
+            "from builtins import vars as namespace",
+            "namespace(invoke)['task'] = replacement",
+        ),
+    ],
+)
+def test_qualified_and_aliased_builtin_mutations(imports: str, mutation: str) -> None:
+    assert (
+        parse_tasks(
+            f"import invoke\n{imports}\n{mutation}\n@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )
