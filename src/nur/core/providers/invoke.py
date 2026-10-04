@@ -35,49 +35,61 @@ _TASK_OPTIONS = frozenset({
 })
 
 
-def _decorator_matches(expression: ast.expr, bindings: dict[str, str]) -> bool:
+def _decorator_matches(
+    expression: ast.expr, bindings: dict[str, str], tainted: set[str]
+) -> bool:
     if isinstance(expression, ast.Name):
         return bindings.get(expression.id) == "task"
-    return (
-        isinstance(expression, ast.Attribute)
-        and expression.attr == "task"
-        and _module_binding(expression.value, bindings) is not None
+    if not isinstance(expression, ast.Attribute) or expression.attr != "task":
+        return False
+    kind = _module_kind(expression.value, bindings, tainted)
+    export = {"module": "invoke.task", "tasks_module": "invoke.tasks.task"}.get(
+        kind or ""
     )
+    return export is not None and export not in tainted
 
 
-def _module_binding(namespace: ast.expr, bindings: dict[str, str]) -> str | None:
+def _module_kind(
+    namespace: ast.expr, bindings: dict[str, str], tainted: set[str]
+) -> str | None:
     if isinstance(namespace, ast.Name):
-        return (
-            namespace.id
-            if bindings.get(namespace.id) in {"module", "tasks_module"}
-            else None
-        )
+        kind = bindings.get(namespace.id)
+        return kind if kind in {"module", "tasks_module"} else None
     if (
         isinstance(namespace, ast.Attribute)
         and namespace.attr == "tasks"
         and isinstance(namespace.value, ast.Name)
         and bindings.get(namespace.value.id) == "module"
+        and "invoke.tasks" not in tainted
     ):
-        return namespace.value.id
+        return "tasks_module"
     return None
 
 
-def _writes_task_attribute(node: ast.AST, bindings: dict[str, str]) -> bool:
-    if isinstance(node, ast.Attribute):
-        return (
-            node.attr == "task"
-            and isinstance(node.ctx, (ast.Store, ast.Del))
-            and _module_binding(node.value, bindings) is not None
-        )
-    return (
+def _mutated_export(
+    node: ast.AST, bindings: dict[str, str], tainted: set[str]
+) -> str | None:
+    if isinstance(node, ast.Attribute) and isinstance(node.ctx, (ast.Store, ast.Del)):
+        namespace, attribute = node.value, node.attr
+    elif (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Name)
         and node.func.id in {"setattr", "delattr"}
         and len(node.args) >= _ATTRIBUTE_ARGS_MIN
-        and _module_binding(node.args[0], bindings) is not None
         and isinstance(node.args[1], ast.Constant)
-        and node.args[1].value == "task"
-    )
+    ):
+        value = node.args[1].value
+        if not isinstance(value, str):
+            return None
+        namespace, attribute = node.args[0], value
+    else:
+        return None
+    kind = _module_kind(namespace, bindings, tainted)
+    return {
+        ("module", "task"): "invoke.task",
+        ("module", "tasks"): "invoke.tasks",
+        ("tasks_module", "task"): "invoke.tasks.task",
+    }.get((kind or "", attribute))
 
 
 def _literal_aliases(expression: ast.expr) -> list[str] | None:
@@ -125,7 +137,9 @@ def _normalize_name(name: str) -> str:
     )
 
 
-def _task_names(function: ast.FunctionDef, bindings: dict[str, str]) -> list[str]:
+def _task_names(
+    function: ast.FunctionDef, bindings: dict[str, str], tainted: set[str]
+) -> list[str]:
     # Other decorators can replace the callable/name or discard the Task object.
     if len(function.decorator_list) != 1 or not (
         function.args.posonlyargs or function.args.args or function.args.vararg
@@ -133,7 +147,13 @@ def _task_names(function: ast.FunctionDef, bindings: dict[str, str]) -> list[str
         return []
     decorator = function.decorator_list[0]
     expression = decorator.func if isinstance(decorator, ast.Call) else decorator
-    if not _decorator_matches(expression, bindings):
+    if not _decorator_matches(expression, bindings, tainted):
+        return []
+    if (
+        isinstance(decorator, ast.Call)
+        and decorator.args
+        and any(keyword.arg == "pre" for keyword in decorator.keywords)
+    ):
         return []
     metadata = _literal_metadata(decorator, function.name)
     if metadata is None:
@@ -146,36 +166,43 @@ def _task_names(function: ast.FunctionDef, bindings: dict[str, str]) -> list[str
     )
 
 
+def _import_binding(
+    statement: ast.Import | ast.ImportFrom, alias: ast.alias, tainted: set[str]
+) -> tuple[str, str | None]:
+    if isinstance(statement, ast.Import):
+        bound = alias.asname or alias.name.split(".")[0]
+        if alias.name == "invoke" or (
+            alias.name == "invoke.tasks" and not alias.asname
+        ):
+            return bound, "module"
+        kind = (
+            "tasks_module"
+            if alias.name == "invoke.tasks" and "invoke.tasks" not in tainted
+            else None
+        )
+        return bound, kind
+    bound = alias.asname or alias.name
+    exports = {
+        ("invoke", "task"): ("task", "invoke.task"),
+        ("invoke.tasks", "task"): ("task", "invoke.tasks.task"),
+        ("invoke", "tasks"): ("tasks_module", "invoke.tasks"),
+    }
+    imported = exports.get((statement.module or "", alias.name))
+    if statement.level or imported is None or imported[1] in tainted:
+        return bound, None
+    return bound, imported[0]
+
+
 def _bind_import(
-    statement: ast.Import | ast.ImportFrom,
-    bindings: dict[str, str],
-    *,
-    modules_tainted: bool,
+    statement: ast.Import | ast.ImportFrom, bindings: dict[str, str], tainted: set[str]
 ) -> None:
     for alias in statement.names:
         if alias.name == "*":
             bindings.clear()
             continue
-        if isinstance(statement, ast.Import):
-            bound = alias.asname or alias.name.split(".")[0]
-            known = alias.name in {"invoke", "invoke.tasks"}
-            kind = (
-                "tasks_module"
-                if alias.name == "invoke.tasks" and alias.asname
-                else "module"
-            )
-        else:
-            bound = alias.asname or alias.name
-            known = not statement.level and (
-                (
-                    statement.module in {"invoke", "invoke.tasks"}
-                    and alias.name == "task"
-                )
-                or (statement.module == "invoke" and alias.name == "tasks")
-            )
-            kind = "tasks_module" if alias.name == "tasks" else "task"
+        bound, kind = _import_binding(statement, alias, tainted)
         bindings.pop(bound, None)
-        if known and not modules_tainted:
+        if kind is not None:
             bindings[bound] = kind
 
 
@@ -213,29 +240,22 @@ def _written_names(
     statement: ast.stmt,
     bindings: dict[str, str],
     *,
+    tainted: set[str],
     module_bindings: dict[str, str] | None = None,
-) -> tuple[set[str], bool]:
+) -> tuple[set[str], set[str]]:
     """Over-approximate names a compound statement can replace."""
     module_bindings = bindings if module_bindings is None else module_bindings
     names: set[str] = set()
-    modules_tainted = False
+    mutations: set[str] = set()
     pending: list[ast.AST] = [statement]
     while pending:
         node = pending.pop()
         pending.extend(_module_children(node))
-        if _writes_task_attribute(node, bindings) or (
-            isinstance(node, ast.ClassDef)
-            and _class_mutates_tasks(node, module_bindings)
-        ):
-            modules_tainted = True
-            # Imported module aliases share mutable namespaces. Conservatively
-            # drop module decorator bindings when either export is replaced;
-            # directly imported task objects and existing tasks remain valid.
-            names.update(
-                name
-                for name, kind in bindings.items()
-                if kind in {"module", "tasks_module"}
-            )
+        export = _mutated_export(node, bindings, tainted)
+        if export is not None:
+            mutations.add(export)
+        if isinstance(node, ast.ClassDef):
+            mutations.update(_class_mutates_tasks(node, module_bindings, tainted))
         if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
             names.add(node.id)
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
@@ -251,7 +271,7 @@ def _written_names(
             names.add(node.name)
         elif isinstance(node, ast.MatchMapping) and node.rest:
             names.add(node.rest)
-    return names, modules_tainted
+    return names, mutations
 
 
 def _deleted_names(statement: ast.stmt) -> set[str]:
@@ -265,15 +285,19 @@ def _deleted_names(statement: ast.stmt) -> set[str]:
     return names
 
 
-def _class_mutates_tasks(node: ast.ClassDef, bindings: dict[str, str]) -> bool:
+def _class_mutates_tasks(
+    node: ast.ClassDef, bindings: dict[str, str], tainted: set[str]
+) -> set[str]:
     """Inspect executed class code without leaking its local names outward."""
     class_bindings = bindings.copy()
-    modules_tainted = False
+    class_taints = tainted.copy()
+    mutations: set[str] = set()
     for statement in node.body:
         written, mutation = _written_names(
-            statement, class_bindings, module_bindings=bindings
+            statement, class_bindings, tainted=class_taints, module_bindings=bindings
         )
-        modules_tainted |= mutation
+        class_taints.update(mutation)
+        mutations.update(mutation)
         if "*" in written:
             class_bindings.clear()
         for bound in written:
@@ -284,8 +308,8 @@ def _class_mutates_tasks(node: ast.ClassDef, bindings: dict[str, str]) -> bool:
             if bound in bindings:
                 class_bindings[bound] = bindings[bound]
         if isinstance(statement, (ast.Import, ast.ImportFrom)):
-            _bind_import(statement, class_bindings, modules_tainted=modules_tainted)
-    return modules_tainted
+            _bind_import(statement, class_bindings, class_taints)
+    return mutations
 
 
 def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
@@ -300,19 +324,19 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
         compile(tree, source_file, "exec", dont_inherit=True)
     bindings: dict[str, str] = {}
     functions: dict[str, list[Task]] = {}
-    modules_tainted = False
+    tainted: set[str] = set()
     for statement in tree.body:
         # Decorators are evaluated before function defaults. Read the task
         # decorator binding first, then apply writes from definition headers.
         names = (
-            _task_names(statement, bindings)
+            _task_names(statement, bindings, tainted)
             if isinstance(statement, ast.FunctionDef)
             else []
         )
-        written, mutation = _written_names(statement, bindings)
+        written, mutation = _written_names(statement, bindings, tainted=tainted)
         # Re-imports reuse Python's cached modules; an import cannot restore
         # trust after the decorator export has been replaced or deleted.
-        modules_tainted |= mutation
+        tainted.update(mutation)
         if "*" in written:
             bindings.clear()
             functions.clear()
@@ -320,7 +344,7 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             bindings.pop(bound, None)
             functions.pop(bound, None)
         if isinstance(statement, (ast.Import, ast.ImportFrom)):
-            _bind_import(statement, bindings, modules_tainted=modules_tainted)
+            _bind_import(statement, bindings, tainted)
         elif isinstance(statement, ast.FunctionDef):
             docstring = ast.get_docstring(statement)
             description = docstring.splitlines()[0] if docstring else None

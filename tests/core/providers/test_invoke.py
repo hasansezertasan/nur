@@ -372,48 +372,41 @@ def test_module_attribute_annotation_does_not_replace_decorator() -> None:
 
 
 @pytest.mark.parametrize(
-    "reimport",
+    ("reimport", "decorator", "expected"),
     [
-        "import invoke",
-        "import invoke as inv",
-        "import invoke.tasks as inv",
-        "from invoke import tasks as inv",
-        "from invoke import task as restored",
-        "from invoke.tasks import task as restored",
+        ("import invoke", "invoke.task", []),
+        ("import invoke as inv", "inv.task", []),
+        ("import invoke.tasks as inv", "inv.task", ["build"]),
+        ("from invoke import tasks as inv", "inv.task", ["build"]),
+        ("from invoke import task as restored", "restored", []),
+        ("from invoke.tasks import task as restored", "restored", ["build"]),
     ],
 )
-def test_mutated_modules_remain_untrusted_after_imports(reimport: str) -> None:
-    decorator = (
-        "restored"
-        if "restored" in reimport
-        else "inv.task"
-        if "inv" in reimport.split()
-        else "invoke.task"
+def test_mutated_exports_after_imports(
+    reimport: str, decorator: str, expected: list[str]
+) -> None:
+    tasks = parse_tasks(
+        "import invoke\ninvoke.task = lambda f: f\n"
+        f"{reimport}\n@{decorator}\ndef build(c): ...\n"
     )
-    assert (
-        parse_tasks(
-            "import invoke\ninvoke.task = lambda f: f\n"
-            f"{reimport}\n@{decorator}\ndef build(c): ...\n"
-        )
-        == []
-    )
+    assert [task.name for task in tasks] == expected
 
 
 @pytest.mark.parametrize(
-    "body",
+    ("body", "decorator"),
     [
-        "invoke.task = lambda f: f",
-        "invoke.tasks.task = lambda f: f",
-        "import invoke as inv\n inv.task = lambda f: f",
-        "if True:\n  invoke.task = lambda f: f",
-        "class Nested:\n  invoke.task = lambda f: f",
-        'setattr(invoke, "task", other)',
+        ("invoke.task = lambda f: f", "invoke.task"),
+        ("invoke.tasks.task = lambda f: f", "invoke.tasks.task"),
+        ("import invoke as inv\n inv.task = lambda f: f", "invoke.task"),
+        ("if True:\n  invoke.task = lambda f: f", "invoke.task"),
+        ("class Nested:\n  invoke.task = lambda f: f", "invoke.task"),
+        ('setattr(invoke, "task", other)', "invoke.task"),
     ],
 )
-def test_executed_class_mutations_invalidate_modules(body: str) -> None:
+def test_executed_class_mutations_invalidate_modules(body: str, decorator: str) -> None:
     assert (
         parse_tasks(
-            f"import invoke\nclass Helper:\n {body}\n@invoke.task\ndef build(c): ...\n"
+            f"import invoke\nclass Helper:\n {body}\n@{decorator}\ndef build(c): ...\n"
         )
         == []
     )
@@ -471,6 +464,110 @@ def test_class_deletion_restores_module_lookup(deletion: str) -> None:
         parse_tasks(
             f"import invoke\nclass Helper:\n invoke = other\n {deletion}\n"
             " invoke.task = replacement\n@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    ("options", "expected"),
+    [("setup, pre=[setup]", []), ("setup", ["build"]), ("pre=[setup]", ["build"])],
+)
+def test_positional_dependencies_and_pre_option(
+    options: str, expected: list[str]
+) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n@task({options})\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == expected
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "invoke.tasks = other",
+        "del invoke.tasks",
+        'setattr(invoke, "tasks", other)',
+        'delattr(invoke, "tasks")',
+    ],
+)
+def test_replaced_tasks_namespace(mutation: str) -> None:
+    assert (
+        parse_tasks(
+            f"import invoke\n{mutation}\n@invoke.tasks.task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "reimport",
+    [
+        "import invoke",
+        "import invoke.tasks",
+        "import invoke.tasks as inv",
+        "from invoke import tasks as inv",
+    ],
+)
+def test_namespace_mutation_persists_after_imports(reimport: str) -> None:
+    decorator = "inv.task" if "as inv" in reimport else "invoke.tasks.task"
+    assert (
+        parse_tasks(
+            "import invoke\ninvoke.tasks = other\n"
+            f"{reimport}\n@{decorator}\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    ("imports", "mutation", "reimport", "decorator"),
+    [
+        ("import invoke", "invoke.tasks.task = other", "import invoke", "invoke.task"),
+        (
+            "import invoke",
+            "invoke.tasks.task = other",
+            "from invoke import task",
+            "task",
+        ),
+        ("import invoke", "invoke.tasks = other", "", "invoke.task"),
+        (
+            "import invoke\nfrom invoke import tasks as inv",
+            "invoke.tasks = other",
+            "",
+            "inv.task",
+        ),
+        (
+            "import invoke",
+            "invoke.tasks = other",
+            "from invoke.tasks import task",
+            "task",
+        ),
+    ],
+)
+def test_mutations_preserve_independent_exports(
+    imports: str, mutation: str, reimport: str, decorator: str
+) -> None:
+    tasks = parse_tasks(
+        f"{imports}\n{mutation}\n{reimport}\n@{decorator}\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    ("reimport", "decorator"),
+    [
+        ("import invoke.tasks as inv", "inv.task"),
+        ("from invoke.tasks import task", "task"),
+    ],
+)
+def test_submodule_mutation_persists_after_imports(
+    reimport: str, decorator: str
+) -> None:
+    assert (
+        parse_tasks(
+            "import invoke\ninvoke.tasks.task = other\n"
+            f"{reimport}\n@{decorator}\ndef build(c): ...\n"
         )
         == []
     )
