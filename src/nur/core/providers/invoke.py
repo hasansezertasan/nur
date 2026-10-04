@@ -17,16 +17,36 @@ __all__ = ["InvokeProvider", "parse_tasks"]
 
 log = logging.getLogger("nur")
 _SOURCE_FILE = "tasks.py"
+# Custom klass= is excluded because it may change naming/registration semantics.
+_TASK_OPTIONS = frozenset({
+    "name",
+    "aliases",
+    "positional",
+    "optional",
+    "default",
+    "auto_shortflags",
+    "help",
+    "pre",
+    "post",
+    "autoprint",
+    "iterable",
+    "incrementable",
+})
 
 
 def _decorator_matches(expression: ast.expr, bindings: dict[str, str]) -> bool:
     if isinstance(expression, ast.Name):
         return bindings.get(expression.id) == "task"
+    if not isinstance(expression, ast.Attribute) or expression.attr != "task":
+        return False
+    namespace = expression.value
+    if isinstance(namespace, ast.Name):
+        return bindings.get(namespace.id) in {"module", "tasks_module"}
     return (
-        isinstance(expression, ast.Attribute)
-        and expression.attr == "task"
-        and isinstance(expression.value, ast.Name)
-        and bindings.get(expression.value.id) == "module"
+        isinstance(namespace, ast.Attribute)
+        and namespace.attr == "tasks"
+        and isinstance(namespace.value, ast.Name)
+        and bindings.get(namespace.value.id) == "module"
     )
 
 
@@ -46,7 +66,7 @@ def _literal_metadata(decorator: ast.expr, name: str) -> tuple[str, list[str]] |
     if not isinstance(decorator, ast.Call):
         return name, aliases
     for keyword in decorator.keywords:
-        if keyword.arg in {None, "klass"}:
+        if keyword.arg not in _TASK_OPTIONS:
             return None
         if keyword.arg == "name":
             if not isinstance(keyword.value, ast.Constant):
@@ -103,8 +123,12 @@ def _bind_import(
             continue
         if isinstance(statement, ast.Import):
             bound = alias.asname or alias.name.split(".")[0]
-            known = alias.name == "invoke"
-            kind = "module"
+            known = alias.name in {"invoke", "invoke.tasks"}
+            kind = (
+                "tasks_module"
+                if alias.name == "invoke.tasks" and alias.asname
+                else "module"
+            )
         else:
             bound = alias.asname or alias.name
             known = (

@@ -15,6 +15,9 @@ if TYPE_CHECKING:
         ("from invoke import task", "task"),
         ("from invoke import task as t", "t()"),
         ("import invoke", "invoke.task"),
+        ("import invoke.tasks as inv", "inv.task"),
+        ("import invoke.tasks", "invoke.tasks.task"),
+        ("import invoke.tasks", "invoke.task"),
         ("import invoke as inv", "inv.task(pre=[])"),
         ("from invoke.tasks import task", "task"),
     ],
@@ -216,3 +219,32 @@ def test_function_defaults_can_rebind_module_task() -> None:
         )
         == []
     )
+
+
+@pytest.mark.parametrize("options", ['aliases=("ship",)', "unknown=True"])
+def test_unknown_decorator_options_are_skipped(options: str) -> None:
+    assert (
+        parse_tasks(f"from invoke import task\n@task({options})\ndef build(c): ...\n")
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        "default=True",
+        "optional=['clean']",
+        "help={'clean': 'Clean first'}",
+        "autoprint=True",
+        "positional=['clean']",
+        "auto_shortflags=False",
+        "iterable=['clean']",
+        "incrementable=['clean']",
+        "post=[]",
+    ],
+)
+def test_supported_options_preserve_names(options: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n@task({options})\ndef build(c, clean=False): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
