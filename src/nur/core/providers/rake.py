@@ -8,9 +8,9 @@ import tree_sitter_ruby
 from tree_sitter import Language, Node, Parser
 
 from nur.core.models import Task
+from nur.core.providers._rake_callbacks import invalid_namespace_lambda_parameters
 from nur.core.providers._rake_syntax import (
     binding_names,
-    callback_nodes,
     defined_probe,
     literal,
     node_text,
@@ -39,6 +39,8 @@ _DEFERRED_METHODS = {
     "rule",
     "proc",
     "lambda",
+    "define_method",
+    "define_singleton_method",
 }
 
 
@@ -96,6 +98,17 @@ def _record_override(node: Node, disabled: set[str]) -> None:
             disabled.add(
                 f"{node_text(owner).removeprefix('::')}.{node_text(name_node)}"
             )
+    if node.type == "call" and _dsl_receiver(node):
+        method = node.child_by_field_name("method")
+        arguments = _arguments(node)
+        if (
+            method is not None
+            and node_text(method) == "define_singleton_method"
+            and arguments
+        ):
+            name = literal(arguments[0])
+            if name is not None:
+                disabled.add(name)
 
 
 def _method(node: Node, disabled: set[str]) -> str | None:
@@ -324,40 +337,7 @@ def _namespace_lambda_error(callback: Node, disabled: set[str]) -> bool:
         if block is None:
             return False
         callback = block
-    return _lambda_parameter_error(callback)
-
-
-def _lambda_parameter_error(callback: Node) -> bool:
-    parameters = callback.child_by_field_name("parameters")
-    if parameters is None:
-        # Implicit numbered/it parameters may establish an arity dynamically.
-        arities = [
-            int(name[1]) if name.startswith("_") else 1
-            for child in callback_nodes(callback)
-            if (name := node_text(child))
-            in {"it", "_1", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9"}
-        ]
-        return not arities or max(arities) > 1
-    required = 0
-    maximum = 0
-    rest = False
-    for index, parameter in enumerate(parameters.children):
-        if not parameter.is_named or parameters.field_name_for_child(index) == "locals":
-            continue
-        if parameter.type == "keyword_parameter":
-            if parameter.child_by_field_name("value") is None:
-                return True
-        elif parameter.type == "splat_parameter":
-            rest = True
-        elif parameter.type not in {
-            "comment",
-            "hash_splat_parameter",
-            "block_parameter",
-            "block_local_variable",
-        }:
-            maximum += 1
-            required += parameter.type != "optional_parameter"
-    return required > 1 or (maximum < 1 and not rest)
+    return invalid_namespace_lambda_parameters(callback)
 
 
 def _invalid_namespace(node: Node, arguments: list[Node], disabled: set[str]) -> bool:
@@ -709,17 +689,13 @@ def _deferred_call(owner: Node, method: Node, disabled: set[str]) -> bool:
     return key in {"Kernel.proc", "Kernel.lambda", "Proc.new"} - disabled
 
 
-def _load_time_children(node: Node, disabled: set[str]) -> list[Node]:
+def _load_time_children(node: Node, deferred_calls: set[int]) -> list[Node]:
     if node.type in {"method", "singleton_method", "lambda", "end_block"}:
         return _scope_headers(node)
     if node.type in {"block", "do_block"}:
         owner = node.parent
         method = owner.child_by_field_name("method") if owner is not None else None
-        if (
-            owner is not None
-            and method is not None
-            and _deferred_call(owner, method, disabled)
-        ):
+        if owner is not None and method is not None and owner.id in deferred_calls:
             return []
     return _reachable_children(node)
 
@@ -745,12 +721,20 @@ def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
 
 def _load_time_error(root: Node) -> str | None:
     disabled: set[str] = set()
+    deferred_calls: set[int] = set()
     pending = [_load_statements(root, disabled)]
     while pending:
         node = next(pending[-1], None)
         if node is None:
             pending.pop()
             continue
+        method = node.child_by_field_name("method")
+        if (
+            node.type == "call"
+            and method is not None
+            and _deferred_call(node, method, disabled)
+        ):
+            deferred_calls.add(node.id)
         _record_override(node, disabled)
         error = _load_declaration_error(node, disabled)
         if error is not None:
@@ -761,7 +745,7 @@ def _load_time_error(root: Node) -> str | None:
             child.type == "interpolation" for child in node.named_children
         ):
             return "unsupported interpolated regexp during loading"
-        pending.append(iter(_load_time_children(node, disabled)))
+        pending.append(iter(_load_time_children(node, deferred_calls)))
     return None
 
 

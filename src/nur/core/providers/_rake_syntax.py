@@ -9,14 +9,7 @@ if TYPE_CHECKING:
 
     from tree_sitter import Node
 
-__all__ = [
-    "binding_names",
-    "callback_nodes",
-    "defined_probe",
-    "literal",
-    "node_text",
-    "syntax_error",
-]
+__all__ = ["binding_names", "defined_probe", "literal", "node_text", "syntax_error"]
 
 _MAX_REGEXP_REPEAT = 100_000
 _MAX_REGEXP_CAPTURE_GROUPS = 32_767
@@ -24,29 +17,6 @@ _MAX_REGEXP_CAPTURE_GROUPS = 32_767
 
 def node_text(node: Node) -> str:
     return (node.text or b"").decode("utf-8")
-
-
-def callback_nodes(root: Node) -> Iterator[Node]:
-    pending = [root]
-    while pending:
-        node = pending.pop()
-        yield node
-        if (
-            node == root
-            or node.type
-            not in {
-                "lambda",
-                "block",
-                "do_block",
-                "method",
-                "singleton_method",
-                "class",
-                "module",
-                "singleton_class",
-            }
-            or (root.type == "lambda" and node == root.child_by_field_name("body"))
-        ):
-            pending.extend(node.named_children)
 
 
 def literal(node: Node) -> str | None:
@@ -414,7 +384,23 @@ def _binding_error(node: Node, *, pattern: bool = False) -> str | None:
     return None
 
 
+def _hash_pattern_key_error(node: Node) -> str | None:
+    names: set[str] = set()
+    for child in node.named_children:
+        if child.type != "keyword_pattern":
+            continue
+        key = child.child_by_field_name("key")
+        name = literal(key) if key is not None else None
+        if name is not None:
+            if name in names:
+                return "duplicated hash pattern key"
+            names.add(name)
+    return None
+
+
 def _node_binding_error(node: Node) -> str | None:
+    if node.type == "hash_pattern":
+        return _hash_pattern_key_error(node)
     if node.type == "alternative_pattern" and any(
         not name.startswith("_") for name in binding_names(node)
     ):

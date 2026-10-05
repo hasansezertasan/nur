@@ -2456,3 +2456,73 @@ def test_class_body_dsl_method_has_unknown_implementation():
         "namespace(foo: :bar) {}; end; task :after"
     )
     assert [task.name for task in parse_rakefile(source)] == ["after"]
+
+
+@pytest.mark.parametrize("receiver", ["", "self."])
+@pytest.mark.parametrize("name", [":task", '"task"'])
+def test_literal_singleton_method_definitions_override_dsl(receiver, name):
+    source = (
+        f"task :before; {receiver}define_singleton_method({name}) {{ |*| }}; "
+        "task :ghost"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["before"]
+
+
+@pytest.mark.parametrize(
+    "constructor",
+    [
+        "define_method",
+        "self.define_method",
+        "define_singleton_method",
+        "self.define_singleton_method",
+    ],
+)
+def test_method_definition_blocks_are_deferred(constructor):
+    tasks = parse_rakefile(
+        f"{constructor}(:helper) {{ /#{{pattern}}/; helper(&1) }}; task :safe"
+    )
+    assert [task.name for task in tasks] == ["safe"]
+
+
+def test_singleton_method_override_in_begin_applies_before_tasks():
+    assert (
+        parse_rakefile("task :ghost; BEGIN { define_singleton_method(:task) { |*| } }")
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "case {}; in {a: x, a: y}; end",
+        'case {}; in {"a": x, a: y}; end',
+        "{} => {a: x, a: y}",
+        "{} in {a: x, a: y}",
+    ],
+)
+def test_duplicate_hash_pattern_keys_are_compile_time_errors(source, caplog):
+    assert parse_rakefile(f"{source}; task :safe") == []
+    assert "duplicated hash pattern key" in caplog.text
+
+
+def test_nested_hash_patterns_validate_keys_independently():
+    assert [
+        task.name for task in parse_rakefile("case {}; in {a: {a: x}}; end; task :safe")
+    ] == ["safe"]
+
+
+def test_defining_method_constructor_itself_keeps_definition_block_deferred():
+    tasks = parse_rakefile(
+        "define_singleton_method(:define_singleton_method) { /#{pattern}/ }; task :safe"
+    )
+    assert [task.name for task in tasks] == ["safe"]
+
+
+def test_overridden_method_constructor_validates_later_blocks():
+    assert (
+        parse_rakefile(
+            "task :before; def self.define_singleton_method(*); yield; end; "
+            "define_singleton_method(:helper) { /#{pattern}/ }"
+        )
+        == []
+    )
