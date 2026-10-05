@@ -801,6 +801,39 @@ def _definitely_executed_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
     return []
 
 
+def _fatal_try(
+    statement: ast.Try | ast.TryStar, bindings: dict[str, str], tainted: set[str]
+) -> bool:
+    if (
+        not statement.handlers
+        and not any(_iteration_jump(child) for child in statement.finalbody)
+        and _fatal_block(statement.body + statement.orelse, bindings, tainted)
+    ):
+        return True
+    bindings, tainted = bindings.copy(), tainted.copy()
+    handlers = statement.handlers
+    if all(
+        isinstance(child, ast.Pass)
+        or (isinstance(child, ast.Expr) and isinstance(child.value, ast.Constant))
+        for child in statement.body
+    ):
+        # These bodies cannot raise into a handler. Other code stays
+        # conservative: its exception outcomes may change the decorator.
+        handlers = []
+    for child in [
+        *statement.body,
+        *statement.orelse,
+        *(child for handler in handlers for child in handler.body),
+    ]:
+        written, mutation, _ = _written_names(
+            child, bindings, tainted=tainted, inspect_classes=False
+        )
+        tainted.update(mutation)
+        for bound in written:
+            bindings.pop(bound, None)
+    return _fatal_block(statement.finalbody, bindings, tainted)
+
+
 def _fatal_children(
     statement: ast.stmt, bindings: dict[str, str], tainted: set[str]
 ) -> bool:
@@ -809,35 +842,17 @@ def _fatal_children(
         for bound in _header_writes(statement):
             # Loop targets and match captures are assigned before their bodies.
             bindings.pop(bound, None)
-    if isinstance(statement, (ast.Try, ast.TryStar)):
-        if (
-            not statement.handlers
-            and not any(_iteration_jump(child) for child in statement.finalbody)
-            and _fatal_block(statement.body + statement.orelse, bindings, tainted)
-        ):
+    if isinstance(statement, (ast.For, ast.AsyncFor)) and (
+        (_loop_count(statement) or 0) > _MAX_UNROLLED_ITERATIONS
+    ):
+        if _fatal_block(statement.body, bindings, tainted):
             return True
-        bindings, tainted = bindings.copy(), tainted.copy()
-        handlers = statement.handlers
-        if all(
-            isinstance(child, ast.Pass)
-            or (isinstance(child, ast.Expr) and isinstance(child.value, ast.Constant))
-            for child in statement.body
-        ):
-            # These bodies cannot raise into a handler. Other code stays
-            # conservative: its exception outcomes may change the decorator.
-            handlers = []
-        for child in [
-            *statement.body,
-            *statement.orelse,
-            *(child for handler in handlers for child in handler.body),
-        ]:
-            written, mutation, _ = _written_names(
-                child, bindings, tainted=tainted, inspect_classes=False
-            )
-            tainted.update(mutation)
-            for bound in written:
-                bindings.pop(bound, None)
-        return _fatal_block(statement.finalbody, bindings, tainted)
+        written, mutation, _ = _written_names(statement, bindings, tainted=tainted)
+        for bound in written:
+            bindings.pop(bound, None)
+        return _fatal_block(statement.orelse, bindings, tainted | mutation)
+    if isinstance(statement, (ast.Try, ast.TryStar)):
+        return _fatal_try(statement, bindings, tainted)
     return any(
         _fatal_block(block, bindings, tainted)
         for block in _definitely_executed_blocks(statement)

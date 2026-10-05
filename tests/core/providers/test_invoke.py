@@ -1821,3 +1821,34 @@ def test_argumentless_task_can_have_parser_fatal_options(options: str) -> None:
         )
         == []
     )
+
+
+@pytest.mark.parametrize("constructor", ["1", "None", "False", "'bad'", "[]", "{}"])
+def test_noncallable_literal_constructor_is_module_fatal(constructor: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task(klass={constructor})\ndef broken(c): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("iterable", ["{1}", "{1: 2}", "'x'", "b'x'", "'abc'"])
+def test_finite_literal_iterable_has_fatal_else(iterable: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\nfor item in {iterable}:\n pass\nelse:\n"
+            " @task(unknown=True)\n def broken(c): ...\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_long_finite_loop_else_respects_replaced_decorator() -> None:
+    tasks = parse_tasks(
+        "import invoke\nfrom invoke import task\nfor item in 'abc':\n"
+        " task = replacement\nelse:\n @task(unknown=True)\n def other(c): ...\n"
+        "@invoke.task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]

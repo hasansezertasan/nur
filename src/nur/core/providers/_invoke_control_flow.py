@@ -37,7 +37,11 @@ def loop_count(statement: ast.For | ast.AsyncFor | ast.While) -> int | None:
         isinstance(item, ast.Starred) for item in statement.iter.elts
     ):
         return len(statement.iter.elts)
-    return None
+    try:
+        value = ast.literal_eval(statement.iter)
+    except (ValueError, TypeError) as _exc:
+        return None
+    return len(value) if isinstance(value, (str, bytes, dict, set)) else None
 
 
 def loop_must_enter(statement: ast.For | ast.AsyncFor | ast.While) -> bool:

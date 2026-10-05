@@ -311,6 +311,33 @@ def _fatal_parser_option(
     return parameter_count > 1 and _invalid_literal_option(keyword, bindings, tainted)
 
 
+def _literal_constructor_failure(keyword: ast.keyword) -> bool:
+    if keyword.arg != "klass":
+        return False
+    try:
+        value = ast.literal_eval(keyword.value)
+    except (ValueError, TypeError) as _exc:
+        return False
+    return not callable(value)
+
+
+def _fatal_keyword(
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
+    keyword: ast.keyword,
+    bindings: dict[str, str],
+    tainted: set[str],
+) -> bool:
+    return (
+        (keyword.arg is not None and keyword.arg not in _TASK_OPTIONS)
+        or (
+            keyword.arg == "optional"
+            and _invalid_literal_option(keyword, bindings, tainted)
+        )
+        or _fatal_help_literal(keyword)
+        or _fatal_parser_option(node, keyword, bindings, tainted)
+    )
+
+
 def fatal_decorator(
     function: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
     bindings: dict[str, str],
@@ -321,6 +348,8 @@ def fatal_decorator(
         if not decorator_matches(expression, bindings, tainted):
             continue
         keywords = decorator.keywords if isinstance(decorator, ast.Call) else []
+        if any(_literal_constructor_failure(keyword) for keyword in keywords):
+            return True
         if isinstance(decorator, ast.Call) and _positional_pre_conflict(
             decorator, bindings
         ):
@@ -336,18 +365,10 @@ def fatal_decorator(
             and _fatal_contextless_task(function, decorator)
         ):
             return True
-        for keyword in keywords:
-            if keyword.arg is not None and keyword.arg not in _TASK_OPTIONS:
-                return True
-            if (
-                (
-                    keyword.arg == "optional"
-                    and _invalid_literal_option(keyword, bindings, tainted)
-                )
-                or _fatal_help_literal(keyword)
-                or _fatal_parser_option(function, keyword, bindings, tainted)
-            ):
-                return True
+        if any(
+            _fatal_keyword(function, keyword, bindings, tainted) for keyword in keywords
+        ):
+            return True
     return False
 
 
