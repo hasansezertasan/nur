@@ -57,11 +57,23 @@ def _arguments(node: Node) -> list[Node]:
     return [child for child in arguments.named_children if child.type != "comment"]
 
 
-def _method(node: Node) -> str | None:
+def _method(node: Node, disabled: set[str]) -> str | None:
+    # Direct singleton definitions replace the methods Rake extends main with.
+    # A singleton-class body can replace any of them; do not guess its effects.
+    if node.type == "singleton_class":
+        value = node.child_by_field_name("value")
+        if value is not None and value.type == "self":
+            disabled.update({"task", "multitask", "namespace", "desc"})
+    if node.type == "singleton_method":
+        owner = node.child_by_field_name("object")
+        name = node.child_by_field_name("name")
+        if owner is not None and owner.type == "self" and name is not None:
+            disabled.add(_text(name))
     if node.type != "call" or node.child_by_field_name("receiver") is not None:
         return None
     method = node.child_by_field_name("method")
-    return _text(method) if method is not None else None
+    name = _text(method) if method is not None else None
+    return name if name not in disabled else None
 
 
 def _task_name(arguments: list[Node]) -> str | None:
@@ -77,15 +89,17 @@ def _task_name(arguments: list[Node]) -> str | None:
             return None
         first = key
     name = _literal(first)
-    # Rake strips this special lookup prefix instead of invoking that literal name.
+    # Rake strips trailing colons from string task names; omit this ambiguous form.
     return (
         name
-        if name is not None and _NAME.fullmatch(name) and not name.startswith("rake:")
+        if name is not None and _NAME.fullmatch(name) and not name.endswith(":")
         else None
     )
 
 
-def _namespace_body(node: Node, arguments: list[Node]) -> tuple[str, Node] | None:
+def _namespace_body(
+    node: Node, arguments: list[Node], namespace: str
+) -> tuple[str, Node] | None:
     if len(arguments) != 1:
         return None
     name = _literal(arguments[0])
@@ -101,7 +115,10 @@ def _namespace_body(node: Node, arguments: list[Node]) -> tuple[str, Node] | Non
         child.type in {"rescue", "else", "ensure"} for child in body.named_children
     ):
         return None
-    return name, body
+    qualified = f"{namespace}:{name}" if namespace else name
+    if qualified == "rake" or qualified.startswith("rake:"):
+        return None
+    return qualified, body
 
 
 def _add_task(
@@ -115,6 +132,9 @@ def _add_task(
     if name is None:
         return
     qualified = f"{namespace}:{name}" if namespace else name
+    # Rake strips this special lookup prefix instead of invoking that literal name.
+    if qualified.startswith("rake:"):
+        return
     previous = tasks.get(qualified)
     tasks[qualified] = Task(
         name=qualified,
@@ -123,6 +143,44 @@ def _add_task(
         description=description or (previous.description if previous else None),
         source_file=source_file,
     )
+
+
+def _description(arguments: list[Node]) -> str | None:
+    return _literal(arguments[0]) if len(arguments) == 1 else None
+
+
+def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
+    # Each frame owns its pending description; it cannot leak out of a scope.
+    # An explicit stack avoids Python recursion on deeply nested namespaces.
+    scopes: list[tuple[Iterator[Node], str, str | None]] = [
+        (iter(root.named_children), "", None)
+    ]
+    disabled: set[str] = set()
+    while scopes:
+        statements, namespace, description = scopes.pop()
+        node = next(statements, None)
+        if node is None:
+            continue
+        if node.type == "return":
+            return
+        if node.type in {"break", "next", "redo", "retry"}:
+            continue
+        method = _method(node, disabled)
+        arguments = _arguments(node)
+        if node.type == "comment":
+            scopes.append((statements, namespace, description))
+            continue
+        if method == "desc":
+            scopes.append((statements, namespace, _description(arguments)))
+            continue
+        scopes.append((statements, namespace, None))
+        if method in {"task", "multitask"}:
+            yield node, namespace, description
+        elif method == "namespace":
+            nested = _namespace_body(node, arguments, namespace)
+            if nested is not None:
+                qualified, body = nested
+                scopes.append((iter(body.named_children), qualified, None))
 
 
 def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
@@ -136,37 +194,9 @@ def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     if root.has_error:
         log.warning("nur: skipping %s (invalid Ruby syntax)", source_file)
         return []
-
-    # Each frame owns its pending description; it cannot leak out of a scope.
-    # An explicit stack avoids Python recursion on deeply nested namespaces.
-    scopes: list[tuple[Iterator[Node], str, str | None]] = [
-        (iter(root.named_children), "", None)
-    ]
     tasks: dict[str, Task] = {}
-    while scopes:
-        statements, namespace, description = scopes.pop()
-        node = next(statements, None)
-        if node is None:
-            continue
-        method = _method(node)
-        arguments = _arguments(node)
-        nested: tuple[str, Node] | None = None
-        if node.type == "comment":
-            pass
-        elif method == "desc":
-            description = _literal(arguments[0]) if len(arguments) == 1 else None
-        else:
-            if method in {"task", "multitask"}:
-                _add_task(tasks, arguments, namespace, description, source_file)
-            elif method == "namespace":
-                nested = _namespace_body(node, arguments)
-            description = None
-        scopes.append((statements, namespace, description))
-        if nested is not None:
-            name, body = nested
-            qualified = f"{namespace}:{name}" if namespace else name
-            if not (qualified == "rake" or qualified.startswith("rake:")):
-                scopes.append((iter(body.named_children), qualified, None))
+    for node, namespace, description in _declarations(root):
+        _add_task(tasks, _arguments(node), namespace, description, source_file)
     return list(tasks.values())
 
 

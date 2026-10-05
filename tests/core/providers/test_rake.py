@@ -232,3 +232,58 @@ def test_description_and_names_with_unicode():
 def test_empty_file_and_custom_source():
     assert parse_rakefile("") == []
     assert parse_rakefile("task :build", "custom.rb")[0].source_file == "custom.rb"
+
+
+@pytest.mark.parametrize("control", ["next", "break", "redo"])
+def test_namespace_control_flow_stops_discovery(control):
+    tasks = parse_rakefile(
+        f"namespace :db do\n task :before\n {control}\n task :hidden\nend\ntask :root\n"
+    )
+    assert [task.name for task in tasks] == ["db:before", "root"]
+
+
+def test_return_stops_file_discovery():
+    tasks = parse_rakefile(
+        "task :before\nnamespace :db do\n return\n task :hidden\nend\ntask :after\n"
+    )
+    assert [task.name for task in tasks] == ["before"]
+
+
+def test_task_names_with_trailing_colons_are_skipped():
+    assert parse_rakefile('task "build:"\nnamespace :db do\n task "test:"\nend') == []
+
+
+def test_reserved_prefix_inside_an_ordinary_namespace_is_literal():
+    tasks = parse_rakefile('namespace :db do\n task "rake:build"\nend')
+    assert tasks[0].argv_base == ("rake", "db:rake:build")
+
+
+@pytest.mark.parametrize(
+    "replacement",
+    ["def self.task(*args); end", "class << self; def task(*args); end; end"],
+)
+def test_redefined_task_method_is_not_discovered(replacement):
+    tasks = parse_rakefile(f"task :before\n{replacement}\ntask :ghost\n")
+    assert [task.name for task in tasks] == ["before"]
+
+
+def test_redefined_namespace_is_not_traversed():
+    tasks = parse_rakefile(
+        "def self.namespace(*args); end\nnamespace :db do\n task :ghost\nend\n"
+        "task :root\n"
+    )
+    assert [task.name for task in tasks] == ["root"]
+
+
+def test_redefinition_inside_namespace_affects_later_calls():
+    tasks = parse_rakefile(
+        "namespace :db do\n def self.task(*args); end\n task :ghost\nend\ntask :root\n"
+    )
+    assert tasks == []
+
+
+def test_redefinition_in_task_body_does_not_run_during_loading():
+    tasks = parse_rakefile(
+        "task :build do\n def self.task(*args); end\nend\ntask :test\n"
+    )
+    assert [task.name for task in tasks] == ["build", "test"]

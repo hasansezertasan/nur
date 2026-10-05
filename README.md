@@ -168,10 +168,12 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   Task bodies stay opaque, so `definition` is empty. Conditional declarations,
   loops, helper methods, dynamic names/namespaces, file tasks, rules, imported
   files and `rakelib/*.rake` are skipped. Escaped/interpolated names, percent
-  literals and heredocs are omitted; task names must contain only letters,
+  literals and heredocs are omitted; direct singleton redefinitions disable
+  the affected DSL methods. Task names must contain only letters,
   digits, underscores, colons, dots, slashes and hyphens, starting with a letter,
   digit or underscore. Names beginning with the reserved `rake:` lookup prefix
-  are skipped. Files with Ruby syntax errors reported by the parser are skipped
+  and task names ending in a colon are skipped. Files with Ruby syntax errors
+  reported by the parser are skipped
   with a warning.
 
   `tox` reads the first applicable config file present, in priority order:
