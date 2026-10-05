@@ -9,7 +9,9 @@ if TYPE_CHECKING:
 
     from tree_sitter import Node
 
-__all__ = ["invalid_namespace_lambda_parameters"]
+__all__ = ["constructor_arguments_error", "invalid_namespace_lambda_parameters"]
+
+_METHOD_BODY_ARITY = 2
 
 
 def _callback_nodes(root: Node) -> Iterator[Node]:
@@ -66,3 +68,41 @@ def invalid_namespace_lambda_parameters(callback: Node) -> bool:
             maximum += 1
             required += parameter.type != "optional_parameter"
     return required > 1 or (maximum < 1 and not rest)
+
+
+def constructor_arguments_error(
+    name: str, kinds: list[str | None], arity: int | None, *, has_block: bool
+) -> str | None:
+    if name in {"proc", "lambda", "new"}:
+        return (
+            "invalid Proc constructor call"
+            if arity not in {0, None} or not has_block
+            else None
+        )
+    if name not in {"define_method", "define_singleton_method"}:
+        return None
+    if arity not in {1, 2, None} or (arity == 1 and not has_block):
+        return "invalid method definition constructor call"
+    invalid_values = {
+        "nil",
+        "true",
+        "false",
+        "integer",
+        "float",
+        "array",
+        "hash",
+        "regex",
+        "range",
+        "lambda",
+    }
+    if kinds and kinds[0] in invalid_values:
+        return "invalid method definition name"
+    if (
+        arity == _METHOD_BODY_ARITY
+        and len(kinds) == _METHOD_BODY_ARITY
+        and kinds[1]
+        in (invalid_values - {"lambda"})
+        | {"string", "simple_symbol", "delimited_symbol"}
+    ):
+        return "invalid method definition body"
+    return None

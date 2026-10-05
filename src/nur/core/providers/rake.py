@@ -8,13 +8,17 @@ import tree_sitter_ruby
 from tree_sitter import Language, Node, Parser
 
 from nur.core.models import Task
-from nur.core.providers._rake_callbacks import invalid_namespace_lambda_parameters
+from nur.core.providers._rake_callbacks import (
+    constructor_arguments_error,
+    invalid_namespace_lambda_parameters,
+)
 from nur.core.providers._rake_syntax import (
     binding_names,
     defined_probe,
     literal,
     node_text,
     syntax_error,
+    unbound_identifier_ids,
 )
 
 if TYPE_CHECKING:
@@ -722,18 +726,35 @@ def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
 def _load_time_error(root: Node) -> str | None:
     disabled: set[str] = set()
     deferred_calls: set[int] = set()
+    bare_constructors = unbound_identifier_ids(root, {"proc", "lambda"})
     pending = [_load_statements(root, disabled)]
     while pending:
         node = next(pending[-1], None)
         if node is None:
             pending.pop()
             continue
+        if node.id in bare_constructors and node_text(node) not in disabled:
+            return "invalid Proc constructor call"
         method = node.child_by_field_name("method")
         if (
             node.type == "call"
             and method is not None
             and _deferred_call(node, method, disabled)
         ):
+            arguments = _arguments(node)
+            has_block = node.child_by_field_name("block") is not None or any(
+                _literal_kind(child) not in {"nil", "false"}
+                for callback in _block_arguments(node)
+                for child in callback.named_children
+            )
+            error = constructor_arguments_error(
+                node_text(method),
+                [_literal_kind(argument) for argument in arguments],
+                _call_arity(arguments),
+                has_block=has_block,
+            )
+            if error is not None:
+                return error
             deferred_calls.add(node.id)
         _record_override(node, disabled)
         error = _load_declaration_error(node, disabled)

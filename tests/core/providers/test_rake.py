@@ -2526,3 +2526,62 @@ def test_overridden_method_constructor_validates_later_blocks():
         )
         == []
     )
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        "proc",
+        "lambda",
+        "Proc.new",
+        "Kernel.proc(1) {}",
+        "proc(&nil)",
+        "lambda(1) {}",
+        "Proc.new(1) {}",
+        "define_method() {}",
+        "define_singleton_method(:helper)",
+        "define_method(:helper, nil)",
+        "define_singleton_method(1) {}",
+        "define_singleton_method(:helper, :body)",
+    ],
+)
+def test_invalid_deferred_constructor_calls_abort_loading(call, caplog):
+    assert parse_rakefile(f"task :before; {call}; task :after") == []
+    assert "invalid" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        "proc {}",
+        "lambda {}",
+        "Proc.new {}",
+        "proc(&callback)",
+        "proc(*args) {}",
+        "define_method(:helper, -> {})",
+        "define_singleton_method(:helper, method(:existing))",
+        "define_method(*args) {}",
+        "define_singleton_method(name) {}",
+    ],
+)
+def test_valid_or_unknown_deferred_constructor_calls_preserve_tasks(call):
+    assert [task.name for task in parse_rakefile(f"{call}; task :safe")] == ["safe"]
+
+
+def test_overridden_proc_constructor_signature_is_unknown():
+    source = "def self.proc(*); end; proc(1); task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "proc = 1; proc",
+        "lambda = 1; lambda",
+        "namespace :db do |proc|; proc; end",
+        "task :later do; proc; end",
+        "def self.proc; 1; end; proc",
+    ],
+)
+def test_bare_constructor_names_respect_bindings_and_deferred_scopes(source):
+    assert [task.name for task in parse_rakefile(f"{source}; task :safe")][-1] == "safe"

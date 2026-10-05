@@ -9,7 +9,14 @@ if TYPE_CHECKING:
 
     from tree_sitter import Node
 
-__all__ = ["binding_names", "defined_probe", "literal", "node_text", "syntax_error"]
+__all__ = [
+    "binding_names",
+    "defined_probe",
+    "literal",
+    "node_text",
+    "syntax_error",
+    "unbound_identifier_ids",
+]
 
 _MAX_REGEXP_REPEAT = 100_000
 _MAX_REGEXP_CAPTURE_GROUPS = 32_767
@@ -924,3 +931,30 @@ def syntax_error(root: Node) -> str | None:
         or _method_context_error(root)
         or _lexical_scope_error(root)
     )
+
+
+def unbound_identifier_ids(root: Node, names: set[str]) -> set[int]:
+    identifiers: set[int] = set()
+    pending = [(root, _LocalScope(), False)]
+    while pending:
+        node, scope, binding = pending.pop()
+        if binding:
+            _register_binding(node, scope)
+            pending.extend(
+                (child, scope, bind) for child, bind in reversed(_binding_steps(node))
+            )
+            continue
+        parent = node.parent
+        reference = parent is None or (
+            node != parent.child_by_field_name("method")
+            and parent.type not in {"alias", "undef"}
+        )
+        if (
+            node.type == "identifier"
+            and node_text(node) in names
+            and not scope.contains(node_text(node))
+            and reference
+        ):
+            identifiers.add(node.id)
+        pending.extend(reversed(_scope_steps(node, scope)))
+    return identifiers
