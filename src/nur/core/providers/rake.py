@@ -104,6 +104,27 @@ def _namespace_body(node: Node, arguments: list[Node]) -> tuple[str, Node] | Non
     return name, body
 
 
+def _add_task(
+    tasks: dict[str, Task],
+    arguments: list[Node],
+    namespace: str,
+    description: str | None,
+    source_file: str,
+) -> None:
+    name = _task_name(arguments)
+    if name is None:
+        return
+    qualified = f"{namespace}:{name}" if namespace else name
+    previous = tasks.get(qualified)
+    tasks[qualified] = Task(
+        name=qualified,
+        prefix="rake",
+        argv_base=("rake", qualified),
+        description=description or (previous.description if previous else None),
+        source_file=source_file,
+    )
+
+
 def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     """Discover literal Rake tasks at file scope or inside literal namespaces.
 
@@ -136,18 +157,7 @@ def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             description = _literal(arguments[0]) if len(arguments) == 1 else None
         else:
             if method in {"task", "multitask"}:
-                name = _task_name(arguments)
-                if name is not None:
-                    qualified = f"{namespace}:{name}" if namespace else name
-                    previous = tasks.get(qualified)
-                    tasks[qualified] = Task(
-                        name=qualified,
-                        prefix="rake",
-                        argv_base=("rake", qualified),
-                        description=description
-                        or (previous.description if previous else None),
-                        source_file=source_file,
-                    )
+                _add_task(tasks, arguments, namespace, description, source_file)
             elif method == "namespace":
                 nested = _namespace_body(node, arguments)
             description = None
