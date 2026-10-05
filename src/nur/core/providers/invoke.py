@@ -26,6 +26,8 @@ from nur.core.providers._invoke_control_flow import (
     nonraising_block as _nonraising_block,
     reachable_match_cases as _reachable_match_cases,
     statement_blocks as _statement_blocks,
+    statement_terminates as _statement_terminates,
+    try_outcome_blocks as _try_outcome_blocks,
     unpacked_pairs as _unpacked_pairs,
 )
 from nur.core.providers._invoke_exports import STAR_EXPORTS as _STAR_EXPORTS
@@ -641,10 +643,7 @@ def _copied_tasks(
 
 def _task_outcome_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
     if isinstance(statement, ast.If):
-        truth = _constant_truth(statement.test)
-        if truth is not None:
-            return [statement.body if truth else statement.orelse]
-        return [statement.body, statement.orelse]
+        return _statement_blocks(statement)
     if isinstance(statement, ast.Match):
         blocks = [case.body for case in _reachable_match_cases(statement)]
         if not any(
@@ -658,10 +657,7 @@ def _task_outcome_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
     if isinstance(statement, (ast.For, ast.AsyncFor, ast.While)):
         return _loop_task_blocks(statement)
     if isinstance(statement, (ast.Try, ast.TryStar)):
-        return [
-            statement.body + statement.orelse,
-            *(handler.body for handler in statement.handlers),
-        ]
+        return _try_outcome_blocks(statement)
     return _statement_blocks(statement)
 
 
@@ -863,7 +859,7 @@ def _fatal_block(
             return True
         if exception is None and _fatal_children(statement, bindings, tainted):
             return True
-        if _iteration_jump(statement):
+        if _statement_terminates(statement) or _iteration_jump(statement):
             break
         copies = _copied_modules(statement, bindings, tainted)
         copies.update(_copied_callables(statement, bindings, tainted))

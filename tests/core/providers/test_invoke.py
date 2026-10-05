@@ -2468,3 +2468,59 @@ def test_potentially_raising_assignment_try_does_not_guarantee_else(body: str) -
         " def broken(c): ...\n@task\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "raise_statement",
+    [
+        "raise ValueError",
+        "if True: raise ValueError",
+        "if computed:\n  raise ValueError\n else:\n  raise ValueError",
+    ],
+)
+@pytest.mark.parametrize("decorator", ["@task(unknown=True)", "@task(aliases=7)"])
+def test_caught_raise_skips_unreachable_task_decorator(
+    raise_statement: str, decorator: str
+) -> None:
+    tasks = parse_tasks(
+        "from invoke import task\ntry:\n "
+        + raise_statement
+        + f"\n {decorator}\n def broken(c): ...\nexcept Exception: pass\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_caught_raise_skips_unreachable_import_shadow() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\ntry:\n raise ValueError\n task = None\n"
+        "except ValueError: pass\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_raised_try_body_does_not_execute_else_decorator() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\ntry: raise ValueError\nexcept ValueError: pass\n"
+        "else:\n @task(aliases=7)\n def broken(c): ...\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_caught_handler_raise_skips_later_decorator() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\ntry:\n try: raise ValueError\n except ValueError:\n"
+        "  raise RuntimeError\n  @task(aliases=7)\n  def broken(c): ...\n"
+        "except RuntimeError: pass\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("condition", ["True", "computed"])
+def test_conditional_raise_skips_unreachable_nested_metadata(condition: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\ntry:\n if {condition}:\n  raise ValueError\n"
+        "  @task(aliases=7)\n  def broken(c): ...\nexcept Exception: pass\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]

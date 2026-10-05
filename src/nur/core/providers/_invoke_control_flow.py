@@ -29,6 +29,8 @@ __all__ = [
     "nonraising_block",
     "reachable_match_cases",
     "statement_blocks",
+    "statement_terminates",
+    "try_outcome_blocks",
     "unpacked_pairs",
 ]
 
@@ -267,11 +269,36 @@ def _guaranteed_jump(statement: ast.stmt) -> bool:
 
 
 def iteration_prefix(statements: list[ast.stmt]) -> list[ast.stmt]:
-    """Retain statements up to a guaranteed iteration exit."""
+    """Retain statements up to a guaranteed exit from this block."""
     for index, statement in enumerate(statements):
-        if _guaranteed_jump(statement):
+        if statement_terminates(statement):
             return statements[: index + 1]
     return statements
+
+
+def statement_terminates(statement: ast.stmt) -> bool:
+    if isinstance(statement, ast.Raise) or _guaranteed_jump(statement):
+        return True
+    if isinstance(statement, ast.If):
+        truth = constant_truth(statement.test)
+        blocks = (
+            [statement.body, statement.orelse]
+            if truth is None
+            else [statement.body if truth else statement.orelse]
+        )
+        return all(
+            any(statement_terminates(child) for child in block) for block in blocks
+        )
+    return False
+
+
+def try_outcome_blocks(statement: ast.Try | ast.TryStar) -> list[list[ast.stmt]]:
+    body = iteration_prefix(statement.body)
+    else_body = [] if body and statement_terminates(body[-1]) else statement.orelse
+    return [
+        body + iteration_prefix(else_body),
+        *(iteration_prefix(handler.body) for handler in statement.handlers),
+    ]
 
 
 def exception_taints(written: set[str]) -> set[str]:
@@ -418,7 +445,27 @@ def guaranteed_match_case(statement: ast.Match) -> ast.match_case | None:
     return None
 
 
+def _exception_children(
+    node: ast.Try | ast.TryStar | ast.ExceptHandler,
+) -> list[ast.AST]:
+    if isinstance(node, (ast.Try, ast.TryStar)):
+        body = iteration_prefix(node.body)
+        else_body = [] if body and statement_terminates(body[-1]) else node.orelse
+        return [
+            *body,
+            *node.handlers,
+            *iteration_prefix(else_body),
+            *iteration_prefix(node.finalbody),
+        ]
+    return [
+        *([node.type] if node.type is not None else []),
+        *iteration_prefix(node.body),
+    ]
+
+
 def compound_children(node: ast.AST) -> list[ast.AST] | None:
+    if isinstance(node, (ast.Try, ast.TryStar, ast.ExceptHandler)):
+        return _exception_children(node)
     if isinstance(node, ast.Match):
         return [node.subject, *reachable_match_cases(node)]
     if isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
@@ -429,8 +476,15 @@ def compound_children(node: ast.AST) -> list[ast.AST] | None:
         return [expression, *target, *iteration_prefix(node.body), *node.orelse]
     if isinstance(node, ast.If):
         truth = constant_truth(node.test)
-        if truth is not None:
-            return [node.test, *(node.body if truth else node.orelse)]
+        bodies = (
+            [node.body, node.orelse]
+            if truth is None
+            else [node.body if truth else node.orelse]
+        )
+        return [
+            node.test,
+            *(child for body in bodies for child in iteration_prefix(body)),
+        ]
     return None
 
 
@@ -497,7 +551,7 @@ def statement_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
     if isinstance(statement, ast.If):
         truth = constant_truth(statement.test)
         if truth is not None:
-            return [statement.body if truth else statement.orelse]
+            return [iteration_prefix(statement.body if truth else statement.orelse)]
     if isinstance(statement, ast.Match):
         return [case.body for case in reachable_match_cases(statement)]
     return [iteration_prefix(block) for block in all_statement_blocks(statement)]
