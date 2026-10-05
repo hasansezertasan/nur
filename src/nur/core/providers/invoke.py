@@ -337,18 +337,43 @@ def _literal_dependency(expression: ast.expr, bindings: dict[str, str]) -> bool:
     return True
 
 
+def _fatal_contextless_task(function: ast.FunctionDef, decorator: ast.expr) -> bool:
+    args = function.args
+    if any((args.posonlyargs, args.args, args.vararg, args.kwonlyargs, args.kwarg)):
+        return False
+    if isinstance(decorator, ast.Call):
+        if any(keyword.arg is None for keyword in decorator.keywords):
+            return False
+        positional = next(
+            (
+                keyword.value
+                for keyword in decorator.keywords
+                if keyword.arg == "positional"
+            ),
+            None,
+        )
+        return positional is None or (
+            isinstance(positional, ast.Constant) and positional.value is None
+        )
+    return True
+
+
 def _fatal_decorator(
     function: ast.FunctionDef, bindings: dict[str, str], tainted: set[str]
 ) -> bool:
     for decorator in function.decorator_list:
-        if not isinstance(decorator, ast.Call) or not _decorator_matches(
-            decorator.func, bindings, tainted
-        ):
+        expression = decorator.func if isinstance(decorator, ast.Call) else decorator
+        if not _decorator_matches(expression, bindings, tainted):
             continue
-        if any(keyword.arg == "klass" for keyword in decorator.keywords):
+        keywords = decorator.keywords if isinstance(decorator, ast.Call) else []
+        if any(keyword.arg == "klass" for keyword in keywords):
             # A custom Task constructor may accept a different option set.
             continue
-        for keyword in decorator.keywords:
+        if len(function.decorator_list) == 1 and _fatal_contextless_task(
+            function, decorator
+        ):
+            return True
+        for keyword in keywords:
             if keyword.arg is not None and keyword.arg not in _TASK_OPTIONS:
                 return True
             if keyword.arg == "optional" and _invalid_literal_option(keyword, bindings):

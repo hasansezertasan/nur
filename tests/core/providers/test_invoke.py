@@ -1334,3 +1334,22 @@ def test_variadic_parameters_after_context_are_rejected() -> None:
 def test_variadic_context_remains_supported() -> None:
     tasks = parse_tasks("from invoke import task\n@task\ndef build(*items): ...\n")
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("decorator", ["@task", "@task()", "@task(positional=None)"])
+def test_contextless_implicit_task_is_module_fatal(decorator: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n{decorator}\ndef broken(): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_contextless_explicit_positionals_do_not_fail_construction() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task(positional=[])\ndef broken(): ...\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
