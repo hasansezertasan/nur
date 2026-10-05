@@ -1263,3 +1263,59 @@ def test_inactive_begin_branches_preserve_discovery(body):
 )
 def test_active_begin_branches_override_earlier_declarations(body):
     assert parse_rakefile(f"task :before; BEGIN {{ {body} }}; task :after") == []
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ":build, bar: :baz",
+        ":build, {bar: :baz}",
+        ":build, {}",
+        ":build, [:mode] => :test, [:other] => :lint",
+        ":build, :mode, order_only: :test",
+        ":build, 'mode' => :test",
+        ":build, [:first], [:second]",
+        ":build, [nil]",
+        ":build, 123",
+        ":build, nil",
+        ":build, **options",
+    ],
+)
+def test_malformed_task_argument_tails_are_skipped(arguments):
+    tasks = parse_rakefile(f"task({arguments}); task :safe")
+    assert [task.name for task in tasks] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ":build, :first, :second",
+        ":build, ['first', :second]",
+        ":build, []",
+        ":build, [:mode] => :test",
+        ":build, {[:mode] => :test}",
+        ":build, [:mode] => :test, order_only: :prepare",
+        ":build, order_only: :prepare",
+        ":build, [:mode], order_only: :prepare",
+        ":build, nil => :test",
+        ":build, [:mode], nil => :test",
+        ":build, nil, order_only: :prepare",
+    ],
+)
+def test_valid_task_argument_tails_preserve_discovery(arguments):
+    tasks = parse_rakefile(f"task({arguments})")
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "declaration", ["task order_only: :prepare", "task :order_only => :prepare"]
+)
+def test_order_only_hash_without_task_name_is_skipped(declaration):
+    assert parse_rakefile(declaration) == []
+
+
+@pytest.mark.parametrize(
+    "declaration", ["task :order_only", "task 'order_only' => :prepare"]
+)
+def test_order_only_literal_task_names_remain_supported(declaration):
+    assert [task.name for task in parse_rakefile(declaration)] == ["order_only"]

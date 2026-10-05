@@ -86,6 +86,53 @@ def _method(node: Node, disabled: set[str]) -> str | None:
     return name if name not in disabled else None
 
 
+def _argument_array(node: Node) -> bool:
+    return node.type == "array" and all(
+        child.type == "comment" or _literal(child) is not None
+        for child in node.named_children
+    )
+
+
+def _order_only_key(node: Node) -> bool:
+    return (
+        node.type in {"simple_symbol", "hash_key_symbol", "delimited_symbol"}
+        and _literal(node) == "order_only"
+    )
+
+
+def _valid_task_tail(arguments: list[Node]) -> bool:
+    positional = arguments
+    pairs: list[Node] | None = None
+    if arguments and arguments[-1].type == "hash":
+        positional = arguments[:-1]
+        pairs = [
+            child for child in arguments[-1].named_children if child.type != "comment"
+        ]
+    else:
+        for index, argument in enumerate(arguments):
+            if argument.type == "pair":
+                positional, pairs = arguments[:index], arguments[index:]
+                break
+    if pairs is None:
+        return (len(positional) == 1 and _argument_array(positional[0])) or all(
+            _literal(argument) is not None for argument in positional
+        )
+    if len(pairs) not in {1, 2} or any(pair.type != "pair" for pair in pairs):
+        return False
+    keys = [pair.child_by_field_name("key") for pair in pairs]
+    ordinary = [key for key in keys if key is not None and not _order_only_key(key)]
+    if len(ordinary) > 1:
+        return False
+    key = ordinary[0] if ordinary else None
+    # An array dependency key supplies argument names. A nil/absent key uses
+    # the first remaining positional argument, or an empty argument list.
+    if key is not None and key.type != "nil":
+        return _argument_array(key)
+    return (
+        not positional or positional[0].type == "nil" or _argument_array(positional[0])
+    )
+
+
 def _task_name(arguments: list[Node]) -> str | None:
     if not arguments:
         return None
@@ -95,9 +142,11 @@ def _task_name(arguments: list[Node]) -> str | None:
         if len(arguments) != 1:
             return None
         key = first.child_by_field_name("key")
-        if key is None:
+        if key is None or _order_only_key(key):
             return None
         first = key
+    elif not _valid_task_tail(arguments[1:]):
+        return None
     name = _literal(first)
     # Rake strips trailing colons from string task names; omit this ambiguous form.
     return (
