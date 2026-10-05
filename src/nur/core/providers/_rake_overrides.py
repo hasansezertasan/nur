@@ -184,18 +184,39 @@ def _dynamic_override(node: Node, disabled: set[str]) -> None:
         )
         mutators = {"define_method", "define_singleton_method"}
         if singleton_receiver:
-            mutators.add("alias_method")
-        if (
-            method is not None
-            and node_text(method) in mutators
-            and node_text(method) not in disabled
-            and arguments
-            and (defined_name := literal(arguments[0])) is not None
-        ):
-            if node_text(method) == "define_singleton_method" or singleton_receiver:
-                _self_override(node, defined_name, disabled)
-            else:
-                _instance_override(node, defined_name, disabled)
+            mutators.update({"alias_method", "undef_method"})
+        if method is not None and node_text(method) in mutators - disabled:
+            _record_mutation(
+                node,
+                node_text(method),
+                arguments,
+                disabled,
+                singleton_receiver=singleton_receiver,
+            )
+
+
+def _record_mutation(
+    node: Node,
+    method: str,
+    arguments: list[Node],
+    disabled: set[str],
+    *,
+    singleton_receiver: bool,
+) -> None:
+    if method == "undef_method":
+        prefix, _ = _constructor_scope(node)
+        if prefix is None and not main_scope(node):
+            return
+        for argument in arguments:
+            if (name := literal(argument)) is not None:
+                key = f"{prefix}.{name}" if prefix else name
+                disabled.update({key, f"undef:{key}"})
+        return
+    if arguments and (defined_name := literal(arguments[0])) is not None:
+        if method == "define_singleton_method" or singleton_receiver:
+            _self_override(node, defined_name, disabled)
+        else:
+            _instance_override(node, defined_name, disabled)
 
 
 def scope_headers(node: Node) -> list[Node]:

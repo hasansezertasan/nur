@@ -70,38 +70,55 @@ def invalid_namespace_lambda_parameters(callback: Node) -> bool:
     return required > 1 or (maximum < 1 and not rest)
 
 
+_INVALID_METHOD_NAME_KINDS = {
+    "nil",
+    "true",
+    "false",
+    "integer",
+    "float",
+    "array",
+    "hash",
+    "regex",
+    "range",
+    "lambda",
+}
+
+
+def _simple_constructor_error(
+    name: str, kinds: list[str | None], arity: int | None, *, has_block: bool
+) -> str | None:
+    if name in {"alias_method", "undef_method"}:
+        if name == "alias_method" and arity not in {2, None}:
+            return "invalid method alias call"
+        return (
+            "invalid method alias or removal name"
+            if any(kind in _INVALID_METHOD_NAME_KINDS for kind in kinds)
+            else None
+        )
+    return (
+        "invalid Proc constructor call"
+        if arity not in {0, None} or not has_block
+        else None
+    )
+
+
 def constructor_arguments_error(
     name: str, kinds: list[str | None], arity: int | None, *, has_block: bool
 ) -> str | None:
-    if name in {"proc", "lambda", "new"}:
-        return (
-            "invalid Proc constructor call"
-            if arity not in {0, None} or not has_block
-            else None
-        )
+    if name in {"alias_method", "undef_method", "proc", "lambda", "new"}:
+        return _simple_constructor_error(name, kinds, arity, has_block=has_block)
     if name not in {"define_method", "define_singleton_method"}:
         return None
     if arity not in {1, 2, None} or (arity == 1 and not has_block):
         return "invalid method definition constructor call"
-    invalid_values = {
-        "nil",
-        "true",
-        "false",
-        "integer",
-        "float",
-        "array",
-        "hash",
-        "regex",
-        "range",
-        "lambda",
-    }
-    if kinds and kinds[0] in invalid_values:
+
+    if kinds and kinds[0] in _INVALID_METHOD_NAME_KINDS:
         return "invalid method definition name"
     if (
         arity == _METHOD_BODY_ARITY
         and len(kinds) == _METHOD_BODY_ARITY
         and kinds[1]
-        in (invalid_values - {"lambda"})
+        in (_INVALID_METHOD_NAME_KINDS - {"lambda"})
         | {"string", "simple_symbol", "delimited_symbol"}
     ):
         return "invalid method definition body"

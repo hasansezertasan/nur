@@ -18,7 +18,11 @@ from nur.core.providers._rake_overrides import (
     scope_headers,
     singleton_class_receiver,
 )
-from nur.core.providers._rake_runtime import load_assignment_error
+from nur.core.providers._rake_runtime import (
+    empty_for,
+    empty_rescue,
+    load_assignment_error,
+)
 from nur.core.providers._rake_source import decode_source
 from nur.core.providers._rake_syntax import (
     binding_names,
@@ -602,7 +606,7 @@ def _binary_children(node: Node) -> list[Node]:
 
 
 def _reachable_children(node: Node) -> list[Node]:
-    if defined_probe(node):
+    if defined_probe(node) or empty_for(node) or empty_rescue(node):
         return []
     if node.type == "binary":
         return _binary_children(node)
@@ -651,7 +655,11 @@ def _deferred_call(owner: Node, method: Node, disabled: set[str]) -> bool:
     if _dsl_receiver(owner):
         return name in _DEFERRED_METHODS - disabled
     receiver = owner.child_by_field_name("receiver")
-    if name == "define_method" and singleton_class_receiver(receiver, disabled):
+    if name in {
+        "define_method",
+        "alias_method",
+        "undef_method",
+    } and singleton_class_receiver(receiver, disabled):
         return True
     key = (
         f"{node_text(receiver).removeprefix('::')}.{name}"

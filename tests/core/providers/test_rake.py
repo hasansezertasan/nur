@@ -3037,3 +3037,97 @@ def test_invalid_underscore_encoding_aliases_skip_file(tmp_path, caplog, encodin
     (tmp_path / "Rakefile").write_text(f"# encoding: {encoding}\ntask :ghost")
     assert RakeProvider().discover(tmp_path) == []
     assert "unsupported Ruby source encoding" in caplog.text
+
+
+@pytest.mark.parametrize("receiver", ["singleton_class", "self.singleton_class()"])
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        "",
+        ":task",
+        ":task, :desc, :puts",
+        "nil, :desc",
+        ":task, 1",
+        "[], :desc",
+        ":task, false",
+        ":task, -> {}",
+    ],
+)
+def test_invalid_singleton_alias_method_arguments_reject_loading(
+    receiver, arguments, caplog
+):
+    source = f"task :before; {receiver}.alias_method({arguments}); task :after"
+    assert parse_rakefile(source) == []
+    assert "invalid method alias" in caplog.text
+
+
+def test_singleton_alias_method_ignores_block_body():
+    source = "singleton_class.alias_method(:helper, :desc) { /#{pattern}/ }; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("target", ["$?", "$LOAD_PATH", "@@value"])
+@pytest.mark.parametrize(
+    "statement", ["for {target} in [1]; end", "begin; raise; rescue => {target}; end"]
+)
+def test_invalid_runtime_loop_and_rescue_targets_reject_loading(target, statement):
+    source = "task :before; " + statement.format(target=target) + "; task :after"
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize("target", ["$?", "$LOAD_PATH", "@@value"])
+def test_empty_loop_does_not_assign_readonly_targets(target):
+    source = f"for {target} in []; /#{{pattern}}/; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("target", ["$?", "$LOAD_PATH", "@@value"])
+def test_empty_rescue_body_does_not_assign_readonly_targets(target):
+    source = f"begin; rescue => {target}; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("receiver", ["singleton_class", "self.singleton_class()"])
+@pytest.mark.parametrize("name", [":task", '"task"', ":desc"])
+def test_singleton_undef_method_rejects_later_dsl_calls(receiver, name):
+    method = name.strip(':"')
+    source = f"task :before; {receiver}.undef_method({name}); {method} :ghost"
+    assert parse_rakefile(source) == []
+
+
+def test_singleton_undef_method_preserves_preceding_tasks_without_later_calls():
+    source = "task :safe; singleton_class.undef_method(:task)"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_singleton_undef_method_accepts_no_arguments():
+    source = "singleton_class.undef_method(); task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("value", ["nil", "1", "[]"])
+def test_singleton_undef_method_rejects_invalid_names(value):
+    source = f"task :before; singleton_class.undef_method({value}); task :after"
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize(
+    "body", ["p @@value", "other = @@value", "@@value", "class << self; p @@value; end"]
+)
+def test_reachable_top_level_class_variable_reads_reject_loading(body, caplog):
+    assert parse_rakefile(f"task :before; {body}; task :after") == []
+    assert "class variable access from toplevel" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "task :safe do; p @@value; end",
+        "def helper; p @@value; end",
+        "if false; p @@value; end",
+        "defined?(@@value)",
+        "class Example; @@value = 1; p @@value; end",
+    ],
+)
+def test_valid_or_deferred_class_variable_reads_preserve_discovery(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
