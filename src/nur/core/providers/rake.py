@@ -16,6 +16,7 @@ from nur.core.providers._rake_overrides import (
     main_scope,
     record_override,
     scope_headers,
+    singleton_class_receiver,
 )
 from nur.core.providers._rake_source import decode_source
 from nur.core.providers._rake_syntax import (
@@ -91,7 +92,7 @@ def _dsl_receiver(node: Node) -> bool:
 def _method(node: Node, disabled: set[str]) -> str | None:
     # Every declaration-scope statement contributes reachable load-time
     # overrides, including top-level and namespace conditionals.
-    disabled.update(_dsl_overrides(node, in_scope=True))
+    disabled.update(_dsl_overrides(node, in_scope=True, existing=disabled))
     if node.type == "undef" and any(
         (literal(child) or node_text(child)) in _RAKE_METHODS
         for child in node.named_children
@@ -649,6 +650,8 @@ def _deferred_call(owner: Node, method: Node, disabled: set[str]) -> bool:
     if _dsl_receiver(owner):
         return name in _DEFERRED_METHODS - disabled
     receiver = owner.child_by_field_name("receiver")
+    if name == "define_method" and singleton_class_receiver(receiver, disabled):
+        return True
     key = (
         f"{node_text(receiver).removeprefix('::')}.{name}"
         if receiver is not None
@@ -743,10 +746,12 @@ def _load_time_error(root: Node) -> str | None:
     return None
 
 
-def _dsl_overrides(root: Node, *, in_scope: bool = False) -> set[str]:
+def _dsl_overrides(
+    root: Node, *, in_scope: bool = False, existing: set[str] | None = None
+) -> set[str]:
     # Ruby executes BEGIN bodies before ordinary statements, even when the
     # BEGIN appears later in the file or has an active postfix condition.
-    disabled: set[str] = set()
+    disabled: set[str] = set(existing or ())
     pending = [(root, in_scope)]
     opaque = {
         "method",
@@ -952,8 +957,19 @@ class RakeProvider:
 
     def discover(self, cwd: Path) -> list[Task]:
         try:
-            text = decode_source((cwd / _SOURCE_FILE).read_bytes())
+            text, encoding = decode_source((cwd / _SOURCE_FILE).read_bytes())
         except (OSError, UnicodeError, LookupError, ValueError) as exc:
             log.warning("nur: skipping %s (%s)", _SOURCE_FILE, exc)
             return []
-        return parse_rakefile(text)
+        tasks = parse_rakefile(text)
+        if encoding != "utf-8":
+            for task in tasks:
+                if not task.name.isascii():
+                    log.warning(
+                        "nur: skipping %s "
+                        "(task name cannot be reproduced safely from %s source)",
+                        task.name,
+                        encoding,
+                    )
+            tasks = [task for task in tasks if task.name.isascii()]
+        return tasks

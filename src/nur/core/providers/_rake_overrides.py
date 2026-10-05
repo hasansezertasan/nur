@@ -2,12 +2,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from nur.core.providers._rake_syntax import is_self, literal, node_text
+from nur.core.providers._rake_syntax import (
+    is_self,
+    literal,
+    node_text,
+    unbound_identifier_ids,
+)
 
 if TYPE_CHECKING:
     from tree_sitter import Node
 
-__all__ = ["main_scope", "record_override", "scope_headers"]
+__all__ = ["main_scope", "record_override", "scope_headers", "singleton_class_receiver"]
 
 _METHODS = {
     "task",
@@ -51,9 +56,19 @@ def _instance_override(node: Node, name: str, disabled: set[str]) -> None:
     prefix, singleton_scope = _constructor_scope(node)
     if prefix is not None and singleton_scope:
         _set_override(f"{prefix}.{name}", disabled)
-    elif main_scope(node) and name in {"proc", "lambda", "define_singleton_method"}:
+    elif main_scope(node) and name in {
+        "proc",
+        "lambda",
+        "define_singleton_method",
+        "singleton_class",
+    }:
         _set_override(name, disabled)
-    elif prefix == "Kernel" and name in {"proc", "lambda", "define_singleton_method"}:
+    elif prefix == "Kernel" and name in {
+        "proc",
+        "lambda",
+        "define_singleton_method",
+        "singleton_class",
+    }:
         disabled.add(name)
 
 
@@ -75,6 +90,7 @@ def _record_undef(node: Node, disabled: set[str]) -> None:
             "proc",
             "lambda",
             "define_singleton_method",
+            "singleton_class",
             "Kernel.proc",
             "Kernel.lambda",
             "Proc.new",
@@ -118,9 +134,39 @@ def record_override(node: Node, disabled: set[str]) -> None:
     _dynamic_override(node, disabled)
 
 
+def singleton_class_receiver(node: Node | None, disabled: set[str]) -> bool:
+    if "singleton_class" in disabled:
+        return False
+    while (
+        node is not None
+        and node.type == "parenthesized_statements"
+        and len(node.named_children) == 1
+    ):
+        node = node.named_children[0]
+    if node is None:
+        return False
+    if node.type == "identifier" and node_text(node) == "singleton_class":
+        root = node
+        while root.parent is not None:
+            root = root.parent
+        return node.id in unbound_identifier_ids(root, {"singleton_class"})
+    receiver = node.child_by_field_name("receiver")
+    method = node.child_by_field_name("method")
+    return (
+        node.type == "call"
+        and is_self(receiver)
+        and method is not None
+        and node_text(method) == "singleton_class"
+        and node.child_by_field_name("arguments") is None
+    )
+
+
 def _dynamic_override(node: Node, disabled: set[str]) -> None:
     receiver = node.child_by_field_name("receiver")
-    if node.type == "call" and (receiver is None or is_self(receiver)):
+    singleton_receiver = singleton_class_receiver(receiver, disabled)
+    if node.type == "call" and (
+        receiver is None or is_self(receiver) or singleton_receiver
+    ):
         method = node.child_by_field_name("method")
         argument_list = node.child_by_field_name("arguments")
         arguments = (
@@ -139,7 +185,7 @@ def _dynamic_override(node: Node, disabled: set[str]) -> None:
             and arguments
             and (defined_name := literal(arguments[0])) is not None
         ):
-            if node_text(method) == "define_singleton_method":
+            if node_text(method) == "define_singleton_method" or singleton_receiver:
                 _self_override(node, defined_name, disabled)
             else:
                 _instance_override(node, defined_name, disabled)

@@ -2830,3 +2830,50 @@ def test_equals_encoding_comment_without_separator_is_ignored(tmp_path, caplog):
     )
     assert RakeProvider().discover(tmp_path) == []
     assert "skipping Rakefile" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "receiver", ["singleton_class", "self.singleton_class", "(singleton_class)"]
+)
+def test_singleton_class_literal_method_definition_overrides_dsl(receiver):
+    source = f"task :before; {receiver}.define_method(:task) {{ |*| }}; task :ghost"
+    assert [task.name for task in parse_rakefile(source)] == ["before"]
+
+
+def test_singleton_class_definition_blocks_are_deferred():
+    tasks = parse_rakefile(
+        "singleton_class.define_method(:helper) { /#{pattern}/ }; task :safe"
+    )
+    assert [task.name for task in tasks] == ["safe"]
+
+
+def test_local_singleton_class_receiver_does_not_override_main():
+    source = (
+        "singleton_class = other; singleton_class.define_method(:task) { |*| }; "
+        "task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "source", ['task "é"; task :safe', 'namespace "é" do; task :build; end; task :safe']
+)
+def test_non_utf8_non_ascii_task_names_are_omitted(tmp_path, caplog, source):
+    (tmp_path / "Rakefile").write_bytes(
+        ("# encoding: ISO-8859-1\n" + source).encode("latin-1")
+    )
+    assert [task.name for task in RakeProvider().discover(tmp_path)] == ["safe"]
+    assert "cannot be reproduced safely" in caplog.text
+
+
+def test_utf8_non_ascii_task_names_are_preserved(tmp_path):
+    (tmp_path / "Rakefile").write_bytes('# encoding: UTF-8\ntask "é"'.encode())
+    assert [task.name for task in RakeProvider().discover(tmp_path)] == ["é"]
+
+
+def test_overridden_singleton_class_receiver_is_not_assumed_to_be_main():
+    source = (
+        "def singleton_class; Module.new; end; "
+        "singleton_class.define_method(:task) { |*| }; task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]

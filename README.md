@@ -162,6 +162,9 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   `rake` parses `Rakefile` with Tree-sitter without running Ruby or `rake -T`.
   UTF-8 and common ASCII-compatible Ruby source encoding declarations are supported;
   unsupported encodings are skipped with a warning.
+  Non-ASCII task names in non-UTF-8 sources are omitted because their command arguments
+  cannot be reproduced safely.
+  Descriptions are decoded using the declared source encoding.
   It discovers direct literal `task` and `multitask` declarations, including
   dependency-only tasks, and tracks nested literal `namespace` blocks.
   Calls may use an explicit `self` receiver.

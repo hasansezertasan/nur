@@ -37,13 +37,13 @@ class _UnsupportedEncodingError(ValueError):
         super().__init__(f"unsupported Ruby source encoding: {encoding}")
 
 
-def decode_source(source: bytes) -> str:
+def decode_source(source: bytes) -> tuple[str, str]:
     source = source.removeprefix(codecs.BOM_UTF8)
     lines = source.split(b"\n", 2)
     header = lines[1] if lines[0].startswith(b"#!") and len(lines) > 1 else lines[0]
     match = _MAGIC_ENCODING.search(header)
     if match is None:
-        return source.decode("utf-8")
+        return source.decode("utf-8"), "utf-8"
     encoding = match[1].decode("ascii").lower().replace("_", "-")
     codec = _ENCODINGS.get(encoding)
     if codec is None and re.fullmatch(
@@ -52,4 +52,4 @@ def decode_source(source: bytes) -> str:
         codec = encoding
     if codec is None:
         raise _UnsupportedEncodingError(encoding)
-    return source.decode(codec)
+    return source.decode(codec), codec
