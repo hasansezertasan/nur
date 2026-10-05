@@ -2589,3 +2589,72 @@ def test_deleted_contextless_explicit_positional_task_preserves_sibling() -> Non
         "del broken\n@task\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("decorator", ["@task", "@task(positional=[])"])
+@pytest.mark.parametrize("annotation", ["1 / 0", "1 // 0", "1 % 0"])
+def test_zero_division_annotation_suppresses_collection(
+    decorator: str, annotation: str
+) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n{decorator}\n"
+            f"def broken(c, value: {annotation} = None): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_future_annotation_expression_is_not_executed() -> None:
+    tasks = parse_tasks(
+        "from __future__ import annotations\nfrom invoke import task\n"
+        "@task\ndef other(c, value: 1 / 0 = None) -> 1 / 0: ...\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["other", "build"]
+
+
+def test_caught_constructor_annotation_failure_preserves_sibling() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\ntry:\n @task\n"
+        " def broken(c, value: 1 / 0 = None): ...\n"
+        "except ZeroDivisionError: pass\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("raised", ["ValueError", "ValueError('bad')"])
+@pytest.mark.parametrize("decorator", ["@task(unknown=True)", "@task(aliases=7)"])
+def test_nested_incompatible_handler_does_not_hide_termination(
+    raised: str, decorator: str
+) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\ntry:\n try: raise {raised}\n"
+        " except TypeError: pass\n"
+        f" {decorator}\n def broken(c): ...\nexcept ValueError: pass\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("shadow", ["ValueError = TypeError", "TypeError = ValueError"])
+def test_shadowed_nested_exception_handler_is_conservative(shadow: str) -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n"
+            + shadow
+            + "\ntry:\n try: raise ValueError\n except TypeError: pass\n"
+            " @task(unknown=True)\n def broken(c): ...\nexcept AssertionError: pass\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_undecorated_function_in_exception_scan_has_no_constructor_error() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\ntry:\n def other(): pass\nexcept ValueError: pass\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]

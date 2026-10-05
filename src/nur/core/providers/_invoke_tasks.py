@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 
 __all__ = [
+    "bind_callable_definition",
     "constructor_exception",
     "decorator_matches",
     "deferred_failure",
@@ -245,6 +246,58 @@ def _fatal_contextless_task(
     return True
 
 
+def _annotation_failure(
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
+) -> bool:
+    if isinstance(node, ast.ClassDef):
+        return False
+    annotations = [
+        arg.annotation
+        for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+    ]
+    annotations.extend(
+        arg.annotation for arg in (node.args.vararg, node.args.kwarg) if arg is not None
+    )
+    annotations.append(node.returns)
+    return any(
+        _zero_division_annotation(annotation)
+        for annotation in annotations
+        if annotation is not None
+    )
+
+
+def _zero_division_annotation(expression: ast.expr) -> bool:
+    if not isinstance(expression, ast.BinOp) or not isinstance(
+        expression.op, (ast.Div, ast.FloorDiv, ast.Mod)
+    ):
+        return False
+    try:
+        left = ast.literal_eval(expression.left)
+        right = ast.literal_eval(expression.right)
+    except (ValueError, TypeError) as _exc:
+        return False
+    numeric = (
+        (int, float, complex) if isinstance(expression.op, ast.Div) else (int, float)
+    )
+    return isinstance(left, numeric) and isinstance(right, numeric) and right == 0
+
+
+def _fatal_annotation_task(
+    function: ast.FunctionDef | ast.AsyncFunctionDef, decorator: ast.expr
+) -> bool:
+    if not _annotation_failure(function):
+        return False
+    if isinstance(decorator, ast.Call):
+        return not any(
+            keyword.arg == "positional"
+            and not (
+                isinstance(keyword.value, ast.Constant) and keyword.value.value is None
+            )
+            for keyword in decorator.keywords
+        )
+    return True
+
+
 def _positional_pre_conflict(decorator: ast.Call, bindings: dict[str, str]) -> bool:
     if not decorator.args or not any(
         keyword.arg == "pre" for keyword in decorator.keywords
@@ -412,7 +465,10 @@ def fatal_decorator(
         if (
             isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef))
             and decorator is function.decorator_list[-1]
-            and _fatal_contextless_task(function, decorator)
+            and (
+                _fatal_contextless_task(function, decorator)
+                or _fatal_annotation_task(function, decorator)
+            )
         ):
             return True
         if any(_fatal_keyword(keyword, bindings, tainted) for keyword in keywords):
@@ -523,6 +579,15 @@ def constructor_exception(
 ) -> str | None:
     if typeerror_decorator(node, bindings, tainted, states=states):
         return "TypeError"
+    if (
+        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.decorator_list
+    ):
+        decorator = node.decorator_list[-1]
+        if task_definition(node, bindings, tainted) and _fatal_annotation_task(
+            node, decorator
+        ):
+            return "ZeroDivisionError"
     for index, decorator in enumerate(node.decorator_list):
         if states is not None:
             bindings, tainted = states[index]
@@ -568,6 +633,8 @@ def deferred_failure(
         or constructor_exception(node, bindings, tainted) is not None
     ):
         return False
+    if _annotation_failure(node):
+        return True
     args = _task_arguments(node)
     if args is not None and not any((
         args.posonlyargs,
@@ -582,3 +649,11 @@ def deferred_failure(
         _fatal_parser_option(node, keyword, bindings, tainted)
         for keyword in decorator.keywords
     )
+
+
+def bind_callable_definition(statement: ast.stmt, bindings: dict[str, str]) -> None:
+    if (
+        isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        and not statement.decorator_list
+    ):
+        bindings[statement.name] = "ordinary_callable"

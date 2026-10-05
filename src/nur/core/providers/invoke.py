@@ -27,11 +27,13 @@ from nur.core.providers._invoke_control_flow import (
     reachable_match_cases as _reachable_match_cases,
     statement_blocks as _statement_blocks,
     statement_terminates as _statement_terminates,
+    stringify_future_annotations as _stringify_future_annotations,
     try_outcome_blocks as _try_outcome_blocks,
     unpacked_pairs as _unpacked_pairs,
 )
 from nur.core.providers._invoke_exports import STAR_EXPORTS as _STAR_EXPORTS
 from nur.core.providers._invoke_tasks import (
+    bind_callable_definition as _bind_callable_definition,
     constructor_exception as _constructor_exception,
     decorator_matches as _decorator_matches,
     deferred_failure as _deferred_failure,
@@ -499,14 +501,6 @@ def _defined_defaults(statement: ast.stmt, copies: dict[str, str]) -> set[str]:
     return set()
 
 
-def _bind_callable_definition(statement: ast.stmt, bindings: dict[str, str]) -> None:
-    if (
-        isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-        and not statement.decorator_list
-    ):
-        bindings[statement.name] = "ordinary_callable"
-
-
 def _forget_class_bindings(
     statement: ast.stmt,
     bindings: dict[str, str],
@@ -538,7 +532,7 @@ def _class_block_effects(
     class_taints = tainted.copy()
     global_writes: set[str] = set()
     mutations: set[str] = set()
-    for statement in statements:
+    for statement in _iteration_prefix(statements, bindings, tainted):
         # Inspect each possible block in order with its own local environment.
         # Imports within a branch are visible to subsequent mutations there.
         copied_modules = _copied_modules(statement, class_bindings, class_taints)
@@ -745,7 +739,7 @@ def _fatal_try(
     if not any(_iteration_jump(child) for child in statement.finalbody):
         if not statement.handlers and _fatal_block(statement.body, bindings, tainted):
             return True
-        for exception in ("TypeError", "AttributeError"):
+        for exception in ("TypeError", "AttributeError", "ZeroDivisionError"):
             if all(
                 _excludes_exception(handler.type, exception, bindings, handler_taints)
                 for handler in statement.handlers
@@ -859,7 +853,9 @@ def _fatal_block(
             return True
         if exception is None and _fatal_children(statement, bindings, tainted):
             return True
-        if _statement_terminates(statement) or _iteration_jump(statement):
+        if _statement_terminates(statement, bindings, tainted) or _iteration_jump(
+            statement
+        ):
             break
         copies = _copied_modules(statement, bindings, tainted)
         copies.update(_copied_callables(statement, bindings, tainted))
@@ -890,6 +886,7 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     with warnings.catch_warnings(action="ignore", category=SyntaxWarning):
         tree = ast.parse(text, filename=source_file)
         compile(tree, source_file, "exec", dont_inherit=True)
+    _stringify_future_annotations(tree)
     bindings: dict[str, str] = {}
     functions: dict[str, list[Task]] = {}
     defaults: set[str] = set()

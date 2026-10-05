@@ -30,6 +30,7 @@ __all__ = [
     "reachable_match_cases",
     "statement_blocks",
     "statement_terminates",
+    "stringify_future_annotations",
     "try_outcome_blocks",
     "unpacked_pairs",
 ]
@@ -190,6 +191,8 @@ def loop_must_enter(statement: ast.For | ast.AsyncFor | ast.While) -> bool:
 _EXCEPTIONS: dict[str, type[BaseException]] = {
     cls.__name__: cls
     for cls in (
+        ZeroDivisionError,
+        ArithmeticError,
         TypeError,
         AttributeError,
         ValueError,
@@ -268,15 +271,23 @@ def _guaranteed_jump(statement: ast.stmt) -> bool:
     return False
 
 
-def iteration_prefix(statements: list[ast.stmt]) -> list[ast.stmt]:
+def iteration_prefix(
+    statements: list[ast.stmt],
+    bindings: dict[str, str] | None = None,
+    tainted: set[str] | None = None,
+) -> list[ast.stmt]:
     """Retain statements up to a guaranteed exit from this block."""
     for index, statement in enumerate(statements):
-        if statement_terminates(statement):
+        if statement_terminates(statement, bindings, tainted):
             return statements[: index + 1]
     return statements
 
 
-def statement_terminates(statement: ast.stmt) -> bool:
+def statement_terminates(
+    statement: ast.stmt,
+    bindings: dict[str, str] | None = None,
+    tainted: set[str] | None = None,
+) -> bool:
     if isinstance(statement, ast.Raise) or _guaranteed_jump(statement):
         return True
     if isinstance(statement, ast.If):
@@ -287,24 +298,86 @@ def statement_terminates(statement: ast.stmt) -> bool:
             else [statement.body if truth else statement.orelse]
         )
         return all(
-            any(statement_terminates(child) for child in block) for block in blocks
+            any(statement_terminates(child, bindings, tainted) for child in block)
+            for block in blocks
         )
     if isinstance(statement, (ast.Try, ast.TryStar)):
-        return _try_terminates(statement)
+        return _try_terminates(statement, bindings, tainted)
     return False
 
 
-def _try_terminates(statement: ast.Try | ast.TryStar) -> bool:
-    if any(statement_terminates(child) for child in statement.finalbody):
+def _raised_exception(
+    body: list[ast.stmt], bindings: dict[str, str], tainted: set[str]
+) -> str | None:
+    prefix = iteration_prefix(body, bindings, tainted)
+    if not prefix or not isinstance(prefix[-1], ast.Raise):
+        return None
+    exception = prefix[-1].exc
+    if isinstance(exception, ast.Call):
+        if (
+            any(_constant_value(arg) is _UNKNOWN for arg in exception.args)
+            or exception.keywords
+        ):
+            return None
+        exception = exception.func
+    if (
+        not isinstance(exception, ast.Name)
+        or exception.id in bindings
+        or "builtins." + exception.id in tainted
+    ):
+        return None
+    return exception.id if exception.id in _EXCEPTIONS else None
+
+
+def _try_terminates(
+    statement: ast.Try | ast.TryStar,
+    bindings: dict[str, str] | None,
+    tainted: set[str] | None,
+) -> bool:
+    if any(
+        statement_terminates(child, bindings, tainted) for child in statement.finalbody
+    ):
         return True
-    if any(statement_terminates(child) for child in statement.body):
+    if any(statement_terminates(child, bindings, tainted) for child in statement.body):
+        exception = (
+            None
+            if bindings is None
+            else _raised_exception(statement.body, bindings, tainted or set())
+        )
         return all(
-            any(statement_terminates(child) for child in handler.body)
+            (
+                exception is not None
+                and excludes_exception(
+                    handler.type, exception, bindings or {}, tainted or set()
+                )
+            )
+            or any(
+                statement_terminates(child, bindings, tainted) for child in handler.body
+            )
             for handler in statement.handlers
         )
     return nonraising_block(statement.body) and any(
-        statement_terminates(child) for child in statement.orelse
+        statement_terminates(child, bindings, tainted) for child in statement.orelse
     )
+
+
+def stringify_future_annotations(tree: ast.Module) -> None:
+    if not any(
+        isinstance(statement, ast.ImportFrom)
+        and statement.module == "__future__"
+        and any(alias.name == "annotations" for alias in statement.names)
+        for statement in tree.body
+    ):
+        return
+    # Future annotations are strings; inspect.signature does not execute them.
+    for node in ast.walk(tree):
+        if isinstance(node, ast.arg) and node.annotation is not None:
+            node.annotation = ast.Constant(value="")
+        elif (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.returns is not None
+        ):
+            node.returns = ast.Constant(value="")
 
 
 def try_outcome_blocks(statement: ast.Try | ast.TryStar) -> list[list[ast.stmt]]:
