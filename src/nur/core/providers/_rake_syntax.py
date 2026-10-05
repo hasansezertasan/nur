@@ -488,18 +488,78 @@ def _regexp_pattern(pattern: str, *, extended: bool) -> str | None:
     return "".join(converted)
 
 
+def _discarded_constant_branch(node: Node) -> bool:
+    child = node
+    parent = node.parent
+    while parent is not None:
+        if parent.type in {
+            "if",
+            "unless",
+            "elsif",
+            "conditional",
+            "if_modifier",
+            "unless_modifier",
+        }:
+            condition = parent.child_by_field_name("condition")
+            value = condition
+            while value is not None and value.type == "parenthesized_statements":
+                values = [
+                    item for item in value.named_children if item.type != "comment"
+                ]
+                value = values[0] if len(values) == 1 else None
+            if (
+                value is not None
+                and value.type in {"true", "false", "nil"}
+                and child != condition
+            ):
+                truth = value.type == "true"
+                if parent.type in {"unless", "unless_modifier"}:
+                    truth = not truth
+                branch = parent.child_by_field_name(
+                    "body"
+                    if parent.type.endswith("_modifier")
+                    else "consequence"
+                    if truth
+                    else "alternative"
+                )
+                if (parent.type.endswith("_modifier") and not truth) or child != branch:
+                    return True
+        child, parent = parent, parent.parent
+    return False
+
+
+def _static_regexp_source(node: Node) -> str | None:
+    parts: list[str] = []
+    for child in node.named_children:
+        if child.type == "interpolation":
+            values = [
+                value for value in child.named_children if value.type != "comment"
+            ]
+            value = (
+                literal(values[0])
+                if len(values) == 1 and values[0].type == "string"
+                else None
+            )
+            if value is None:
+                # Dynamic interpolation constructs the pattern at runtime.
+                return None
+            # MRI folds strings during compilation after removing inactive branches.
+            if _discarded_constant_branch(node):
+                return None
+            parts.append(value)
+        else:
+            parts.append(node_text(child))
+    return "".join(parts)
+
+
 def _regexp_error(node: Node) -> str | None:
     options = node_text(node.children[-1])[1:]
     if set(options) - set("imxounes"):
         return "invalid Ruby regexp options"
-    if any(child.type == "interpolation" for child in node.named_children):
-        # MRI constructs interpolated patterns at runtime rather than compiling
-        # their regexp contents while loading the file.
+    source = _static_regexp_source(node)
+    if source is None:
         return None
-    pattern = _regexp_pattern(
-        "".join(node_text(child) for child in node.named_children),
-        extended="x" in options,
-    )
+    pattern = _regexp_pattern(source, extended="x" in options)
     if pattern is None:
         return "unsupported Ruby regexp"
     # Onigmo limits explicit repeats to 100000, unlike Python's regexp engine.

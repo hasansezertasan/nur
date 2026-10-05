@@ -29,6 +29,16 @@ _LANGUAGE = Language(tree_sitter_ruby.language())
 # Rake interprets leading '-' as an option, '=' as an environment assignment,
 # and brackets as task arguments. Accept a conservative runnable-name subset.
 _NAME = re.compile(r"[\w][\w:./-]*\Z")
+_DEFERRED_METHODS = {
+    "task",
+    "multitask",
+    "file",
+    "file_create",
+    "directory",
+    "rule",
+    "proc",
+    "lambda",
+}
 
 
 def _arguments(node: Node) -> list[Node]:
@@ -71,7 +81,7 @@ def _record_override(node: Node, disabled: set[str]) -> None:
     if node.type == "singleton_class":
         value = node.child_by_field_name("value")
         if _is_self(value):
-            disabled.update({"task", "multitask", "namespace", "desc"})
+            disabled.update(_DEFERRED_METHODS | {"namespace", "desc"})
     if node.type == "singleton_method":
         owner = node.child_by_field_name("object")
         name_node = node.child_by_field_name("name")
@@ -314,19 +324,31 @@ def _invalid_namespace(node: Node, arguments: list[Node]) -> bool:
     )
 
 
+def _invalid_directory_path(arguments: list[Node]) -> bool:
+    if not arguments:
+        return True
+    path = arguments[0]
+    if path.type in {"pair", "hash"}:
+        key = _task_hash_key(arguments)
+        if key is None:
+            return False
+        path = key
+    return _invalid_argument_name(path) or _literal_kind(path) in {
+        "simple_symbol",
+        "delimited_symbol",
+        "hash_key_symbol",
+    }
+
+
 def _declaration_error(
     node: Node, method: str | None, arguments: list[Node], description: Node | None
 ) -> str | None:
     if method == "undef":
         return "undef of Rake DSL method"
-    if method in {
-        "task",
-        "multitask",
-        "file",
-        "file_create",
-        "directory",
-        "rule",
-    } and _invalid_task_arguments(arguments):
+    if method in {"task", "multitask", "file", "file_create", "directory", "rule"} and (
+        _invalid_task_arguments(arguments)
+        or (method == "directory" and _invalid_directory_path(arguments))
+    ):
         return "invalid Rake task arguments"
     if method in {
         "task",
@@ -599,7 +621,7 @@ def _scope_headers(node: Node) -> list[Node]:
     ]
 
 
-def _load_time_children(node: Node) -> list[Node]:
+def _load_time_children(node: Node, disabled: set[str]) -> list[Node]:
     if node.type in {"method", "singleton_method", "lambda", "end_block"}:
         return _scope_headers(node)
     if node.type in {"block", "do_block"}:
@@ -609,33 +631,28 @@ def _load_time_children(node: Node) -> list[Node]:
             owner is not None
             and method is not None
             and _dsl_receiver(owner)
-            and node_text(method)
-            in {
-                "task",
-                "multitask",
-                "file",
-                "file_create",
-                "directory",
-                "rule",
-                "proc",
-                "lambda",
-            }
+            and node_text(method) in _DEFERRED_METHODS - disabled
         ):
             return []
     return _reachable_children(node)
 
 
 def _load_time_error(root: Node) -> str | None:
-    pending = [root]
+    disabled: set[str] = set()
+    pending = [_load_statements(root, disabled)]
     while pending:
-        node = pending.pop()
+        node = next(pending[-1], None)
+        if node is None:
+            pending.pop()
+            continue
+        _record_override(node, disabled)
         if _invalid_block_arguments(node):
             return "invalid block argument during loading"
         if node.type == "regex" and any(
             child.type == "interpolation" for child in node.named_children
         ):
             return "unsupported interpolated regexp during loading"
-        pending.extend(_load_time_children(node))
+        pending.append(iter(_load_time_children(node, disabled)))
     return None
 
 

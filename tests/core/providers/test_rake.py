@@ -2101,7 +2101,6 @@ def test_load_time_class_and_method_headers_install_dsl_overrides(body):
 @pytest.mark.parametrize(
     "body",
     [
-        'value = /#{")"}/',
         "value = /#{pattern}/",
         "namespace :db do; value = /#{pattern}/; end",
         "class C; value = /#{pattern}/; end",
@@ -2117,14 +2116,14 @@ def test_load_time_interpolated_regexps_are_conservatively_rejected(body, caplog
 @pytest.mark.parametrize(
     "body",
     [
-        'def helper; value = /#{")"}/; end',
-        'task :hidden do; value = /#{")"}/; end',
-        'callback = -> { /#{")"}/ }',
-        'callback = proc { /#{")"}/ }',
-        'END { /#{")"}/ }',
-        'if false; value = /#{")"}/; end',
-        'false && /#{")"}/',
-        'defined?(/#{")"}/)',
+        "def helper; value = /#{pattern}/; end",
+        "task :hidden do; value = /#{pattern}/; end",
+        "callback = -> { /#{pattern}/ }",
+        "callback = proc { /#{pattern}/ }",
+        "END { /#{pattern}/ }",
+        "if false; value = /#{pattern}/; end",
+        "false && /#{pattern}/",
+        "defined?(/#{pattern}/)",
     ],
 )
 def test_deferred_or_inactive_interpolated_regexps_preserve_tasks(body):
@@ -2167,7 +2166,7 @@ def test_explicit_self_calls_respect_dsl_overrides():
 
 
 def test_explicit_self_task_blocks_keep_interpolated_regexps_deferred():
-    tasks = parse_rakefile('self.task :build do; /#{")"}/; end')
+    tasks = parse_rakefile("self.task :build do; /#{pattern}/; end")
     assert [task.name for task in tasks] == ["build"]
 
 
@@ -2208,7 +2207,7 @@ def test_keyword_hash_descriptions_fail_only_when_consumed(arguments, caplog):
 @pytest.mark.parametrize("receiver", ["", "self."])
 def test_file_creation_blocks_keep_runtime_checks_deferred(method, receiver):
     tasks = parse_rakefile(
-        f'{receiver}{method} "out" do; /#{{")"}}/; helper(&1); end; task :safe'
+        f'{receiver}{method} "out" do; /#{{pattern}}/; helper(&1); end; task :safe'
     )
     assert [task.name for task in tasks] == ["safe"]
 
@@ -2228,3 +2227,92 @@ def test_file_creation_helpers_reject_invalid_pending_descriptions(method, caplo
 def test_rules_preserve_invalid_pending_descriptions_until_next_task(caplog):
     assert parse_rakefile('desc :Bad; rule ".o" => ".c"; task :safe') == []
     assert "invalid Rake description type" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "path", ["", "nil", ":out", "1", "true", "[]", ":out => []", "{out: []}"]
+)
+def test_invalid_directory_paths_abort_loading(path, caplog):
+    assert parse_rakefile(f"task :before; directory({path}); task :safe") == []
+    assert "invalid Rake task arguments" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "path", ['"out"', '""', '"out" => []', '{"out" => []}', "path", "*paths"]
+)
+def test_valid_or_unknown_directory_paths_preserve_tasks(path):
+    assert [task.name for task in parse_rakefile(f"directory({path}); task :safe")] == [
+        "safe"
+    ]
+
+
+@pytest.mark.parametrize(
+    "method",
+    ["task", "multitask", "file", "file_create", "directory", "rule", "proc", "lambda"],
+)
+@pytest.mark.parametrize("receiver", ["", "self."])
+def test_overridden_deferred_helpers_validate_their_blocks(method, receiver, caplog):
+    source = (
+        f"task :before; def self.{method}(*); yield; end; "
+        f"{receiver}{method} {{ /#{{pattern}}/ }}"
+    )
+    assert parse_rakefile(source) == []
+    assert "unsupported interpolated regexp during loading" in caplog.text
+
+
+def test_later_override_does_not_execute_earlier_task_block():
+    tasks = parse_rakefile(
+        "task :safe do; /#{pattern}/; end; def self.task(*); yield; end"
+    )
+    assert [task.name for task in tasks] == ["safe"]
+
+
+def test_begin_override_makes_earlier_source_block_load_time():
+    assert (
+        parse_rakefile(
+            "task :safe do; /#{pattern}/; end; BEGIN { def self.task(*); yield; end }"
+        )
+        == []
+    )
+
+
+def test_deferred_task_block_does_not_install_override():
+    tasks = parse_rakefile(
+        "task :safe do; def self.task(*); yield; end; end; "
+        "task :next do; /#{pattern}/; end"
+    )
+    assert [task.name for task in tasks] == ["safe", "next"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'value = /#{")"}/',
+        'task :hidden do; /#{")"}/; end',
+        'def helper; /#{")"}/; end',
+        'callback = -> { /#{")"}/ }',
+        'false && /#{")"}/',
+    ],
+)
+def test_constant_string_interpolated_regexps_are_compile_time_errors(body, caplog):
+    assert parse_rakefile(f"{body}; task :safe") == []
+    assert "invalid or unsupported Ruby regexp" in caplog.text
+
+
+def test_valid_constant_string_interpolation_inside_deferred_task():
+    assert [task.name for task in parse_rakefile('task :safe do; /#{"ok"}/; end')] == [
+        "safe"
+    ]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'if false; /#{")"}/; end',
+        'unless true; /#{")"}/; end',
+        '/#{")"}/ if false',
+        'true ? /ok/ : /#{")"}/',
+    ],
+)
+def test_discarded_constant_interpolated_regexps_preserve_tasks(body):
+    assert [task.name for task in parse_rakefile(f"{body}; task :safe")] == ["safe"]
