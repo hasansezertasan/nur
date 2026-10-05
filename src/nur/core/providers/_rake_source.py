@@ -6,8 +6,8 @@ import re
 __all__ = ["decode_source"]
 
 _MAGIC_ENCODING = re.compile(
-    rb"^[ \t]*#.*?\b(?:coding|encoding|fileencoding)[ \t]*"
-    rb"(?::|=(?=[ \t]))[ \t]*[\"']?([A-Za-z0-9_-]+)",
+    rb"^[ \t]*#.*?(?:\b(?:coding|encoding)[ \t]*(?::|=(?=[ \t]))"
+    rb"|\bfileencoding[ \t]*=(?=[ \t]))[ \t]*[\"']?([A-Za-z0-9_-]+)",
     re.IGNORECASE,
 )
 _ENCODINGS = {

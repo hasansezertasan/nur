@@ -2877,3 +2877,20 @@ def test_overridden_singleton_class_receiver_is_not_assumed_to_be_main():
         "singleton_class.define_method(:task) { |*| }; task :safe"
     )
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_fileencoding_colon_does_not_declare_source_encoding(tmp_path, caplog):
+    (tmp_path / "Rakefile").write_bytes(
+        '# fileencoding: ISO-8859-1\ndesc "café"; task :safe'.encode("latin-1")
+    )
+    assert RakeProvider().discover(tmp_path) == []
+    assert "skipping Rakefile" in caplog.text
+
+
+def test_fileencoding_equals_declaration_decodes_source(tmp_path):
+    (tmp_path / "Rakefile").write_bytes(
+        '# fileencoding= ISO-8859-1\ndesc "café"; task :safe'.encode("latin-1")
+    )
+    assert [
+        (task.name, task.description) for task in RakeProvider().discover(tmp_path)
+    ] == [("safe", "café")]
