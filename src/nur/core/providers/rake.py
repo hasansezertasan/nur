@@ -62,15 +62,9 @@ def _record_override(node: Node, disabled: set[str]) -> None:
 
 
 def _method(node: Node, disabled: set[str]) -> str | None:
-    _record_override(node, disabled)
-    if (
-        node.parent is not None
-        and node.parent.type in {"begin", "begin_block", "parenthesized_statements"}
-        and node.type not in {"begin", "parenthesized_statements"}
-    ):
-        # Flattened wrappers retain source order while each statement still
-        # contributes reachable load-time overrides, including conditionals.
-        disabled.update(_dsl_overrides(node, in_scope=True))
+    # Every declaration-scope statement contributes reachable load-time
+    # overrides, including top-level and namespace conditionals.
+    disabled.update(_dsl_overrides(node, in_scope=True))
     if node.type == "undef" and any(
         (literal(child) or node_text(child))
         in {"task", "multitask", "namespace", "desc"}
@@ -432,11 +426,7 @@ def _escaping_control(root: Node, *, include_begin: bool = False) -> str | None:
             body = node.child_by_field_name("body")
             children = [
                 child
-                for child in (
-                    _reachable_begin_children(node)
-                    if include_begin
-                    else node.named_children
-                )
+                for child in _reachable_children(node)
                 if node.type not in {"class", "module", "singleton_class"}
                 or child != body
             ]
@@ -444,7 +434,7 @@ def _escaping_control(root: Node, *, include_begin: bool = False) -> str | None:
     return local_control
 
 
-def _reachable_begin_children(node: Node) -> list[Node]:
+def _reachable_children(node: Node) -> list[Node]:
     if defined_probe(node):
         return []
     condition = node.child_by_field_name("condition")
@@ -505,9 +495,7 @@ def _dsl_overrides(root: Node, *, in_scope: bool = False) -> set[str]:
         if in_begin:
             _record_override(node, disabled)
         if node.type not in opaque:
-            pending.extend(
-                (child, in_begin) for child in _reachable_begin_children(node)
-            )
+            pending.extend((child, in_begin) for child in _reachable_children(node))
     return disabled
 
 
@@ -530,7 +518,7 @@ def _begin_exits(root: Node) -> bool:
                 initializer = initializer.parent
             if _escaping_control(initializer, include_begin=True) == "return":
                 return True
-        pending.extend(_reachable_begin_children(node))
+        pending.extend(_reachable_children(node))
     return False
 
 
@@ -583,8 +571,7 @@ def _begin_statements(root: Node, disabled: set[str]) -> Iterator[Node]:
                 condition = children[0] if len(children) == 1 else None
             if condition is not None and condition.type in {"true", "false", "nil"}:
                 pending.extend(
-                    (child, False)
-                    for child in reversed(_reachable_begin_children(node))
+                    (child, False) for child in reversed(_reachable_children(node))
                 )
             else:
                 disabled.update(_dsl_overrides(node))

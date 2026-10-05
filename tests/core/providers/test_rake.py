@@ -1964,3 +1964,52 @@ def test_parenthesized_inactive_or_dynamic_initializer_conditions_are_opaque(con
 )
 def test_duplicate_dependency_keys_follow_ruby_hash_semantics(arguments):
     assert [task.name for task in parse_rakefile(f"task({arguments})")] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "conditional",
+    [
+        "if true; def self.task(*args); end; end",
+        "unless false; def self.task(*args); end; end",
+        "def self.task(*args); end if true",
+        "if condition; def self.task(*args); end; end",
+    ],
+)
+def test_top_level_conditional_overrides_preserve_source_order(conditional):
+    tasks = parse_rakefile(f"task :before; {conditional}; task :hidden")
+    assert [task.name for task in tasks] == ["before"]
+
+
+@pytest.mark.parametrize(
+    "conditional",
+    [
+        "if false; def self.task(*args); end; end",
+        "unless true; def self.task(*args); end; end",
+        "def self.task(*args); end if false",
+    ],
+)
+def test_inactive_top_level_conditional_overrides_preserve_tasks(conditional):
+    tasks = parse_rakefile(f"task :before; {conditional}; task :after")
+    assert [task.name for task in tasks] == ["before", "after"]
+
+
+@pytest.mark.parametrize("control", ["break", "next", "redo", "return"])
+@pytest.mark.parametrize(
+    "wrapper",
+    ["{} if false", "if false; {}; end", "{} unless true", "while false; {}; end"],
+)
+def test_inactive_namespace_controls_preserve_later_tasks(control, wrapper):
+    body = wrapper.format(control)
+    tasks = parse_rakefile(
+        f"namespace :db do; task :before; {body}; task :after; end; task :root"
+    )
+    assert [task.name for task in tasks] == ["db:before", "db:after", "root"]
+
+
+@pytest.mark.parametrize("control", ["break", "next"])
+def test_active_namespace_controls_still_stop_namespace(control):
+    tasks = parse_rakefile(
+        f"namespace :db do; task :before; {control} if true; "
+        "task :hidden; end; task :root"
+    )
+    assert [task.name for task in tasks] == ["db:before", "root"]
