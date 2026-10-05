@@ -2894,3 +2894,109 @@ def test_fileencoding_equals_declaration_decodes_source(tmp_path):
     assert [
         (task.name, task.description) for task in RakeProvider().discover(tmp_path)
     ] == [("safe", "café")]
+
+
+@pytest.mark.parametrize(
+    "receiver",
+    ["self.singleton_class()", "singleton_class()", "(self.singleton_class())"],
+)
+def test_empty_argument_singleton_class_receivers_override_dsl(receiver):
+    source = f"task :before; {receiver}.define_method(:task) {{ |*| }}; task :ghost"
+    assert [task.name for task in parse_rakefile(source)] == ["before"]
+
+
+@pytest.mark.parametrize("receiver", ["self.singleton_class()", "singleton_class()"])
+def test_empty_argument_singleton_class_method_bodies_are_deferred(receiver):
+    source = f"{receiver}.define_method(:helper) {{ /#{{pattern}}/ }}; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+_READONLY_GLOBALS = [
+    "$?",
+    "$!",
+    "$:",
+    "$<",
+    '$"',
+    "$$",
+    "$*",
+    "$LOAD_PATH",
+    "$LOADED_FEATURES",
+    "$FILENAME",
+    "$-I",
+    "$-W",
+    "$-a",
+    "$-l",
+    "$-p",
+]
+
+
+@pytest.mark.parametrize("target", _READONLY_GLOBALS)
+@pytest.mark.parametrize(
+    "form", ["{target} = nil", "{target} += 1", "other, {target} = 1, nil"]
+)
+def test_readonly_special_global_assignments_reject_loading(target, form, caplog):
+    source = f"task :before; {form.format(target=target)}; task :after"
+    assert parse_rakefile(source) == []
+    assert "readonly global" in caplog.text
+
+
+@pytest.mark.parametrize("target", _READONLY_GLOBALS)
+@pytest.mark.parametrize(
+    "context",
+    [
+        "task :safe do; {body}; end",
+        "def helper; {body}; end; task :safe",
+        "if false; {body}; end; task :safe",
+        "defined?({body}); task :safe",
+    ],
+)
+def test_readonly_runtime_globals_in_deferred_or_inactive_code(target, context):
+    source = context.format(body=f"{target} = nil")
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "assignment",
+    ["@@value = 1", "@@value += 1", "@@value ||= 1", "other, @@value = 1, 2"],
+)
+@pytest.mark.parametrize(
+    "context",
+    ["{body}", "namespace :group do; {body}; end", "class << self; {body}; end"],
+)
+def test_top_level_class_variable_assignments_reject_loading(
+    assignment, context, caplog
+):
+    source = f"task :before; {context.format(body=assignment)}; task :after"
+    assert parse_rakefile(source) == []
+    assert "class variable access from toplevel" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "context",
+    [
+        "class Example; {body}; end",
+        "module Example; {body}; end",
+        "class Example; class << self; {body}; end; end",
+        "task :safe do; {body}; end",
+        "def helper; {body}; end",
+        "if false; {body}; end",
+        "defined?({body})",
+    ],
+)
+def test_class_variable_assignments_in_valid_or_deferred_contexts(context):
+    source = context.format(body="@@value = 1") + "; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        target
+        for target in _READONLY_GLOBALS
+        if target not in {"$?", "$!", "$-a", "$-l", "$-p"}
+    ],
+)
+def test_readonly_truthy_globals_do_not_assign_with_or_equals(target):
+    assert [task.name for task in parse_rakefile(f"{target} ||= nil; task :safe")] == [
+        "safe"
+    ]

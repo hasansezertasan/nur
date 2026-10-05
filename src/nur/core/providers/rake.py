@@ -18,6 +18,7 @@ from nur.core.providers._rake_overrides import (
     scope_headers,
     singleton_class_receiver,
 )
+from nur.core.providers._rake_runtime import load_assignment_error
 from nur.core.providers._rake_source import decode_source
 from nur.core.providers._rake_syntax import (
     binding_names,
@@ -733,7 +734,7 @@ def _load_time_error(root: Node) -> str | None:
                 return error
             deferred_calls.add(node.id)
         record_override(node, disabled)
-        error = _load_declaration_error(node, disabled)
+        error = _load_declaration_error(node, disabled) or load_assignment_error(node)
         if error is not None:
             return error
         if _invalid_block_arguments(node):

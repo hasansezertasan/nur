@@ -152,12 +152,16 @@ def singleton_class_receiver(node: Node | None, disabled: set[str]) -> bool:
         return node.id in unbound_identifier_ids(root, {"singleton_class"})
     receiver = node.child_by_field_name("receiver")
     method = node.child_by_field_name("method")
+    if node.type != "call" or method is None:
+        return False
+    arguments = node.child_by_field_name("arguments")
+    has_arguments = arguments is not None and any(
+        child.type != "comment" for child in arguments.named_children
+    )
     return (
-        node.type == "call"
-        and is_self(receiver)
-        and method is not None
+        (receiver is None or is_self(receiver))
         and node_text(method) == "singleton_class"
-        and node.child_by_field_name("arguments") is None
+        and not has_arguments
     )
 
 
