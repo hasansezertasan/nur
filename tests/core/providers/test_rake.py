@@ -2202,3 +2202,29 @@ def test_keyword_hash_descriptions_fail_only_when_consumed(arguments, caplog):
     ] == ["before"]
     assert parse_rakefile(f"task :before; desc({arguments}); task :after") == []
     assert "invalid Rake description type" in caplog.text
+
+
+@pytest.mark.parametrize("method", ["directory", "file_create"])
+@pytest.mark.parametrize("receiver", ["", "self."])
+def test_file_creation_blocks_keep_runtime_checks_deferred(method, receiver):
+    tasks = parse_rakefile(
+        f'{receiver}{method} "out" do; /#{{")"}}/; helper(&1); end; task :safe'
+    )
+    assert [task.name for task in tasks] == ["safe"]
+
+
+@pytest.mark.parametrize("method", ["directory", "file_create"])
+def test_file_creation_helpers_consume_pending_descriptions(method):
+    tasks = parse_rakefile(f'desc "Directory"; {method} "out"; task :safe')
+    assert [(task.name, task.description) for task in tasks] == [("safe", None)]
+
+
+@pytest.mark.parametrize("method", ["directory", "file_create"])
+def test_file_creation_helpers_reject_invalid_pending_descriptions(method, caplog):
+    assert parse_rakefile(f'task :before; desc :Bad; {method} "out"') == []
+    assert "invalid Rake description type" in caplog.text
+
+
+def test_rules_preserve_invalid_pending_descriptions_until_next_task(caplog):
+    assert parse_rakefile('desc :Bad; rule ".o" => ".c"; task :safe') == []
+    assert "invalid Rake description type" in caplog.text

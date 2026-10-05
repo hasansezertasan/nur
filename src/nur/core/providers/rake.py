@@ -319,11 +319,22 @@ def _declaration_error(
 ) -> str | None:
     if method == "undef":
         return "undef of Rake DSL method"
-    if method in {"task", "multitask", "file", "rule"} and _invalid_task_arguments(
-        arguments
-    ):
+    if method in {
+        "task",
+        "multitask",
+        "file",
+        "file_create",
+        "directory",
+        "rule",
+    } and _invalid_task_arguments(arguments):
         return "invalid Rake task arguments"
-    if method in {"task", "multitask", "file"} and not _valid_description(description):
+    if method in {
+        "task",
+        "multitask",
+        "file",
+        "file_create",
+        "directory",
+    } and not _valid_description(description):
         return "invalid Rake description type"
     if method == "namespace" and _invalid_namespace(node, arguments):
         return "invalid Rake namespace call"
@@ -599,7 +610,16 @@ def _load_time_children(node: Node) -> list[Node]:
             and method is not None
             and _dsl_receiver(owner)
             and node_text(method)
-            in {"task", "multitask", "file", "rule", "proc", "lambda"}
+            in {
+                "task",
+                "multitask",
+                "file",
+                "file_create",
+                "directory",
+                "rule",
+                "proc",
+                "lambda",
+            }
         ):
             return []
     return _reachable_children(node)
@@ -766,8 +786,8 @@ def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
         _validate_declaration(node, method, arguments, description)
         if method == "desc":
             description = _description(arguments)
-        elif method in {"task", "multitask", "file"}:
-            if method != "file":
+        elif method in {"task", "multitask", "file", "file_create", "directory"}:
+            if method in {"task", "multitask"}:
                 yield node, namespace, _description_text(description)
             description = None
         elif method == "namespace":
