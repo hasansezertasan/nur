@@ -2145,3 +2145,60 @@ def test_deferred_or_inactive_interpolated_regexps_preserve_tasks(body):
 def test_unrecognized_ruby_grammar_remains_conservatively_skipped(body, caplog):
     assert parse_rakefile(f"{body}; task :build") == []
     assert "invalid Ruby syntax" in caplog.text
+
+
+@pytest.mark.parametrize("receiver", ["self", "(self)", "((self))"])
+def test_explicit_self_rake_dsl_calls_are_discovered(receiver):
+    tasks = parse_rakefile(
+        f'{receiver}.desc "Build"; {receiver}.task :build; '
+        f"{receiver}.namespace :db do; {receiver}.multitask :test; end"
+    )
+    assert [(task.name, task.description) for task in tasks] == [
+        ("build", "Build"),
+        ("db:test", None),
+    ]
+
+
+def test_explicit_self_calls_respect_dsl_overrides():
+    tasks = parse_rakefile(
+        "self.task :before; def self.task(*args); end; self.task :hidden"
+    )
+    assert [task.name for task in tasks] == ["before"]
+
+
+def test_explicit_self_task_blocks_keep_interpolated_regexps_deferred():
+    tasks = parse_rakefile('self.task :build do; /#{")"}/; end')
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "value", ["1", "1.5", "-1", "true", "false", '"text"', "[]", "/pattern/", "1..2"]
+)
+def test_non_coercible_block_arguments_reject_file(value, caplog):
+    assert parse_rakefile(f"task :before; task(:bad, &{value}); task :after") == []
+    assert "block argument" in caplog.text
+
+
+@pytest.mark.parametrize("value", ["nil", ":to_s", "{}", "-> {}", "callback"])
+def test_coercible_or_unknown_task_blocks_preserve_names(value):
+    tasks = parse_rakefile(f"task(:build, &{value}); task :after")
+    assert [task.name for task in tasks] == ["build", "after"]
+
+
+@pytest.mark.parametrize(
+    "arguments", ["foo: :bar", "foo: :bar, other: :value", "{foo: :bar}"]
+)
+def test_keyword_hash_namespace_names_reject_file(arguments, caplog):
+    assert (
+        parse_rakefile(f"task :before; namespace({arguments}) {{}}; task :after") == []
+    )
+    assert "invalid Rake namespace" in caplog.text
+
+
+@pytest.mark.parametrize("arguments", ["foo: :bar", "foo: :bar, other: :value"])
+def test_keyword_hash_descriptions_fail_only_when_consumed(arguments, caplog):
+    assert [
+        task.name for task in parse_rakefile(f"task :before; desc({arguments})")
+    ] == ["before"]
+    assert parse_rakefile(f"task :before; desc({arguments}); task :after") == []
+    assert "invalid Rake description type" in caplog.text

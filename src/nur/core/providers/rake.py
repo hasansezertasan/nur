@@ -35,7 +35,20 @@ def _arguments(node: Node) -> list[Node]:
     arguments = node.child_by_field_name("arguments")
     if arguments is None:
         return []
-    return [child for child in arguments.named_children if child.type != "comment"]
+    return [
+        child
+        for child in arguments.named_children
+        if child.type not in {"comment", "block_argument"}
+    ]
+
+
+def _block_arguments(node: Node) -> list[Node]:
+    arguments = node.child_by_field_name("arguments")
+    return (
+        [child for child in arguments.named_children if child.type == "block_argument"]
+        if arguments is not None
+        else []
+    )
 
 
 def _is_self(node: Node | None) -> bool:
@@ -45,6 +58,11 @@ def _is_self(node: Node | None) -> bool:
             return False
         node = children[0]
     return node is not None and node.type == "self"
+
+
+def _dsl_receiver(node: Node) -> bool:
+    receiver = node.child_by_field_name("receiver")
+    return receiver is None or _is_self(receiver)
 
 
 def _record_override(node: Node, disabled: set[str]) -> None:
@@ -71,7 +89,7 @@ def _method(node: Node, disabled: set[str]) -> str | None:
         for child in node.named_children
     ):
         return "undef"
-    if node.type != "call" or node.child_by_field_name("receiver") is not None:
+    if node.type != "call" or not _dsl_receiver(node):
         return None
     method = node.child_by_field_name("method")
     name = node_text(method) if method is not None else None
@@ -134,8 +152,60 @@ class _InvalidDeclarationError(ValueError):
     """A direct Rake declaration is known to fail while loading."""
 
 
+def _literal_kind(node: Node | None) -> str | None:
+    while node is not None and node.type == "parenthesized_statements":
+        children = [child for child in node.named_children if child.type != "comment"]
+        node = children[0] if len(children) == 1 else None
+    if node is None:
+        return None
+    if node.type == "unary":
+        operator = node.child_by_field_name("operator")
+        operand = node.child_by_field_name("operand")
+        if (
+            operator is not None
+            and operator.type in {"+", "-"}
+            and operand is not None
+            and operand.type in {"integer", "float"}
+        ):
+            return operand.type
+    return "hash" if node.type == "pair" else node.type
+
+
+def _invalid_block_arguments(node: Node) -> bool:
+    if node.type != "call":
+        return False
+    for argument in _block_arguments(node):
+        value = next(
+            (child for child in argument.named_children if child.type != "comment"),
+            None,
+        )
+        if _literal_kind(value) in {
+            "integer",
+            "float",
+            "true",
+            "false",
+            "string",
+            "array",
+            "regex",
+            "range",
+        }:
+            return True
+    return False
+
+
+def _call_arity(arguments: list[Node]) -> int | None:
+    if any(
+        argument.type in {"splat_argument", "hash_splat_argument", "forward_argument"}
+        for argument in arguments
+    ):
+        return None
+    positional, pairs = _task_arguments(arguments)
+    return len(positional) + int(pairs is not None)
+
+
 def _invalid_argument_name(node: Node) -> bool:
-    return node.type in {
+    return _literal_kind(node) in {
+        "lambda",
         "nil",
         "true",
         "false",
@@ -220,13 +290,14 @@ def _invalid_task_arguments(arguments: list[Node]) -> bool:
 
 
 def _invalid_namespace(node: Node, arguments: list[Node]) -> bool:
-    callbacks = [
-        argument for argument in arguments if argument.type == "block_argument"
-    ]
+    callbacks = _block_arguments(node)
     if node.child_by_field_name("block") is None and (
         not callbacks
         or any(
-            any(child.type in {"nil", "false"} for child in callback.named_children)
+            any(
+                _literal_kind(child) in {"nil", "false"}
+                for child in callback.named_children
+            )
             for callback in callbacks
         )
     ):
@@ -238,7 +309,7 @@ def _invalid_namespace(node: Node, arguments: list[Node]) -> bool:
     ):
         return False
     return len(names) > 1 or any(
-        _invalid_argument_name(argument) and argument.type != "nil"
+        _invalid_argument_name(argument) and _literal_kind(argument) != "nil"
         for argument in names
     )
 
@@ -256,15 +327,7 @@ def _declaration_error(
         return "invalid Rake description type"
     if method == "namespace" and _invalid_namespace(node, arguments):
         return "invalid Rake namespace call"
-    if (
-        method == "desc"
-        and len(arguments) != 1
-        and not any(
-            argument.type
-            in {"splat_argument", "hash_splat_argument", "forward_argument"}
-            for argument in arguments
-        )
-    ):
+    if method == "desc" and _call_arity(arguments) not in {1, None}:
         return "invalid Rake description arguments"
     return None
 
@@ -375,7 +438,12 @@ def _make_task(
 
 
 def _description(arguments: list[Node]) -> Node | None:
-    node = arguments[0] if len(arguments) == 1 else None
+    positional, pairs = _task_arguments(arguments)
+    node = (
+        arguments[0]
+        if (len(arguments) == 1 or (pairs is not None and not positional))
+        else None
+    )
     while node is not None and node.type == "parenthesized_statements":
         children = [child for child in node.named_children if child.type != "comment"]
         node = children[0] if len(children) == 1 else None
@@ -385,16 +453,11 @@ def _description(arguments: list[Node]) -> Node | None:
 def _valid_description(node: Node | None) -> bool:
     # Rake calls strip on truthy descriptions. Symbols and other known non-string
     # literals cannot supply a comment; unknown expressions remain opaque.
-    return node is None or node.type not in {
+    if node is None or _literal_kind(node) in {"nil", "false"}:
+        return True
+    return not _invalid_argument_name(node) and node.type not in {
         "simple_symbol",
         "delimited_symbol",
-        "integer",
-        "float",
-        "true",
-        "array",
-        "hash",
-        "regex",
-        "range",
     }
 
 
@@ -534,7 +597,7 @@ def _load_time_children(node: Node) -> list[Node]:
         if (
             owner is not None
             and method is not None
-            and owner.child_by_field_name("receiver") is None
+            and _dsl_receiver(owner)
             and node_text(method)
             in {"task", "multitask", "file", "rule", "proc", "lambda"}
         ):
@@ -542,10 +605,12 @@ def _load_time_children(node: Node) -> list[Node]:
     return _reachable_children(node)
 
 
-def _load_time_regexp_error(root: Node) -> str | None:
+def _load_time_error(root: Node) -> str | None:
     pending = [root]
     while pending:
         node = pending.pop()
+        if _invalid_block_arguments(node):
+            return "invalid block argument during loading"
         if node.type == "regex" and any(
             child.type == "interpolation" for child in node.named_children
         ):
@@ -736,9 +801,9 @@ def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
         return []
     if _begin_exits(root):
         return []
-    regexp_error = _load_time_regexp_error(root)
-    if regexp_error is not None:
-        log.warning("nur: skipping %s (%s)", source_file, regexp_error)
+    load_error = _load_time_error(root)
+    if load_error is not None:
+        log.warning("nur: skipping %s (%s)", source_file, load_error)
         return []
     tasks: dict[str, Task] = {}
     descriptions: dict[str, list[str]] = {}

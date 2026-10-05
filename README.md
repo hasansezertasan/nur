@@ -161,8 +161,9 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 
   `rake` parses `Rakefile` with Tree-sitter without running Ruby or `rake -T`.
   It discovers direct literal `task` and `multitask` declarations, including
-  dependency-only tasks, and tracks nested literal `namespace` blocks. A
-  pending ordinary quoted `desc` supplies the next task description,
+  dependency-only tasks, and tracks nested literal `namespace` blocks.
+  Calls may use an explicit `self` receiver.
+  A pending ordinary quoted `desc` supplies the next task description,
   including across unrelated statements and namespaces. For example,
   `task :migrate` inside `namespace :db` runs as `rake db:migrate` and is
   available as `nur rake:db:migrate`.
