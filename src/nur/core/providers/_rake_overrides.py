@@ -16,6 +16,7 @@ __all__ = [
     "DEFERRED_METHODS",
     "RAKE_METHODS",
     "SINGLETON_MUTATORS",
+    "TERMINATING_METHODS",
     "main_scope",
     "reader_call",
     "receiver_name",
@@ -42,6 +43,7 @@ _METHODS = {
 }
 
 
+TERMINATING_METHODS = frozenset({"raise", "fail", "exit", "abort"})
 DEFERRED_METHODS = frozenset(_METHODS - {"namespace"})
 RAKE_METHODS = frozenset(
     _METHODS - {"proc", "lambda", "define_method", "define_singleton_method"}
@@ -86,7 +88,8 @@ def singleton_eval_block(node: Node, disabled: set[str]) -> bool:
     method = owner.child_by_field_name("method")
     return (
         method is not None
-        and node_text(method) in {"class_eval", "class_exec"}
+        and node_text(method)
+        in {"class_eval", "class_exec", "module_eval", "module_exec"}
         and singleton_class_receiver(owner.child_by_field_name("receiver"), disabled)
     )
 
@@ -149,6 +152,8 @@ def _instance_override(node: Node, name: str, disabled: set[str]) -> None:
         "singleton_class",
         "raise",
         "fail",
+        "exit",
+        "abort",
     }:
         disabled.add(f"inherited:{name}")
         if f"singleton:{name}" not in disabled:
@@ -160,6 +165,8 @@ def _instance_override(node: Node, name: str, disabled: set[str]) -> None:
         "singleton_class",
         "raise",
         "fail",
+        "exit",
+        "abort",
     }:
         disabled.update({name, f"inherited:{name}"})
 

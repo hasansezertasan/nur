@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from nur.core.providers._rake_overrides import receiver_name
+from nur.core.providers._rake_overrides import TERMINATING_METHODS, receiver_name
 from nur.core.providers._rake_syntax import is_self, node_text
 
 if TYPE_CHECKING:
@@ -29,9 +29,9 @@ _ERROR_PARENTS = {
 }
 
 
-def _raised_kind(node: Node) -> str:
+def _arguments(node: Node) -> list[Node]:
     argument_list = node.child_by_field_name("arguments")
-    arguments = (
+    return (
         [
             child
             for child in argument_list.named_children
@@ -40,6 +40,10 @@ def _raised_kind(node: Node) -> str:
         if argument_list is not None
         else []
     )
+
+
+def _raised_kind(node: Node) -> str:
+    arguments = _arguments(node)
     if not arguments or arguments[0].type == "string":
         return "RuntimeError"
     first = arguments[0]
@@ -56,6 +60,33 @@ def _raised_kind(node: Node) -> str:
         if first.type in {"nil", "true", "false", "integer", "float", "array", "hash"}
         else "Exception"
     )
+
+
+def _exit_kind(node: Node, name: str) -> str:
+    arguments = _arguments(node)
+    if any(
+        argument.type in {"splat_argument", "hash_splat_argument", "forward_argument"}
+        for argument in arguments
+    ):
+        return "SystemExit"
+    if len(arguments) > 1:
+        return "ArgumentError"
+    if not arguments:
+        return "SystemExit"
+    invalid = {
+        "nil",
+        "array",
+        "hash",
+        "pair",
+        "simple_symbol",
+        "delimited_symbol",
+        "regex",
+        "range",
+    }
+    invalid.update(
+        {"integer", "float", "true", "false"} if name == "abort" else {"string"}
+    )
+    return "TypeError" if arguments[0].type in invalid else "SystemExit"
 
 
 def _ancestors(kind: str) -> set[str]:
@@ -118,7 +149,7 @@ def load_raise_error(
         if node.id in bare_raises
         else ""
     )
-    if name not in {"raise", "fail"}:
+    if name not in TERMINATING_METHODS:
         return None
     receiver = node.child_by_field_name("receiver")
     key = (
@@ -126,10 +157,15 @@ def load_raise_error(
         if receiver is None or is_self(receiver)
         else f"{receiver_name(receiver)}.{name}"
     )
-    if key not in {"raise", "fail", "Kernel.raise", "Kernel.fail"} or key in disabled:
+    known = TERMINATING_METHODS | {f"Kernel.{method}" for method in TERMINATING_METHODS}
+    if key not in known or key in disabled:
+        return None
+    exit_call = name in {"exit", "abort"}
+    kind = _exit_kind(node, name) if exit_call else _raised_kind(node)
+    if _handled_raise(node, kind):
         return None
     return (
-        None
-        if _handled_raise(node, _raised_kind(node))
+        "unhandled process exit during loading"
+        if exit_call
         else "uncaught raise during loading"
     )

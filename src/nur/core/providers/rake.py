@@ -16,6 +16,7 @@ from nur.core.providers._rake_overrides import (
     DEFERRED_METHODS as _DEFERRED_METHODS,
     RAKE_METHODS as _RAKE_METHODS,
     SINGLETON_MUTATORS,
+    TERMINATING_METHODS,
     main_scope,
     reader_call,
     receiver_name,
@@ -648,12 +649,15 @@ def _deferred_call(owner: Node, method: Node, disabled: set[str]) -> bool:
     if singleton_eval_scope(owner, disabled) and name in SINGLETON_MUTATORS:
         return True
     if _dsl_receiver(owner):
-        return name in _DEFERRED_METHODS - disabled
+        return name in (_DEFERRED_METHODS | TERMINATING_METHODS) - disabled
     receiver = owner.child_by_field_name("receiver")
     if name in SINGLETON_MUTATORS and singleton_class_receiver(receiver, disabled):
         return True
     key = f"{receiver_name(receiver)}.{name}" if receiver is not None else ""
-    return key in {"Kernel.proc", "Kernel.lambda", "Proc.new"} - disabled
+    canonical = {"Kernel.proc", "Kernel.lambda", "Proc.new"} | {
+        f"Kernel.{method}" for method in TERMINATING_METHODS
+    }
+    return key in canonical - disabled
 
 
 def _load_time_children(node: Node, deferred_calls: set[int]) -> list[Node]:
@@ -705,7 +709,7 @@ def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
 def _load_time_error(root: Node) -> str | None:
     disabled: set[str] = set()
     deferred_calls: set[int] = set()
-    bare_raises = unbound_identifier_ids(root, {"raise", "fail"})
+    bare_raises = unbound_identifier_ids(root, set(TERMINATING_METHODS))
     bare_constructors = unbound_identifier_ids(
         root, {"proc", "lambda", "define_method", "define_singleton_method"}
     )

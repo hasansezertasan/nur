@@ -3473,7 +3473,9 @@ def test_rescue_that_does_not_handle_raise_rejects_loading(body):
     assert parse_rakefile("task :before; " + body + "; task :after") == []
 
 
-@pytest.mark.parametrize("method", ["class_eval", "class_exec"])
+@pytest.mark.parametrize(
+    "method", ["class_eval", "class_exec", "module_eval", "module_exec"]
+)
 @pytest.mark.parametrize("receiver", ["singleton_class", "self.singleton_class()"])
 def test_singleton_class_evaluation_replaces_main_dsl(method, receiver):
     source = (
@@ -3483,7 +3485,9 @@ def test_singleton_class_evaluation_replaces_main_dsl(method, receiver):
     assert [task.name for task in parse_rakefile(source)] == ["before"]
 
 
-@pytest.mark.parametrize("method", ["class_eval", "class_exec"])
+@pytest.mark.parametrize(
+    "method", ["class_eval", "class_exec", "module_eval", "module_exec"]
+)
 def test_singleton_class_evaluation_method_bodies_are_deferred(method):
     source = (
         f"singleton_class.{method} {{ define_method(:helper) {{ /#{{pattern}}/ }} }}; "
@@ -3502,4 +3506,48 @@ def test_unrelated_class_evaluation_does_not_replace_main():
         "class Other; singleton_class.class_eval { define_method(:task) { |*| } }; "
         "end; task :safe"
     )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "expression", ["exit 0", 'abort "stop"', "exit", "abort", "Kernel.exit(0)"]
+)
+@pytest.mark.parametrize(
+    "context", ["{body}", "if true; {body}; end", "namespace :group do; {body}; end"]
+)
+def test_unhandled_load_time_process_exits_reject_loading(expression, context, caplog):
+    source = "task :before; " + context.format(body=expression) + "; task :after"
+    assert parse_rakefile(source) == []
+    assert "unhandled process exit during loading" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "begin; exit 0; rescue Exception; end",
+        'begin; abort "stop"; rescue SystemExit; end',
+        "if false; exit; end",
+        "task :safe do; exit; end",
+        "def exit(*); end; exit 0",
+        "def self.abort(*); end; abort",
+    ],
+)
+def test_handled_or_deferred_process_exits_keep_discovery(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+def test_default_rescue_does_not_handle_process_exit():
+    assert parse_rakefile("task :before; begin; exit; rescue; end; task :after") == []
+
+
+@pytest.mark.parametrize(
+    "expression", ['exit "invalid"', "exit 1, 2", "abort nil", "abort 1, 2"]
+)
+def test_rescued_invalid_process_exit_arguments_keep_discovery(expression):
+    source = f"begin; {expression}; rescue StandardError; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_handled_raise_does_not_execute_ignored_block():
+    source = 'begin; raise("stop") { /#{pattern}/ }; rescue; end; task :safe'
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
