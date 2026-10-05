@@ -1098,3 +1098,44 @@ def test_plain_callable_is_not_a_positional_task_dependency(dependency: str) -> 
         )
         == []
     )
+
+
+@pytest.mark.parametrize(
+    "definition", ["async def helper(c): ...", "class helper: pass"]
+)
+def test_other_plain_callables_are_not_task_dependencies(definition: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n{definition}\n@task(helper)\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("copy", ["(saved,) = (build,)", "[saved] = [build]"])
+def test_destructured_default_copy_collides(copy: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task(default=True)\ndef build(c): ...\n{copy}\n"
+        )
+        == []
+    )
+
+
+def test_destructured_task_survives_original_deletion() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task\ndef build(c): ...\n"
+        "(saved,) = (build,)\ndel build\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("copy", ["(alias := invoke)", "if (alias := invoke): pass"])
+def test_named_expression_module_alias_mutates_original(copy: str) -> None:
+    assert (
+        parse_tasks(
+            f"import invoke\n{copy}\nalias.task = replacement\n"
+            "@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )

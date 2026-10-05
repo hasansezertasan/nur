@@ -644,7 +644,13 @@ def _assignment_pairs(statement: ast.stmt) -> list[tuple[ast.Name, ast.expr]]:
     elif isinstance(statement, ast.AnnAssign) and statement.value is not None:
         pending = [(statement.target, statement.value)]
     else:
-        return []
+        pending = []
+    nodes: list[ast.AST] = [statement]
+    while nodes:
+        node = nodes.pop()
+        nodes.extend(_module_children(node))
+        if isinstance(node, ast.NamedExpr):
+            pending.append((node.target, node.value))
     pairs: list[tuple[ast.Name, ast.expr]] = []
     while pending:
         target, value = pending.pop()
@@ -768,32 +774,20 @@ def _class_mutates_tasks(
 
 
 def _copied_defaults(statement: ast.stmt, defaults: set[str]) -> set[str]:
-    if isinstance(statement, ast.Assign):
-        targets, value = statement.targets, statement.value
-    elif isinstance(statement, ast.AnnAssign) and statement.value is not None:
-        targets, value = [statement.target], statement.value
-    else:
-        return set()
-    if not isinstance(value, ast.Name) or value.id not in defaults:
-        return set()
-    return {target.id for target in targets if isinstance(target, ast.Name)}
+    return {
+        target.id
+        for target, value in _assignment_pairs(statement)
+        if isinstance(value, ast.Name) and value.id in defaults
+    }
 
 
 def _copied_tasks(
     statement: ast.stmt, functions: dict[str, list[Task]]
 ) -> dict[str, list[Task]]:
-    if isinstance(statement, ast.Assign):
-        targets, value = statement.targets, statement.value
-    elif isinstance(statement, ast.AnnAssign) and statement.value is not None:
-        targets, value = [statement.target], statement.value
-    else:
-        return {}
-    if not isinstance(value, ast.Name) or value.id not in functions:
-        return {}
     return {
         target.id: functions[value.id]
-        for target in targets
-        if isinstance(target, ast.Name)
+        for target, value in _assignment_pairs(statement)
+        if isinstance(value, ast.Name) and value.id in functions
     }
 
 
@@ -862,6 +856,11 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
                 )
                 for name in names
             ]
+        elif (
+            isinstance(statement, (ast.AsyncFunctionDef, ast.ClassDef))
+            and not statement.decorator_list
+        ):
+            bindings[statement.name] = "ordinary_callable"
     if len(defaults) > 1:
         log.warning("nur: skipping %s (colliding Invoke default tasks)", source_file)
         return []
