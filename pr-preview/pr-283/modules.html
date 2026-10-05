@@ -649,7 +649,8 @@ are not resolved. Task bodies and pre/post hooks remain Invoke’s concern.</p>
 <dd><p>Discover literal Rake tasks at file scope or inside literal namespaces.</p>
 <p>Only direct <code class="docutils literal notranslate"><span class="pre">task</span></code>/<code class="docutils literal notranslate"><span class="pre">multitask</span></code> calls and adjacent literal <code class="docutils literal notranslate"><span class="pre">desc</span></code> calls
 are read. Task bodies, conditional/generated declarations, file tasks,
-rules and imported files are opaque. No Ruby code or runner is executed.</p>
+rules and imported files are opaque. Plain begin/end wrappers without
+exception handlers are transparent. No Ruby code or runner is executed.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
