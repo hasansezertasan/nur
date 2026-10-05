@@ -284,6 +284,33 @@ def task_definition(
     return decorator_matches(expression, bindings, tainted)
 
 
+def _fatal_parser_option(
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
+    keyword: ast.keyword,
+    bindings: dict[str, str],
+    tainted: set[str],
+) -> bool:
+    if len(node.decorator_list) != 1:
+        return False
+    if keyword.arg in {"aliases", "positional", "help"}:
+        return _invalid_literal_option(keyword, bindings, tainted)
+    if keyword.arg not in {"iterable", "incrementable"} or isinstance(
+        node, ast.ClassDef
+    ):
+        return False
+    args = node.args
+    parameter_count = (
+        len(args.posonlyargs)
+        + len(args.args)
+        + len(args.kwonlyargs)
+        + bool(args.vararg)
+        + bool(args.kwarg)
+    )
+    # Invoke removes the first signature parameter as the Context. Membership
+    # checks for these options occur only while constructing other arguments.
+    return parameter_count > 1 and _invalid_literal_option(keyword, bindings, tainted)
+
+
 def fatal_decorator(
     function: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
     bindings: dict[str, str],
@@ -313,9 +340,13 @@ def fatal_decorator(
             if keyword.arg is not None and keyword.arg not in _TASK_OPTIONS:
                 return True
             if (
-                keyword.arg in {"aliases", "optional"}
-                and _invalid_literal_option(keyword, bindings, tainted)
-            ) or _fatal_help_literal(keyword):
+                (
+                    keyword.arg == "optional"
+                    and _invalid_literal_option(keyword, bindings, tainted)
+                )
+                or _fatal_help_literal(keyword)
+                or _fatal_parser_option(function, keyword, bindings, tainted)
+            ):
                 return True
     return False
 

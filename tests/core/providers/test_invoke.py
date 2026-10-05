@@ -1787,3 +1787,37 @@ def test_finally_break_can_suppress_fatal_decorator_error() -> None:
         "@invoke.task\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "options", ["iterable=1", "incrementable=1", "positional=1", "help=[1]", "help={1}"]
+)
+def test_parser_fatal_options_suppress_sibling_tasks(options: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task({options})\n"
+            "def broken(c, item=False): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("options", ["iterable=1", "incrementable=1"])
+def test_argumentless_task_does_not_make_membership_options_fatal(options: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n@task({options})\ndef other(c): ...\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("options", ["positional=1", "help=[1]", "help={1}"])
+def test_argumentless_task_can_have_parser_fatal_options(options: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task({options})\ndef broken(c): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
