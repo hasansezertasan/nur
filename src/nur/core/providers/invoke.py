@@ -11,17 +11,19 @@ from typing import TYPE_CHECKING
 from nur.core.models import Task
 from nur.core.providers._invoke_control_flow import (
     MAX_UNROLLED_ITERATIONS as _MAX_UNROLLED_ITERATIONS,
-    all_statement_blocks as _all_statement_blocks,
+    compound_children as _compound_children,
     constant_truth as _constant_truth,
     definitely_executed_blocks as _definitely_executed_blocks,
     exception_taints as _exception_taints,
     excludes_exception as _excludes_exception,
     global_names as _global_names,
-    guaranteed_match_case as _guaranteed_match_case,
     iteration_jump as _iteration_jump,
+    iteration_prefix as _iteration_prefix,
     loop_count as _loop_count,
     loop_task_blocks as _loop_task_blocks,
     nonraising_block as _nonraising_block,
+    reachable_match_cases as _reachable_match_cases,
+    statement_blocks as _statement_blocks,
     unpacked_pairs as _unpacked_pairs,
 )
 from nur.core.providers._invoke_exports import STAR_EXPORTS as _STAR_EXPORTS
@@ -286,15 +288,8 @@ def _module_children(node: ast.AST) -> list[ast.AST]:
         # The iteration target is local. Walrus assignments in the expressions
         # still bind in the containing scope and are visited normally.
         return [node.iter, *node.ifs]
-    children: list[ast.AST] = list(ast.iter_child_nodes(node))
-    if isinstance(node, (ast.For, ast.AsyncFor, ast.While)) and _loop_count(node) == 0:
-        expression = node.test if isinstance(node, ast.While) else node.iter
-        children = [expression, *node.orelse]
-    elif isinstance(node, ast.If):
-        truth = _constant_truth(node.test)
-        if truth is not None:
-            children = [node.test, *(node.body if truth else node.orelse)]
-    return children
+    children = _compound_children(node)
+    return list(ast.iter_child_nodes(node)) if children is None else children
 
 
 def _import_writes(node: ast.Import | ast.ImportFrom) -> set[str]:
@@ -360,19 +355,6 @@ def _deleted_names(statement: ast.stmt) -> set[str]:
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Del):
             names.add(node.id)
     return names
-
-
-def _statement_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
-    if (
-        isinstance(statement, (ast.For, ast.AsyncFor, ast.While))
-        and _loop_count(statement) == 0
-    ):
-        return [statement.orelse]
-    if isinstance(statement, ast.If):
-        truth = _constant_truth(statement.test)
-        if truth is not None:
-            return [statement.body if truth else statement.orelse]
-    return _all_statement_blocks(statement)
 
 
 def _merge_possible_modules(
@@ -662,7 +644,7 @@ def _task_outcome_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
             return [statement.body if truth else statement.orelse]
         return [statement.body, statement.orelse]
     if isinstance(statement, ast.Match):
-        blocks = [case.body for case in statement.cases]
+        blocks = [case.body for case in _reachable_match_cases(statement)]
         if not any(
             isinstance(case.pattern, ast.MatchAs)
             and case.pattern.pattern is None
@@ -796,22 +778,28 @@ def _fatal_children(
 ) -> bool:
     bindings = bindings.copy()
     if isinstance(statement, (ast.For, ast.AsyncFor, ast.While, ast.Match)):
-        header = statement
-        if isinstance(statement, ast.Match) and (
-            case := _guaranteed_match_case(statement)
-        ):
-            header = ast.Match(subject=statement.subject, cases=[case])
-        for bound in _header_writes(header):
+        copies = _copied_modules(statement, bindings, tainted)
+        copies.update(_copied_callables(statement, bindings, tainted))
+        if isinstance(statement, (ast.For, ast.AsyncFor)):
+            for node in ast.walk(statement.target):
+                if isinstance(node, ast.Name):
+                    copies.pop(node.id, None)
+        for bound in _header_writes(statement):
             # Loop targets and match captures are assigned before their bodies.
             bindings.pop(bound, None)
+        bindings.update(copies)
     if isinstance(statement, (ast.For, ast.AsyncFor)) and (
         (_loop_count(statement) or 0) > _MAX_UNROLLED_ITERATIONS
+        or (
+            (_loop_count(statement) or 0) > 0
+            and any(isinstance(node, ast.Continue) for node in ast.walk(statement))
+        )
     ):
         if _fatal_block(statement.body, bindings, tainted):
             return True
-        written, mutation, _, _ = _written_names(statement, bindings, tainted=tainted)
-        for bound in written:
-            bindings.pop(bound, None)
+        _, mutation, bindings = _class_block_effects(
+            _iteration_prefix(statement.body), bindings, None, tainted, set()
+        )
         return _fatal_block(statement.orelse, bindings, tainted | mutation)
     if isinstance(statement, (ast.Try, ast.TryStar)):
         return _fatal_try(statement, bindings, tainted)

@@ -194,7 +194,7 @@ def _literal_help_matches(
     parameters.extend(args.kwonlyargs)
     if args.kwarg:
         parameters.append(args.kwarg)
-    for parameter in parameters[2 if isinstance(function, ast.ClassDef) else 1 :]:
+    for parameter in parameters[1:]:
         name = parameter.arg
         dashed = name.strip("_").replace("_", "-") if "_" in name else name
         # Invoke consumes the dashed key first, then the original spelling.
@@ -337,7 +337,6 @@ def _fatal_parser_option(
         + len(args.kwonlyargs)
         + bool(args.vararg)
         + bool(args.kwarg)
-        - isinstance(node, ast.ClassDef)
     )
     # Invoke removes the first signature parameter as the Context. Membership
     # checks for these options occur only while constructing other arguments.
@@ -522,14 +521,19 @@ def _task_arguments(
 ) -> ast.arguments | None:
     if not isinstance(node, ast.ClassDef):
         return node.args
-    for statement in node.body:
-        if (
-            isinstance(statement, ast.FunctionDef)
-            and statement.name == "__init__"
-            and not statement.decorator_list
-        ):
-            return statement.args
-    return None
+    if node.bases or node.keywords:
+        # A custom/inherited metaclass may supply a different __call__.
+        return None
+    # Invoke inspects the class object's __call__, not __init__.
+    return ast.arguments(
+        posonlyargs=[],
+        args=[],
+        vararg=ast.arg(arg="args"),
+        kwonlyargs=[],
+        kw_defaults=[],
+        kwarg=ast.arg(arg="kwargs"),
+        defaults=[],
+    )
 
 
 def deferred_failure(

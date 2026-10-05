@@ -2107,12 +2107,12 @@ def test_finalizer_can_remove_deferred_collection_failure() -> None:
     assert [task.name for task in tasks] == ["build"]
 
 
-def test_argumentless_class_task_preserves_membership_option_siblings() -> None:
+def test_class_init_does_not_change_parser_membership_failure() -> None:
     tasks = parse_tasks(
         "from invoke import task\n@task(iterable=1)\nclass Other:\n"
         " def __init__(self, c): ...\n@task\ndef build(c): ...\n"
     )
-    assert [task.name for task in tasks] == ["build"]
+    assert tasks == []
 
 
 def test_caught_constructor_failure_does_not_create_malformed_task() -> None:
@@ -2231,5 +2231,139 @@ def test_uncertain_boolean_conditions_do_not_prove_fatal_execution(
     tasks = parse_tasks(
         f"from invoke import task\nif {condition}:\n @task(unknown=True)\n"
         " def broken(c): ...\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "body", ["continue", "if True: continue", "try:\n  continue\n finally: pass"]
+)
+def test_finite_continue_loop_reaches_fatal_else(body: str) -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\nfor item in [1]:\n "
+            + body
+            + "\nelse:\n @task(unknown=True)\n def broken(c): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("jump", ["break", "continue"])
+@pytest.mark.parametrize(
+    "wrapper",
+    [
+        "try:\n  {jump}\n finally: pass",
+        "try:\n  {jump}\n except Exception: pass",
+        "try:\n  pass\n finally: {jump}",
+    ],
+)
+def test_guaranteed_try_jump_skips_later_fatal_decorator(
+    jump: str, wrapper: str
+) -> None:
+    tasks = parse_tasks(
+        "from invoke import task\nfor item in [1]:\n "
+        + wrapper.format(jump=jump)
+        + "\n @task(unknown=True)\n def broken(c): ...\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "pattern", ["0 as task", "None as task", "False as task", "0 | 2 as task"]
+)
+def test_impossible_match_capture_preserves_import(pattern: str) -> None:
+    tasks = parse_tasks(
+        "from invoke import task\nmatch 1:\n case "
+        + pattern
+        + ": pass\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_false_match_guard_preserves_capture_but_skips_body() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\nmatch 1:\n case task if False:\n"
+        "  @task(unknown=True)\n  def broken(c): ...\n@task\ndef build(c): ...\n"
+    )
+    assert tasks == []
+
+
+def test_continue_skips_unreachable_task_copy() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task\ndef build(c): ...\nfor item in [1]:\n"
+        " continue\n saved = build\ndel build\n"
+    )
+    assert tasks == []
+
+
+def test_continue_else_uses_binding_from_body_prefix() -> None:
+    assert (
+        parse_tasks(
+            "for item in [1]:\n from invoke import task\n continue\nelse:\n"
+            " @task(unknown=True)\n def broken(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_empty_continue_loop_does_not_execute_body() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\nfor item in []:\n @task(unknown=True)\n"
+        " def broken(c): ...\n continue\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "definition", ["class Broken: pass", "class Broken:\n def __init__(self): pass"]
+)
+@pytest.mark.parametrize("option", ["iterable", "incrementable"])
+def test_plain_class_parser_metadata_failure(definition: str, option: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task({option}=1)\n{definition}\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "option", ["iterable=['kwargs']", "help={'kwargs': 'Options'}"]
+)
+def test_plain_class_generic_signature_accepts_kwargs_metadata(option: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n@task({option})\nclass Other: pass\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_custom_metaclass_parser_signature_stays_unknown() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task(iterable=1)\n"
+        "class Other(metaclass=Factory): pass\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_loop_header_callable_copy_exposes_fatal_body() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task as stable\ntask = replacement\n"
+            "for item in [(task := stable)]:\n @task(unknown=True)\n"
+            " def broken(c): ...\n"
+            "@stable\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_loop_target_overwrites_header_callable_copy() -> None:
+    tasks = parse_tasks(
+        "from invoke import task as stable\nfor task in [(task := stable)]:\n"
+        " @task(unknown=True)\n def broken(c): ...\n@stable\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]

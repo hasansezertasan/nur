@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 __all__ = [
     "MAX_UNROLLED_ITERATIONS",
     "all_statement_blocks",
+    "compound_children",
     "constant_truth",
     "definitely_executed_blocks",
     "exception_taints",
@@ -19,10 +20,13 @@ __all__ = [
     "global_names",
     "guaranteed_match_case",
     "iteration_jump",
+    "iteration_prefix",
     "loop_count",
     "loop_must_enter",
     "loop_task_blocks",
     "nonraising_block",
+    "reachable_match_cases",
+    "statement_blocks",
     "unpacked_pairs",
 ]
 
@@ -121,9 +125,7 @@ def loop_count(statement: ast.For | ast.AsyncFor | ast.While) -> int | None:
             return 0
     if any(
         node is not statement
-        and isinstance(
-            node, (ast.For, ast.AsyncFor, ast.While, ast.Break, ast.Continue)
-        )
+        and isinstance(node, (ast.For, ast.AsyncFor, ast.While, ast.Break))
         for node in ast.walk(statement)
     ):
         return None
@@ -204,7 +206,41 @@ def iteration_jump(statement: ast.stmt) -> bool:
             else [statement.body if truth else statement.orelse]
         )
         return any(iteration_jump(child) for block in blocks for child in block)
+    if isinstance(statement, (ast.Try, ast.TryStar)):
+        return _guaranteed_jump(statement)
     return False
+
+
+def _block_jump(statements: list[ast.stmt]) -> bool:
+    return any(_guaranteed_jump(statement) for statement in statements)
+
+
+def _guaranteed_jump(statement: ast.stmt) -> bool:
+    if isinstance(statement, (ast.Break, ast.Continue)):
+        return True
+    if isinstance(statement, ast.If):
+        truth = constant_truth(statement.test)
+        if truth is not None:
+            return _block_jump(statement.body if truth else statement.orelse)
+        return _block_jump(statement.body) and _block_jump(statement.orelse)
+    if isinstance(statement, (ast.Try, ast.TryStar)):
+        if _block_jump(statement.finalbody):
+            return True
+        prefix = iteration_prefix(statement.body)
+        return _block_jump(prefix) and (
+            not statement.handlers
+            or nonraising_block(prefix[:-1])
+            or all(_block_jump(handler.body) for handler in statement.handlers)
+        )
+    return False
+
+
+def iteration_prefix(statements: list[ast.stmt]) -> list[ast.stmt]:
+    """Retain statements up to a guaranteed iteration exit."""
+    for index, statement in enumerate(statements):
+        if _guaranteed_jump(statement):
+            return statements[: index + 1]
+    return statements
 
 
 def exception_taints(written: set[str]) -> set[str]:
@@ -232,7 +268,7 @@ def loop_task_blocks(
 ) -> list[list[ast.stmt]]:
     count = loop_count(statement)
     if count is not None and count <= MAX_UNROLLED_ITERATIONS:
-        body = statement.body
+        body = iteration_prefix(statement.body)
         if isinstance(statement, (ast.For, ast.AsyncFor)):
             # Every iteration overwrites the target, even if the body assigns a
             # Task to that name. Its next runtime value is not a known Task.
@@ -243,7 +279,7 @@ def loop_task_blocks(
         return [body * count + statement.orelse]
     # Inspect possible copies for default collisions, but survival of written
     # task bindings is handled conservatively for arbitrary iteration counts.
-    return [statement.body + statement.orelse, statement.orelse]
+    return [iteration_prefix(statement.body) + statement.orelse, statement.orelse]
 
 
 def definitely_executed_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
@@ -283,19 +319,70 @@ def _pattern_matches(pattern: ast.pattern, value: object) -> bool | None:
     return None
 
 
-def guaranteed_match_case(statement: ast.Match) -> ast.match_case | None:
+def reachable_match_cases(statement: ast.Match) -> list[ast.match_case]:
     try:
         value = ast.literal_eval(statement.subject)
     except (ValueError, TypeError) as _exc:
-        if len(statement.cases) != 1:
-            return None
-        value = object()
+        value = _UNKNOWN
+    cases: list[ast.match_case] = []
     for case in statement.cases:
-        matches = _pattern_matches(case.pattern, value)
-        guard = True if case.guard is None else constant_truth(case.guard)
-        if matches is False or guard is False:
+        matches = (
+            None
+            if value is _UNKNOWN
+            and not (
+                isinstance(case.pattern, ast.MatchAs) and case.pattern.pattern is None
+            )
+            else _pattern_matches(case.pattern, value)
+        )
+        if matches is False:
             continue
+        guard = True if case.guard is None else constant_truth(case.guard)
+        cases.append(
+            ast.match_case(pattern=case.pattern, guard=case.guard, body=[])
+            if guard is False
+            else case
+        )
+        if matches is True and guard is True:
+            break
+    return cases
+
+
+def guaranteed_match_case(statement: ast.Match) -> ast.match_case | None:
+    for case in reachable_match_cases(statement):
+        guard = True if case.guard is None else constant_truth(case.guard)
+        if guard is False:
+            continue
+        try:
+            value = ast.literal_eval(statement.subject)
+        except (ValueError, TypeError) as _exc:
+            value = _UNKNOWN
+        matches = (
+            _pattern_matches(case.pattern, value)
+            if value is not _UNKNOWN
+            else (
+                True
+                if isinstance(case.pattern, ast.MatchAs)
+                and case.pattern.pattern is None
+                else None
+            )
+        )
         return case if matches is True and guard is True else None
+    return None
+
+
+def compound_children(node: ast.AST) -> list[ast.AST] | None:
+    if isinstance(node, ast.Match):
+        return [node.subject, *reachable_match_cases(node)]
+    if isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
+        expression = node.test if isinstance(node, ast.While) else node.iter
+        if loop_count(node) == 0:
+            return [expression, *node.orelse]
+        target = [] if isinstance(node, ast.While) else [node.target]
+        return [expression, *target, *iteration_prefix(node.body), *node.orelse]
+    if isinstance(node, ast.If):
+        truth = constant_truth(node.test)
+        if truth is not None:
+            return [node.test, *(node.body if truth else node.orelse)]
     return None
 
 
@@ -351,3 +438,18 @@ def global_names(statements: list[ast.stmt]) -> set[str]:
         for block in all_statement_blocks(statement):
             names.update(global_names(block))
     return names
+
+
+def statement_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
+    if (
+        isinstance(statement, (ast.For, ast.AsyncFor, ast.While))
+        and loop_count(statement) == 0
+    ):
+        return [statement.orelse]
+    if isinstance(statement, ast.If):
+        truth = constant_truth(statement.test)
+        if truth is not None:
+            return [statement.body if truth else statement.orelse]
+    if isinstance(statement, ast.Match):
+        return [case.body for case in reachable_match_cases(statement)]
+    return [iteration_prefix(block) for block in all_statement_blocks(statement)]
