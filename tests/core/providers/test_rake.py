@@ -3394,3 +3394,36 @@ def test_singleton_legacy_attr_invalid_names_reject_loading(arguments):
         parse_rakefile(f"task :before; singleton_class.attr({arguments}); task :after")
         == []
     )
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "task",
+        "multitask",
+        "file",
+        "file_create",
+        "directory",
+        "rule",
+        "desc",
+        "namespace",
+    ],
+)
+@pytest.mark.parametrize("receiver", ["singleton_class", "self.singleton_class()"])
+def test_removing_inherited_dsl_without_local_override_rejects_loading(name, receiver):
+    source = f"task :before; {receiver}.remove_method(:{name}); task :after"
+    assert parse_rakefile(source) == []
+
+
+def test_removing_same_singleton_override_twice_rejects_loading():
+    source = (
+        "task :before; def self.task(*); end; "
+        "singleton_class.remove_method(:task); "
+        "singleton_class.remove_method(:task); task :after"
+    )
+    assert parse_rakefile(source) == []
+
+
+def test_inactive_invalid_removal_keeps_tasks():
+    source = "if false; singleton_class.remove_method(:task); end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]

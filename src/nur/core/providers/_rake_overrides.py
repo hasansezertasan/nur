@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "DEFERRED_METHODS",
+    "RAKE_METHODS",
     "SINGLETON_MUTATORS",
     "main_scope",
     "reader_call",
@@ -40,6 +41,9 @@ _METHODS = {
 
 
 DEFERRED_METHODS = frozenset(_METHODS - {"namespace"})
+RAKE_METHODS = frozenset(
+    _METHODS - {"proc", "lambda", "define_method", "define_singleton_method"}
+)
 SINGLETON_MUTATORS = frozenset({
     "define_method",
     "define_singleton_method",
@@ -301,6 +305,8 @@ def _record_removal(node: Node, arguments: list[Node], disabled: set[str]) -> No
             continue
         key = f"{prefix}.{name}" if prefix else name
         if f"singleton:{key}" not in disabled:
+            if prefix is None and name in RAKE_METHODS:
+                disabled.add("invalid:remove_method")
             continue
         disabled.difference_update({
             key,

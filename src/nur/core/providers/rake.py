@@ -14,6 +14,7 @@ from nur.core.providers._rake_callbacks import (
 )
 from nur.core.providers._rake_overrides import (
     DEFERRED_METHODS as _DEFERRED_METHODS,
+    RAKE_METHODS as _RAKE_METHODS,
     SINGLETON_MUTATORS,
     main_scope,
     reader_call,
@@ -52,12 +53,6 @@ _LANGUAGE = Language(tree_sitter_ruby.language())
 # Rake interprets leading '-' as an option, '=' as an environment assignment,
 # and brackets as task arguments. Accept a conservative runnable-name subset.
 _NAME = re.compile(r"[\w][\w:./-]*\Z")
-_RAKE_METHODS = _DEFERRED_METHODS - {
-    "proc",
-    "lambda",
-    "define_method",
-    "define_singleton_method",
-} | {"namespace"}
 
 
 def _arguments(node: Node) -> list[Node]:
@@ -677,8 +672,12 @@ def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
         )
     ):
         return "undef of Rake DSL method"
-    if node.type == "super":
-        return "super outside method during loading"
+    if node.type == "super" or "invalid:remove_method" in disabled:
+        return (
+            "super outside method during loading"
+            if node.type == "super"
+            else "invalid removal of inherited Rake DSL method during loading"
+        )
     method = node.child_by_field_name("method")
     if node.type != "call" or method is None:
         return None
