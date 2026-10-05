@@ -786,6 +786,9 @@ def _definitely_executed_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
     if isinstance(statement, ast.ClassDef):
         return [statement.body]
     if isinstance(statement, (ast.For, ast.AsyncFor, ast.While)):
+        count = _loop_count(statement)
+        if count is not None and count <= _MAX_UNROLLED_ITERATIONS:
+            return _loop_task_blocks(statement)
         return [statement.body] if _loop_must_enter(statement) else []
     if isinstance(statement, ast.Match) and len(statement.cases) == 1:
         case = statement.cases[0]
@@ -807,6 +810,12 @@ def _fatal_children(
             # Loop targets and match captures are assigned before their bodies.
             bindings.pop(bound, None)
     if isinstance(statement, (ast.Try, ast.TryStar)):
+        if (
+            not statement.handlers
+            and not any(_iteration_jump(child) for child in statement.finalbody)
+            and _fatal_block(statement.body + statement.orelse, bindings, tainted)
+        ):
+            return True
         bindings, tainted = bindings.copy(), tainted.copy()
         handlers = statement.handlers
         if all(

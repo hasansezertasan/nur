@@ -1745,3 +1745,45 @@ def test_match_capture_replaces_decorator_before_fatal_analysis() -> None:
         "  @task(unknown=True)\n  def other(c): ...\n@invoke.task\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+def test_uncaught_fatal_decorator_inside_try_finally() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\ntry:\n @task(unknown=True)\n"
+            " def broken(c): ...\nfinally:\n pass\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "loop", ["for item in []", "for item in ()", "while False", "for item in [1, 2]"]
+)
+def test_guaranteed_loop_else_has_fatal_decorator(loop: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n{loop}:\n pass\nelse:\n"
+            " @task(unknown=True)\n def broken(c): ...\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_empty_loop_with_unreachable_break_has_fatal_else() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\nfor item in []:\n break\nelse:\n"
+            " @task(unknown=True)\n def broken(c): ...\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_finally_break_can_suppress_fatal_decorator_error() -> None:
+    tasks = parse_tasks(
+        "import invoke\nfrom invoke import task\nfor item in [1]:\n try:\n"
+        "  @task(unknown=True)\n  def broken(c): ...\n finally:\n  break\n"
+        "@invoke.task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]

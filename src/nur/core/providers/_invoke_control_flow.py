@@ -15,6 +15,16 @@ def constant_truth(expression: ast.expr) -> bool | None:
 
 
 def loop_count(statement: ast.For | ast.AsyncFor | ast.While) -> int | None:
+    if isinstance(statement, ast.While):
+        return 0 if constant_truth(statement.test) is False else None
+    if isinstance(statement.iter, (ast.List, ast.Tuple, ast.Set, ast.Dict)):
+        members = (
+            statement.iter.keys
+            if isinstance(statement.iter, ast.Dict)
+            else statement.iter.elts
+        )
+        if not members:
+            return 0
     if any(
         node is not statement
         and isinstance(
@@ -23,12 +33,6 @@ def loop_count(statement: ast.For | ast.AsyncFor | ast.While) -> int | None:
         for node in ast.walk(statement)
     ):
         return None
-    if isinstance(statement, ast.While):
-        return (
-            0
-            if isinstance(statement.test, ast.Constant) and not statement.test.value
-            else None
-        )
     if isinstance(statement.iter, (ast.List, ast.Tuple)) and not any(
         isinstance(item, ast.Starred) for item in statement.iter.elts
     ):
