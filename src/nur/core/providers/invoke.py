@@ -9,6 +9,11 @@ import warnings
 from typing import TYPE_CHECKING
 
 from nur.core.models import Task
+from nur.core.providers._invoke_control_flow import (
+    constant_truth as _constant_truth,
+    loop_count as _loop_count,
+    loop_must_enter as _loop_must_enter,
+)
 from nur.core.providers._invoke_exports import STAR_EXPORTS as _STAR_EXPORTS
 from nur.core.providers._invoke_tasks import (
     decorator_matches as _decorator_matches,
@@ -428,13 +433,6 @@ def _unpacked_pairs(
     return pairs
 
 
-def _constant_truth(expression: ast.expr) -> bool | None:
-    try:
-        return bool(ast.literal_eval(expression))
-    except (ValueError, TypeError) as _exc:
-        return None
-
-
 def _certain_children(node: ast.AST) -> list[ast.AST]:
     if isinstance(node, ast.BoolOp):
         children: list[ast.AST] = []
@@ -655,28 +653,6 @@ def _copied_tasks(
     }
 
 
-def _loop_count(statement: ast.For | ast.AsyncFor | ast.While) -> int | None:
-    if any(
-        node is not statement
-        and isinstance(
-            node, (ast.For, ast.AsyncFor, ast.While, ast.Break, ast.Continue)
-        )
-        for node in ast.walk(statement)
-    ):
-        return None
-    if isinstance(statement, ast.While):
-        return (
-            0
-            if isinstance(statement.test, ast.Constant) and not statement.test.value
-            else None
-        )
-    if isinstance(statement.iter, (ast.List, ast.Tuple)) and not any(
-        isinstance(item, ast.Starred) for item in statement.iter.elts
-    ):
-        return len(statement.iter.elts)
-    return None
-
-
 def _loop_task_blocks(
     statement: ast.For | ast.AsyncFor | ast.While,
 ) -> list[list[ast.stmt]]:
@@ -791,22 +767,6 @@ def _task_binding_effects(
     return functions, defaults
 
 
-def _loop_must_enter(statement: ast.For | ast.AsyncFor | ast.While) -> bool:
-    if isinstance(statement, ast.While):
-        return _constant_truth(statement.test) is True
-    if isinstance(statement.iter, (ast.List, ast.Tuple, ast.Set)):
-        return bool(statement.iter.elts) and not any(
-            isinstance(item, ast.Starred) for item in statement.iter.elts
-        )
-    if isinstance(statement.iter, ast.Dict):
-        return any(key is not None for key in statement.iter.keys)
-    if isinstance(statement.iter, ast.Constant) and isinstance(
-        statement.iter.value, (str, bytes)
-    ):
-        return bool(statement.iter.value)
-    return False
-
-
 def _iteration_jump(statement: ast.stmt) -> bool:
     if isinstance(statement, (ast.Break, ast.Continue)):
         return True
@@ -827,12 +787,25 @@ def _definitely_executed_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
         return [statement.body]
     if isinstance(statement, (ast.For, ast.AsyncFor, ast.While)):
         return [statement.body] if _loop_must_enter(statement) else []
+    if isinstance(statement, ast.Match) and len(statement.cases) == 1:
+        case = statement.cases[0]
+        if (
+            isinstance(case.pattern, ast.MatchAs)
+            and case.pattern.pattern is None
+            and case.guard is None
+        ):
+            return [case.body]
     return []
 
 
 def _fatal_children(
     statement: ast.stmt, bindings: dict[str, str], tainted: set[str]
 ) -> bool:
+    bindings = bindings.copy()
+    if isinstance(statement, (ast.For, ast.AsyncFor, ast.While, ast.Match)):
+        for bound in _header_writes(statement):
+            # Loop targets and match captures are assigned before their bodies.
+            bindings.pop(bound, None)
     if isinstance(statement, (ast.Try, ast.TryStar)):
         bindings, tainted = bindings.copy(), tainted.copy()
         handlers = statement.handlers

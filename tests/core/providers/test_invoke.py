@@ -1716,3 +1716,32 @@ def test_unreachable_handler_cannot_hide_fatal_finalizer() -> None:
         )
         == []
     )
+
+
+def test_loop_target_replaces_decorator_before_fatal_analysis() -> None:
+    tasks = parse_tasks(
+        "import invoke\nfrom invoke import task\n"
+        "def replacement(**kwargs): return lambda f: f\n"
+        "for task in [replacement]:\n @task(unknown=True)\n def other(c): ...\n"
+        "@invoke.task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("pattern", ["_", "captured"])
+def test_irrefutable_match_case_has_fatal_decorator(pattern: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\nmatch 1:\n case {pattern}:\n"
+            "  @task(unknown=True)\n  def broken(c): ...\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_match_capture_replaces_decorator_before_fatal_analysis() -> None:
+    tasks = parse_tasks(
+        "import invoke\nfrom invoke import task\nmatch replacement:\n case task:\n"
+        "  @task(unknown=True)\n  def other(c): ...\n@invoke.task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
