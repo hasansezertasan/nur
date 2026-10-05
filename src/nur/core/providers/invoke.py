@@ -370,7 +370,12 @@ def _literal_help_matches(function: ast.FunctionDef, decorator: ast.expr) -> boo
     return not keys
 
 
-def _literal_dependency(expression: ast.expr) -> bool:
+def _literal_dependency(expression: ast.expr, bindings: dict[str, str]) -> bool:
+    if isinstance(expression, ast.Lambda) or (
+        isinstance(expression, ast.Name)
+        and bindings.get(expression.id) == "ordinary_callable"
+    ):
+        return True
     try:
         ast.literal_eval(expression)
     except (ValueError, TypeError) as _exc:
@@ -397,7 +402,9 @@ def _task_names(
         and decorator.args
         and (
             any(keyword.arg == "pre" for keyword in decorator.keywords)
-            or any(_literal_dependency(argument) for argument in decorator.args)
+            or any(
+                _literal_dependency(argument, bindings) for argument in decorator.args
+            )
         )
     ):
         return []
@@ -630,22 +637,52 @@ def _merge_possible_modules(
                 )
 
 
+def _assignment_pairs(statement: ast.stmt) -> list[tuple[ast.Name, ast.expr]]:
+    pending: list[tuple[ast.expr, ast.expr]]
+    if isinstance(statement, ast.Assign):
+        pending = [(target, statement.value) for target in statement.targets]
+    elif isinstance(statement, ast.AnnAssign) and statement.value is not None:
+        pending = [(statement.target, statement.value)]
+    else:
+        return []
+    pairs: list[tuple[ast.Name, ast.expr]] = []
+    while pending:
+        target, value = pending.pop()
+        if isinstance(target, ast.Name):
+            pairs.append((target, value))
+        elif (
+            isinstance(target, (ast.Tuple, ast.List))
+            and isinstance(value, (ast.Tuple, ast.List))
+            and len(target.elts) == len(value.elts)
+        ):
+            pending.extend(zip(target.elts, value.elts, strict=True))
+    return pairs
+
+
 def _copied_modules(
     statement: ast.stmt, bindings: dict[str, str], tainted: set[str]
 ) -> dict[str, str]:
-    if isinstance(statement, ast.Assign):
-        targets, value = statement.targets, statement.value
-    elif isinstance(statement, ast.AnnAssign) and statement.value is not None:
-        targets, value = [statement.target], statement.value
-    else:
-        return {}
-    kind = _module_kind(value, bindings, tainted)
-    if isinstance(value, ast.Name) and bindings.get(value.id) == "builtins":
-        kind = "builtins"
-    kind = kind or _builtin_name(value, bindings)
-    if kind is None:
-        return {}
-    return {target.id: kind for target in targets if isinstance(target, ast.Name)}
+    copies: dict[str, str] = {}
+    for target, value in _assignment_pairs(statement):
+        kind = _module_kind(value, bindings, tainted)
+        if isinstance(value, ast.Name) and bindings.get(value.id) == "builtins":
+            kind = "builtins"
+        kind = kind or _builtin_name(value, bindings)
+        if kind is not None:
+            copies[target.id] = kind
+    return copies
+
+
+def _copied_callables(statement: ast.stmt, bindings: dict[str, str]) -> set[str]:
+    return {
+        target.id
+        for target, value in _assignment_pairs(statement)
+        if isinstance(value, ast.Lambda)
+        or (
+            isinstance(value, ast.Name)
+            and bindings.get(value.id) == "ordinary_callable"
+        )
+    }
 
 
 def _forget_class_bindings(
@@ -783,6 +820,7 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             if isinstance(statement, ast.FunctionDef)
             else []
         )
+        copied_callables = _copied_callables(statement, bindings)
         copied_defaults = _copied_defaults(statement, defaults)
         copied_tasks = _copied_tasks(statement, functions)
         global_writes, mutation, possible_bindings = _class_block_effects(
@@ -803,21 +841,23 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             bindings.pop(bound, None)
             functions.pop(bound, None)
             defaults.discard(bound)
+        bindings.update(dict.fromkeys(copied_callables, "ordinary_callable"))
         defaults.update(copied_defaults)
         functions.update(copied_tasks)
         if isinstance(statement, (ast.Import, ast.ImportFrom)):
             _bind_import(statement, bindings, tainted)
         elif isinstance(statement, ast.FunctionDef):
+            if not statement.decorator_list:
+                bindings[statement.name] = "ordinary_callable"
             if names and _literal_default(statement):
                 defaults.add(statement.name)
             docstring = ast.get_docstring(statement)
-            description = docstring.splitlines()[0] if docstring else None
             functions[statement.name] = [
                 Task(
                     name=name,
                     prefix="invoke",
                     argv_base=("invoke", name),
-                    description=description,
+                    description=docstring.splitlines()[0] if docstring else None,
                     source_file=source_file,
                 )
                 for name in names

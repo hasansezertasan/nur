@@ -1068,3 +1068,33 @@ def test_root_mapping_clear_preserves_independent_submodule_export() -> None:
         "@tasks.task\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "copy",
+    [
+        "(alias,) = (invoke,)",
+        "[alias] = [invoke]",
+        "(other, (alias,)) = (0, (invoke,))",
+    ],
+)
+def test_destructured_module_alias_mutates_original(copy: str) -> None:
+    assert (
+        parse_tasks(
+            f"import invoke\n{copy}\nalias.task = replacement\n"
+            "@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("dependency", ["lambda c: None", "helper", "saved", "closure"])
+def test_plain_callable_is_not_a_positional_task_dependency(dependency: str) -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\ndef helper(c): ...\n"
+            "saved = helper\nclosure = lambda c: None\n"
+            f"@task({dependency})\ndef build(c): ...\n"
+        )
+        == []
+    )
