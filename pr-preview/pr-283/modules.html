@@ -651,7 +651,8 @@ are not resolved. Task bodies and pre/post hooks remain Invoke’s concern.</p>
 are read. Task bodies, conditional/generated declarations, file tasks,
 rules and imported files are opaque. Parentheses and plain begin/end
 wrappers without exception handlers are transparent. No Ruby code or
-runner is executed.</p>
+runner is executed. Regexp literals outside the validated ASCII syntax
+subset cause the file to be skipped.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
