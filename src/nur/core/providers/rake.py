@@ -130,26 +130,34 @@ def _namespace_body(
     return qualified, body
 
 
-def _add_task(
-    tasks: dict[str, Task],
+def _make_task(
+    descriptions: dict[str, list[str]],
     arguments: list[Node],
     namespace: str,
     description: str | None,
     source_file: str,
-) -> None:
+) -> Task | None:
     name = _task_name(arguments)
     if name is None:
-        return
+        return None
     qualified = f"{namespace}:{name}" if namespace else name
     # Rake strips this special lookup prefix instead of invoking that literal name.
     if qualified.startswith("rake:"):
-        return
-    previous = tasks.get(qualified)
-    tasks[qualified] = Task(
+        return None
+    comments = descriptions.setdefault(qualified, [])
+    if description is not None:
+        comment = description.strip()
+        if comment and comment not in comments:
+            comments.append(comment)
+    summary = " / ".join(
+        re.split(r"(?<=\w)(\.|!)[ \t]|(\.$|!)|\n", comment, flags=re.ASCII)[0]
+        for comment in comments
+    )
+    return Task(
         name=qualified,
         prefix="rake",
         argv_base=("rake", qualified),
-        description=description or (previous.description if previous else None),
+        description=summary if comments else None,
         source_file=source_file,
     )
 
@@ -240,27 +248,70 @@ def _method_context(node: Node, child: Node, *, inherited: bool) -> bool:
     return inherited
 
 
-def _duplicate_parameters(node: Node) -> bool:
-    """Check bindings only, leaving default expressions in their own scopes."""
-    names: set[str] = set()
-    pending = list(node.named_children)
+def _binding_names(node: Node) -> Iterator[str]:
+    """Read binding targets, omitting expressions and pinned references.
+
+    Yields:
+        Names introduced by a parameter list or a single pattern.
+    """
+    pending = [node]
+    containers = {
+        "method_parameters",
+        "lambda_parameters",
+        "block_parameters",
+        "destructured_parameter",
+        "array_pattern",
+        "hash_pattern",
+        "find_pattern",
+        "as_pattern",
+        "alternative_pattern",
+        "parenthesized_pattern",
+    }
     while pending:
-        parameter = pending.pop()
-        if parameter.type == "identifier":
-            name = _text(parameter)
-            # Ruby deliberately permits repeated underscore-prefixed bindings.
-            if name.startswith("_"):
-                continue
-            if name in names:
-                return True
-            names.add(name)
-        elif parameter.type == "destructured_parameter":
-            pending.extend(parameter.named_children)
-        else:
-            binding = parameter.child_by_field_name("name")
-            if binding is not None:
-                pending.append(binding)
-    return False
+        binding = pending.pop()
+        if binding.type == "identifier":
+            yield _text(binding)
+        elif binding.type in containers:
+            pending.extend(reversed(binding.named_children))
+        elif binding.type == "keyword_pattern":
+            value = binding.child_by_field_name("value")
+            key = binding.child_by_field_name("key")
+            if value is not None:
+                pending.append(value)
+            elif key is not None:
+                name = _literal(key)
+                if name is not None:
+                    yield name
+        elif binding.type != "variable_reference_pattern":
+            name_node = binding.child_by_field_name("name")
+            if name_node is not None:
+                pending.append(name_node)
+
+
+def _binding_error(node: Node, *, pattern: bool = False) -> str | None:
+    names: set[str] = set()
+    for name in _binding_names(node):
+        if re.fullmatch(r"_[1-9]", name):
+            return "reserved numbered parameter"
+        # Ruby deliberately permits repeated ordinary underscore bindings.
+        if name.startswith("_"):
+            continue
+        if name in names:
+            return (
+                "duplicated pattern variable" if pattern else "duplicated argument name"
+            )
+        names.add(name)
+    return None
+
+
+def _node_binding_error(node: Node) -> str | None:
+    if node.type in {"method_parameters", "lambda_parameters", "block_parameters"}:
+        return _binding_error(node)
+    if node.type in {"in_clause", "match_pattern", "test_pattern"}:
+        pattern = node.child_by_field_name("pattern")
+        if pattern is not None:
+            return _binding_error(pattern, pattern=True)
+    return None
 
 
 def _method_context_error(root: Node) -> str | None:
@@ -269,12 +320,9 @@ def _method_context_error(root: Node) -> str | None:
     pending = [(root, False)]
     while pending:
         node, in_method = pending.pop()
-        if node.type in {
-            "method_parameters",
-            "lambda_parameters",
-            "block_parameters",
-        } and _duplicate_parameters(node):
-            return "duplicated argument name"
+        error = _node_binding_error(node)
+        if error is not None:
+            return error
         if node.type in {"class", "module"} and in_method:
             return "class or module definition inside method"
         if (
@@ -350,8 +398,13 @@ def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
         log.warning("nur: skipping %s (%s)", source_file, control_error)
         return []
     tasks: dict[str, Task] = {}
+    descriptions: dict[str, list[str]] = {}
     for node, namespace, description in _declarations(root):
-        _add_task(tasks, _arguments(node), namespace, description, source_file)
+        task = _make_task(
+            descriptions, _arguments(node), namespace, description, source_file
+        )
+        if task is not None:
+            tasks[task.name] = task
     return list(tasks.values())
 
 

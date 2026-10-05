@@ -555,3 +555,87 @@ def test_other_singleton_receivers_preserve_discovery(replacement):
 def test_parenthesized_self_with_comments_overrides_dsl():
     tasks = parse_rakefile("class << ( # receiver\n self); end\ntask :ghost\n")
     assert tasks == []
+
+
+@pytest.mark.parametrize("name", [f"_{number}" for number in range(1, 10)])
+@pytest.mark.parametrize(
+    "binding",
+    [
+        "{name}",
+        "{name} = 1",
+        "*{name}",
+        "{name}:",
+        "**{name}",
+        "&{name}",
+        "({name}, other)",
+    ],
+)
+def test_reserved_numbered_parameters_reject_whole_file(name, binding, caplog):
+    parameters = binding.format(name=name)
+    assert parse_rakefile(f"task :before; def helper({parameters}); end") == []
+    assert "reserved numbered parameter" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        "[value, value]",
+        "([value, value])",
+        "Array[value, value]",
+        '{"value":, other: value}',
+        "[value, *value]",
+        "[*value, other, *value]",
+        "[value, [value]]",
+        "[value => value]",
+        "[value, other] => value",
+        "{value:, other: value}",
+        "{key: value, **value}",
+    ],
+)
+@pytest.mark.parametrize(
+    "form", ["case []; in {pattern}; end", "[] => {pattern}", "[] in {pattern}"]
+)
+def test_duplicate_pattern_bindings_reject_whole_file(pattern, form, caplog):
+    body = form.format(pattern=pattern)
+    assert parse_rakefile(f"task :before; {body}") == []
+    assert "duplicated pattern variable" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "case []; in [value, other]; end",
+        "case []; in [_value, _value]; end",
+        "case []; in [value]; in [value]; end",
+        "value = 1; case []; in [value, ^value]; end",
+        "value = 1; case []; in [value, ^(value + 1)]; end",
+        "case {}; in {key: value, other: other}; end",
+        "[] => [value, other]",
+        "[] in [value, other]",
+        "case []; in [value] if check(value); end",
+        "def helper(_0, _10, _arg, _arg); end",
+        "task :build do; _1; end",
+    ],
+)
+def test_valid_pattern_and_numbered_parameter_usage_preserves_discovery(body):
+    tasks = parse_rakefile(f"{body}; task :after")
+    assert tasks[-1].name == "after"
+
+
+@pytest.mark.parametrize(
+    ("descriptions", "expected"),
+    [
+        (["First", "Second", "First"], "First / Second"),
+        ([" First ", "First", "", "Second"], "First / Second"),
+        (["First. Details", "Second! Details"], "First / Second"),
+        (["Version 1.2", "Second"], "Version 1.2 / Second"),
+        (["Same. One", "Same. Two"], "Same / Same"),
+        (["", "   "], None),
+    ],
+)
+def test_duplicate_task_descriptions_match_rake_listing(descriptions, expected):
+    source = "\n".join(
+        f'desc "{description}"; task :build' for description in descriptions
+    )
+    tasks = parse_rakefile(source)
+    assert tasks[0].description == expected
