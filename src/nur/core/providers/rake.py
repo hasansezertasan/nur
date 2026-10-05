@@ -87,6 +87,14 @@ def _record_override(node: Node, disabled: set[str]) -> None:
         name_node = node.child_by_field_name("name")
         if _is_self(owner) and name_node is not None:
             disabled.add(node_text(name_node))
+        elif (
+            owner is not None
+            and name_node is not None
+            and node_text(owner) in {"Kernel", "::Kernel", "Proc", "::Proc"}
+        ):
+            disabled.add(
+                f"{node_text(owner).removeprefix('::')}.{node_text(name_node)}"
+            )
 
 
 def _method(node: Node, disabled: set[str]) -> str | None:
@@ -299,8 +307,89 @@ def _invalid_task_arguments(arguments: list[Node]) -> bool:
     return _invalid_argument_names_value(key)
 
 
-def _invalid_namespace(node: Node, arguments: list[Node]) -> bool:
+def _namespace_lambda_error(callback: Node, disabled: set[str]) -> bool:
+    while (
+        callback.type == "parenthesized_statements"
+        and len(callback.named_children) == 1
+    ):
+        callback = callback.named_children[0]
+    if callback.type != "lambda":
+        method = callback.child_by_field_name("method")
+        if callback.type != "call" or method is None or node_text(method) != "lambda":
+            return False
+        if not _deferred_call(callback, method, disabled):
+            return False
+        block = callback.child_by_field_name("block")
+        if block is None:
+            return False
+        callback = block
+    return _lambda_parameter_error(callback)
+
+
+def _lambda_parameter_error(callback: Node) -> bool:
+    parameters = callback.child_by_field_name("parameters")
+    if parameters is None:
+        # Implicit numbered/it parameters may establish an arity dynamically.
+        arities = [
+            int(name[1]) if name.startswith("_") else 1
+            for child in _walk_nodes(callback)
+            if (name := node_text(child))
+            in {"it", "_1", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9"}
+        ]
+        return not arities or max(arities) > 1
+    required = 0
+    maximum = 0
+    rest = False
+    for index, parameter in enumerate(parameters.children):
+        if not parameter.is_named or parameters.field_name_for_child(index) == "locals":
+            continue
+        if parameter.type == "keyword_parameter":
+            if parameter.child_by_field_name("value") is None:
+                return True
+        elif parameter.type == "splat_parameter":
+            rest = True
+        elif parameter.type not in {
+            "comment",
+            "hash_splat_parameter",
+            "block_parameter",
+            "block_local_variable",
+        }:
+            maximum += 1
+            required += parameter.type != "optional_parameter"
+    return required > 1 or (maximum < 1 and not rest)
+
+
+def _walk_nodes(root: Node) -> Iterator[Node]:
+    pending = [root]
+    while pending:
+        node = pending.pop()
+        yield node
+        if (
+            node == root
+            or node.type
+            not in {
+                "lambda",
+                "block",
+                "do_block",
+                "method",
+                "singleton_method",
+                "class",
+                "module",
+                "singleton_class",
+            }
+            or (root.type == "lambda" and node == root.child_by_field_name("body"))
+        ):
+            pending.extend(node.named_children)
+
+
+def _invalid_namespace(node: Node, arguments: list[Node], disabled: set[str]) -> bool:
     callbacks = _block_arguments(node)
+    if any(
+        _namespace_lambda_error(child, disabled)
+        for callback in callbacks
+        for child in callback.named_children
+    ):
+        return True
     if node.child_by_field_name("block") is None and (
         not callbacks
         or any(
@@ -341,7 +430,11 @@ def _invalid_directory_path(arguments: list[Node]) -> bool:
 
 
 def _declaration_error(
-    node: Node, method: str | None, arguments: list[Node], description: Node | None
+    node: Node,
+    method: str | None,
+    arguments: list[Node],
+    description: Node | None,
+    disabled: set[str],
 ) -> str | None:
     if method == "undef":
         return "undef of Rake DSL method"
@@ -358,7 +451,7 @@ def _declaration_error(
         "directory",
     } and not _valid_description(description):
         return "invalid Rake description type"
-    if method == "namespace" and _invalid_namespace(node, arguments):
+    if method == "namespace" and _invalid_namespace(node, arguments, disabled):
         return "invalid Rake namespace call"
     if method == "desc" and _call_arity(arguments) not in {1, None}:
         return "invalid Rake description arguments"
@@ -366,9 +459,13 @@ def _declaration_error(
 
 
 def _validate_declaration(
-    node: Node, method: str | None, arguments: list[Node], description: Node | None
+    node: Node,
+    method: str | None,
+    arguments: list[Node],
+    description: Node | None,
+    disabled: set[str],
 ) -> None:
-    error = _declaration_error(node, method, arguments, description)
+    error = _declaration_error(node, method, arguments, description, disabled)
     if error is not None:
         raise _InvalidDeclarationError(error)
 
@@ -621,6 +718,19 @@ def _scope_headers(node: Node) -> list[Node]:
     ]
 
 
+def _deferred_call(owner: Node, method: Node, disabled: set[str]) -> bool:
+    name = node_text(method)
+    if _dsl_receiver(owner):
+        return name in _DEFERRED_METHODS - disabled
+    receiver = owner.child_by_field_name("receiver")
+    key = (
+        f"{node_text(receiver).removeprefix('::')}.{name}"
+        if receiver is not None
+        else ""
+    )
+    return key in {"Kernel.proc", "Kernel.lambda", "Proc.new"} - disabled
+
+
 def _load_time_children(node: Node, disabled: set[str]) -> list[Node]:
     if node.type in {"method", "singleton_method", "lambda", "end_block"}:
         return _scope_headers(node)
@@ -630,8 +740,7 @@ def _load_time_children(node: Node, disabled: set[str]) -> list[Node]:
         if (
             owner is not None
             and method is not None
-            and _dsl_receiver(owner)
-            and node_text(method) in _DEFERRED_METHODS - disabled
+            and _deferred_call(owner, method, disabled)
         ):
             return []
     return _reachable_children(node)
@@ -800,7 +909,7 @@ def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
         scopes.append((statements, namespace))
         method = _method(node, disabled)
         arguments = _arguments(node)
-        _validate_declaration(node, method, arguments, description)
+        _validate_declaration(node, method, arguments, description, disabled)
         if method == "desc":
             description = _description(arguments)
         elif method in {"task", "multitask", "file", "file_create", "directory"}:

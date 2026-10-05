@@ -2316,3 +2316,94 @@ def test_valid_constant_string_interpolation_inside_deferred_task():
 )
 def test_discarded_constant_interpolated_regexps_preserve_tasks(body):
     assert [task.name for task in parse_rakefile(f"{body}; task :safe")] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "callback",
+    [
+        "-> {}",
+        "->(a,b) {}",
+        "->(a:) {}",
+        "->(**kw) {}",
+        "lambda {}",
+        "lambda { |a,b| }",
+        "Kernel.lambda {}",
+    ],
+)
+def test_namespace_callbacks_reject_known_strict_arity(callback, caplog):
+    assert parse_rakefile(f"namespace(:broken, &{callback}); task :after") == []
+    assert "invalid Rake namespace call" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "callback",
+    [
+        "->(n) {}",
+        "->(n=1) {}",
+        "->(*args) {}",
+        "->(n, **kw) {}",
+        "-> { _1 }",
+        "lambda { |n| }",
+        "proc {}",
+        "callback",
+    ],
+)
+def test_namespace_callbacks_accept_valid_or_unknown_arity(callback):
+    assert [
+        task.name
+        for task in parse_rakefile(f"namespace(:ok, &{callback}); task :after")
+    ] == ["after"]
+
+
+@pytest.mark.parametrize(
+    "constructor",
+    [
+        "Kernel.proc",
+        "::Kernel.proc",
+        "Kernel.lambda",
+        "::Kernel.lambda",
+        "Proc.new",
+        "::Proc.new",
+    ],
+)
+def test_canonical_proc_constructors_defer_blocks(constructor):
+    tasks = parse_rakefile(
+        f"{constructor} {{ /#{{pattern}}/; helper(&1) }}; task :safe"
+    )
+    assert [task.name for task in tasks] == ["safe"]
+
+
+@pytest.mark.parametrize("constructor", ["Kernel.proc", "Kernel.lambda", "Proc.new"])
+def test_overridden_proc_constructors_validate_blocks(constructor):
+    assert (
+        parse_rakefile(
+            f"task :before; def {constructor}(*); yield; end; "
+            f"{constructor} {{ /#{{pattern}}/ }}"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("callback", ["-> { _2 }", "-> { proc { _1 } }"])
+def test_namespace_callbacks_reject_incompatible_implicit_arity(callback):
+    assert parse_rakefile(f"namespace(:broken, &{callback}); task :after") == []
+
+
+@pytest.mark.parametrize(
+    "callback", ["lambda { |arg; temp| }", "->((a,b)) {}", "->(a=1,b=2) {}"]
+)
+def test_namespace_lambda_arity_ignores_block_locals_and_accepts_destructuring(
+    callback,
+):
+    assert [
+        task.name
+        for task in parse_rakefile(f"namespace(:ok, &{callback}); task :after")
+    ] == ["after"]
+
+
+def test_overridden_lambda_constructor_has_unknown_callback_arity():
+    source = (
+        "def self.lambda(&block); proc { |arg| }; end; "
+        "namespace(:ok, &lambda {}); task :after"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["after"]
