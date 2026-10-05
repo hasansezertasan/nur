@@ -21,6 +21,7 @@ __all__ = [
     "guaranteed_match_case",
     "iteration_jump",
     "iteration_prefix",
+    "literal_exception",
     "loop_count",
     "loop_else_separately",
     "loop_exhausts",
@@ -54,6 +55,113 @@ _COMPARE_OPERATORS: dict[type[ast.cmpop], Callable[[object, object], object]] = 
     ast.In: _literal_contains,
     ast.NotIn: lambda left, right: not _literal_contains(left, right),
 }
+
+
+_MAX_LITERAL_MAGNITUDE = 100
+_MAX_LITERAL_SEQUENCE = 1024
+
+_LITERAL_OPERATORS: dict[type[ast.operator], Callable[[object, object], object]] = {
+    ast.Add: cast("Callable[[object, object], object]", operator.add),
+    ast.Sub: cast("Callable[[object, object], object]", operator.sub),
+    ast.MatMult: cast("Callable[[object, object], object]", operator.matmul),
+    ast.Mult: cast("Callable[[object, object], object]", operator.mul),
+    ast.Div: cast("Callable[[object, object], object]", operator.truediv),
+    ast.FloorDiv: cast("Callable[[object, object], object]", operator.floordiv),
+    ast.Mod: cast("Callable[[object, object], object]", operator.mod),
+    ast.Pow: cast("Callable[[object, object], object]", operator.pow),
+    ast.LShift: cast("Callable[[object, object], object]", operator.lshift),
+    ast.RShift: cast("Callable[[object, object], object]", operator.rshift),
+    ast.BitOr: cast("Callable[[object, object], object]", operator.or_),
+    ast.BitAnd: cast("Callable[[object, object], object]", operator.and_),
+    ast.BitXor: cast("Callable[[object, object], object]", operator.xor),
+}
+
+
+def _bounded_literal_operation(
+    operation: ast.operator, left: object, right: object
+) -> bool:
+    if isinstance(operation, ast.Mod) and isinstance(left, (str, bytes)):
+        return False
+    if any(
+        isinstance(value, (str, bytes, list, tuple, dict, set))
+        and len(value) > _MAX_LITERAL_SEQUENCE
+        for value in (left, right)
+    ):
+        return False
+    if isinstance(operation, (ast.Pow, ast.LShift, ast.RShift)) and isinstance(
+        right, int
+    ):
+        return right <= _MAX_LITERAL_MAGNITUDE
+    if isinstance(operation, ast.Mult):
+        return not any(
+            isinstance(value, int) and abs(value) > _MAX_LITERAL_MAGNITUDE
+            for value in (left, right)
+        )
+    return True
+
+
+def literal_exception(expression: ast.expr) -> str | None:
+    """Classify exceptions from bounded literal operations without eval."""
+    if isinstance(expression, ast.BinOp):
+        try:
+            left = ast.literal_eval(expression.left)
+            right = ast.literal_eval(expression.right)
+        except (ValueError, TypeError) as _exc:
+            return None
+        if not _bounded_literal_operation(expression.op, left, right):
+            return None
+        operation = _LITERAL_OPERATORS[type(expression.op)]
+        return _literal_operation_exception(operation, left, right)
+    if isinstance(expression, ast.Subscript):
+        return _subscript_exception(expression)
+    if isinstance(expression, ast.UnaryOp):
+        return _unary_exception(expression)
+    return None
+
+
+def _subscript_exception(expression: ast.Subscript) -> str | None:
+    try:
+        value = ast.literal_eval(expression.value)
+        index = ast.literal_eval(expression.slice)
+    except (ValueError, TypeError) as _exc:
+        return None
+    return _literal_operation_exception(
+        cast("Callable[[object, object], object]", operator.getitem), value, index
+    )
+
+
+def _unary_exception(expression: ast.UnaryOp) -> str | None:
+    try:
+        value = ast.literal_eval(expression.operand)
+    except (ValueError, TypeError) as _exc:
+        return None
+    operations: dict[type[ast.unaryop], object] = {
+        ast.USub: operator.neg,
+        ast.UAdd: operator.pos,
+        ast.Invert: operator.invert,
+        ast.Not: operator.not_,
+    }
+    operation = cast("Callable[[object], object]", operations[type(expression.op)])
+    return _literal_operation_exception(
+        lambda operand, _: operation(operand), value, None
+    )
+
+
+def _literal_operation_exception(
+    operation: Callable[[object, object], object], left: object, right: object
+) -> str | None:
+    try:
+        operation(left, right)
+    except (
+        TypeError,
+        ValueError,
+        ZeroDivisionError,
+        KeyError,
+        IndexError,
+        OverflowError,
+    ) as exception:
+        return type(exception).__name__
+    return None
 
 
 def constant_truth(expression: ast.expr) -> bool | None:
@@ -156,7 +264,7 @@ def loop_exhausts(statement: ast.For | ast.AsyncFor | ast.While) -> bool:
 
 
 def _loop_breaks(statements: list[ast.stmt]) -> bool:
-    pending: list[ast.AST] = list(statements)
+    pending: list[ast.AST] = list(iteration_prefix(statements))
     while pending:
         node = pending.pop()
         if isinstance(node, ast.Break):
@@ -166,11 +274,16 @@ def _loop_breaks(statements: list[ast.stmt]) -> bool:
         if isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
             # A break in a nested loop body exits that loop. Its else suite,
             # however, executes outside the nested loop and can exit ours.
-            pending.extend(node.orelse)
+            pending.extend(iteration_prefix(node.orelse))
         elif isinstance(node, ast.If) and constant_truth(node.test) is not None:
-            pending.extend(node.body if constant_truth(node.test) else node.orelse)
+            pending.extend(
+                iteration_prefix(
+                    node.body if constant_truth(node.test) else node.orelse
+                )
+            )
         else:
-            pending.extend(ast.iter_child_nodes(node))
+            children = compound_children(node)
+            pending.extend(ast.iter_child_nodes(node) if children is None else children)
     return False
 
 
@@ -193,6 +306,7 @@ _EXCEPTIONS: dict[str, type[BaseException]] = {
     for cls in (
         ZeroDivisionError,
         ArithmeticError,
+        OverflowError,
         TypeError,
         AttributeError,
         ValueError,

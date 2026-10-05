@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import ast
 
+from nur.core.providers._invoke_control_flow import literal_exception
+
 __all__ = [
     "bind_callable_definition",
     "constructor_exception",
@@ -246,11 +248,11 @@ def _fatal_contextless_task(
     return True
 
 
-def _annotation_failure(
+def _annotation_exception(
     node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
-) -> bool:
+) -> str | None:
     if isinstance(node, ast.ClassDef):
-        return False
+        return None
     annotations = [
         arg.annotation
         for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
@@ -259,43 +261,28 @@ def _annotation_failure(
         arg.annotation for arg in (node.args.vararg, node.args.kwarg) if arg is not None
     )
     annotations.append(node.returns)
-    return any(
-        _zero_division_annotation(annotation)
-        for annotation in annotations
-        if annotation is not None
-    )
-
-
-def _zero_division_annotation(expression: ast.expr) -> bool:
-    if not isinstance(expression, ast.BinOp) or not isinstance(
-        expression.op, (ast.Div, ast.FloorDiv, ast.Mod)
-    ):
-        return False
-    try:
-        left = ast.literal_eval(expression.left)
-        right = ast.literal_eval(expression.right)
-    except (ValueError, TypeError) as _exc:
-        return False
-    numeric = (
-        (int, float, complex) if isinstance(expression.op, ast.Div) else (int, float)
-    )
-    return isinstance(left, numeric) and isinstance(right, numeric) and right == 0
+    for annotation in annotations:
+        if (
+            annotation is not None
+            and (exception := literal_exception(annotation)) is not None
+        ):
+            return exception
+    return None
 
 
 def _fatal_annotation_task(
     function: ast.FunctionDef | ast.AsyncFunctionDef, decorator: ast.expr
-) -> bool:
-    if not _annotation_failure(function):
-        return False
-    if isinstance(decorator, ast.Call):
-        return not any(
-            keyword.arg == "positional"
-            and not (
-                isinstance(keyword.value, ast.Constant) and keyword.value.value is None
-            )
-            for keyword in decorator.keywords
+) -> str | None:
+    exception = _annotation_exception(function)
+    if isinstance(decorator, ast.Call) and any(
+        keyword.arg == "positional"
+        and not (
+            isinstance(keyword.value, ast.Constant) and keyword.value.value is None
         )
-    return True
+        for keyword in decorator.keywords
+    ):
+        return None
+    return exception
 
 
 def _positional_pre_conflict(decorator: ast.Call, bindings: dict[str, str]) -> bool:
@@ -584,10 +571,10 @@ def constructor_exception(
         and node.decorator_list
     ):
         decorator = node.decorator_list[-1]
-        if task_definition(node, bindings, tainted) and _fatal_annotation_task(
-            node, decorator
+        if task_definition(node, bindings, tainted) and (
+            exception := _fatal_annotation_task(node, decorator)
         ):
-            return "ZeroDivisionError"
+            return exception
     for index, decorator in enumerate(node.decorator_list):
         if states is not None:
             bindings, tainted = states[index]
@@ -633,7 +620,7 @@ def deferred_failure(
         or constructor_exception(node, bindings, tainted) is not None
     ):
         return False
-    if _annotation_failure(node):
+    if _annotation_exception(node):
         return True
     args = _task_arguments(node)
     if args is not None and not any((

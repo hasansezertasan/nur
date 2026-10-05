@@ -739,7 +739,15 @@ def _fatal_try(
     if not any(_iteration_jump(child) for child in statement.finalbody):
         if not statement.handlers and _fatal_block(statement.body, bindings, tainted):
             return True
-        for exception in ("TypeError", "AttributeError", "ZeroDivisionError"):
+        for exception in (
+            "TypeError",
+            "AttributeError",
+            "ZeroDivisionError",
+            "ValueError",
+            "KeyError",
+            "IndexError",
+            "OverflowError",
+        ):
             if all(
                 _excludes_exception(handler.type, exception, bindings, handler_taints)
                 for handler in statement.handlers

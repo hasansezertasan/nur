@@ -2658,3 +2658,100 @@ def test_undecorated_function_in_exception_scan_has_no_constructor_error() -> No
         "@task\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "annotation",
+    [
+        "1 + 'x'",
+        "1 - 'x'",
+        "1 * {}",
+        "1 @ 2",
+        "-'x'",
+        "+'x'",
+        "~'x'",
+        "1 / 'x'",
+        "1 // 'x'",
+        "1 % 'x'",
+        "0 ** -1",
+        "1 << -1",
+        "1 >> -1",
+        "1 | 'x'",
+        "1 & 'x'",
+        "1 ^ 'x'",
+        "[][0]",
+        "{}['missing']",
+        "1[0]",
+    ],
+)
+@pytest.mark.parametrize("decorator", ["@task", "@task(positional=[])"])
+def test_failing_literal_annotation_operations_suppress_siblings(
+    annotation: str, decorator: str
+) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n{decorator}\n"
+            f"def broken(c, value: {annotation} = None): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "continue\n break",
+        "if True:\n  continue\n  break",
+        "try:\n  continue\n  break\n finally: pass",
+    ],
+)
+def test_unreachable_break_does_not_hide_finite_loop_else(body: str) -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\nfor item in [1]:\n "
+            + body
+            + "\nelse:\n @task(unknown=True)\n def broken(c): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "annotation",
+    [
+        "1 + 2",
+        "1 - 2",
+        "1 * 2",
+        "1 / 2",
+        "1 // 2",
+        "1 % 2",
+        "2 ** 3",
+        "1 << 2",
+        "4 >> 1",
+        "1 | 2",
+        "3 & 1",
+        "3 ^ 1",
+        "[1][0]",
+        "2 ** 1000000",
+        "'x' * 1000000",
+        "computed + 1",
+        "computed[0]",
+        "-1",
+        "~1",
+        "not []",
+        "-computed",
+        "'%1000000000d' % 1",
+        "'x' * 2000",
+        "1 + '" + "x" * 1100 + "'",
+    ],
+)
+def test_safe_or_unresolved_literal_annotation_preserves_commands(
+    annotation: str,
+) -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task\n"
+        f"def other(c, value: {annotation} = None): ...\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["other", "build"]
