@@ -1482,3 +1482,32 @@ def test_plain_begin_conditional_overrides_preserve_source_order(body):
         "task :hidden; end; task :root_after"
     )
     assert [task.name for task in tasks] == ["root_before", "inner_before"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "def helper; foo rescue retry; end",
+        "foo rescue retry",
+        "def helper; (foo rescue retry) rescue nil; end",
+        "foo rescue (retry if enabled)",
+        "foo rescue (retry; nil)",
+    ],
+)
+def test_rescue_modifier_handlers_allow_retry(body):
+    tasks = parse_rakefile(f"task :before; {body}; task :after")
+    assert [task.name for task in tasks] == ["before", "after"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "retry rescue nil",
+        "(retry rescue nil) rescue retry",
+        "def helper; foo rescue call { retry }; end",
+        "foo rescue (class C; retry; end)",
+    ],
+)
+def test_rescue_modifier_retry_permissions_do_not_leak(body, caplog):
+    assert parse_rakefile(f"task :before; {body}; task :after") == []
+    assert "retry outside rescue" in caplog.text

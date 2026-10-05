@@ -186,7 +186,9 @@ def _control_permissions(
     if node.type in blocks or node.type == "ensure":
         in_rescue = False
     body = node.child_by_field_name("body")
-    if node.type == "rescue" and child == body:
+    if (node.type == "rescue" and child == body) or (
+        node.type == "rescue_modifier" and child == node.child_by_field_name("handler")
+    ):
         in_rescue = True
     if node.type == "end_block" or (node.type in blocks | loops and child == body):
         in_iteration = True
