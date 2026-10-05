@@ -289,7 +289,22 @@ def statement_terminates(statement: ast.stmt) -> bool:
         return all(
             any(statement_terminates(child) for child in block) for block in blocks
         )
+    if isinstance(statement, (ast.Try, ast.TryStar)):
+        return _try_terminates(statement)
     return False
+
+
+def _try_terminates(statement: ast.Try | ast.TryStar) -> bool:
+    if any(statement_terminates(child) for child in statement.finalbody):
+        return True
+    if any(statement_terminates(child) for child in statement.body):
+        return all(
+            any(statement_terminates(child) for child in handler.body)
+            for handler in statement.handlers
+        )
+    return nonraising_block(statement.body) and any(
+        statement_terminates(child) for child in statement.orelse
+    )
 
 
 def try_outcome_blocks(statement: ast.Try | ast.TryStar) -> list[list[ast.stmt]]:

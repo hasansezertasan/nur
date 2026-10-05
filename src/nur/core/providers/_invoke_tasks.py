@@ -326,10 +326,12 @@ def _fatal_parser_option(
         return _literal_name_failure(keyword.value)
     if not _literal_help_matches(node, node.decorator_list[0]):
         return True
-    if keyword.arg in {"aliases", "positional", "help"}:
-        return _invalid_literal_option(keyword, bindings, tainted)
+    if keyword.arg in {"aliases", "positional", "help"} and _invalid_literal_option(
+        keyword, bindings, tainted
+    ):
+        return True
     args = _task_arguments(node)
-    if keyword.arg not in {"iterable", "incrementable"} or args is None:
+    if keyword.arg not in {"iterable", "incrementable", "positional"} or args is None:
         return False
     parameter_count = (
         len(args.posonlyargs)
@@ -340,7 +342,23 @@ def _fatal_parser_option(
     )
     # Invoke removes the first signature parameter as the Context. Membership
     # checks for these options occur only while constructing other arguments.
-    return parameter_count > 1 and _invalid_literal_option(keyword, bindings, tainted)
+    return parameter_count > 1 and _invalid_membership_option(
+        keyword, bindings, tainted
+    )
+
+
+def _invalid_membership_option(
+    keyword: ast.keyword, bindings: dict[str, str], tainted: set[str]
+) -> bool:
+    if _invalid_literal_option(keyword, bindings, tainted):
+        return True
+    try:
+        value = ast.literal_eval(keyword.value)
+    except (ValueError, TypeError) as _exc:
+        return False
+    # Optional is normalized to a tuple in Task.__init__. These options are
+    # retained as containers and Python rejects str membership in bytes.
+    return isinstance(value, bytes) and (bool(value) or keyword.arg == "positional")
 
 
 def _literal_constructor_failure(keyword: ast.keyword) -> bool:
@@ -455,7 +473,11 @@ def task_names(
     function: ast.FunctionDef, bindings: dict[str, str], tainted: set[str]
 ) -> list[str]:
     # Other decorators can replace the callable/name or discard the Task object.
-    if len(function.decorator_list) != 1 or not _supported_signature(function):
+    if (
+        len(function.decorator_list) != 1
+        or not _supported_signature(function)
+        or deferred_failure(function, bindings, tainted)
+    ):
         return []
     decorator = function.decorator_list[0]
     expression = decorator.func if isinstance(decorator, ast.Call) else decorator
@@ -546,6 +568,15 @@ def deferred_failure(
         or constructor_exception(node, bindings, tainted) is not None
     ):
         return False
+    args = _task_arguments(node)
+    if args is not None and not any((
+        args.posonlyargs,
+        args.args,
+        args.vararg,
+        args.kwonlyargs,
+        args.kwarg,
+    )):
+        return True
     decorator = node.decorator_list[0]
     return isinstance(decorator, ast.Call) and any(
         _fatal_parser_option(node, keyword, bindings, tainted)

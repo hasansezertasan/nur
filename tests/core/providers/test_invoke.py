@@ -1348,12 +1348,12 @@ def test_contextless_implicit_task_is_module_fatal(decorator: str) -> None:
     )
 
 
-def test_contextless_explicit_positionals_do_not_fail_construction() -> None:
+def test_contextless_explicit_positionals_fail_deferred_collection() -> None:
     tasks = parse_tasks(
         "from invoke import task\n@task(positional=[])\ndef broken(): ...\n"
         "@task\ndef build(c): ...\n"
     )
-    assert [task.name for task in tasks] == ["build"]
+    assert tasks == []
 
 
 def test_innermost_contextless_task_is_module_fatal() -> None:
@@ -2522,5 +2522,70 @@ def test_conditional_raise_skips_unreachable_nested_metadata(condition: str) -> 
         f"from invoke import task\ntry:\n if {condition}:\n  raise ValueError\n"
         "  @task(aliases=7)\n  def broken(c): ...\nexcept Exception: pass\n"
         "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "inner",
+    [
+        "try: raise ValueError\n finally: pass",
+        "try: pass\n finally: raise ValueError",
+        "try: x = 1\n except Exception: pass\n else: raise ValueError",
+        "try: raise ValueError\n except ValueError: raise RuntimeError",
+    ],
+)
+def test_terminating_nested_try_skips_later_fatal_decorator(inner: str) -> None:
+    tasks = parse_tasks(
+        "from invoke import task\ntry:\n "
+        + inner
+        + "\n @task(unknown=True)\n def broken(c): ...\nexcept Exception: pass\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("option", ["iterable", "incrementable", "positional"])
+@pytest.mark.parametrize("value", ["b'x'", "b''"])
+def test_bytes_membership_parser_options(option: str, value: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n@task({option}={value})\n"
+        "def broken(c, arg=False): ...\n"
+        "@task\ndef build(c): ...\n"
+    )
+    expected = [] if value == "b'x'" or option == "positional" else ["broken", "build"]
+    assert [task.name for task in tasks] == expected
+
+
+@pytest.mark.parametrize(
+    "option",
+    ["iterable=b'x'", "incrementable=b'x'", "positional=b'x'", "optional=b'x'"],
+)
+def test_bytes_option_without_membership_check_preserves_siblings(option: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n@task({option})\ndef other(c): ...\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["other", "build"]
+
+
+@pytest.mark.parametrize("positional", ["[]", "()", "['x']", "computed"])
+def test_contextless_task_with_explicit_positionals_fails_collection(
+    positional: str,
+) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task(positional={positional})\n"
+            "def broken(): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_deleted_contextless_explicit_positional_task_preserves_sibling() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task(positional=[])\ndef broken(): ...\n"
+        "del broken\n@task\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
