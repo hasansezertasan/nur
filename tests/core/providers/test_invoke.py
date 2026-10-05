@@ -1552,3 +1552,38 @@ def test_fatal_positional_pre_conflict_inside_literal_branch() -> None:
         )
         == []
     )
+
+
+@pytest.mark.parametrize("help_value", ["'bad'", "7", "(1,)"])
+def test_fatal_literal_help_suppresses_all_tasks(help_value: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task(help={help_value})\ndef broken(c): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("jump", ["break", "continue"])
+@pytest.mark.parametrize("position", ["before", "after"])
+def test_fatal_loop_prefix_respects_jumps(jump: str, position: str) -> None:
+    broken = " @task(unknown=True)\n def broken(c): ...\n"
+    body = broken + f" {jump}\n" if position == "before" else f" {jump}\n" + broken
+    tasks = parse_tasks(
+        f"from invoke import task\nfor item in [1]:\n{body}@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ([] if position == "before" else ["build"])
+
+
+@pytest.mark.parametrize(
+    "argument", ["lambda c: None", "helper", "task", "invoke.task"]
+)
+def test_known_callable_positional_dispatch_is_module_fatal(argument: str) -> None:
+    assert (
+        parse_tasks(
+            "import invoke\nfrom invoke import task\ndef helper(c): ...\n"
+            f"@task({argument})\ndef broken(c): ...\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )

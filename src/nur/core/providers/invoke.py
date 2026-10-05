@@ -762,6 +762,32 @@ def _task_binding_effects(
     return functions, defaults
 
 
+def _loop_must_enter(statement: ast.For | ast.AsyncFor | ast.While) -> bool:
+    if isinstance(statement, ast.While):
+        return _constant_truth(statement.test) is True
+    if isinstance(statement.iter, (ast.List, ast.Tuple, ast.Set)):
+        return bool(statement.iter.elts) and not any(
+            isinstance(item, ast.Starred) for item in statement.iter.elts
+        )
+    if isinstance(statement.iter, ast.Constant) and isinstance(
+        statement.iter.value, (str, bytes)
+    ):
+        return bool(statement.iter.value)
+    return False
+
+
+def _iteration_jump(statement: ast.stmt) -> bool:
+    if isinstance(statement, (ast.Break, ast.Continue)):
+        return True
+    if isinstance(statement, ast.If):
+        return any(
+            _iteration_jump(child)
+            for block in _statement_blocks(statement)
+            for child in block
+        )
+    return False
+
+
 def _definitely_executed_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
     if isinstance(statement, ast.If):
         truth = _constant_truth(statement.test)
@@ -769,8 +795,7 @@ def _definitely_executed_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
     if isinstance(statement, ast.ClassDef):
         return [statement.body]
     if isinstance(statement, (ast.For, ast.AsyncFor, ast.While)):
-        count = _loop_count(statement)
-        return [statement.body] if count else []
+        return [statement.body] if _loop_must_enter(statement) else []
     return []
 
 
@@ -788,6 +813,8 @@ def _fatal_block(
             for block in _definitely_executed_blocks(statement)
         ):
             return True
+        if _iteration_jump(statement):
+            break
         task_object = isinstance(statement, ast.FunctionDef) and bool(
             _task_names(statement, bindings, tainted)
         )

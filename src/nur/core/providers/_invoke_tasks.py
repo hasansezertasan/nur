@@ -233,6 +233,32 @@ def _positional_pre_conflict(decorator: ast.Call, bindings: dict[str, str]) -> b
     return True
 
 
+def _fatal_help_literal(keyword: ast.keyword) -> bool:
+    if keyword.arg != "help":
+        return False
+    try:
+        value = ast.literal_eval(keyword.value)
+    except (ValueError, TypeError) as _exc:
+        return False
+    return bool(value) and not isinstance(value, (dict, list, set))
+
+
+def _fatal_callable_dispatch(
+    decorator: ast.expr, bindings: dict[str, str], tainted: set[str]
+) -> bool:
+    if not isinstance(decorator, ast.Call) or len(decorator.args) != 1:
+        return False
+    argument = decorator.args[0]
+    return (
+        isinstance(argument, ast.Lambda)
+        or (
+            isinstance(argument, ast.Name)
+            and bindings.get(argument.id) == "ordinary_callable"
+        )
+        or decorator_matches(argument, bindings, tainted)
+    )
+
+
 def fatal_decorator(
     function: ast.FunctionDef | ast.AsyncFunctionDef,
     bindings: dict[str, str],
@@ -250,6 +276,8 @@ def fatal_decorator(
         if any(keyword.arg == "klass" for keyword in keywords):
             # A custom Task constructor may accept a different option set.
             continue
+        if _fatal_callable_dispatch(decorator, bindings, tainted):
+            return True
         if decorator is function.decorator_list[-1] and _fatal_contextless_task(
             function, decorator
         ):
@@ -257,7 +285,9 @@ def fatal_decorator(
         for keyword in keywords:
             if keyword.arg is not None and keyword.arg not in _TASK_OPTIONS:
                 return True
-            if keyword.arg == "optional" and _invalid_literal_option(keyword, bindings):
+            if (
+                keyword.arg == "optional" and _invalid_literal_option(keyword, bindings)
+            ) or _fatal_help_literal(keyword):
                 return True
     return False
 
