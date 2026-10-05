@@ -3708,3 +3708,34 @@ def test_immediate_process_exit_cannot_be_rescued(expression, context):
 )
 def test_deferred_overridden_or_invalid_immediate_exit_keeps_tasks(body):
     assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    ("expression", "handler"),
+    [
+        ("RangeError.new('stop')", "StandardError"),
+        ("1", "TypeError"),
+        ("nil", "TypeError"),
+        ("[]", "TypeError"),
+        ("error", "Exception"),
+        ("RuntimeError.exception('stop')", "Exception"),
+    ],
+)
+def test_rescued_exception_values_preserve_task_discovery(expression, handler):
+    source = (
+        "error = RuntimeError.new('stop'); "
+        f"begin; raise {expression}; rescue {handler}; end; task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "source = :desc; singleton_class.alias_method(:copy, source)",
+        "arguments = [:copy, :desc]; singleton_class.alias_method(*arguments)",
+        "begin; exit(*[0]); rescue SystemExit; end",
+    ],
+)
+def test_dynamic_alias_and_handled_splatted_exit_preserve_discovery(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
