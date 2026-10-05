@@ -63,7 +63,11 @@ def _record_override(node: Node, disabled: set[str]) -> None:
 
 def _method(node: Node, disabled: set[str]) -> str | None:
     _record_override(node, disabled)
-    if node.parent is not None and node.parent.type == "begin" and node.type != "begin":
+    if (
+        node.parent is not None
+        and node.parent.type in {"begin", "parenthesized_statements"}
+        and node.type not in {"begin", "parenthesized_statements"}
+    ):
         # Flattened wrappers retain source order while each statement still
         # contributes reachable load-time overrides, including conditionals.
         disabled.update(_dsl_overrides(node, in_scope=True))
@@ -212,14 +216,14 @@ def _description(arguments: list[Node]) -> str | None:
     return literal(arguments[0]) if len(arguments) == 1 else None
 
 
-def _escaping_control(root: Node) -> str | None:
+def _escaping_control(root: Node, *, include_begin: bool = False) -> str | None:
     """Find controls evaluated in this scope, leaving nested bodies opaque."""
     pending = [(root, False)]
     loops = {"while", "until", "for", "while_modifier", "until_modifier"}
     local_control = None
     while pending:
         node, in_loop = pending.pop()
-        if defined_probe(node):
+        if defined_probe(node) or (node.type == "begin_block" and not include_begin):
             continue
         if node.type == "return":
             return "return"
@@ -236,7 +240,11 @@ def _escaping_control(root: Node) -> str | None:
             body = node.child_by_field_name("body")
             children = [
                 child
-                for child in node.named_children
+                for child in (
+                    _reachable_begin_children(node)
+                    if include_begin
+                    else node.named_children
+                )
                 if node.type not in {"class", "module", "singleton_class"}
                 or child != body
             ]
@@ -311,6 +319,29 @@ def _dsl_overrides(root: Node, *, in_scope: bool = False) -> set[str]:
     return disabled
 
 
+def _begin_exits(root: Node) -> bool:
+    pending = [root]
+    modifiers = {
+        "if_modifier",
+        "unless_modifier",
+        "while_modifier",
+        "until_modifier",
+        "rescue_modifier",
+    }
+    while pending:
+        node = pending.pop()
+        if node.type == "begin_block":
+            initializer = node
+            while (
+                initializer.parent is not None and initializer.parent.type in modifiers
+            ):
+                initializer = initializer.parent
+            if _escaping_control(initializer, include_begin=True) == "return":
+                return True
+        pending.extend(_reachable_begin_children(node))
+    return False
+
+
 def _scope_statements(root: Node) -> Iterator[Node]:
     # A rescue-free begin/end wrapper shares the surrounding lexical scope,
     # pending description, and execution order. Keep exception handlers opaque.
@@ -319,8 +350,12 @@ def _scope_statements(root: Node) -> Iterator[Node]:
         node = next(pending[-1], None)
         if node is None:
             pending.pop()
-        elif node.type == "begin" and not any(
-            child.type in {"rescue", "else", "ensure"} for child in node.named_children
+        elif node.type == "parenthesized_statements" or (
+            node.type == "begin"
+            and not any(
+                child.type in {"rescue", "else", "ensure"}
+                for child in node.named_children
+            )
         ):
             pending.append(iter(node.named_children))
         else:
@@ -367,8 +402,9 @@ def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
 
     Only direct ``task``/``multitask`` calls and adjacent literal ``desc`` calls
     are read. Task bodies, conditional/generated declarations, file tasks,
-    rules and imported files are opaque. Plain begin/end wrappers without
-    exception handlers are transparent. No Ruby code or runner is executed.
+    rules and imported files are opaque. Parentheses and plain begin/end
+    wrappers without exception handlers are transparent. No Ruby code or
+    runner is executed.
     """
     root = Parser(_LANGUAGE).parse(text.encode("utf-8")).root_node
     if root.has_error:
@@ -377,6 +413,8 @@ def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     control_error = syntax_error(root)
     if control_error is not None:
         log.warning("nur: skipping %s (%s)", source_file, control_error)
+        return []
+    if _begin_exits(root):
         return []
     tasks: dict[str, Task] = {}
     descriptions: dict[str, list[str]] = {}

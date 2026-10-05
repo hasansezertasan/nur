@@ -1511,3 +1511,75 @@ def test_rescue_modifier_handlers_allow_retry(body):
 def test_rescue_modifier_retry_permissions_do_not_leak(body, caplog):
     assert parse_rakefile(f"task :before; {body}; task :after") == []
     assert "retry outside rescue" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "BEGIN { return }",
+        "BEGIN { return } if true",
+        "BEGIN { return } unless false",
+        "BEGIN { return } while false",
+        "BEGIN { return } until true",
+        "BEGIN { if true; return; end }",
+        "BEGIN { unless false; return; end }",
+        "BEGIN { BEGIN { return } }",
+        "BEGIN { while true; return; end }",
+    ],
+)
+def test_active_begin_return_prevents_all_declarations(body):
+    assert parse_rakefile(f"task :before; {body}; task :after") == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "BEGIN { return } if false",
+        "BEGIN { return } unless true",
+        "BEGIN { if false; return; end }",
+        "BEGIN { unless true; return; end }",
+        "BEGIN { while false; return; end }",
+        "BEGIN { until true; return; end }",
+        "BEGIN { def helper; return; end }",
+        "BEGIN { END { return } }",
+        "BEGIN { defined?(return) }",
+    ],
+)
+def test_inactive_and_deferred_begin_returns_preserve_discovery(body):
+    tasks = parse_rakefile(f"task :before; {body}; task :after")
+    assert [task.name for task in tasks] == ["before", "after"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "(task :build)",
+        "((task :build))",
+        "(desc 'Build'; task :build)",
+        "(desc 'Build'); (task :build)",
+        "(begin; task :build; end)",
+    ],
+)
+def test_parenthesized_declarations_are_transparent(body):
+    tasks = parse_rakefile(body)
+    assert [task.name for task in tasks] == ["build"]
+    assert tasks[0].description == ("Build" if "desc" in body else None)
+
+
+def test_parenthesized_namespaces_are_discovered():
+    tasks = parse_rakefile("(namespace :db do; (task :migrate); end)")
+    assert [task.name for task in tasks] == ["db:migrate"]
+
+
+def test_parenthesized_overrides_preserve_source_order():
+    tasks = parse_rakefile(
+        "(task :before; def self.task(*args); end; task :hidden); task :after"
+    )
+    assert [task.name for task in tasks] == ["before"]
+
+
+def test_parentheses_inside_opaque_bodies_remain_opaque():
+    tasks = parse_rakefile(
+        "task :outer do; (task :hidden); end; result = (task :also_hidden)"
+    )
+    assert [task.name for task in tasks] == ["outer"]
