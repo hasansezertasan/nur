@@ -63,6 +63,10 @@ def _record_override(node: Node, disabled: set[str]) -> None:
 
 def _method(node: Node, disabled: set[str]) -> str | None:
     _record_override(node, disabled)
+    if node.parent is not None and node.parent.type == "begin" and node.type != "begin":
+        # Flattened wrappers retain source order while each statement still
+        # contributes reachable load-time overrides, including conditionals.
+        disabled.update(_dsl_overrides(node, in_scope=True))
     if node.type != "call" or node.child_by_field_name("receiver") is not None:
         return None
     method = node.child_by_field_name("method")
@@ -279,11 +283,11 @@ def _reachable_begin_children(node: Node) -> list[Node]:
     return node.named_children
 
 
-def _dsl_overrides(root: Node) -> set[str]:
+def _dsl_overrides(root: Node, *, in_scope: bool = False) -> set[str]:
     # Ruby executes BEGIN bodies before ordinary statements, even when the
     # BEGIN appears later in the file or has an active postfix condition.
     disabled: set[str] = set()
-    pending = [(root, False)]
+    pending = [(root, in_scope)]
     opaque = {
         "method",
         "singleton_method",

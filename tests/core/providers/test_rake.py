@@ -1466,3 +1466,19 @@ def test_plain_begin_control_preserves_preceding_declarations():
         "begin; task :before; return; task :hidden; end; task :after"
     )
     assert [task.name for task in tasks] == ["before"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "if true; def self.task(*args); end; end",
+        "unless false; def self.task(*args); end; end",
+        "if false; nil; else; def self.task(*args); end; end",
+    ],
+)
+def test_plain_begin_conditional_overrides_preserve_source_order(body):
+    tasks = parse_rakefile(
+        f"task :root_before; begin; task :inner_before; {body}; "
+        "task :hidden; end; task :root_after"
+    )
+    assert [task.name for task in tasks] == ["root_before", "inner_before"]
