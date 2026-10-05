@@ -15,6 +15,7 @@ from nur.core.providers._invoke_tasks import (
     fatal_decorator as _fatal_decorator,
     literal_default as _literal_default,
     module_kind as _module_kind,
+    task_definition as _task_definition,
     task_names as _task_names,
 )
 
@@ -522,6 +523,26 @@ def _copied_callables(
     return copies
 
 
+def _defined_task_bindings(
+    statement: ast.stmt, bindings: dict[str, str], tainted: set[str]
+) -> dict[str, str]:
+    if isinstance(
+        statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+    ) and _task_definition(statement, bindings, tainted):
+        return {statement.name: "task_object"}
+    return {}
+
+
+def _defined_defaults(statement: ast.stmt, copies: dict[str, str]) -> set[str]:
+    if (
+        isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        and copies.get(statement.name) == "task_object"
+        and _literal_default(statement)
+    ):
+        return {statement.name}
+    return set()
+
+
 def _bind_callable_definition(statement: ast.stmt, bindings: dict[str, str]) -> None:
     if (
         isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
@@ -769,6 +790,8 @@ def _loop_must_enter(statement: ast.For | ast.AsyncFor | ast.While) -> bool:
         return bool(statement.iter.elts) and not any(
             isinstance(item, ast.Starred) for item in statement.iter.elts
         )
+    if isinstance(statement.iter, ast.Dict):
+        return any(key is not None for key in statement.iter.keys)
     if isinstance(statement.iter, ast.Constant) and isinstance(
         statement.iter.value, (str, bytes)
     ):
@@ -799,19 +822,39 @@ def _definitely_executed_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
     return []
 
 
+def _fatal_children(
+    statement: ast.stmt, bindings: dict[str, str], tainted: set[str]
+) -> bool:
+    if isinstance(statement, (ast.Try, ast.TryStar)):
+        bindings, tainted = bindings.copy(), tainted.copy()
+        for child in [
+            *statement.body,
+            *statement.orelse,
+            *(child for handler in statement.handlers for child in handler.body),
+        ]:
+            written, mutation, _ = _written_names(
+                child, bindings, tainted=tainted, inspect_classes=False
+            )
+            tainted.update(mutation)
+            for bound in written:
+                bindings.pop(bound, None)
+        return _fatal_block(statement.finalbody, bindings, tainted)
+    return any(
+        _fatal_block(block, bindings, tainted)
+        for block in _definitely_executed_blocks(statement)
+    )
+
+
 def _fatal_block(
     statements: list[ast.stmt], bindings: dict[str, str], tainted: set[str]
 ) -> bool:
     bindings, tainted = bindings.copy(), tainted.copy()
     for statement in statements:
         if isinstance(
-            statement, (ast.FunctionDef, ast.AsyncFunctionDef)
+            statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
         ) and _fatal_decorator(statement, bindings, tainted):
             return True
-        if any(
-            _fatal_block(block, bindings, tainted)
-            for block in _definitely_executed_blocks(statement)
-        ):
+        if _fatal_children(statement, bindings, tainted):
             return True
         if _iteration_jump(statement):
             break
@@ -820,6 +863,7 @@ def _fatal_block(
         )
         copies = _copied_modules(statement, bindings, tainted)
         copies.update(_copied_callables(statement, bindings, tainted))
+        copies.update(_defined_task_bindings(statement, bindings, tainted))
         written, mutation, _ = _written_names(
             statement, bindings, tainted=tainted, inspect_classes=False
         )
@@ -864,9 +908,11 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             else []
         )
         copied_callables = _copied_callables(statement, bindings, tainted)
+        copied_callables.update(_defined_task_bindings(statement, bindings, tainted))
         copied_tasks, copied_defaults = _task_binding_effects(
             [statement], functions, defaults
         )
+        copied_defaults.update(_defined_defaults(statement, copied_callables))
         global_writes, mutation, possible_bindings = _class_block_effects(
             [statement], possible_bindings, None, tainted, set()
         )
@@ -896,8 +942,6 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
         if isinstance(statement, (ast.Import, ast.ImportFrom)):
             _bind_import(statement, bindings, tainted)
         elif isinstance(statement, ast.FunctionDef):
-            if names and _literal_default(statement):
-                defaults.add(statement.name)
             docstring = ast.get_docstring(statement)
             functions[statement.name] = [
                 Task(

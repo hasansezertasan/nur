@@ -9,6 +9,7 @@ __all__ = [
     "fatal_decorator",
     "literal_default",
     "module_kind",
+    "task_definition",
     "task_names",
 ]
 
@@ -101,7 +102,9 @@ def _invalid_literal_option(keyword: ast.keyword, bindings: dict[str, str]) -> b
     return False
 
 
-def literal_default(function: ast.FunctionDef) -> bool:
+def literal_default(
+    function: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
+) -> bool:
     for decorator in function.decorator_list:
         if isinstance(decorator, ast.Call):
             for keyword in decorator.keywords:
@@ -259,8 +262,24 @@ def _fatal_callable_dispatch(
     )
 
 
+def task_definition(
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
+    bindings: dict[str, str],
+    tainted: set[str],
+) -> bool:
+    if len(node.decorator_list) != 1:
+        return False
+    decorator = node.decorator_list[0]
+    if isinstance(decorator, ast.Call) and any(
+        keyword.arg in {"klass", None} for keyword in decorator.keywords
+    ):
+        return False
+    expression = decorator.func if isinstance(decorator, ast.Call) else decorator
+    return decorator_matches(expression, bindings, tainted)
+
+
 def fatal_decorator(
-    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    function: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
     bindings: dict[str, str],
     tainted: set[str],
 ) -> bool:
@@ -273,13 +292,15 @@ def fatal_decorator(
             decorator, bindings
         ):
             return True
-        if any(keyword.arg == "klass" for keyword in keywords):
-            # A custom Task constructor may accept a different option set.
+        if any(keyword.arg in {"klass", None} for keyword in keywords):
+            # Explicit or unpacked custom constructors may accept other options.
             continue
         if _fatal_callable_dispatch(decorator, bindings, tainted):
             return True
-        if decorator is function.decorator_list[-1] and _fatal_contextless_task(
-            function, decorator
+        if (
+            isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and decorator is function.decorator_list[-1]
+            and _fatal_contextless_task(function, decorator)
         ):
             return True
         for keyword in keywords:

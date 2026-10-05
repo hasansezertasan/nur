@@ -1587,3 +1587,86 @@ def test_known_callable_positional_dispatch_is_module_fatal(argument: str) -> No
         )
         == []
     )
+
+
+@pytest.mark.parametrize(
+    "options", ["unknown=True", "help='bad'", "optional=None", "lambda c: None"]
+)
+def test_unpacked_custom_constructor_options_are_not_definitely_fatal(
+    options: str,
+) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n@task({options}, **options)\ndef custom(c): ...\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_fatal_class_decorator_suppresses_module_tasks() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task(unknown=True)\nclass Broken: pass\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_fatal_decorator_in_finally_suppresses_module_tasks() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\ntry:\n pass\nfinally:\n @task(unknown=True)\n"
+            " def broken(c): ...\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_nonempty_dictionary_loop_has_fatal_prefix() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\nfor item in {1: 2}:\n @task(unknown=True)\n"
+            " def broken(c): ...\n break\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("option", ["pre", "post"])
+def test_async_task_objects_are_not_direct_hooks(option: str) -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\nasync def setup(c): ...\n"
+            f"@task({option}=setup)\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_async_default_task_participates_in_collisions() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task(default=True)\nasync def setup(c): ...\n"
+            "@task(default=True)\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_computed_name_task_objects_are_not_direct_hooks() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task(name=computed)\ndef setup(c): ...\n"
+            "@task(pre=setup)\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_replaced_decorator_in_try_is_not_assumed_fatal_in_finally() -> None:
+    tasks = parse_tasks(
+        "import invoke\nfrom invoke import task\ntry:\n task = replacement\n"
+        "finally:\n @task(unknown=True)\n def other(c): ...\n"
+        "@invoke.task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
