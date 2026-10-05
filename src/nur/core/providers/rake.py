@@ -404,7 +404,8 @@ def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     are read. Task bodies, conditional/generated declarations, file tasks,
     rules and imported files are opaque. Parentheses and plain begin/end
     wrappers without exception handlers are transparent. No Ruby code or
-    runner is executed.
+    runner is executed. Regexp literals outside the validated ASCII syntax
+    subset cause the file to be skipped.
     """
     root = Parser(_LANGUAGE).parse(text.encode("utf-8")).root_node
     if root.has_error:

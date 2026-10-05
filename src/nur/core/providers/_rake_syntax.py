@@ -11,6 +11,9 @@ if TYPE_CHECKING:
 
 __all__ = ["binding_names", "defined_probe", "literal", "node_text", "syntax_error"]
 
+_MAX_REGEXP_REPEAT = 100_000
+_MAX_REGEXP_CAPTURE_GROUPS = 32_767
+
 
 def node_text(node: Node) -> str:
     return (node.text or b"").decode("utf-8")
@@ -422,6 +425,103 @@ def _alias_error(node: Node) -> str | None:
     return None
 
 
+def _regexp_escape(pattern: str, index: int) -> tuple[str, int] | None:
+    if index + 1 >= len(pattern):
+        return None
+    escaped = pattern[index + 1]
+    if escaped == "x":
+        digits = pattern[index + 2 : index + 4]
+        if re.fullmatch(r"[0-7][0-9a-fA-F]", digits) is None:
+            return None
+        return r"\x" + digits, index + 4
+    translations = {"z": "Z", "G": "A", "e": "x1b", "h": "d", "H": "D", "R": "n"}
+    if escaped.isdecimal() or (
+        escaped.isalpha()
+        and escaped not in "aAbBdDefGhHnRrSsTtVvwWzZ"  # pragma: allowlist secret
+    ):
+        return None
+    return "\\" + translations.get(escaped, escaped), index + 2
+
+
+def _regexp_token_supported(pattern: str, index: int, *, in_class: bool) -> bool:
+    if not in_class and pattern[index : index + 2] == "(?":
+        return pattern[index : index + 3] in {"(?:", "(?=", "(?!"}
+    if pattern[index] == "[":
+        return (
+            not in_class
+            and pattern[index + 1 : index + 2] != "]"
+            and pattern[index + 1 : index + 3] != "^]"
+        )
+    return not in_class or pattern[index : index + 2] not in {"&&", "--", "||", "~~"}
+
+
+def _regexp_pattern(pattern: str, *, extended: bool) -> str | None:
+    # Compile only the shared ASCII Ruby/Python regexp subset. Encoding-sensitive
+    # escapes, named groups, lookbehinds, and set expressions remain unsupported.
+    if not pattern.isascii():
+        return None
+    converted: list[str] = []
+    index = 0
+    in_class = False
+    while index < len(pattern):
+        character = pattern[index]
+        if extended and not in_class and character == "#":
+            newline = pattern.find("\n", index)
+            if newline == -1:
+                break
+            index = newline
+            continue
+        if character == "\\":
+            if in_class and pattern[index + 1 : index + 2] == "R":
+                return None
+            escape = _regexp_escape(pattern, index)
+            if escape is None:
+                return None
+            value, index = escape
+            converted.append(value)
+            continue
+        if not _regexp_token_supported(pattern, index, in_class=in_class):
+            return None
+        in_class = character == "[" or (in_class and character != "]")
+        converted.append(character)
+        index += 1
+    return "".join(converted)
+
+
+def _regexp_error(node: Node) -> str | None:
+    options = node_text(node.children[-1])[1:]
+    if set(options) - set("imxounes"):
+        return "invalid Ruby regexp options"
+    if any(child.type == "interpolation" for child in node.named_children):
+        # MRI constructs interpolated patterns at runtime rather than compiling
+        # their regexp contents while loading the file.
+        return None
+    pattern = _regexp_pattern(
+        "".join(node_text(child) for child in node.named_children),
+        extended="x" in options,
+    )
+    if pattern is None:
+        return "unsupported Ruby regexp"
+    # Onigmo limits explicit repeats to 100000, unlike Python's regexp engine.
+    repeat_limit = str(_MAX_REGEXP_REPEAT)
+    for repeat in re.finditer(r"\{([0-9]+)(?:,([0-9]*))?\}", pattern):
+        for number in repeat.groups():
+            digits = (number or "").lstrip("0")
+            if len(digits) > len(repeat_limit) or (
+                len(digits) == len(repeat_limit) and digits > repeat_limit
+            ):
+                return "invalid or unsupported Ruby regexp repeat"
+    try:
+        compiled = re.compile(pattern, re.VERBOSE if "x" in options else 0)
+    except (re.error, ValueError, OverflowError, RecursionError) as error:
+        return f"invalid or unsupported Ruby regexp: {error}"
+    return (
+        "invalid Ruby regexp capture count"
+        if compiled.groups > _MAX_REGEXP_CAPTURE_GROUPS
+        else None
+    )
+
+
 def _method_context_error(root: Node) -> str | None:
     # Blocks retain their enclosing method scope; class bodies start a new one.
     # These compile-time restrictions apply even inside undiscovered bodies.
@@ -434,6 +534,7 @@ def _method_context_error(root: Node) -> str | None:
             _node_binding_error(node)
             or _assignment_error(node, in_method=in_method)
             or _alias_error(node)
+            or (_regexp_error(node) if node.type == "regex" else None)
         )
         if error is not None:
             return error

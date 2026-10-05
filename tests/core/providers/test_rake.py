@@ -1583,3 +1583,77 @@ def test_parentheses_inside_opaque_bodies_remain_opaque():
         "task :outer do; (task :hidden); end; result = (task :also_hidden)"
     )
     assert [task.name for task in tasks] == ["outer"]
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "/(/",
+        "/[abc/",
+        "/[z-a]/",
+        "/a{3,2}/",
+        "/a{100001}/",
+        "/a{999999999}/",
+        r"/\1/",
+        r"/\xFF/",
+        r"/\u{bogus}/",
+        r"/\p{bogus}/",
+        "/abc/q",
+        "/#{value}/q",
+        "%r{(}",
+    ],
+)
+def test_invalid_regexp_literals_reject_whole_file(expression, caplog):
+    assert parse_rakefile(f"task :before; {expression}; task :after") == []
+    assert "skipping Rakefile" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "/abc/",
+        "/a(b|c)+/",
+        "/[a-z_0-9]+/",
+        r"/\d+\s*\w?/",
+        "/^begin.*end$/im",
+        r"/\Afoo\z/",
+        r"/\Gfoo/",
+        r"/a\e/",
+        r"/\x20/",
+        r"/\h+\H?\R/",
+        "/a{1,3}/",
+        "/a{100000}/",
+        "%r{foo/bar}i",
+        "%r(a(?:b|c))",
+        "/abc/iimx",
+        "/abc/nu",
+        "/a # ) ignored\nb/x",
+        "/(?=a)a/",
+        "/(?!a)b/",
+        "/#{value}(/",
+    ],
+)
+def test_supported_regexp_literals_preserve_discovery(expression):
+    tasks = parse_rakefile(f"task :before; task :after do; {expression}; end")
+    assert [task.name for task in tasks] == ["before", "after"]
+
+
+@pytest.mark.parametrize(
+    "expression", [r"/\p{L}/", r"/(?<name>\w+)/", "/(?<=a)b/", "/[a&&b]/"]
+)
+def test_regexp_forms_outside_validated_subset_are_skipped(expression, caplog):
+    assert parse_rakefile(f"task :before; {expression}") == []
+    assert "unsupported Ruby regexp" in caplog.text
+
+
+def test_regexp_capture_count_respects_ruby_limit(caplog):
+    pattern = "()" * 32768
+    assert parse_rakefile(f"task :before; /{pattern}/; task :after") == []
+    assert "regexp capture count" in caplog.text
+
+
+def test_regexp_capture_count_at_ruby_limit_is_supported():
+    pattern = "()" * 32767
+    assert [task.name for task in parse_rakefile(f"/{pattern}/; task :build")] == [
+        "build"
+    ]

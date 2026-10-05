@@ -175,6 +175,11 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   and task names ending in a colon are skipped. Files with Ruby syntax errors
   reported by the parser are skipped
   with a warning.
+  Regexp literal checks support ASCII patterns with ordinary groups,
+  character classes, anchors and quantifiers.
+  Files with complex or encoding-sensitive regexp literals
+  (such as named groups, lookbehinds or Unicode property escapes)
+  are skipped with a warning.
 
   `tox` reads the first applicable config file present, in priority order:
   `tox.ini`, `setup.cfg` (`[tox:tox]`), `pyproject.toml` (`[tool.tox]`), then
