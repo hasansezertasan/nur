@@ -151,7 +151,9 @@ def _make_task(
         if comment and comment not in comments:
             comments.append(comment)
     summary = " / ".join(
-        re.split(r"(?<=\w)(\.|!)[ \t]|(\.$|!)|\n", comment, flags=re.ASCII)[0]
+        re.split(
+            r"(?<=\w)(\.|!)[ \t]|(\.$|!)|\n", comment, flags=re.ASCII | re.MULTILINE
+        )[0]
         for comment in comments
     )
     return Task(
@@ -565,6 +567,36 @@ def _lexical_scope_error(root: Node) -> str | None:
     return None
 
 
+def _escaping_control(root: Node) -> str | None:
+    """Find controls evaluated in this scope, leaving nested bodies opaque."""
+    pending = [(root, False)]
+    loops = {"while", "until", "for", "while_modifier", "until_modifier"}
+    local_control = None
+    while pending:
+        node, in_loop = pending.pop()
+        if node.type == "return":
+            return "return"
+        if node.type in {"break", "next", "redo"} and not in_loop:
+            if node.type == "redo":
+                return "redo"
+            local_control = node.type
+        if node.type in {"method", "block", "do_block", "lambda"}:
+            continue
+        if node.type == "singleton_method":
+            receiver = node.child_by_field_name("object")
+            children = [receiver] if receiver is not None else []
+        else:
+            body = node.child_by_field_name("body")
+            children = [
+                child
+                for child in node.named_children
+                if node.type not in {"class", "module", "singleton_class"}
+                or child != body
+            ]
+        pending.extend((child, in_loop or node.type in loops) for child in children)
+    return local_control
+
+
 def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
     # Each frame owns its pending description; it cannot leak out of a scope.
     # An explicit stack avoids Python recursion on deeply nested namespaces.
@@ -577,9 +609,10 @@ def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
         node = next(statements, None)
         if node is None:
             continue
-        if node.type in {"return", "redo"}:
+        control = _escaping_control(node)
+        if control in {"return", "redo"}:
             return
-        if node.type in {"break", "next"}:
+        if control in {"break", "next"}:
             continue
         method = _method(node, disabled)
         arguments = _arguments(node)

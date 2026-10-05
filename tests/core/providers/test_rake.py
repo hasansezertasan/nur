@@ -628,6 +628,7 @@ def test_valid_pattern_and_numbered_parameter_usage_preserves_discovery(body):
         (["First", "Second", "First"], "First / Second"),
         ([" First ", "First", "", "Second"], "First / Second"),
         (["First. Details", "Second! Details"], "First / Second"),
+        (["First.\nDetails", "Second"], "First / Second"),
         (["Version 1.2", "Second"], "Version 1.2 / Second"),
         (["Same. One", "Same. Two"], "Same / Same"),
         (["", "   "], None),
@@ -808,3 +809,50 @@ def test_top_level_begin_modifiers_are_valid(modifier):
 def test_begin_modifier_inside_block_still_rejects_file(caplog):
     assert parse_rakefile("task :before; call { BEGIN {} if false }") == []
     assert "BEGIN outside top level" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "escape",
+    [
+        "return if ENV['STOP']",
+        "return unless enabled",
+        "if enabled; return; end",
+        "case mode; when :stop; return; end",
+        "enabled ? return : nil",
+        "while enabled; return; end",
+    ],
+)
+def test_conditional_return_omits_later_file_tasks(escape):
+    tasks = parse_rakefile(f"task :before; {escape}; task :after")
+    assert [task.name for task in tasks] == ["before"]
+
+
+@pytest.mark.parametrize(
+    "escape",
+    [
+        "next if enabled",
+        "break unless enabled",
+        "if enabled; next; end",
+        "begin; next if enabled; end",
+    ],
+)
+def test_conditional_namespace_escape_keeps_parent_scope(escape):
+    tasks = parse_rakefile(
+        f"namespace :db do; task :before; {escape}; task :after; end; task :root"
+    )
+    assert [task.name for task in tasks] == ["db:before", "root"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "while enabled; next; end",
+        "for value in []; break; end",
+        "call { next if enabled }",
+        "def helper; return if enabled; end",
+        "task :build do; return if enabled; end",
+    ],
+)
+def test_local_controls_do_not_escape_discovery_scope(body):
+    tasks = parse_rakefile(f"{body}; task :after")
+    assert tasks[-1].name == "after"
