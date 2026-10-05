@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import ast
 
-__all__ = ["constant_truth", "loop_count", "loop_must_enter"]
+__all__ = [
+    "NON_TYPEERROR_EXCEPTIONS",
+    "constant_truth",
+    "exception_taints",
+    "excludes_typeerror",
+    "iteration_jump",
+    "loop_count",
+    "loop_must_enter",
+]
 
 
 def constant_truth(expression: ast.expr) -> bool | None:
@@ -58,3 +66,54 @@ def loop_must_enter(statement: ast.For | ast.AsyncFor | ast.While) -> bool:
     ):
         return bool(statement.iter.value)
     return False
+
+
+NON_TYPEERROR_EXCEPTIONS = frozenset({
+    "ValueError",
+    "AttributeError",
+    "KeyError",
+    "IndexError",
+    "LookupError",
+    "RuntimeError",
+    "OSError",
+    "AssertionError",
+    "SyntaxError",
+    "ImportError",
+})
+
+
+def excludes_typeerror(
+    expression: ast.expr | None, bindings: dict[str, str], tainted: set[str]
+) -> bool:
+    if isinstance(expression, ast.Tuple):
+        return all(
+            excludes_typeerror(item, bindings, tainted) for item in expression.elts
+        )
+    return (
+        isinstance(expression, ast.Name)
+        and expression.id in NON_TYPEERROR_EXCEPTIONS
+        and expression.id not in bindings
+        and "builtins." + expression.id not in tainted
+    )
+
+
+def iteration_jump(statement: ast.stmt) -> bool:
+    if isinstance(statement, (ast.Break, ast.Continue)):
+        return True
+    if isinstance(statement, ast.If):
+        truth = constant_truth(statement.test)
+        blocks = (
+            [statement.body, statement.orelse]
+            if truth is None
+            else [statement.body if truth else statement.orelse]
+        )
+        return any(iteration_jump(child) for block in blocks for child in block)
+    return False
+
+
+def exception_taints(written: set[str]) -> set[str]:
+    return {
+        "builtins." + name
+        for name in NON_TYPEERROR_EXCEPTIONS
+        if name in written or "*" in written
+    }

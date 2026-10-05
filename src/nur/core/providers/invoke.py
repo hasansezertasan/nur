@@ -11,6 +11,9 @@ from typing import TYPE_CHECKING
 from nur.core.models import Task
 from nur.core.providers._invoke_control_flow import (
     constant_truth as _constant_truth,
+    exception_taints as _exception_taints,
+    excludes_typeerror as _excludes_typeerror,
+    iteration_jump as _iteration_jump,
     loop_count as _loop_count,
     loop_must_enter as _loop_must_enter,
 )
@@ -22,6 +25,7 @@ from nur.core.providers._invoke_tasks import (
     module_kind as _module_kind,
     task_definition as _task_definition,
     task_names as _task_names,
+    typeerror_decorator as _typeerror_decorator,
 )
 
 if TYPE_CHECKING:
@@ -34,9 +38,6 @@ _SOURCE_FILE = "tasks.py"
 _ATTRIBUTE_ARGS_MIN = 2
 _MAX_UNROLLED_ITERATIONS = 2
 _BUILTIN_HELPERS = frozenset({"setattr", "delattr", "vars", "globals", "locals"})
-
-
-# Custom klass= is excluded because it may change naming/registration semantics.
 
 
 def _builtin_name(expression: ast.expr, bindings: dict[str, str]) -> str | None:
@@ -767,18 +768,6 @@ def _task_binding_effects(
     return functions, defaults
 
 
-def _iteration_jump(statement: ast.stmt) -> bool:
-    if isinstance(statement, (ast.Break, ast.Continue)):
-        return True
-    if isinstance(statement, ast.If):
-        return any(
-            _iteration_jump(child)
-            for block in _statement_blocks(statement)
-            for child in block
-        )
-    return False
-
-
 def _definitely_executed_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
     if isinstance(statement, ast.If):
         truth = _constant_truth(statement.test)
@@ -804,10 +793,20 @@ def _definitely_executed_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
 def _fatal_try(
     statement: ast.Try | ast.TryStar, bindings: dict[str, str], tainted: set[str]
 ) -> bool:
+    written, _, _ = _written_names(statement, bindings, tainted=tainted)
+    handler_taints = tainted | _exception_taints(written)
     if (
-        not statement.handlers
+        all(
+            _excludes_typeerror(handler.type, bindings, handler_taints)
+            for handler in statement.handlers
+        )
         and not any(_iteration_jump(child) for child in statement.finalbody)
-        and _fatal_block(statement.body + statement.orelse, bindings, tainted)
+        and _fatal_block(
+            statement.body + statement.orelse,
+            bindings,
+            tainted,
+            typeerror_only=bool(statement.handlers),
+        )
     ):
         return True
     bindings, tainted = bindings.copy(), tainted.copy()
@@ -860,21 +859,23 @@ def _fatal_children(
 
 
 def _fatal_block(
-    statements: list[ast.stmt], bindings: dict[str, str], tainted: set[str]
+    statements: list[ast.stmt],
+    bindings: dict[str, str],
+    tainted: set[str],
+    *,
+    typeerror_only: bool = False,
 ) -> bool:
     bindings, tainted = bindings.copy(), tainted.copy()
+    decorator_check = _typeerror_decorator if typeerror_only else _fatal_decorator
     for statement in statements:
         if isinstance(
             statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
-        ) and _fatal_decorator(statement, bindings, tainted):
+        ) and decorator_check(statement, bindings, tainted):
             return True
-        if _fatal_children(statement, bindings, tainted):
+        if not typeerror_only and _fatal_children(statement, bindings, tainted):
             return True
         if _iteration_jump(statement):
             break
-        task_object = isinstance(statement, ast.FunctionDef) and bool(
-            _task_names(statement, bindings, tainted)
-        )
         copies = _copied_modules(statement, bindings, tainted)
         copies.update(_copied_callables(statement, bindings, tainted))
         copies.update(_defined_task_bindings(statement, bindings, tainted))
@@ -882,14 +883,13 @@ def _fatal_block(
             statement, bindings, tainted=tainted, inspect_classes=False
         )
         tainted.update(mutation)
+        tainted.update(_exception_taints(written))
         if "*" in written:
             bindings.clear()
         for bound in written:
             bindings.pop(bound, None)
         bindings.update(copies)
         _bind_callable_definition(statement, bindings)
-        if task_object and isinstance(statement, ast.FunctionDef):
-            bindings[statement.name] = "task_object"
         if isinstance(statement, (ast.Import, ast.ImportFrom)):
             _bind_import(statement, bindings, tainted)
     return False
@@ -937,6 +937,7 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
         # Re-imports reuse Python's cached modules; an import cannot restore
         # trust after the decorator export has been replaced or deleted.
         tainted.update(mutation)
+        tainted.update(_exception_taints(written))
         if "*" in written:
             bindings.clear()
             functions.clear()

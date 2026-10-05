@@ -1852,3 +1852,55 @@ def test_long_finite_loop_else_respects_replaced_decorator() -> None:
         "@invoke.task\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+def test_unknown_help_key_suppresses_sibling_tasks() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task(help={'missing': 'text'})\n"
+            "def broken(c): ...\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "aliases", ["[1]", "(None,)", "{'ok', 1}", "{'ok': 1, 2: 3}", "b'bad'"]
+)
+def test_nonstring_literal_aliases_suppress_sibling_tasks(aliases: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task(aliases={aliases})\ndef broken(c): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    ("handler", "expected"),
+    [
+        ("ValueError", []),
+        ("(ValueError, OSError)", []),
+        ("TypeError", ["build"]),
+        ("Exception", ["build"]),
+        ("(ValueError, TypeError)", ["build"]),
+    ],
+)
+def test_constructor_typeerror_respects_handler_types(
+    handler: str, expected: list[str]
+) -> None:
+    tasks = parse_tasks(
+        "from invoke import task\ntry:\n @task(unknown=True)\n def broken(c): ...\n"
+        f"except {handler}:\n pass\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == expected
+
+
+def test_replaced_handler_name_may_catch_typeerror() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\nValueError = TypeError\ntry:\n"
+        " @task(unknown=True)\n def broken(c): ...\nexcept ValueError:\n pass\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]

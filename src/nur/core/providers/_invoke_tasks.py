@@ -11,6 +11,7 @@ __all__ = [
     "module_kind",
     "task_definition",
     "task_names",
+    "typeerror_decorator",
 ]
 
 _TASK_OPTIONS = frozenset({
@@ -94,7 +95,13 @@ def _invalid_literal_option(
         return invalid_members
     iterable = isinstance(value, (str, bytes, list, tuple, dict, set))
     if keyword.arg in {"aliases", "optional", "positional"}:
-        return not iterable and not (keyword.arg == "positional" and value is None)
+        return (
+            not iterable and not (keyword.arg == "positional" and value is None)
+        ) or (
+            keyword.arg == "aliases"
+            and isinstance(value, (str, bytes, list, tuple, dict, set))
+            and any(not isinstance(member, str) for member in value)
+        )
     if keyword.arg in {"pre", "post"}:
         return bool(value) or invalid_members
     if keyword.arg in {"iterable", "incrementable"}:
@@ -335,6 +342,11 @@ def _fatal_keyword(
         )
         or _fatal_help_literal(keyword)
         or _fatal_parser_option(node, keyword, bindings, tainted)
+        or (
+            isinstance(node, ast.FunctionDef)
+            and len(node.decorator_list) == 1
+            and not _literal_help_matches(node, node.decorator_list[0])
+        )
     )
 
 
@@ -367,6 +379,45 @@ def fatal_decorator(
             return True
         if any(
             _fatal_keyword(function, keyword, bindings, tainted) for keyword in keywords
+        ):
+            return True
+    return False
+
+
+def typeerror_decorator(
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
+    bindings: dict[str, str],
+    tainted: set[str],
+) -> bool:
+    """Recognize constructor TypeErrors, excluding later collection failures."""
+    for decorator in node.decorator_list:
+        expression = decorator.func if isinstance(decorator, ast.Call) else decorator
+        if not decorator_matches(expression, bindings, tainted):
+            continue
+        keywords = decorator.keywords if isinstance(decorator, ast.Call) else []
+        if any(_literal_constructor_failure(keyword) for keyword in keywords):
+            return True
+        if isinstance(decorator, ast.Call) and _positional_pre_conflict(
+            decorator, bindings
+        ):
+            return True
+        if any(keyword.arg in {"klass", None} for keyword in keywords):
+            continue
+        if _fatal_callable_dispatch(decorator, bindings, tainted):
+            return True
+        if (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and decorator is node.decorator_list[-1]
+            and _fatal_contextless_task(node, decorator)
+        ):
+            return True
+        if any(
+            (keyword.arg is not None and keyword.arg not in _TASK_OPTIONS)
+            or (
+                keyword.arg == "optional"
+                and _invalid_literal_option(keyword, bindings, tainted)
+            )
+            for keyword in keywords
         ):
             return True
     return False
