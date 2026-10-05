@@ -9,7 +9,12 @@ if TYPE_CHECKING:
 
     from tree_sitter import Node
 
-__all__ = ["empty_for", "empty_rescue", "load_assignment_error"]
+__all__ = [
+    "empty_for",
+    "empty_rescue",
+    "load_assignment_error",
+    "overridden_method_error",
+]
 
 _READONLY_GLOBALS = {
     "$?",
@@ -108,4 +113,14 @@ def load_assignment_error(node: Node) -> str | None:
             return "assignment to readonly global during loading"
         if target.type == "class_variable" and not _class_variable_scope(target):
             return "class variable access from toplevel during loading"
+    return None
+
+
+def overridden_method_error(
+    key: str, arity: int | None, disabled: set[str]
+) -> str | None:
+    if f"undef:{key}" in disabled:
+        return "call to undefined constructor during loading"
+    if f"reader:{key}" in disabled and arity not in {0, None}:
+        return "invalid singleton attribute reader call during loading"
     return None

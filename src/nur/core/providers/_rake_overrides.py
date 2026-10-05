@@ -12,7 +12,16 @@ from nur.core.providers._rake_syntax import (
 if TYPE_CHECKING:
     from tree_sitter import Node
 
-__all__ = ["main_scope", "record_override", "scope_headers", "singleton_class_receiver"]
+__all__ = [
+    "DEFERRED_METHODS",
+    "SINGLETON_MUTATORS",
+    "main_scope",
+    "reader_call",
+    "receiver_name",
+    "record_override",
+    "scope_headers",
+    "singleton_class_receiver",
+]
 
 _METHODS = {
     "task",
@@ -28,6 +37,38 @@ _METHODS = {
     "define_method",
     "define_singleton_method",
 }
+
+
+DEFERRED_METHODS = frozenset(_METHODS - {"namespace"})
+SINGLETON_MUTATORS = frozenset({
+    "define_method",
+    "define_singleton_method",
+    "alias_method",
+    "undef_method",
+    "attr_reader",
+    "attr_accessor",
+})
+
+
+def receiver_name(node: Node | None) -> str:
+    while node is not None and node.type == "parenthesized_statements":
+        children = [child for child in node.named_children if child.type != "comment"]
+        node = children[0] if len(children) == 1 else None
+    return node_text(node).removeprefix("::") if node is not None else ""
+
+
+def reader_call(node: Node, disabled: set[str]) -> bool:
+    method = node.child_by_field_name("method")
+    if method is None:
+        return False
+    receiver = node.child_by_field_name("receiver")
+    name = node_text(method)
+    key = (
+        name
+        if receiver is None or is_self(receiver)
+        else f"{receiver_name(receiver)}.{name}"
+    )
+    return f"reader:{key}" in disabled
 
 
 def _constructor_scope(node: Node) -> tuple[str | None, bool]:
@@ -50,6 +91,7 @@ def _constructor_scope(node: Node) -> tuple[str | None, bool]:
 def _set_override(name: str, disabled: set[str]) -> None:
     disabled.add(name)
     disabled.discard(f"undef:{name}")
+    disabled.discard(f"reader:{name}")
 
 
 def _instance_override(node: Node, name: str, disabled: set[str]) -> None:
@@ -184,7 +226,7 @@ def _dynamic_override(node: Node, disabled: set[str]) -> None:
         )
         mutators = {"define_method", "define_singleton_method"}
         if singleton_receiver:
-            mutators.update({"alias_method", "undef_method"})
+            mutators.update(SINGLETON_MUTATORS)
         if method is not None and node_text(method) in mutators - disabled:
             _record_mutation(
                 node,
@@ -203,6 +245,11 @@ def _record_mutation(
     *,
     singleton_receiver: bool,
 ) -> None:
+    if method in {"attr_reader", "attr_accessor"}:
+        _record_attribute_readers(node, arguments, disabled)
+        return
+    if method == "define_singleton_method" and singleton_receiver:
+        return
     if method == "undef_method":
         prefix, _ = _constructor_scope(node)
         if prefix is None and not main_scope(node):
@@ -217,6 +264,19 @@ def _record_mutation(
             _self_override(node, defined_name, disabled)
         else:
             _instance_override(node, defined_name, disabled)
+
+
+def _record_attribute_readers(
+    node: Node, arguments: list[Node], disabled: set[str]
+) -> None:
+    prefix, _ = _constructor_scope(node)
+    if prefix is None and not main_scope(node):
+        return
+    for argument in arguments:
+        if (name := literal(argument)) is not None:
+            key = f"{prefix}.{name}" if prefix else name
+            _set_override(key, disabled)
+            disabled.add(f"reader:{key}")
 
 
 def scope_headers(node: Node) -> list[Node]:

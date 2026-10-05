@@ -87,7 +87,7 @@ _INVALID_METHOD_NAME_KINDS = {
 def _simple_constructor_error(
     name: str, kinds: list[str | None], arity: int | None, *, has_block: bool
 ) -> str | None:
-    if name in {"alias_method", "undef_method"}:
+    if name in {"alias_method", "undef_method", "attr_reader", "attr_accessor"}:
         if name == "alias_method" and arity not in {2, None}:
             return "invalid method alias call"
         return (
@@ -103,11 +103,28 @@ def _simple_constructor_error(
 
 
 def constructor_arguments_error(
-    name: str, kinds: list[str | None], arity: int | None, *, has_block: bool
+    name: str,
+    kinds: list[str | None],
+    arity: int | None,
+    *,
+    has_block: bool,
+    is_reader: bool = False,
 ) -> str | None:
-    if name in {"alias_method", "undef_method", "proc", "lambda", "new"}:
+    if (
+        name
+        in {
+            "alias_method",
+            "undef_method",
+            "attr_reader",
+            "attr_accessor",
+            "proc",
+            "lambda",
+            "new",
+        }
+        and not is_reader
+    ):
         return _simple_constructor_error(name, kinds, arity, has_block=has_block)
-    if name not in {"define_method", "define_singleton_method"}:
+    if is_reader or name not in {"define_method", "define_singleton_method"}:
         return None
     if arity not in {1, 2, None} or (arity == 1 and not has_block):
         return "invalid method definition constructor call"

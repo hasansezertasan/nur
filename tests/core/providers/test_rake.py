@@ -3222,3 +3222,74 @@ def test_alias_constructor_in_unrelated_or_deferred_scope_keeps_canonical(contex
         context.format(body="alias proc then") + "; proc { /#{pattern}/ }; task :safe"
     )
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("macro", ["attr_reader", "attr_accessor"])
+@pytest.mark.parametrize("receiver", ["singleton_class", "self.singleton_class()"])
+def test_singleton_attribute_reader_rejects_dsl_arguments(macro, receiver):
+    source = f"task :before; {receiver}.{macro}(:task); task :ghost"
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize("macro", ["attr_reader", "attr_accessor"])
+def test_singleton_attribute_reader_preserves_preceding_tasks(macro):
+    source = f"task :safe; singleton_class.{macro}(:task)"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_singleton_attribute_reader_zero_argument_call_ignores_block():
+    source = (
+        "singleton_class.attr_reader(:task); task { /#{pattern}/ }; multitask :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("macro", ["attr_reader", "attr_accessor"])
+def test_singleton_attribute_macros_validate_known_invalid_names(macro):
+    assert (
+        parse_rakefile(f"task :before; singleton_class.{macro}(nil); task :after") == []
+    )
+
+
+def test_redefined_singleton_attribute_reader_does_not_keep_old_arity():
+    source = (
+        "singleton_class.attr_reader(:task); def self.task(*); end; "
+        "task :ignored; multitask :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "receiver", ["(Kernel)", "((Kernel))", "(::Kernel)", "(Proc)", "((::Proc))"]
+)
+def test_parenthesized_canonical_constructor_receivers_defer_blocks(receiver):
+    method = "new" if "Proc" in receiver else "proc"
+    source = f'pattern = ")"; {receiver}.{method} {{ /#{{pattern}}/ }}; task :safe'
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_parenthesized_constructor_receiver_preserves_override_tracking():
+    source = (
+        'def Kernel.proc; yield; end; pattern = ")"; '
+        "(Kernel).proc { /#{pattern}/ }; task :ghost"
+    )
+    assert parse_rakefile(source) == []
+
+
+def test_singleton_class_own_singleton_definition_keeps_main_dsl():
+    source = "singleton_class.define_singleton_method(:task) { |*| }; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "singleton_class.attr_reader(:proc); proc(); task :safe",
+        (
+            "module Kernel; singleton_class.attr_reader(:proc); end; "
+            "Kernel.proc(); task :safe"
+        ),
+    ],
+)
+def test_attribute_readers_replacing_constructors_use_reader_arity(source):
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]

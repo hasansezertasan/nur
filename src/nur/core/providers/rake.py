@@ -13,7 +13,11 @@ from nur.core.providers._rake_callbacks import (
     invalid_namespace_lambda_parameters,
 )
 from nur.core.providers._rake_overrides import (
+    DEFERRED_METHODS as _DEFERRED_METHODS,
+    SINGLETON_MUTATORS,
     main_scope,
+    reader_call,
+    receiver_name,
     record_override,
     scope_headers,
     singleton_class_receiver,
@@ -22,6 +26,7 @@ from nur.core.providers._rake_runtime import (
     empty_for,
     empty_rescue,
     load_assignment_error,
+    overridden_method_error,
 )
 from nur.core.providers._rake_source import decode_source
 from nur.core.providers._rake_syntax import (
@@ -47,20 +52,6 @@ _LANGUAGE = Language(tree_sitter_ruby.language())
 # Rake interprets leading '-' as an option, '=' as an environment assignment,
 # and brackets as task arguments. Accept a conservative runnable-name subset.
 _NAME = re.compile(r"[\w][\w:./-]*\Z")
-_DEFERRED_METHODS = {
-    "task",
-    "multitask",
-    "file",
-    "file_create",
-    "directory",
-    "rule",
-    "desc",
-    "proc",
-    "lambda",
-    "define_method",
-    "define_singleton_method",
-}
-
 _RAKE_METHODS = _DEFERRED_METHODS - {
     "proc",
     "lambda",
@@ -652,20 +643,14 @@ def _conditional_children(node: Node) -> list[Node]:
 
 def _deferred_call(owner: Node, method: Node, disabled: set[str]) -> bool:
     name = node_text(method)
+    if reader_call(owner, disabled):
+        return True
     if _dsl_receiver(owner):
         return name in _DEFERRED_METHODS - disabled
     receiver = owner.child_by_field_name("receiver")
-    if name in {
-        "define_method",
-        "alias_method",
-        "undef_method",
-    } and singleton_class_receiver(receiver, disabled):
+    if name in SINGLETON_MUTATORS and singleton_class_receiver(receiver, disabled):
         return True
-    key = (
-        f"{node_text(receiver).removeprefix('::')}.{name}"
-        if receiver is not None
-        else ""
-    )
+    key = f"{receiver_name(receiver)}.{name}" if receiver is not None else ""
     return key in {"Kernel.proc", "Kernel.lambda", "Proc.new"} - disabled
 
 
@@ -700,12 +685,12 @@ def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
     key = (
         name
         if _dsl_receiver(node)
-        else f"{node_text(receiver).removeprefix('::')}.{name}"
+        else f"{receiver_name(receiver)}.{name}"
         if receiver is not None
         else name
     )
-    if f"undef:{key}" in disabled:
-        return "call to undefined constructor during loading"
+    if error := overridden_method_error(key, _call_arity(_arguments(node)), disabled):
+        return error
     if not _dsl_receiver(node) or name in disabled or not main_scope(node):
         return None
     return _declaration_error(node, name, _arguments(node), None, disabled)
@@ -744,6 +729,7 @@ def _load_time_error(root: Node) -> str | None:
                 [_literal_kind(argument) for argument in arguments],
                 _call_arity(arguments),
                 has_block=has_block,
+                is_reader=reader_call(node, disabled),
             )
             if error is not None:
                 return error
