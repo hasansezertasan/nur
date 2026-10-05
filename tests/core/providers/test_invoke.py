@@ -2057,3 +2057,77 @@ def test_outer_decorator_mutation_precedes_lower_decorator(outer: str) -> None:
         "def other(c): ...\n@stable\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+def test_handled_try_cannot_catch_deferred_collection_failure() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\ntry:\n @task(aliases=7)\n def broken(c): ...\n"
+            "except TypeError:\n pass\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("option", ["iterable", "incrementable"])
+def test_class_task_parser_membership_failure_suppresses_siblings(option: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task({option}=1)\nclass Broken:\n"
+            " def __init__(self, c, item=False): ...\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("cleanup", ["del broken", "broken = None"])
+def test_removed_malformed_task_does_not_break_collection(cleanup: str) -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task(aliases=7)\ndef broken(c): ...\n"
+        f"{cleanup}\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_copied_malformed_task_still_breaks_collection() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task(aliases=7)\ndef broken(c): ...\n"
+            "saved = broken\ndel broken\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_finalizer_can_remove_deferred_collection_failure() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\ntry:\n @task(aliases=7)\n def broken(c): ...\n"
+        "except TypeError:\n pass\nfinally:\n del broken\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_argumentless_class_task_preserves_membership_option_siblings() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task(iterable=1)\nclass Other:\n"
+        " def __init__(self, c): ...\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_caught_constructor_failure_does_not_create_malformed_task() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\ntry:\n @task(aliases=7, unknown=True)\n"
+        " def broken(c): ...\nexcept TypeError:\n pass\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_async_help_key_failure_suppresses_siblings() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task(help={'missing': 'text'})\n"
+            "async def broken(c): ...\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )

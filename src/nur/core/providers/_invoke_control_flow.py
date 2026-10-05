@@ -1,4 +1,4 @@
-"""Literal loop and condition analysis for static Invoke discovery."""
+"""Pure Python syntax analysis for static Invoke discovery."""
 
 from __future__ import annotations
 
@@ -6,16 +6,19 @@ import ast
 
 __all__ = [
     "MAX_UNROLLED_ITERATIONS",
+    "all_statement_blocks",
     "constant_truth",
     "definitely_executed_blocks",
     "exception_taints",
     "excludes_exception",
+    "global_names",
     "guaranteed_match_case",
     "iteration_jump",
     "loop_count",
     "loop_must_enter",
     "loop_task_blocks",
     "nonraising_block",
+    "unpacked_pairs",
 ]
 
 
@@ -217,3 +220,57 @@ def guaranteed_match_case(statement: ast.Match) -> ast.match_case | None:
             continue
         return case if matches is True and guard is True else None
     return None
+
+
+def unpacked_pairs(
+    target: ast.Tuple | ast.List, value: ast.Tuple | ast.List
+) -> list[tuple[ast.expr, ast.expr]]:
+    if any(isinstance(item, ast.Starred) for item in value.elts):
+        return []
+    starred = next(
+        (
+            index
+            for index, item in enumerate(target.elts)
+            if isinstance(item, ast.Starred)
+        ),
+        None,
+    )
+    if starred is None:
+        return (
+            list(zip(target.elts, value.elts, strict=True))
+            if len(target.elts) == len(value.elts)
+            else []
+        )
+    if len(value.elts) < len(target.elts) - 1:
+        return []
+    suffix = len(target.elts) - starred - 1
+    pairs = list(zip(target.elts[:starred], value.elts[:starred], strict=True))
+    if suffix:
+        pairs.extend(zip(target.elts[-suffix:], value.elts[-suffix:], strict=True))
+    return pairs
+
+
+def all_statement_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
+    """Get compound blocks without crossing function or class scopes."""
+    if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return []
+    blocks: list[list[ast.stmt]] = []
+    for _, value in ast.iter_fields(statement):
+        if isinstance(value, list) and value:
+            if all(isinstance(item, ast.stmt) for item in value):
+                blocks.append(value)
+            elif all(
+                isinstance(item, (ast.ExceptHandler, ast.match_case)) for item in value
+            ):
+                blocks.extend(item.body for item in value)
+    return blocks
+
+
+def global_names(statements: list[ast.stmt]) -> set[str]:
+    names: set[str] = set()
+    for statement in statements:
+        if isinstance(statement, ast.Global):
+            names.update(statement.names)
+        for block in all_statement_blocks(statement):
+            names.update(global_names(block))
+    return names

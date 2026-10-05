@@ -7,6 +7,7 @@ import ast
 __all__ = [
     "constructor_exception",
     "decorator_matches",
+    "deferred_failure",
     "fatal_decorator",
     "literal_default",
     "module_kind",
@@ -78,7 +79,7 @@ def _invalid_literal_option(
     invalid_members = (
         keyword.arg in {"pre", "post"}
         and isinstance(keyword.value, ast.Name)
-        and bindings.get(keyword.value.id) == "task_object"
+        and bindings.get(keyword.value.id) in {"task_object", "invalid_task"}
     ) or (
         keyword.arg in {"pre", "post"}
         and isinstance(keyword.value, (ast.List, ast.Tuple, ast.Set))
@@ -163,7 +164,9 @@ def _normalize_name(name: str) -> str:
     )
 
 
-def _literal_help_matches(function: ast.FunctionDef, decorator: ast.expr) -> bool:
+def _literal_help_matches(
+    function: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef, decorator: ast.expr
+) -> bool:
     if not isinstance(decorator, ast.Call):
         return True
     help_mapping = next(
@@ -172,14 +175,16 @@ def _literal_help_matches(function: ast.FunctionDef, decorator: ast.expr) -> boo
     if not isinstance(help_mapping, ast.Dict):
         return True
     keys = {key.value for key in help_mapping.keys if isinstance(key, ast.Constant)}
-    args = function.args
+    args = _task_arguments(function)
+    if args is None:
+        return True
     parameters = [*args.posonlyargs, *args.args]
     if args.vararg:
         parameters.append(args.vararg)
     parameters.extend(args.kwonlyargs)
     if args.kwarg:
         parameters.append(args.kwarg)
-    for parameter in parameters[1:]:
+    for parameter in parameters[2 if isinstance(function, ast.ClassDef) else 1 :]:
         name = parameter.arg
         dashed = name.strip("_").replace("_", "-") if "_" in name else name
         # Invoke consumes the dashed key first, then the original spelling.
@@ -241,7 +246,7 @@ def _positional_pre_conflict(decorator: ast.Call, bindings: dict[str, str]) -> b
         return True
     argument = decorator.args[0]
     if isinstance(argument, ast.Name):
-        return bindings.get(argument.id) == "task_object"
+        return bindings.get(argument.id) in {"task_object", "invalid_task"}
     try:
         ast.literal_eval(argument)
     except (ValueError, TypeError) as _exc:
@@ -309,23 +314,20 @@ def _fatal_parser_option(
         return False
     if keyword.arg == "name":
         return _literal_name_failure(keyword.value)
-    if isinstance(node, ast.FunctionDef) and not _literal_help_matches(
-        node, node.decorator_list[0]
-    ):
+    if not _literal_help_matches(node, node.decorator_list[0]):
         return True
     if keyword.arg in {"aliases", "positional", "help"}:
         return _invalid_literal_option(keyword, bindings, tainted)
-    if keyword.arg not in {"iterable", "incrementable"} or isinstance(
-        node, ast.ClassDef
-    ):
+    args = _task_arguments(node)
+    if keyword.arg not in {"iterable", "incrementable"} or args is None:
         return False
-    args = node.args
     parameter_count = (
         len(args.posonlyargs)
         + len(args.args)
         + len(args.kwonlyargs)
         + bool(args.vararg)
         + bool(args.kwarg)
+        - isinstance(node, ast.ClassDef)
     )
     # Invoke removes the first signature parameter as the Context. Membership
     # checks for these options occur only while constructing other arguments.
@@ -343,10 +345,7 @@ def _literal_constructor_failure(keyword: ast.keyword) -> bool:
 
 
 def _fatal_keyword(
-    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
-    keyword: ast.keyword,
-    bindings: dict[str, str],
-    tainted: set[str],
+    keyword: ast.keyword, bindings: dict[str, str], tainted: set[str]
 ) -> bool:
     return (
         (keyword.arg is not None and keyword.arg not in _TASK_OPTIONS)
@@ -355,7 +354,6 @@ def _fatal_keyword(
             and _invalid_literal_option(keyword, bindings, tainted)
         )
         or _fatal_help_literal(keyword)
-        or _fatal_parser_option(node, keyword, bindings, tainted)
     )
 
 
@@ -390,9 +388,7 @@ def fatal_decorator(
             and _fatal_contextless_task(function, decorator)
         ):
             return True
-        if any(
-            _fatal_keyword(function, keyword, bindings, tainted) for keyword in keywords
-        ):
+        if any(_fatal_keyword(keyword, bindings, tainted) for keyword in keywords):
             return True
     return False
 
@@ -509,3 +505,35 @@ def constructor_exception(
         ):
             return "AttributeError"
     return None
+
+
+def _task_arguments(
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
+) -> ast.arguments | None:
+    if not isinstance(node, ast.ClassDef):
+        return node.args
+    for statement in node.body:
+        if (
+            isinstance(statement, ast.FunctionDef)
+            and statement.name == "__init__"
+            and not statement.decorator_list
+        ):
+            return statement.args
+    return None
+
+
+def deferred_failure(
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
+    bindings: dict[str, str],
+    tainted: set[str],
+) -> bool:
+    if (
+        not task_definition(node, bindings, tainted)
+        or constructor_exception(node, bindings, tainted) is not None
+    ):
+        return False
+    decorator = node.decorator_list[0]
+    return isinstance(decorator, ast.Call) and any(
+        _fatal_parser_option(node, keyword, bindings, tainted)
+        for keyword in decorator.keywords
+    )

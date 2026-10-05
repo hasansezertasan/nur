@@ -11,20 +11,24 @@ from typing import TYPE_CHECKING
 from nur.core.models import Task
 from nur.core.providers._invoke_control_flow import (
     MAX_UNROLLED_ITERATIONS as _MAX_UNROLLED_ITERATIONS,
+    all_statement_blocks as _all_statement_blocks,
     constant_truth as _constant_truth,
     definitely_executed_blocks as _definitely_executed_blocks,
     exception_taints as _exception_taints,
     excludes_exception as _excludes_exception,
+    global_names as _global_names,
     guaranteed_match_case as _guaranteed_match_case,
     iteration_jump as _iteration_jump,
     loop_count as _loop_count,
     loop_task_blocks as _loop_task_blocks,
     nonraising_block as _nonraising_block,
+    unpacked_pairs as _unpacked_pairs,
 )
 from nur.core.providers._invoke_exports import STAR_EXPORTS as _STAR_EXPORTS
 from nur.core.providers._invoke_tasks import (
     constructor_exception as _constructor_exception,
     decorator_matches as _decorator_matches,
+    deferred_failure as _deferred_failure,
     fatal_decorator as _fatal_decorator,
     literal_default as _literal_default,
     module_kind as _module_kind,
@@ -356,22 +360,6 @@ def _deleted_names(statement: ast.stmt) -> set[str]:
     return names
 
 
-def _all_statement_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
-    """Get compound blocks without crossing function or class scopes."""
-    if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-        return []
-    blocks: list[list[ast.stmt]] = []
-    for _, value in ast.iter_fields(statement):
-        if isinstance(value, list) and value:
-            if all(isinstance(item, ast.stmt) for item in value):
-                blocks.append(value)
-            elif all(
-                isinstance(item, (ast.ExceptHandler, ast.match_case)) for item in value
-            ):
-                blocks.extend(item.body for item in value)
-    return blocks
-
-
 def _statement_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
     if (
         isinstance(statement, (ast.For, ast.AsyncFor, ast.While))
@@ -385,22 +373,14 @@ def _statement_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
     return _all_statement_blocks(statement)
 
 
-def _global_names(statements: list[ast.stmt]) -> set[str]:
-    names: set[str] = set()
-    for statement in statements:
-        if isinstance(statement, ast.Global):
-            names.update(statement.names)
-        for block in _all_statement_blocks(statement):
-            names.update(_global_names(block))
-    return names
-
-
 def _merge_possible_modules(
     bindings: dict[str, str], possibilities: list[dict[str, str]]
 ) -> None:
     for possible in possibilities:
         for bound, kind in possible.items():
-            if kind in {
+            if kind == "invalid_task":
+                bindings[bound] = kind
+            elif kind in {
                 "module",
                 "tasks_module",
                 "ambiguous_module",
@@ -415,34 +395,6 @@ def _merge_possible_modules(
                 bindings[bound] = (
                     "ambiguous_module" if previous and previous != kind else kind
                 )
-
-
-def _unpacked_pairs(
-    target: ast.Tuple | ast.List, value: ast.Tuple | ast.List
-) -> list[tuple[ast.expr, ast.expr]]:
-    if any(isinstance(item, ast.Starred) for item in value.elts):
-        return []
-    starred = next(
-        (
-            index
-            for index, item in enumerate(target.elts)
-            if isinstance(item, ast.Starred)
-        ),
-        None,
-    )
-    if starred is None:
-        return (
-            list(zip(target.elts, value.elts, strict=True))
-            if len(target.elts) == len(value.elts)
-            else []
-        )
-    if len(value.elts) < len(target.elts) - 1:
-        return []
-    suffix = len(target.elts) - starred - 1
-    pairs = list(zip(target.elts[:starred], value.elts[:starred], strict=True))
-    if suffix:
-        pairs.extend(zip(target.elts[-suffix:], value.elts[-suffix:], strict=True))
-    return pairs
 
 
 def _certain_children(node: ast.AST) -> list[ast.AST]:
@@ -526,6 +478,7 @@ def _copied_callables(
         elif isinstance(value, ast.Name) and bindings.get(value.id) in {
             "ordinary_callable",
             "task_object",
+            "invalid_task",
         }:
             copies[target.id] = bindings[value.id]
         elif _decorator_matches(value, bindings, tainted):
@@ -539,7 +492,12 @@ def _defined_task_bindings(
     if isinstance(
         statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
     ) and _task_definition(statement, bindings, tainted):
-        return {statement.name: "task_object"}
+        kind = (
+            "invalid_task"
+            if _deferred_failure(statement, bindings, tainted)
+            else "task_object"
+        )
+        return {statement.name: kind}
     return {}
 
 
@@ -596,8 +554,18 @@ def _class_block_effects(
         # Inspect each possible block in order with its own local environment.
         # Imports within a branch are visible to subsequent mutations there.
         copied_modules = _copied_modules(statement, class_bindings, class_taints)
+        copied_modules.update(
+            _copied_callables(statement, class_bindings, class_taints)
+        )
+        copied_modules.update(
+            _defined_task_bindings(statement, class_bindings, class_taints)
+        )
         branch_bindings: list[dict[str, str]] = []
-        for block in _statement_blocks(statement):
+        for block in (
+            _task_outcome_blocks(statement)
+            if isinstance(statement, (ast.Try, ast.TryStar))
+            else _statement_blocks(statement)
+        ):
             writes, effects, possible = _class_block_effects(
                 block, class_bindings, module_bindings, class_taints, globals_
             )
@@ -633,6 +601,17 @@ def _class_block_effects(
         class_bindings.update(copied_modules)
         if isinstance(statement, (ast.Import, ast.ImportFrom)):
             _bind_import(statement, class_bindings, class_taints)
+        if isinstance(statement, (ast.Try, ast.TryStar)):
+            writes, effects, class_bindings = _class_block_effects(
+                statement.finalbody,
+                class_bindings,
+                module_bindings,
+                class_taints,
+                globals_,
+            )
+            global_writes.update(writes)
+            mutations.update(effects)
+            class_taints.update(effects)
     return global_writes, mutations, class_bindings
 
 
@@ -946,6 +925,11 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             functions.pop(bound, None)
             defaults.discard(bound)
         bindings.update(copied_callables)
+        bindings.update({
+            bound: kind
+            for bound, kind in possible_bindings.items()
+            if kind == "invalid_task"
+        })
         defaults.update(copied_defaults - global_writes)
         functions.update({
             bound: tasks
@@ -970,6 +954,9 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
         bindings.update({
             bound: "task_object" for bound, tasks in functions.items() if tasks
         })
+    if "invalid_task" in bindings.values():
+        log.warning("nur: skipping %s (invalid Invoke task metadata)", source_file)
+        return []
     if len(defaults) > 1:
         log.warning("nur: skipping %s (colliding Invoke default tasks)", source_file)
         return []
