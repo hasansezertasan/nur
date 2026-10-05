@@ -75,7 +75,7 @@ def _instance_override(node: Node, name: str, disabled: set[str]) -> None:
 def _ordinary_override(node: Node, disabled: set[str]) -> None:
     name = node.child_by_field_name("name")
     if name is not None:
-        _instance_override(node, node_text(name), disabled)
+        _instance_override(node, literal(name) or node_text(name), disabled)
 
 
 def _record_undef(node: Node, disabled: set[str]) -> None:
@@ -127,7 +127,7 @@ def record_override(node: Node, disabled: set[str]) -> None:
                 f"{node_text(owner).removeprefix('::')}.{node_text(name_node)}",
                 disabled,
             )
-    if node.type == "method":
+    if node.type in {"method", "alias"}:
         _ordinary_override(node, disabled)
     if node.type == "undef":
         _record_undef(node, disabled)

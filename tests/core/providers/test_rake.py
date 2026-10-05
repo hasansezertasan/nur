@@ -3179,3 +3179,46 @@ def test_no_separator_equals_encoding_is_not_a_ruby_declaration(
     )
     assert RakeProvider().discover(tmp_path) == []
     assert "skipping Rakefile" in caplog.text
+
+
+@pytest.mark.parametrize("constructor", ["proc", "lambda"])
+@pytest.mark.parametrize(
+    "alias_form", ["alias {name} then", "alias :{name} :then", 'alias :"{name}" :then']
+)
+def test_literal_alias_constructor_overrides_execute_blocks(
+    constructor, alias_form, caplog
+):
+    source = (
+        alias_form.format(name=constructor)
+        + f'; pattern = ")"; {constructor} {{ /#{{pattern}}/ }}; task :ghost'
+    )
+    assert parse_rakefile(source) == []
+    assert "interpolated regexp during loading" in caplog.text
+
+
+@pytest.mark.parametrize("constructor", ["proc", "lambda"])
+@pytest.mark.parametrize(
+    "scope", ["if true; {body}; end", "module Kernel; {body}; end"]
+)
+def test_reachable_alias_constructor_overrides_are_tracked(constructor, scope):
+    source = (
+        scope.format(body=f"alias {constructor} then")
+        + f'; pattern = ")"; {constructor} {{ /#{{pattern}}/ }}; task :ghost'
+    )
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize(
+    "context",
+    [
+        "class Other; {body}; end",
+        "if false; {body}; end",
+        "def helper; {body}; end",
+        "proc {{ {body} }}",
+    ],
+)
+def test_alias_constructor_in_unrelated_or_deferred_scope_keeps_canonical(context):
+    source = (
+        context.format(body="alias proc then") + "; proc { /#{pattern}/ }; task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
