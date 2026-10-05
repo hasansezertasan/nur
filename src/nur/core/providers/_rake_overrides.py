@@ -43,7 +43,7 @@ _METHODS = {
 }
 
 
-TERMINATING_METHODS = frozenset({"raise", "fail", "exit", "abort"})
+TERMINATING_METHODS = frozenset({"raise", "fail", "exit", "exit!", "abort"})
 DEFERRED_METHODS = frozenset(_METHODS - {"namespace"})
 RAKE_METHODS = frozenset(
     _METHODS - {"proc", "lambda", "define_method", "define_singleton_method"}
@@ -132,6 +132,7 @@ def _set_override(name: str, disabled: set[str]) -> None:
     disabled.add(name)
     disabled.discard(f"undef:{name}")
     disabled.discard(f"reader:{name}")
+    disabled.discard(f"removed:{name}")
 
 
 def _set_singleton_override(name: str, disabled: set[str]) -> None:
@@ -155,6 +156,7 @@ def _instance_override(node: Node, name: str, disabled: set[str]) -> None:
         "raise",
         "fail",
         "exit",
+        "exit!",
         "abort",
     }:
         disabled.add(f"inherited:{name}")
@@ -168,6 +170,7 @@ def _instance_override(node: Node, name: str, disabled: set[str]) -> None:
         "raise",
         "fail",
         "exit",
+        "exit!",
         "abort",
     }:
         disabled.update({name, f"inherited:{name}"})
@@ -322,19 +325,41 @@ def _record_mutation(
         _record_removal(node, arguments, disabled)
         return
     if method == "undef_method":
-        prefix, _ = _constructor_scope(node)
-        if prefix is None and not main_scope(node):
-            return
-        for argument in arguments:
-            if (name := literal(argument)) is not None:
-                key = f"{prefix}.{name}" if prefix else name
-                disabled.update({key, f"undef:{key}"})
+        _record_dynamic_undef(node, arguments, disabled)
+        return
+    if method == "alias_method" and _missing_alias_source(node, arguments, disabled):
+        disabled.add("invalid:alias_method")
         return
     if arguments and (defined_name := literal(arguments[0])) is not None:
         if method == "define_singleton_method" or singleton_receiver:
             _self_override(node, defined_name, disabled)
         else:
             _instance_override(node, defined_name, disabled)
+
+
+def _record_dynamic_undef(
+    node: Node, arguments: list[Node], disabled: set[str]
+) -> None:
+    prefix, _ = _constructor_scope(node)
+    if prefix is None and not main_scope(node):
+        return
+    for argument in arguments:
+        if (name := literal(argument)) is not None:
+            key = f"{prefix}.{name}" if prefix else name
+            disabled.update({key, f"undef:{key}"})
+
+
+_ALIAS_ARITY = 2
+
+
+def _missing_alias_source(
+    node: Node, arguments: list[Node], disabled: set[str]
+) -> bool:
+    if len(arguments) != _ALIAS_ARITY or (name := literal(arguments[1])) is None:
+        return False
+    prefix, _ = _constructor_scope(node)
+    key = f"{prefix}.{name}" if prefix else name
+    return f"undef:{key}" in disabled or f"removed:{key}" in disabled
 
 
 def _record_attribute_readers(
@@ -377,6 +402,13 @@ def _record_removal(node: Node, arguments: list[Node], disabled: set[str]) -> No
             disabled.update({key, f"undef:{key}"})
         elif f"inherited:{key}" in disabled:
             disabled.add(key)
+        elif (
+            name not in RAKE_METHODS | TERMINATING_METHODS
+            and name
+            not in {"proc", "lambda", "singleton_class", "define_singleton_method"}
+            and f"lexical:{key}" not in disabled
+        ):
+            disabled.add(f"removed:{key}")
 
 
 def scope_headers(node: Node) -> list[Node]:

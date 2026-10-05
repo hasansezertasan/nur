@@ -3644,3 +3644,67 @@ def test_valid_or_handled_constrained_globals_and_mutations_keep_tasks(source):
 @pytest.mark.parametrize("target", ["$~", "$/", "$-F"])
 def test_invalid_literal_optional_globals_reject_loading(target):
     assert parse_rakefile(f"task :before; {target} = 1; task :after") == []
+
+
+@pytest.mark.parametrize("receiver", ["singleton_class", "self.singleton_class"])
+@pytest.mark.parametrize("mutation", ["remove_method", "undef_method"])
+def test_singleton_alias_of_deleted_helper_rejects_loading(receiver, mutation):
+    source = (
+        f"task :before; {receiver}.define_method(:helper) {{}}; "
+        f"{receiver}.{mutation}(:helper); "
+        f"{receiver}.alias_method(:copy, :helper); task :after"
+    )
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        (
+            "singleton_class.define_method(:helper) {}; "
+            "singleton_class.remove_method(:helper); "
+            "begin; singleton_class.alias_method(:copy, :helper); rescue NameError; end"
+        ),
+        (
+            "singleton_class.define_method(:helper) {}; "
+            "singleton_class.remove_method(:helper); "
+            "singleton_class.define_method(:helper) {}; "
+            "singleton_class.alias_method(:copy, :helper)"
+        ),
+        (
+            "singleton_class.define_method(:task) {}; "
+            "singleton_class.remove_method(:task); "
+            "singleton_class.alias_method(:copy, :task)"
+        ),
+        (
+            "def helper; end; singleton_class.define_method(:helper) {}; "
+            "singleton_class.remove_method(:helper); "
+            "singleton_class.alias_method(:copy, :helper)"
+        ),
+    ],
+)
+def test_rescued_or_restored_singleton_alias_source_keeps_tasks(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+@pytest.mark.parametrize("expression", ["exit! 7", "exit!", "Kernel.exit!(7)"])
+@pytest.mark.parametrize("context", ["{body}", "begin; {body}; rescue Exception; end"])
+def test_immediate_process_exit_cannot_be_rescued(expression, context):
+    source = "task :before; " + context.format(body=expression) + "; task :after"
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "if false; exit!; end",
+        "task :safe do; exit!; end",
+        "def exit!(*); end; exit! 7",
+        "def self.exit!(*); end; exit! 7",
+        "def Kernel.exit!(*); end; Kernel.exit!(7)",
+        'begin; exit! "invalid"; rescue TypeError; end',
+        "begin; exit! 1, 2; rescue ArgumentError; end",
+    ],
+)
+def test_deferred_overridden_or_invalid_immediate_exit_keeps_tasks(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]

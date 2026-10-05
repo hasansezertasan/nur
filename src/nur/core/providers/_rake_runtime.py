@@ -161,6 +161,7 @@ def mutation_error(node: Node, disabled: set[str]) -> str | None:
         "invalid:remove_method": (
             "invalid removal of inherited Rake DSL method during loading"
         ),
+        "invalid:alias_method": "alias of deleted singleton method during loading",
         "invalid:lexical_alias": (
             "lexical alias of singleton-only Rake DSL method during loading"
         ),

@@ -310,9 +310,9 @@ def load_raise_error(
     known = TERMINATING_METHODS | {f"Kernel.{method}" for method in TERMINATING_METHODS}
     if key not in known or key in disabled:
         return None
-    exit_call = name in {"exit", "abort"}
+    exit_call = name in {"exit", "exit!", "abort"}
     kind = _exit_kind(node, name) if exit_call else _raised_kind(node)
-    if handled_error(node, kind):
+    if (name != "exit!" or kind != "SystemExit") and handled_error(node, kind):
         return None
     return (
         "unhandled process exit during loading"
