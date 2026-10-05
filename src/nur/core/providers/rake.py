@@ -211,6 +211,31 @@ def _void_value(root: Node) -> bool:
     return True
 
 
+def _control_permissions(
+    node: Node, child: Node, *, in_rescue: bool, in_iteration: bool
+) -> tuple[bool, bool]:
+    new_scopes = {"method", "singleton_method", "class", "singleton_class", "module"}
+    blocks = {"lambda", "block", "do_block"}
+    loops = {"while", "until", "for", "while_modifier", "until_modifier"}
+    if node.type in new_scopes:
+        headers = {
+            node.child_by_field_name(field)
+            for field in ("object", "value", "name", "superclass")
+        }
+        if child not in headers:
+            in_rescue = in_iteration = False
+    if node.type in blocks or node.type == "ensure":
+        in_rescue = False
+    body = node.child_by_field_name("body")
+    if node.type == "rescue" and child == body:
+        in_rescue = True
+    if node.type in blocks | loops and child == body:
+        in_iteration = True
+    if node.type in loops - {"for"} and child == node.child_by_field_name("condition"):
+        in_iteration = True
+    return in_rescue, in_iteration
+
+
 def _control_flow_error(root: Node) -> str | None:
     """Validate Ruby control placement beyond the grammar's syntax shapes.
 
@@ -223,8 +248,6 @@ def _control_flow_error(root: Node) -> str | None:
     # None denotes file scope: return is valid there, but not in a nested
     # singleton class unless an enclosing method or block permits it.
     pending: list[tuple[Node, bool, bool, bool | None]] = [(root, False, False, None)]
-    new_scopes = {"method", "singleton_method", "class", "singleton_class", "module"}
-    blocks = {"lambda", "block", "do_block"}
     loops = {"while", "until", "for", "while_modifier", "until_modifier"}
     while pending:
         node, in_rescue, in_iteration, in_return_scope = pending.pop()
@@ -238,18 +261,12 @@ def _control_flow_error(root: Node) -> str | None:
             return "retry outside rescue"
         if node.type in {"break", "next", "redo"} and not in_iteration:
             return f"{node.type} outside block or loop"
-        if node.type in new_scopes:
-            in_rescue = in_iteration = False
-        if node.type in blocks or node.type == "ensure":
-            in_rescue = False
-        body = node.child_by_field_name("body")
-        rescue_body = body if node.type == "rescue" else None
-        iteration_body = body if node.type in blocks | loops else None
         pending.extend(
             (
                 child,
-                in_rescue or child == rescue_body,
-                in_iteration or child in {iteration_body, loop_condition},
+                *_control_permissions(
+                    node, child, in_rescue=in_rescue, in_iteration=in_iteration
+                ),
                 _return_scope(node, child, inherited=in_return_scope),
             )
             for child in node.named_children
@@ -386,6 +403,22 @@ def _endless_setter(node: Node) -> bool:
     )
 
 
+def _alias_error(node: Node) -> str | None:
+    if node.type != "alias":
+        return None
+    target = node.child_by_field_name("name")
+    source = node.child_by_field_name("alias")
+    if target is None or source is None:
+        return None
+    if (target.type == "global_variable") != (source.type == "global_variable"):
+        return "mixed global and method alias"
+    if source.type == "global_variable" and re.fullmatch(
+        r"\$[1-9][0-9]*", _text(source)
+    ):
+        return "numbered match alias source"
+    return None
+
+
 def _method_context_error(root: Node) -> str | None:
     # Blocks retain their enclosing method scope; class bodies start a new one.
     # These compile-time restrictions apply even inside undiscovered bodies.
@@ -394,8 +427,10 @@ def _method_context_error(root: Node) -> str | None:
         node, in_method = pending.pop()
         if _endless_setter(node):
             return "endless setter definition"
-        error = _node_binding_error(node) or _assignment_error(
-            node, in_method=in_method
+        error = (
+            _node_binding_error(node)
+            or _assignment_error(node, in_method=in_method)
+            or _alias_error(node)
         )
         if error is not None:
             return error

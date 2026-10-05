@@ -1016,3 +1016,57 @@ def test_calls_with_two_blocks_reject_whole_file(body, caplog):
 def test_calls_with_one_block_preserve_discovery(body):
     tasks = parse_rakefile(f"{body}; task :after")
     assert tasks[-1].name == "after"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "begin; rescue; class << (retry if false; self); end; end",
+        "call { class << (break if false; self); end }",
+        "call { class << (next if false; self); end }",
+        "call { class << (redo if false; self); end }",
+        "begin; rescue; def ((retry if false; self)).helper; end; end",
+    ],
+)
+def test_singleton_headers_keep_enclosing_control_scope(body):
+    tasks = parse_rakefile(f"{body}; task :build")
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("control", ["retry", "break", "next", "redo"])
+def test_singleton_bodies_reset_enclosing_control_scope(control, caplog):
+    assert (
+        parse_rakefile(
+            "task :before; begin; rescue; call { "
+            f"class << self; {control}; end }}; end"
+        )
+        == []
+    )
+    assert "outside" in caplog.text
+
+
+@pytest.mark.parametrize("source", ["$1", "$10", "$999"])
+def test_numbered_match_alias_sources_reject_whole_file(source, caplog):
+    assert parse_rakefile(f"task :before; alias $copy {source}; task :after") == []
+    assert "numbered match alias" in caplog.text
+
+
+@pytest.mark.parametrize("body", ["alias $copy helper", "alias helper $copy"])
+def test_mixed_global_and_method_aliases_reject_whole_file(body, caplog):
+    assert parse_rakefile(f"task :before; {body}; task :after") == []
+    assert "mixed global and method alias" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "alias $copy $&",
+        "alias $copy $0",
+        "alias $1 $copy",
+        "alias helper other",
+        "alias :helper :other",
+    ],
+)
+def test_valid_aliases_preserve_discovery(body):
+    tasks = parse_rakefile(f"{body}; task :build")
+    assert [task.name for task in tasks] == ["build"]
