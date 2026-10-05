@@ -149,13 +149,38 @@ def _description(arguments: list[Node]) -> str | None:
     return _literal(arguments[0]) if len(arguments) == 1 else None
 
 
-def _stops_file(node: Node) -> bool:
-    # Traversal visits only file/namespace statements, never rescue clauses.
-    # Ruby rejects retry here even though Tree-sitter accepts the syntax shape.
-    if node.type == "retry":
-        msg = "retry outside rescue"
-        raise ValueError(msg)
-    return node.type in {"return", "redo"}
+def _invalid_retry(root: Node) -> bool:
+    """Check retry placement, which the Ruby grammar does not validate.
+
+    A Ruby rescue clause permits retry in its body, but a new function/block
+    scope or an ensure clause resets that permission. This checks syntax only,
+    including opaque task bodies: invalid placement prevents the file loading.
+    """
+    pending = [(root, False)]
+    resets = {
+        "method",
+        "singleton_method",
+        "class",
+        "singleton_class",
+        "module",
+        "lambda",
+        "block",
+        "do_block",
+        "ensure",
+    }
+    while pending:
+        node, in_rescue = pending.pop()
+        if node.type == "retry" and not in_rescue:
+            return True
+        if node.type in resets:
+            in_rescue = False
+        rescue_body = (
+            node.child_by_field_name("body") if node.type == "rescue" else None
+        )
+        pending.extend(
+            (child, in_rescue or child == rescue_body) for child in node.named_children
+        )
+    return False
 
 
 def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
@@ -170,7 +195,7 @@ def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
         node = next(statements, None)
         if node is None:
             continue
-        if _stops_file(node):
+        if node.type in {"return", "redo"}:
             return
         if node.type in {"break", "next"}:
             continue
@@ -203,13 +228,12 @@ def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     if root.has_error:
         log.warning("nur: skipping %s (invalid Ruby syntax)", source_file)
         return []
-    tasks: dict[str, Task] = {}
-    try:
-        for node, namespace, description in _declarations(root):
-            _add_task(tasks, _arguments(node), namespace, description, source_file)
-    except ValueError as exc:
-        log.warning("nur: skipping %s (%s)", source_file, exc)
+    if _invalid_retry(root):
+        log.warning("nur: skipping %s (retry outside rescue)", source_file)
         return []
+    tasks: dict[str, Task] = {}
+    for node, namespace, description in _declarations(root):
+        _add_task(tasks, _arguments(node), namespace, description, source_file)
     return list(tasks.values())
 
 

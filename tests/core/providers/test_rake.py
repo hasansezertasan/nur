@@ -302,6 +302,11 @@ def test_restart_control_flow_stops_file_discovery(control):
     [
         "task :before\nretry\ntask :after\n",
         "task :before\nnamespace :db do\n task :inside\n retry\nend\n",
+        "task :before\nif false\n retry\nend\n",
+        "task :build do\n retry\nend\n",
+        "begin\nrescue\n [1].each do\n  retry\n end\nend\ntask :build\n",
+        "begin\nrescue\n def helper\n  retry\n end\nend\ntask :build\n",
+        "begin\nrescue\n begin\n ensure\n  retry\n end\nend\ntask :build\n",
     ],
 )
 def test_retry_outside_rescue_rejects_whole_file(text, caplog):
@@ -315,3 +320,10 @@ def test_retry_inside_rescue_does_not_invalidate_file():
         "task :after\n"
     )
     assert [task.name for task in tasks] == ["before", "after"]
+
+
+def test_retry_in_task_rescue_is_valid():
+    tasks = parse_rakefile(
+        "task :build do\n begin\n  sh 'false'\n rescue\n  retry\n end\nend\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
