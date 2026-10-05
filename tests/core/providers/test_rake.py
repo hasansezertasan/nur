@@ -639,3 +639,76 @@ def test_duplicate_task_descriptions_match_rake_listing(descriptions, expected):
     )
     tasks = parse_rakefile(source)
     assert tasks[0].description == expected
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "[1].each { |arg| _1 }",
+        "_1 = 1",
+        "[1].each { _1 = 1 }",
+        "[1].each { || _9 }",
+        "[1].each { |; local| _1 }",
+        "->(arg) { _1 }",
+        "->() { _1 }",
+        "task :hidden do |arg|; _1; end",
+        "[1].each { _1; [1].each { _1 } }",
+        "[1].each { [1].each { _1 }; _1 }",
+    ],
+)
+def test_invalid_numbered_references_reject_whole_file(body, caplog):
+    assert parse_rakefile(f"task :before; {body}; task :after") == []
+    assert "numbered parameter" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "case 1; in ^missing; end",
+        "1 => ^missing",
+        "1 in ^missing",
+        "case []; in [^value, value]; end",
+        "case 1; in ^value; end; value = 1",
+        "call { value = 1 }; case 1; in ^value; end",
+        "value = 1; def helper; case 1; in ^value; end; end",
+        "value = 1; class Helper; case 1; in ^value; end; end",
+        "value = 1; module Helper; case 1; in ^value; end; end",
+        "value = 1; class << self; case 1; in ^value; end; end",
+        "def helper(arg = (1 in ^other), other = 1); end",
+    ],
+)
+def test_undefined_pins_reject_whole_file(body, caplog):
+    assert parse_rakefile(f"task :before; {body}; task :after") == []
+    assert "no such local variable" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "value = 1; case 1; in ^value; end",
+        "case {}; in {value:}; end; 1 in ^value",
+        'case {}; in {"value":}; end; 1 in ^value',
+        "case 1; in ^@value; end",
+        "case 1; in ^(computed); end",
+        "value = 1; call { 1 in ^value }",
+        "call { |value| 1 in ^value }",
+        "call { |; value| 1 in ^value }",
+        "value = (1 in ^value)",
+        "left, value = 1, (1 in ^value)",
+        "for value in []; 1 in ^value; end",
+        "def helper(value = (1 in ^value)); end",
+        "case []; in [value, ^value]; end",
+        "case 1; in value; in ^value; end",
+        "[] => [value]; 1 in ^value",
+        "begin; call; rescue => value; 1 in ^value; end",
+        "call { |value| call { _1 } }",
+        "call { _2; 1 in ^_1 }",
+        "call { |value| other._1; _1() }",
+        "def helper; _1; end",
+        "call { |value| def helper; _1; end }",
+        "value = 1; def ((1 in ^value)).helper; end",
+    ],
+)
+def test_valid_lexical_scopes_preserve_discovery(body):
+    tasks = parse_rakefile(f"{body}; task :after")
+    assert tasks[-1].name == "after"

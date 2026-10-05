@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import tree_sitter_ruby
@@ -348,6 +349,174 @@ def _method_context_error(root: Node) -> str | None:
     return None
 
 
+@dataclass(slots=True)
+class _LocalScope:
+    parent: _LocalScope | None = None
+    names: set[str] = field(default_factory=set)
+    block: bool = False
+    explicit: bool = False
+    numbered: bool = False
+    inner_numbered: bool = False
+
+    def contains(self, name: str) -> bool:
+        current: _LocalScope | None = self
+        while current is not None:
+            if name in current.names:
+                return True
+            current = current.parent
+        return False
+
+    def use_numbered(self, name: str) -> str | None:
+        if not self.block:
+            return None
+        if self.explicit:
+            return "numbered parameter with explicit block parameters"
+        if self.inner_numbered:
+            return "numbered parameter already used in inner block"
+        outer = self.parent
+        while outer is not None:
+            if outer.numbered:
+                return "numbered parameter already used in outer block"
+            outer.inner_numbered = True
+            outer = outer.parent
+        self.numbered = True
+        self.names.update(f"_{number}" for number in range(1, int(name[1]) + 1))
+        return None
+
+
+def _binding_steps(node: Node) -> list[tuple[Node, bool]]:
+    containers = {
+        "method_parameters",
+        "lambda_parameters",
+        "block_parameters",
+        "destructured_parameter",
+        "array_pattern",
+        "hash_pattern",
+        "find_pattern",
+        "as_pattern",
+        "alternative_pattern",
+        "parenthesized_pattern",
+        "left_assignment_list",
+        "destructured_left_assignment",
+        "rest_assignment",
+        "exception_variable",
+    }
+    if node.type in containers:
+        return [(child, True) for child in node.named_children]
+    if node.type == "variable_reference_pattern":
+        return [(node, False)]
+    if node.type == "keyword_pattern":
+        value = node.child_by_field_name("value")
+        return [(value, True)] if value is not None else []
+    name = node.child_by_field_name("name")
+    if name is not None:
+        return [(child, child == name) for child in node.named_children]
+    return [(child, False) for child in node.named_children]
+
+
+def _scope_steps(
+    node: Node, scope: _LocalScope
+) -> list[tuple[Node, _LocalScope, bool]]:
+    if node.type in {"method", "singleton_method"}:
+        local = _LocalScope()
+        return [
+            (
+                child,
+                scope if child == node.child_by_field_name("object") else local,
+                child == node.child_by_field_name("parameters"),
+            )
+            for child in node.named_children
+            if child != node.child_by_field_name("name")
+        ]
+    if node.type in {"class", "module", "singleton_class"}:
+        local = _LocalScope()
+        return [
+            (
+                child,
+                local if child == node.child_by_field_name("body") else scope,
+                False,
+            )
+            for child in node.named_children
+        ]
+    if node.type in {"block", "do_block", "lambda"}:
+        # Tree-sitter gives lambdas a separate block node for their body.
+        if node.parent is None or node.parent.type != "lambda":
+            scope = _LocalScope(
+                parent=scope,
+                block=True,
+                explicit=node.child_by_field_name("parameters") is not None,
+            )
+        return [
+            (child, scope, child == node.child_by_field_name("parameters"))
+            for child in node.named_children
+        ]
+    target_field = {
+        "assignment": "left",
+        "operator_assignment": "left",
+        "for": "pattern",
+        "in_clause": "pattern",
+        "match_pattern": "pattern",
+        "test_pattern": "pattern",
+        "rescue": "variable",
+    }.get(node.type)
+    target = node.child_by_field_name(target_field) if target_field else None
+    return [(child, scope, child == target) for child in node.named_children]
+
+
+def _numbered_reference(node: Node) -> bool:
+    if node.type != "identifier" or re.fullmatch(r"_[1-9]", _text(node)) is None:
+        return False
+    parent = node.parent
+    return parent is None or (
+        node != parent.child_by_field_name("method")
+        and parent.type not in {"alias", "undef"}
+    )
+
+
+def _register_binding(node: Node, scope: _LocalScope) -> str | None:
+    name = None
+    if node.type == "identifier":
+        name = _text(node)
+    elif node.type == "keyword_pattern" and node.child_by_field_name("value") is None:
+        key = node.child_by_field_name("key")
+        name = _literal(key) if key is not None else None
+    if name is not None:
+        if re.fullmatch(r"_[1-9]", name):
+            return "reserved numbered parameter"
+        scope.names.add(name)
+    return None
+
+
+def _lexical_scope_error(root: Node) -> str | None:
+    # Visit source order: assignment targets bind before their RHS, while a
+    # pattern pin sees only preceding bindings. Blocks inherit locals; method
+    # and class bodies reset them. All traversal remains iterative.
+    pending = [(root, _LocalScope(), False)]
+    while pending:
+        node, scope, binding = pending.pop()
+        if binding:
+            error = _register_binding(node, scope)
+            if error is not None:
+                return error
+            pending.extend(
+                (child, scope, bind) for child, bind in reversed(_binding_steps(node))
+            )
+            continue
+        if node.type == "variable_reference_pattern":
+            name_node = node.child_by_field_name("name")
+            if name_node is not None and name_node.type == "identifier":
+                name = _text(name_node)
+                if not scope.contains(name):
+                    return f"{name}: no such local variable"
+            continue
+        if _numbered_reference(node):
+            error = scope.use_numbered(_text(node))
+            if error is not None:
+                return error
+        pending.extend(reversed(_scope_steps(node, scope)))
+    return None
+
+
 def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
     # Each frame owns its pending description; it cannot leak out of a scope.
     # An explicit stack avoids Python recursion on deeply nested namespaces.
@@ -393,7 +562,11 @@ def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     if root.has_error:
         log.warning("nur: skipping %s (invalid Ruby syntax)", source_file)
         return []
-    control_error = _control_flow_error(root) or _method_context_error(root)
+    control_error = (
+        _control_flow_error(root)
+        or _method_context_error(root)
+        or _lexical_scope_error(root)
+    )
     if control_error is not None:
         log.warning("nur: skipping %s (%s)", source_file, control_error)
         return []
