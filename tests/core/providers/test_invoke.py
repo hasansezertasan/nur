@@ -1,3 +1,4 @@
+import time
 from typing import TYPE_CHECKING
 
 import pytest
@@ -1353,3 +1354,70 @@ def test_contextless_explicit_positionals_do_not_fail_construction() -> None:
         "@task\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+def test_innermost_contextless_task_is_module_fatal() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@wrapper\n@task\ndef broken(): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_fatal_async_decorator_suppresses_module_tasks() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task(unknown=True)\nasync def broken(c): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_repeated_loop_can_remove_copied_task() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\ndef build(c): ...\n"
+            "for item in [1, 2]:\n saved = build\n build = None\n"
+        )
+        == []
+    )
+
+
+def test_unmatched_pattern_does_not_create_task_copy() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\ndef build(c): ...\n"
+            "match value:\n case 1:\n  saved = build\n"
+            " case 2:\n  saved = build\ndel build\n"
+        )
+        == []
+    )
+
+
+def test_keyword_only_tasks_are_not_constructor_fatal() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task\ndef unsupported(*, option=False): ...\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_irrefutable_match_preserves_copied_task() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task\ndef build(c): ...\n"
+        "match value:\n case _:\n  saved = build\ndel build\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_nested_repeated_loops_remain_fast() -> None:
+    source = "from invoke import task\n@task\ndef build(c): ...\n"
+    for depth in range(20):
+        source += " " * depth + "for item in [1, 2]:\n"
+    source += " " * 20 + "saved = build\n"
+    started = time.perf_counter()
+    assert [task.name for task in parse_tasks(source)] == ["build"]
+    assert time.perf_counter() - started < 2

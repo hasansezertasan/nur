@@ -10,6 +10,13 @@ from typing import TYPE_CHECKING
 
 from nur.core.models import Task
 from nur.core.providers._invoke_exports import STAR_EXPORTS as _STAR_EXPORTS
+from nur.core.providers._invoke_tasks import (
+    decorator_matches as _decorator_matches,
+    fatal_decorator as _fatal_decorator,
+    literal_default as _literal_default,
+    module_kind as _module_kind,
+    task_names as _task_names,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -19,55 +26,11 @@ __all__ = ["InvokeProvider", "parse_tasks"]
 log = logging.getLogger("nur")
 _SOURCE_FILE = "tasks.py"
 _ATTRIBUTE_ARGS_MIN = 2
+_MAX_UNROLLED_ITERATIONS = 2
 _BUILTIN_HELPERS = frozenset({"setattr", "delattr", "vars", "globals", "locals"})
 
 
 # Custom klass= is excluded because it may change naming/registration semantics.
-_TASK_OPTIONS = frozenset({
-    "name",
-    "aliases",
-    "positional",
-    "optional",
-    "default",
-    "auto_shortflags",
-    "help",
-    "pre",
-    "post",
-    "autoprint",
-    "iterable",
-    "incrementable",
-})
-
-
-def _decorator_matches(
-    expression: ast.expr, bindings: dict[str, str], tainted: set[str]
-) -> bool:
-    if isinstance(expression, ast.Name):
-        return bindings.get(expression.id) == "task"
-    if not isinstance(expression, ast.Attribute) or expression.attr != "task":
-        return False
-    kind = _module_kind(expression.value, bindings, tainted)
-    export = {"module": "invoke.task", "tasks_module": "invoke.tasks.task"}.get(
-        kind or ""
-    )
-    return export is not None and export not in tainted
-
-
-def _module_kind(
-    namespace: ast.expr, bindings: dict[str, str], tainted: set[str]
-) -> str | None:
-    if isinstance(namespace, ast.Name):
-        kind = bindings.get(namespace.id)
-        return kind if kind in {"module", "tasks_module", "ambiguous_module"} else None
-    if (
-        isinstance(namespace, ast.Attribute)
-        and namespace.attr == "tasks"
-        and isinstance(namespace.value, ast.Name)
-        and bindings.get(namespace.value.id) == "module"
-        and "invoke.tasks" not in tainted
-    ):
-        return "tasks_module"
-    return None
 
 
 def _builtin_name(expression: ast.expr, bindings: dict[str, str]) -> str | None:
@@ -207,224 +170,6 @@ def _mutated_exports(
     if kind in {"tasks_module", "ambiguous_module"} and attributes & {"task", "*"}:
         exports.add("invoke.tasks.task")
     return exports
-
-
-def _literal_aliases(expression: ast.expr) -> list[str] | None:
-    if not isinstance(expression, (ast.Tuple, ast.List)):
-        return None
-    aliases: list[str] = []
-    for element in expression.elts:
-        if not isinstance(element, ast.Constant) or not isinstance(element.value, str):
-            return None
-        aliases.append(element.value)
-    return aliases
-
-
-def _invalid_literal_option(keyword: ast.keyword, bindings: dict[str, str]) -> bool:
-    invalid_members = (
-        keyword.arg in {"pre", "post"}
-        and isinstance(keyword.value, (ast.List, ast.Tuple, ast.Set))
-        and any(
-            isinstance(element, (ast.List, ast.Tuple, ast.Set, ast.Dict))
-            or _literal_dependency(element, bindings)
-            for element in keyword.value.elts
-        )
-    )
-    try:
-        value = ast.literal_eval(keyword.value)
-    except (ValueError, TypeError) as _exc:
-        # Computed members remain unknown, but literal hook members are checked.
-        return invalid_members
-    iterable = isinstance(value, (str, bytes, list, tuple, dict, set))
-    if keyword.arg in {"optional", "positional"}:
-        return not iterable and not (keyword.arg == "positional" and value is None)
-    if keyword.arg in {"pre", "post"}:
-        return bool(value) or invalid_members
-    if keyword.arg in {"iterable", "incrementable"}:
-        return bool(value) and not iterable
-    if keyword.arg == "help":
-        return bool(value) and not isinstance(value, dict)
-    return False
-
-
-def _literal_default(function: ast.FunctionDef) -> bool:
-    for decorator in function.decorator_list:
-        if isinstance(decorator, ast.Call):
-            for keyword in decorator.keywords:
-                if keyword.arg == "default":
-                    try:
-                        return bool(ast.literal_eval(keyword.value))
-                    except (ValueError, TypeError) as _exc:
-                        return False
-    return False
-
-
-def _literal_metadata(
-    decorator: ast.expr, name: str, bindings: dict[str, str]
-) -> tuple[str, list[str]] | None:
-    aliases: list[str] = []
-    if not isinstance(decorator, ast.Call):
-        return name, aliases
-    for keyword in decorator.keywords:
-        if keyword.arg not in _TASK_OPTIONS or _invalid_literal_option(
-            keyword, bindings
-        ):
-            return None
-        if keyword.arg == "name":
-            if not isinstance(keyword.value, ast.Constant):
-                return None
-            value = keyword.value.value
-            if value is not None and not isinstance(value, str):
-                return None
-            name = value or name
-        elif keyword.arg == "aliases":
-            parsed = _literal_aliases(keyword.value)
-            if parsed is None:
-                return None
-            aliases = parsed
-    return name, aliases
-
-
-def _normalize_name(name: str) -> str:
-    return "".join(
-        "-"
-        if character == "_"
-        and 0 < index < len(name) - 1
-        and name[index - 1] != "."
-        and name[index + 1] != "."
-        else character
-        for index, character in enumerate(name)
-    )
-
-
-def _literal_help_matches(function: ast.FunctionDef, decorator: ast.expr) -> bool:
-    if not isinstance(decorator, ast.Call):
-        return True
-    help_mapping = next(
-        (keyword.value for keyword in decorator.keywords if keyword.arg == "help"), None
-    )
-    if not isinstance(help_mapping, ast.Dict):
-        return True
-    keys = {key.value for key in help_mapping.keys if isinstance(key, ast.Constant)}
-    args = function.args
-    parameters = [*args.posonlyargs, *args.args]
-    if args.vararg:
-        parameters.append(args.vararg)
-    parameters.extend(args.kwonlyargs)
-    if args.kwarg:
-        parameters.append(args.kwarg)
-    for parameter in parameters[1:]:
-        name = parameter.arg
-        dashed = name.strip("_").replace("_", "-") if "_" in name else name
-        # Invoke consumes the dashed key first, then the original spelling.
-        for candidate in (dashed, name):
-            if candidate in keys:
-                keys.remove(candidate)
-                break
-    return not keys
-
-
-def _literal_dependency(expression: ast.expr, bindings: dict[str, str]) -> bool:
-    if isinstance(expression, ast.Lambda) or (
-        isinstance(expression, ast.Name)
-        and bindings.get(expression.id) == "ordinary_callable"
-    ):
-        return True
-    try:
-        ast.literal_eval(expression)
-    except (ValueError, TypeError) as _exc:
-        return False
-    return True
-
-
-def _fatal_contextless_task(function: ast.FunctionDef, decorator: ast.expr) -> bool:
-    args = function.args
-    if any((args.posonlyargs, args.args, args.vararg, args.kwonlyargs, args.kwarg)):
-        return False
-    if isinstance(decorator, ast.Call):
-        if any(keyword.arg is None for keyword in decorator.keywords):
-            return False
-        positional = next(
-            (
-                keyword.value
-                for keyword in decorator.keywords
-                if keyword.arg == "positional"
-            ),
-            None,
-        )
-        return positional is None or (
-            isinstance(positional, ast.Constant) and positional.value is None
-        )
-    return True
-
-
-def _fatal_decorator(
-    function: ast.FunctionDef, bindings: dict[str, str], tainted: set[str]
-) -> bool:
-    for decorator in function.decorator_list:
-        expression = decorator.func if isinstance(decorator, ast.Call) else decorator
-        if not _decorator_matches(expression, bindings, tainted):
-            continue
-        keywords = decorator.keywords if isinstance(decorator, ast.Call) else []
-        if any(keyword.arg == "klass" for keyword in keywords):
-            # A custom Task constructor may accept a different option set.
-            continue
-        if len(function.decorator_list) == 1 and _fatal_contextless_task(
-            function, decorator
-        ):
-            return True
-        for keyword in keywords:
-            if keyword.arg is not None and keyword.arg not in _TASK_OPTIONS:
-                return True
-            if keyword.arg == "optional" and _invalid_literal_option(keyword, bindings):
-                return True
-    return False
-
-
-def _supported_signature(function: ast.FunctionDef) -> bool:
-    if not (function.args.posonlyargs or function.args.args):
-        return function.args.vararg is not None
-    return len(function.args.posonlyargs) <= 1 and function.args.vararg is None
-
-
-def _task_names(
-    function: ast.FunctionDef, bindings: dict[str, str], tainted: set[str]
-) -> list[str]:
-    # Other decorators can replace the callable/name or discard the Task object.
-    if len(function.decorator_list) != 1 or not _supported_signature(function):
-        return []
-    decorator = function.decorator_list[0]
-    expression = decorator.func if isinstance(decorator, ast.Call) else decorator
-    if not _decorator_matches(
-        expression, bindings, tainted
-    ) or not _literal_help_matches(function, decorator):
-        return []
-    if (
-        isinstance(decorator, ast.Call)
-        and decorator.args
-        and (
-            any(keyword.arg == "pre" for keyword in decorator.keywords)
-            or any(
-                _literal_dependency(argument, bindings) for argument in decorator.args
-            )
-        )
-    ):
-        return []
-    metadata = _literal_metadata(decorator, function.name, bindings)
-    if metadata is None:
-        return []
-    name, aliases = metadata
-    if "." in name or name.startswith("-"):
-        return []
-    # Invoke's default Collection turns underscores into dashes. Config and
-    # explicit Collection wiring are outside this single-module subset.
-    return list(
-        dict.fromkeys(
-            _normalize_name(item)
-            for item in [name, *aliases]
-            if item and "." not in item and not item.startswith("-")
-        )
-    )
 
 
 def _import_binding(
@@ -812,19 +557,35 @@ def _copied_tasks(
     }
 
 
+def _loop_count(statement: ast.For | ast.AsyncFor | ast.While) -> int | None:
+    if any(
+        node is not statement
+        and isinstance(node, (ast.For, ast.AsyncFor, ast.While, ast.Break))
+        for node in ast.walk(statement)
+    ):
+        return None
+    if isinstance(statement, ast.While):
+        return (
+            0
+            if isinstance(statement.test, ast.Constant) and not statement.test.value
+            else None
+        )
+    if isinstance(statement.iter, (ast.List, ast.Tuple)) and not any(
+        isinstance(item, ast.Starred) for item in statement.iter.elts
+    ):
+        return len(statement.iter.elts)
+    return None
+
+
 def _loop_task_blocks(
     statement: ast.For | ast.AsyncFor | ast.While,
 ) -> list[list[ast.stmt]]:
-    expression = statement.test if isinstance(statement, ast.While) else statement.iter
-    if isinstance(expression, ast.Constant):
-        runs = bool(expression.value)
-    elif isinstance(expression, (ast.List, ast.Tuple, ast.Set)) and not any(
-        isinstance(item, ast.Starred) for item in expression.elts
-    ):
-        runs = bool(expression.elts)
-    else:
-        return [statement.body + statement.orelse, statement.orelse]
-    return [statement.body + statement.orelse if runs else statement.orelse]
+    count = _loop_count(statement)
+    if count is not None and count <= _MAX_UNROLLED_ITERATIONS:
+        return [statement.body * count + statement.orelse]
+    # Inspect possible copies for default collisions, but survival of written
+    # task bindings is handled conservatively for arbitrary iteration counts.
+    return [statement.body + statement.orelse, statement.orelse]
 
 
 def _task_outcome_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
@@ -832,6 +593,16 @@ def _task_outcome_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
         if isinstance(statement.test, ast.Constant):
             return [statement.body if statement.test.value else statement.orelse]
         return [statement.body, statement.orelse]
+    if isinstance(statement, ast.Match):
+        blocks = [case.body for case in statement.cases]
+        if not any(
+            isinstance(case.pattern, ast.MatchAs)
+            and case.pattern.pattern is None
+            and case.guard is None
+            for case in statement.cases
+        ):
+            blocks.append([])
+        return blocks
     if isinstance(statement, (ast.For, ast.AsyncFor, ast.While)):
         return _loop_task_blocks(statement)
     if isinstance(statement, (ast.Try, ast.TryStar)):
@@ -875,6 +646,12 @@ def _task_binding_effects(
             })
             for _, branch_defaults in branches:
                 defaults.update(branch_defaults)
+        if isinstance(statement, (ast.For, ast.AsyncFor, ast.While)) and (
+            _loop_count(statement) is None
+            or (_loop_count(statement) or 0) > _MAX_UNROLLED_ITERATIONS
+        ):
+            for bound in written:
+                functions.pop(bound, None)
         if isinstance(statement, (ast.Try, ast.TryStar)):
             functions, defaults = _task_binding_effects(
                 statement.finalbody, functions, defaults
@@ -898,9 +675,9 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     tainted: set[str] = set()
     possible_bindings: dict[str, str] = {}
     for statement in tree.body:
-        if isinstance(statement, ast.FunctionDef) and _fatal_decorator(
-            statement, bindings, tainted
-        ):
+        if isinstance(
+            statement, (ast.FunctionDef, ast.AsyncFunctionDef)
+        ) and _fatal_decorator(statement, bindings, tainted):
             log.warning("nur: skipping %s (fatal Invoke decorator)", source_file)
             return []
         # Decorators are evaluated before function defaults. Read the task
