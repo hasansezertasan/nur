@@ -37,12 +37,11 @@ from nur.core.providers._invoke_tasks import (
     bind_callable_definition as _bind_callable_definition,
     constructor_exception as _constructor_exception,
     decorator_matches as _decorator_matches,
-    deferred_failure as _deferred_failure,
+    defined_task_bindings as _defined_task_bindings,
     definition_exception as _definition_exception,
     fatal_decorator as _fatal_decorator,
     literal_default as _literal_default,
     module_kind as _module_kind,
-    task_definition as _task_definition,
     task_names as _task_names,
 )
 
@@ -478,21 +477,6 @@ def _copied_callables(
     return copies
 
 
-def _defined_task_bindings(
-    statement: ast.stmt, bindings: dict[str, str], tainted: set[str]
-) -> dict[str, str]:
-    if isinstance(
-        statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
-    ) and _task_definition(statement, bindings, tainted):
-        kind = (
-            "invalid_task"
-            if _deferred_failure(statement, bindings, tainted)
-            else "task_object"
-        )
-        return {statement.name: kind}
-    return {}
-
-
 def _defined_defaults(statement: ast.stmt, copies: dict[str, str]) -> set[str]:
     if (
         isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
@@ -604,6 +588,8 @@ def _class_mutates_tasks(
     node: ast.ClassDef, bindings: dict[str, str], tainted: set[str]
 ) -> tuple[set[str], set[str], dict[str, str]]:
     """Inspect executed class code and propagate global writes outward."""
+    if _definition_exception(node, bindings, tainted) is not None:
+        return set(), set(), {}
     globals_ = _global_names(node.body)
     writes, mutations, possible = _class_block_effects(
         node.body, bindings, bindings, tainted, globals_

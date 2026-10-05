@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import ast
-import operator
-from typing import TYPE_CHECKING, cast
 
-if TYPE_CHECKING:
-    from collections.abc import Callable, Container
+from nur.core.providers._invoke_literals import (
+    UNKNOWN as _UNKNOWN,
+    compare_literals as _compare_literals,
+    constant_value as _constant_value,
+    literal_exception,
+)
 
 __all__ = [
     "MAX_UNROLLED_ITERATIONS",
@@ -38,179 +40,9 @@ __all__ = [
 ]
 
 
-_UNKNOWN = object()
-
-
-def _literal_contains(left: object, right: object) -> bool:
-    container: Container[object] = cast("Container[object]", right)
-    return operator.contains(container, left)
-
-
-_COMPARE_OPERATORS: dict[type[ast.cmpop], Callable[[object, object], object]] = {
-    ast.Eq: operator.eq,
-    ast.NotEq: operator.ne,
-    ast.Lt: cast("Callable[[object, object], object]", operator.lt),
-    ast.LtE: cast("Callable[[object, object], object]", operator.le),
-    ast.Gt: cast("Callable[[object, object], object]", operator.gt),
-    ast.GtE: cast("Callable[[object, object], object]", operator.ge),
-    ast.In: _literal_contains,
-    ast.NotIn: lambda left, right: not _literal_contains(left, right),
-}
-
-
-_MAX_LITERAL_MAGNITUDE = 100
-_MAX_LITERAL_SEQUENCE = 1024
-
-_LITERAL_OPERATORS: dict[type[ast.operator], Callable[[object, object], object]] = {
-    ast.Add: cast("Callable[[object, object], object]", operator.add),
-    ast.Sub: cast("Callable[[object, object], object]", operator.sub),
-    ast.MatMult: cast("Callable[[object, object], object]", operator.matmul),
-    ast.Mult: cast("Callable[[object, object], object]", operator.mul),
-    ast.Div: cast("Callable[[object, object], object]", operator.truediv),
-    ast.FloorDiv: cast("Callable[[object, object], object]", operator.floordiv),
-    ast.Mod: cast("Callable[[object, object], object]", operator.mod),
-    ast.Pow: cast("Callable[[object, object], object]", operator.pow),
-    ast.LShift: cast("Callable[[object, object], object]", operator.lshift),
-    ast.RShift: cast("Callable[[object, object], object]", operator.rshift),
-    ast.BitOr: cast("Callable[[object, object], object]", operator.or_),
-    ast.BitAnd: cast("Callable[[object, object], object]", operator.and_),
-    ast.BitXor: cast("Callable[[object, object], object]", operator.xor),
-}
-
-
-def _bounded_literal_operation(
-    operation: ast.operator, left: object, right: object
-) -> bool:
-    if isinstance(operation, ast.Mod) and isinstance(left, (str, bytes)):
-        return False
-    if any(
-        isinstance(value, (str, bytes, list, tuple, dict, set))
-        and len(value) > _MAX_LITERAL_SEQUENCE
-        for value in (left, right)
-    ):
-        return False
-    if isinstance(operation, (ast.Pow, ast.LShift, ast.RShift)) and isinstance(
-        right, int
-    ):
-        return right <= _MAX_LITERAL_MAGNITUDE
-    if isinstance(operation, ast.Mult):
-        return not any(
-            isinstance(value, int) and abs(value) > _MAX_LITERAL_MAGNITUDE
-            for value in (left, right)
-        )
-    return True
-
-
-def literal_exception(expression: ast.expr) -> str | None:
-    """Classify exceptions from bounded literal operations without eval."""
-    if isinstance(expression, ast.BinOp):
-        try:
-            left = ast.literal_eval(expression.left)
-            right = ast.literal_eval(expression.right)
-        except (ValueError, TypeError) as _exc:
-            return None
-        if not _bounded_literal_operation(expression.op, left, right):
-            return None
-        operation = _LITERAL_OPERATORS[type(expression.op)]
-        return _literal_operation_exception(operation, left, right)
-    if isinstance(expression, ast.Subscript):
-        return _subscript_exception(expression)
-    if isinstance(expression, ast.UnaryOp):
-        return _unary_exception(expression)
-    return None
-
-
-def _subscript_exception(expression: ast.Subscript) -> str | None:
-    try:
-        value = ast.literal_eval(expression.value)
-        index = ast.literal_eval(expression.slice)
-    except (ValueError, TypeError) as _exc:
-        return None
-    return _literal_operation_exception(
-        cast("Callable[[object, object], object]", operator.getitem), value, index
-    )
-
-
-def _unary_exception(expression: ast.UnaryOp) -> str | None:
-    try:
-        value = ast.literal_eval(expression.operand)
-    except (ValueError, TypeError) as _exc:
-        return None
-    operations: dict[type[ast.unaryop], object] = {
-        ast.USub: operator.neg,
-        ast.UAdd: operator.pos,
-        ast.Invert: operator.invert,
-        ast.Not: operator.not_,
-    }
-    operation = cast("Callable[[object], object]", operations[type(expression.op)])
-    return _literal_operation_exception(
-        lambda operand, _: operation(operand), value, None
-    )
-
-
-def _literal_operation_exception(
-    operation: Callable[[object, object], object], left: object, right: object
-) -> str | None:
-    try:
-        operation(left, right)
-    except (
-        TypeError,
-        ValueError,
-        ZeroDivisionError,
-        KeyError,
-        IndexError,
-        OverflowError,
-    ) as exception:
-        return type(exception).__name__
-    return None
-
-
 def constant_truth(expression: ast.expr) -> bool | None:
     value = _constant_value(expression)
     return None if value is _UNKNOWN else bool(value)
-
-
-def _constant_value(expression: ast.expr) -> object:
-    if isinstance(expression, ast.NamedExpr):
-        return _constant_value(expression.value)
-    if isinstance(expression, ast.Call):
-        return _UNKNOWN
-    try:
-        value: object = ast.literal_eval(expression)
-    except (ValueError, TypeError) as _exc:
-        return _boolean_value(expression)
-    return value
-
-
-def _boolean_value(expression: ast.expr) -> object:
-    if isinstance(expression, ast.UnaryOp) and isinstance(expression.op, ast.Not):
-        value = _constant_value(expression.operand)
-        return _UNKNOWN if value is _UNKNOWN else not value
-    if isinstance(expression, ast.BoolOp):
-        value = _UNKNOWN
-        for child in expression.values:
-            value = _constant_value(child)
-            if value is _UNKNOWN or bool(value) == isinstance(expression.op, ast.Or):
-                break
-        return value
-    if isinstance(expression, ast.Compare):
-        return _comparison_value(expression)
-    return _UNKNOWN
-
-
-def _compare_literals(operation: ast.cmpop, left: object, right: object) -> object:
-    if isinstance(operation, (ast.Is, ast.IsNot)):
-        # Identity of non-singleton literals depends on Python's constant pool.
-        if any(
-            value is not None and not isinstance(value, bool) for value in (left, right)
-        ):
-            return _UNKNOWN
-        return (left is right) == isinstance(operation, ast.Is)
-    compare = _COMPARE_OPERATORS[type(operation)]
-    try:
-        return bool(compare(left, right))
-    except (ValueError, TypeError) as _exc:
-        return _UNKNOWN
 
 
 def certain_comparison_children(expression: ast.Compare) -> list[ast.AST]:
@@ -236,21 +68,6 @@ def _comparison_children(expression: ast.Compare, *, certain: bool) -> list[ast.
     return children
 
 
-def _comparison_value(expression: ast.Compare) -> object:
-    left = _constant_value(expression.left)
-    for operation, comparator in zip(
-        expression.ops, expression.comparators, strict=True
-    ):
-        right = _constant_value(comparator)
-        if left is _UNKNOWN or right is _UNKNOWN:
-            return _UNKNOWN
-        matches = _compare_literals(operation, left, right)
-        if matches is _UNKNOWN or not matches:
-            return matches
-        left = right
-    return True
-
-
 def loop_count(statement: ast.For | ast.AsyncFor | ast.While) -> int | None:
     if isinstance(statement, ast.While):
         return 0 if constant_truth(statement.test) is False else None
@@ -272,11 +89,10 @@ def loop_count(statement: ast.For | ast.AsyncFor | ast.While) -> int | None:
         isinstance(item, ast.Starred) for item in statement.iter.elts
     ):
         return len(statement.iter.elts)
-    try:
-        value = ast.literal_eval(statement.iter)
-    except (ValueError, TypeError) as _exc:
-        return None
-    return len(value) if isinstance(value, (str, bytes, dict, set)) else None
+    value = _constant_value(statement.iter)
+    return (
+        len(value) if isinstance(value, (str, bytes, dict, set, list, tuple)) else None
+    )
 
 
 def loop_exhausts(statement: ast.For | ast.AsyncFor | ast.While) -> bool:
@@ -623,10 +439,7 @@ def _pattern_matches(pattern: ast.pattern, value: object) -> bool | None:
 
 
 def reachable_match_cases(statement: ast.Match) -> list[ast.match_case]:
-    try:
-        value = ast.literal_eval(statement.subject)
-    except (ValueError, TypeError) as _exc:
-        value = _UNKNOWN
+    value = _constant_value(statement.subject)
     cases: list[ast.match_case] = []
     for case in statement.cases:
         matches = (
@@ -655,10 +468,7 @@ def guaranteed_match_case(statement: ast.Match) -> ast.match_case | None:
         guard = True if case.guard is None else constant_truth(case.guard)
         if guard is False:
             continue
-        try:
-            value = ast.literal_eval(statement.subject)
-        except (ValueError, TypeError) as _exc:
-            value = _UNKNOWN
+        value = _constant_value(statement.subject)
         matches = (
             _pattern_matches(case.pattern, value)
             if value is not _UNKNOWN

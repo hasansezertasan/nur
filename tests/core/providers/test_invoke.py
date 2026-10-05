@@ -2864,3 +2864,168 @@ def test_factory_pre_conflict_precedes_failing_function_default(handler: str) ->
     assert [task.name for task in tasks] == (
         ["build"] if handler == "TypeError" else []
     )
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "(1 / 0) + 1",
+        "1 / (2 - 2)",
+        "{'x': 1 / 0}",
+        "[1 / 0]",
+        "1 < 'x'",
+        "True and 1 / 0",
+        "1 / 0 if True else 1",
+        "[1][::0]",
+        "{[1]: 2}",
+        "{**1}",
+        "[*1]",
+        "(None + 1,)",
+    ],
+)
+def test_nested_literal_failures_in_task_defaults(expression: str) -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\n"
+            f"def broken(c, value={expression}): ...\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        "name=1 / 0",
+        "1 / 0",
+        "aliases=[1 / 0]",
+        "name=(1 + 'x')",
+        "pre=1 / 0",
+        "1 / (2 - 2)",
+    ],
+)
+def test_failing_task_argument_expression_suppresses_siblings(arguments: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task({arguments})\ndef broken(c): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_caught_decorator_argument_failure_precedes_constructor_validation() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\ntry:\n @task(name=1 / 0, unknown=True)\n"
+        " def broken(c): ...\nexcept ZeroDivisionError: pass\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "1 + 2 * 3",
+        "False and 1 / 0",
+        "True or 1 / 0",
+        "1 if True else 1 / 0",
+        "1 > 2 > 1 / 0",
+        "[1 + 2][0]",
+        "[1, *[2]]",
+        "(1, *[2])",
+        "{1, *[2]}",
+        "{'x': 1 + 2, **{'y': 2}}",
+        "[1, 2][1:]",
+        "1 + computed",
+        "computed + 1 / 0",
+    ],
+)
+def test_safe_nested_or_unknown_defaults_preserve_tasks(expression: str) -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task\n"
+        f"def other(c, value={expression}): ...\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["other", "build"]
+
+
+def test_literal_evaluation_does_not_power_large_integers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import ast
+
+    from nur.core.providers import _invoke_literals
+
+    def forbidden_power(*_values: object) -> None:
+        pytest.fail("Discovery evaluated a resource-heavy power")
+
+    monkeypatch.setitem(_invoke_literals._BINARY, ast.Pow, forbidden_power)
+    operand = "0x" + "f" * 1100
+    tasks = parse_tasks(
+        "from invoke import task\n@task\n"
+        f"def other(c, value={operand} ** 100): ...\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["other", "build"]
+
+
+def test_class_task_argument_failure_suppresses_siblings() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task(name=1 / 0)\nclass Broken: pass\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_caught_class_argument_failure_skips_class_body_exports() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\ntry:\n @task(name=1 / 0)\n class Holder:\n"
+        "  global broken\n  @task(aliases=7)\n  def broken(c): ...\n"
+        "except ZeroDivisionError: pass\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_call_named_set_is_not_assumed_to_be_builtin_in_comparison() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task as stable\ndef set(): return 1\n"
+            "task = replacement\n"
+            "if set() == set() == (task := stable): pass\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_nested_set_call_is_not_a_known_literal_value() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task as stable\ndef set(): return 1\n"
+            "task = replacement\n"
+            "if [set()] == [set()] == (task := stable): pass\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "option",
+    [
+        "name=1 + 2",
+        "aliases=1 + 2",
+        "optional=1 + 2",
+        "help=1 + 2",
+        "klass=1 + 2",
+        "positional=1 + 2",
+    ],
+)
+def test_known_arithmetic_metadata_values_fail_before_siblings(option: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task({option})\ndef broken(c): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )

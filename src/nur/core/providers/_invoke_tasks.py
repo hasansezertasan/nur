@@ -5,12 +5,14 @@ from __future__ import annotations
 import ast
 
 from nur.core.providers._invoke_control_flow import literal_exception
+from nur.core.providers._invoke_literals import UNKNOWN, constant_value
 
 __all__ = [
     "bind_callable_definition",
     "constructor_exception",
     "decorator_matches",
     "deferred_failure",
+    "defined_task_bindings",
     "definition_exception",
     "fatal_decorator",
     "literal_default",
@@ -93,10 +95,8 @@ def _invalid_literal_option(
             for element in keyword.value.elts
         )
     )
-    try:
-        value = ast.literal_eval(keyword.value)
-    except (ValueError, TypeError) as _exc:
-        # Computed members remain unknown, but literal hook members are checked.
+    value = constant_value(keyword.value)
+    if value is UNKNOWN:
         return invalid_members
     iterable = isinstance(value, (str, bytes, list, tuple, dict, set))
     if keyword.arg in {"aliases", "optional", "positional"}:
@@ -308,11 +308,12 @@ def _positional_pre_conflict(decorator: ast.Call, bindings: dict[str, str]) -> b
 def _fatal_help_literal(keyword: ast.keyword) -> bool:
     if keyword.arg != "help":
         return False
-    try:
-        value = ast.literal_eval(keyword.value)
-    except (ValueError, TypeError) as _exc:
-        return False
-    return bool(value) and not isinstance(value, (dict, list, set))
+    value = constant_value(keyword.value)
+    return (
+        value is not UNKNOWN
+        and bool(value)
+        and not isinstance(value, (dict, list, set))
+    )
 
 
 def _fatal_callable_dispatch(
@@ -348,11 +349,8 @@ def task_definition(
 
 
 def _literal_name_failure(expression: ast.expr) -> bool:
-    try:
-        value = ast.literal_eval(expression)
-    except (ValueError, TypeError) as _exc:
-        return False
-    return bool(value) and not isinstance(value, str)
+    value = constant_value(expression)
+    return value is not UNKNOWN and bool(value) and not isinstance(value, str)
 
 
 def _fatal_parser_option(
@@ -393,10 +391,7 @@ def _invalid_membership_option(
 ) -> bool:
     if _invalid_literal_option(keyword, bindings, tainted):
         return True
-    try:
-        value = ast.literal_eval(keyword.value)
-    except (ValueError, TypeError) as _exc:
-        return False
+    value = constant_value(keyword.value)
     # Optional is normalized to a tuple in Task.__init__. These options are
     # retained as containers and Python rejects str membership in bytes.
     return isinstance(value, bytes) and (bool(value) or keyword.arg == "positional")
@@ -405,11 +400,8 @@ def _invalid_membership_option(
 def _literal_constructor_failure(keyword: ast.keyword) -> bool:
     if keyword.arg != "klass":
         return False
-    try:
-        value = ast.literal_eval(keyword.value)
-    except (ValueError, TypeError) as _exc:
-        return False
-    return not callable(value)
+    value = constant_value(keyword.value)
+    return value is not UNKNOWN and not callable(value)
 
 
 def _fatal_keyword(
@@ -563,8 +555,16 @@ def definition_exception(
     bindings: dict[str, str],
     tainted: set[str],
 ) -> str | None:
-    if isinstance(node, ast.ClassDef):
-        return None
+    for decorator in node.decorator_list:
+        if isinstance(decorator, ast.Call) and decorator_matches(
+            decorator.func, bindings, tainted
+        ):
+            for value in [
+                *decorator.args,
+                *(keyword.value for keyword in decorator.keywords),
+            ]:
+                if (exception := literal_exception(value)) is not None:
+                    return exception
     if any(
         isinstance(decorator, ast.Call)
         and decorator_matches(decorator.func, bindings, tainted)
@@ -572,6 +572,8 @@ def definition_exception(
         for decorator in node.decorator_list
     ):
         return "TypeError"
+    if isinstance(node, ast.ClassDef):
+        return None
     for value in [
         *node.args.defaults,
         *(value for value in node.args.kw_defaults if value is not None),
@@ -670,3 +672,20 @@ def bind_callable_definition(statement: ast.stmt, bindings: dict[str, str]) -> N
         and not statement.decorator_list
     ):
         bindings[statement.name] = "ordinary_callable"
+
+
+def defined_task_bindings(
+    statement: ast.stmt, bindings: dict[str, str], tainted: set[str]
+) -> dict[str, str]:
+    if isinstance(
+        statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+    ) and task_definition(statement, bindings, tainted):
+        if constructor_exception(statement, bindings, tainted) is not None:
+            return {}
+        kind = (
+            "invalid_task"
+            if deferred_failure(statement, bindings, tainted)
+            else "task_object"
+        )
+        return {statement.name: kind}
+    return {}
