@@ -2013,3 +2013,59 @@ def test_active_namespace_controls_still_stop_namespace(control):
         "task :hidden; end; task :root"
     )
     assert [task.name for task in tasks] == ["db:before", "root"]
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "false && return",
+        "nil && return",
+        "false and return",
+        "true || return",
+        "true or return",
+        "0 || return",
+        '"" || return',
+        "[] || return",
+        "(false) && return",
+        "(true) || return",
+    ],
+)
+def test_literal_short_circuits_preserve_later_tasks(expression):
+    tasks = parse_rakefile(f"task :before; {expression}; task :after")
+    assert [task.name for task in tasks] == ["before", "after"]
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "false && (def self.task(*args); end)",
+        "false and (def self.task(*args); end)",
+        "true || (def self.task(*args); end)",
+        "true or (def self.task(*args); end)",
+        '"" || (def self.task(*args); end)',
+    ],
+)
+def test_literal_short_circuits_do_not_install_unreachable_overrides(expression):
+    tasks = parse_rakefile(f"task :before; {expression}; task :after")
+    assert [task.name for task in tasks] == ["before", "after"]
+
+
+@pytest.mark.parametrize(
+    "expression", ["true && return", "false || return", "condition && return"]
+)
+def test_active_or_dynamic_short_circuit_controls_remain_conservative(expression):
+    tasks = parse_rakefile(f"task :before; {expression}; task :hidden")
+    assert [task.name for task in tasks] == ["before"]
+
+
+def test_short_circuit_left_operand_effects_are_still_scanned():
+    tasks = parse_rakefile(
+        "task :before; [def self.task(*args); end] || return; task :hidden"
+    )
+    assert [task.name for task in tasks] == ["before"]
+
+
+@pytest.mark.parametrize("expression", ["false && return", "true || return"])
+def test_unreachable_initializer_short_circuit_controls_preserve_tasks(expression):
+    tasks = parse_rakefile(f"BEGIN {{ {expression} }}; task :build")
+    assert [task.name for task in tasks] == ["build"]

@@ -434,9 +434,53 @@ def _escaping_control(root: Node, *, include_begin: bool = False) -> str | None:
     return local_control
 
 
+def _literal_truth(node: Node | None) -> bool | None:
+    while node is not None and node.type == "parenthesized_statements":
+        children = [child for child in node.named_children if child.type != "comment"]
+        node = children[0] if len(children) == 1 else None
+    if node is None:
+        return None
+    if node.type in {"false", "nil"}:
+        return False
+    if node.type in {
+        "true",
+        "integer",
+        "float",
+        "string",
+        "simple_symbol",
+        "delimited_symbol",
+        "array",
+        "hash",
+        "regex",
+    }:
+        return True
+    return None
+
+
+def _binary_children(node: Node) -> list[Node]:
+    left = node.child_by_field_name("left")
+    operator = node.child_by_field_name("operator")
+    if left is None or operator is None:
+        return node.named_children
+    truth = _literal_truth(left)
+    if (operator.type in {"&&", "and"} and truth is False) or (
+        operator.type in {"||", "or"} and truth is True
+    ):
+        # Retain the left operand: its children still execute and may contain
+        # controls or DSL overrides, even when its resulting value is truthy.
+        return [left]
+    return node.named_children
+
+
 def _reachable_children(node: Node) -> list[Node]:
     if defined_probe(node):
         return []
+    if node.type == "binary":
+        return _binary_children(node)
+    return _conditional_children(node)
+
+
+def _conditional_children(node: Node) -> list[Node]:
     condition = node.child_by_field_name("condition")
     while condition is not None and condition.type == "parenthesized_statements":
         children = [
