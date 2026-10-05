@@ -1319,3 +1319,99 @@ def test_order_only_hash_without_task_name_is_skipped(declaration):
 )
 def test_order_only_literal_task_names_remain_supported(declaration):
     assert [task.name for task in parse_rakefile(declaration)] == ["order_only"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "def helper; value = return; end",
+        "while true; value = break; end",
+        "begin; rescue; value = retry; end",
+        "call { value = next }",
+        "call { value = redo }",
+        "def helper; value ||= return; end",
+        "def helper; value += return; end",
+        "def helper; foo(return); end",
+        "def helper; [return]; end",
+        "def helper; {a: return}; end",
+        "def helper; !return; end",
+        "def helper; if return; end; end",
+        "def helper; return if return; end",
+        "def helper; case return; when 1; end; end",
+        "def helper; for x in return; end; end",
+        "def helper; obj[return]; end",
+        "def helper; (return).foo; end",
+        "def helper; value = (return || foo); end",
+        "defined?(value = return)",
+        "def helper; value = (begin; return; end); end",
+        "def helper; def foo(x = return); end; end",
+        "def helper; return return; end",
+        "def helper; value = (true ? return : return); end",
+        "def helper; (return) + 1; end",
+        "def helper; (return)..1; end",
+    ],
+)
+def test_void_value_positions_reject_whole_file(body, caplog):
+    assert parse_rakefile(f"task :before; {body}; task :after") == []
+    assert "void value" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "def helper; value = (foo || return); end",
+        "def helper; value = (foo && return); end",
+        "def helper; value = if cond; return; else; 1; end; end",
+        "def helper; value = if cond; return; end; end",
+        "def helper; value = (return if cond); end",
+        "def helper; value = (return; 1); end",
+        "def helper; value = (begin; return; rescue; nil; end); end",
+        "def helper; value = (return rescue nil); end",
+        "def helper; return + 1; end",
+        "def helper; return - 1; end",
+        "def helper; return * 1; end",
+        "def helper; return ** 1; end",
+        "def helper; return..1; end",
+        'def helper; "#{return}"; end',
+    ],
+)
+def test_valid_control_value_expressions_preserve_discovery(body):
+    tasks = parse_rakefile(f"task :before; {body}; task :after")
+    assert [task.name for task in tasks] == ["before", "after"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "begin; def self.task(*args); end; end",
+        "begin; begin; def (self).task(*args); end; end; end",
+        "begin; class << self; def task(*args); end; end; end",
+    ],
+)
+def test_plain_begin_overrides_apply_to_later_declarations(body):
+    tasks = parse_rakefile(f"task :before; {body}; task :after")
+    assert [task.name for task in tasks] == ["before"]
+
+
+def test_plain_begin_desc_override_preserves_earlier_description():
+    tasks = parse_rakefile(
+        "desc 'Before'; task :before; begin; def self.desc(*args); end; end; "
+        "desc 'After'; task :after"
+    )
+    assert [(task.name, task.description) for task in tasks] == [
+        ("before", "Before"),
+        ("after", None),
+    ]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "begin; if false; def self.task(*args); end; end; end",
+        "begin; def helper; def self.task(*args); end; end; end",
+        "begin; END { def self.task(*args); end }; end",
+    ],
+)
+def test_plain_begin_inactive_and_opaque_overrides_preserve_discovery(body):
+    tasks = parse_rakefile(f"{body}; task :build")
+    assert [task.name for task in tasks] == ["build"]
