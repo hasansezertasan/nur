@@ -681,6 +681,15 @@ def _load_time_children(node: Node, deferred_calls: set[int]) -> list[Node]:
 
 
 def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
+    if (
+        node.type == "undef"
+        and main_scope(node)
+        and any(
+            (literal(child) or node_text(child)) in _RAKE_METHODS
+            for child in node.named_children
+        )
+    ):
+        return "undef of Rake DSL method"
     if node.type == "super":
         return "super outside method during loading"
     method = node.child_by_field_name("method")
@@ -697,9 +706,7 @@ def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
     )
     if f"undef:{key}" in disabled:
         return "call to undefined constructor during loading"
-    if not _dsl_receiver(node) or name in disabled:
-        return None
-    if not main_scope(node):
+    if not _dsl_receiver(node) or name in disabled or not main_scope(node):
         return None
     return _declaration_error(node, name, _arguments(node), None, disabled)
 

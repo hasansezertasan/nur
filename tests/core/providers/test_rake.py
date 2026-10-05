@@ -3131,3 +3131,51 @@ def test_reachable_top_level_class_variable_reads_reject_loading(body, caplog):
 )
 def test_valid_or_deferred_class_variable_reads_preserve_discovery(body):
     assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "task",
+        "multitask",
+        "file",
+        "file_create",
+        "directory",
+        "rule",
+        "desc",
+        "namespace",
+    ],
+)
+@pytest.mark.parametrize(
+    "context", ["if true; {body}; end", "{body} unless false", "true && ({body})"]
+)
+def test_reachable_nested_undef_of_dsl_rejects_loading(name, context, caplog):
+    source = "task :before; " + context.format(body=f"undef {name}") + "; task :after"
+    assert parse_rakefile(source) == []
+    assert "undef of Rake DSL method" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "context",
+    [
+        "if false; {body}; end",
+        "{body} if false",
+        "false && ({body})",
+        "def helper; {body}; end",
+        "task :safe do; {body}; end",
+    ],
+)
+def test_inactive_or_deferred_nested_undef_keeps_discovery(context):
+    source = context.format(body="undef task") + "; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("header", ["# coding=iso-8859-1", "# encoding=iso-8859-1"])
+def test_no_separator_equals_encoding_is_not_a_ruby_declaration(
+    tmp_path, caplog, header
+):
+    (tmp_path / "Rakefile").write_bytes(
+        (header + '\ndesc "café"; task :ghost').encode("latin-1")
+    )
+    assert RakeProvider().discover(tmp_path) == []
+    assert "skipping Rakefile" in caplog.text
