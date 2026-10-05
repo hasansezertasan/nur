@@ -1415,3 +1415,54 @@ def test_plain_begin_desc_override_preserves_earlier_description():
 def test_plain_begin_inactive_and_opaque_overrides_preserve_discovery(body):
     tasks = parse_rakefile(f"{body}; task :build")
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "begin; task :wrapped; end",
+        "begin; begin; task :wrapped; end; end",
+        "namespace :db do; begin; task :wrapped; end; end",
+        "begin; namespace :db do; task :wrapped; end; end",
+    ],
+)
+def test_plain_begin_declarations_are_discovered(body):
+    tasks = parse_rakefile(body)
+    assert len(tasks) == 1
+    assert tasks[0].name == ("db:wrapped" if "namespace" in body else "wrapped")
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "desc 'Wrapped'; begin; task :wrapped; end",
+        "begin; desc 'Wrapped'; task :wrapped; end",
+        "begin; desc 'Wrapped'; end; task :wrapped",
+        "begin; begin; desc 'Wrapped'; end; end; task :wrapped",
+    ],
+)
+def test_plain_begin_descriptions_share_enclosing_scope(body):
+    tasks = parse_rakefile(body)
+    assert [(task.name, task.description) for task in tasks] == [("wrapped", "Wrapped")]
+
+
+def test_plain_begin_overrides_preserve_declaration_order_inside_wrapper():
+    tasks = parse_rakefile(
+        "begin; task :before; def self.task(*args); end; task :after; end; task :root"
+    )
+    assert [task.name for task in tasks] == ["before"]
+
+
+@pytest.mark.parametrize("handler", ["rescue", "ensure", "rescue; nil; else"])
+def test_plain_begin_exception_handlers_remain_opaque(handler):
+    tasks = parse_rakefile(
+        f"begin; task :hidden; {handler}; task :also_hidden; end; task :root"
+    )
+    assert [task.name for task in tasks] == ["root"]
+
+
+def test_plain_begin_control_preserves_preceding_declarations():
+    tasks = parse_rakefile(
+        "begin; task :before; return; task :hidden; end; task :after"
+    )
+    assert [task.name for task in tasks] == ["before"]

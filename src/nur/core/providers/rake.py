@@ -63,10 +63,6 @@ def _record_override(node: Node, disabled: set[str]) -> None:
 
 def _method(node: Node, disabled: set[str]) -> str | None:
     _record_override(node, disabled)
-    if node.type == "begin" and not any(
-        child.type in {"rescue", "else", "ensure"} for child in node.named_children
-    ):
-        disabled.update(_dsl_overrides(node, in_scope=True))
     if node.type != "call" or node.child_by_field_name("receiver") is not None:
         return None
     method = node.child_by_field_name("method")
@@ -283,11 +279,11 @@ def _reachable_begin_children(node: Node) -> list[Node]:
     return node.named_children
 
 
-def _dsl_overrides(root: Node, *, in_scope: bool = False) -> set[str]:
+def _dsl_overrides(root: Node) -> set[str]:
     # Ruby executes BEGIN bodies before ordinary statements, even when the
     # BEGIN appears later in the file or has an active postfix condition.
     disabled: set[str] = set()
-    pending = [(root, in_scope)]
+    pending = [(root, False)]
     opaque = {
         "method",
         "singleton_method",
@@ -311,11 +307,27 @@ def _dsl_overrides(root: Node, *, in_scope: bool = False) -> set[str]:
     return disabled
 
 
+def _scope_statements(root: Node) -> Iterator[Node]:
+    # A rescue-free begin/end wrapper shares the surrounding lexical scope,
+    # pending description, and execution order. Keep exception handlers opaque.
+    pending = [iter(root.named_children)]
+    while pending:
+        node = next(pending[-1], None)
+        if node is None:
+            pending.pop()
+        elif node.type == "begin" and not any(
+            child.type in {"rescue", "else", "ensure"} for child in node.named_children
+        ):
+            pending.append(iter(node.named_children))
+        else:
+            yield node
+
+
 def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
     # Each frame owns its pending description; it cannot leak out of a scope.
     # An explicit stack avoids Python recursion on deeply nested namespaces.
     scopes: list[tuple[Iterator[Node], str, str | None]] = [
-        (iter(root.named_children), "", None)
+        (_scope_statements(root), "", None)
     ]
     disabled = _dsl_overrides(root)
     while scopes:
@@ -343,7 +355,7 @@ def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
             nested = _namespace_body(node, arguments, namespace)
             if nested is not None:
                 qualified, body = nested
-                scopes.append((iter(body.named_children), qualified, None))
+                scopes.append((_scope_statements(body), qualified, None))
 
 
 def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
@@ -351,7 +363,8 @@ def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
 
     Only direct ``task``/``multitask`` calls and adjacent literal ``desc`` calls
     are read. Task bodies, conditional/generated declarations, file tasks,
-    rules and imported files are opaque. No Ruby code or runner is executed.
+    rules and imported files are opaque. Plain begin/end wrappers without
+    exception handlers are transparent. No Ruby code or runner is executed.
     """
     root = Parser(_LANGUAGE).parse(text.encode("utf-8")).root_node
     if root.has_error:
