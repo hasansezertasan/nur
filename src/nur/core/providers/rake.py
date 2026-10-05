@@ -125,16 +125,26 @@ def _valid_task_tail(arguments: list[Node]) -> bool:
     )
 
 
+def _task_hash_key(arguments: list[Node]) -> Node | None:
+    pairs = arguments
+    if len(arguments) == 1 and arguments[0].type == "hash":
+        pairs = [
+            child for child in arguments[0].named_children if child.type != "comment"
+        ]
+    if len(pairs) not in {1, 2} or any(pair.type != "pair" for pair in pairs):
+        return None
+    keys = [pair.child_by_field_name("key") for pair in pairs]
+    ordinary = [key for key in keys if key is not None and not _order_only_key(key)]
+    return ordinary[0] if len(ordinary) == 1 else None
+
+
 def _task_name(arguments: list[Node]) -> str | None:
     if not arguments:
         return None
     first = arguments[0]
-    if first.type == "pair":
-        # Rake expects one task-name/prerequisites pair, not multiple names.
-        if len(arguments) != 1:
-            return None
-        key = first.child_by_field_name("key")
-        if key is None or _order_only_key(key):
+    if first.type in {"pair", "hash"}:
+        key = _task_hash_key(arguments)
+        if key is None:
             return None
         first = key
     elif not _valid_task_tail(arguments[1:]):
@@ -212,8 +222,32 @@ def _make_task(
     )
 
 
-def _description(arguments: list[Node]) -> str | None:
-    return literal(arguments[0]) if len(arguments) == 1 else None
+def _description(arguments: list[Node]) -> Node | None:
+    node = arguments[0] if len(arguments) == 1 else None
+    while node is not None and node.type == "parenthesized_statements":
+        children = [child for child in node.named_children if child.type != "comment"]
+        node = children[0] if len(children) == 1 else None
+    return node
+
+
+def _valid_description(node: Node | None) -> bool:
+    # Rake calls strip on truthy descriptions. Symbols and other known non-string
+    # literals cannot supply a comment; unknown expressions remain opaque.
+    return node is None or node.type not in {
+        "simple_symbol",
+        "delimited_symbol",
+        "integer",
+        "float",
+        "true",
+        "array",
+        "hash",
+        "regex",
+        "range",
+    }
+
+
+def _description_text(node: Node | None) -> str | None:
+    return literal(node) if node is not None and node.type == "string" else None
 
 
 def _escaping_control(root: Node, *, include_begin: bool = False) -> str | None:
@@ -421,7 +455,7 @@ def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
     # Each frame owns its pending description; it cannot leak out of a scope.
     # An explicit stack avoids Python recursion on deeply nested namespaces.
     disabled: set[str] = set()
-    scopes: list[tuple[Iterator[Node], str, str | None]] = [
+    scopes: list[tuple[Iterator[Node], str, Node | None]] = [
         (_load_statements(root, disabled), "", None)
     ]
     while scopes:
@@ -443,8 +477,8 @@ def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
             scopes.append((statements, namespace, _description(arguments)))
             continue
         scopes.append((statements, namespace, None))
-        if method in {"task", "multitask"}:
-            yield node, namespace, description
+        if method in {"task", "multitask"} and _valid_description(description):
+            yield node, namespace, _description_text(description)
         elif method == "namespace":
             nested = _namespace_body(node, arguments, namespace)
             if nested is not None:

@@ -175,6 +175,9 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   and task names ending in a colon are skipped. Files with Ruby syntax errors
   reported by the parser are skipped
   with a warning.
+  Explicit task-name dependency hashes are supported.
+  Tasks with adjacent descriptions of a known invalid type
+  (such as symbols or numbers) are skipped.
   Direct declarations in active literal `BEGIN` initializers are read
   before ordinary statements, matching Ruby initialization order.
   Regexp literal checks support ASCII patterns with ordinary groups,

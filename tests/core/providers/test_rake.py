@@ -1726,3 +1726,37 @@ def test_dynamic_begin_overrides_disable_later_initializer_tasks():
         "BEGIN { task :hidden }; task :ordinary"
     )
     assert [task.name for task in tasks] == ["bootstrap"]
+
+
+@pytest.mark.parametrize("method", ["task", "multitask"])
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        "{build: :test}",
+        "{:build => [:test]}",
+        '{"build" => :test}',
+        "{build: :test, order_only: :prepare}",
+        "build: :test, order_only: :prepare",
+    ],
+)
+def test_literal_task_name_hashes_are_discovered(method, arguments):
+    tasks = parse_rakefile(f"{method}({arguments})")
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("method", ["task", "multitask"])
+@pytest.mark.parametrize(
+    "description",
+    [":Build", ':"Build"', "123", "1.5", "true", "[]", "{}", "/Build/", "( :Build )"],
+)
+def test_known_invalid_descriptions_suppress_affected_tasks(method, description):
+    tasks = parse_rakefile(f"desc({description}); {method} :hidden; task :safe")
+    assert [task.name for task in tasks] == ["safe"]
+
+
+@pytest.mark.parametrize("description", ["nil", "false", '"Build"', '("Build")'])
+def test_valid_description_types_preserve_tasks(description):
+    tasks = parse_rakefile(f"desc {description}; task :build")
+    assert [(task.name, task.description) for task in tasks] == [
+        ("build", "Build" if "Build" in description else None)
+    ]
