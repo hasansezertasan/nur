@@ -149,38 +149,39 @@ def _description(arguments: list[Node]) -> str | None:
     return _literal(arguments[0]) if len(arguments) == 1 else None
 
 
-def _invalid_retry(root: Node) -> bool:
-    """Check retry placement, which the Ruby grammar does not validate.
+def _control_flow_error(root: Node) -> str | None:
+    """Validate Ruby control placement beyond the grammar's syntax shapes.
 
-    A Ruby rescue clause permits retry in its body, but a new function/block
-    scope or an ensure clause resets that permission. This checks syntax only,
-    including opaque task bodies: invalid placement prevents the file loading.
+    Invalid placement prevents the whole file loading, even in opaque task
+    bodies. Retry needs a rescue; break/next/redo need a block or loop. New
+    method/class scopes reset both permissions; ensure resets retry only.
     """
-    pending = [(root, False)]
-    resets = {
-        "method",
-        "singleton_method",
-        "class",
-        "singleton_class",
-        "module",
-        "lambda",
-        "block",
-        "do_block",
-        "ensure",
-    }
+    pending = [(root, False, False)]
+    new_scopes = {"method", "singleton_method", "class", "singleton_class", "module"}
+    blocks = {"lambda", "block", "do_block"}
+    loops = {"while", "until", "for", "while_modifier", "until_modifier"}
     while pending:
-        node, in_rescue = pending.pop()
+        node, in_rescue, in_iteration = pending.pop()
         if node.type == "retry" and not in_rescue:
-            return True
-        if node.type in resets:
+            return "retry outside rescue"
+        if node.type in {"break", "next", "redo"} and not in_iteration:
+            return f"{node.type} outside block or loop"
+        if node.type in new_scopes:
+            in_rescue = in_iteration = False
+        if node.type in blocks or node.type == "ensure":
             in_rescue = False
-        rescue_body = (
-            node.child_by_field_name("body") if node.type == "rescue" else None
-        )
+        body = node.child_by_field_name("body")
+        rescue_body = body if node.type == "rescue" else None
+        iteration_body = body if node.type in blocks | loops else None
         pending.extend(
-            (child, in_rescue or child == rescue_body) for child in node.named_children
+            (
+                child,
+                in_rescue or child == rescue_body,
+                in_iteration or child == iteration_body,
+            )
+            for child in node.named_children
         )
-    return False
+    return None
 
 
 def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
@@ -228,8 +229,9 @@ def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     if root.has_error:
         log.warning("nur: skipping %s (invalid Ruby syntax)", source_file)
         return []
-    if _invalid_retry(root):
-        log.warning("nur: skipping %s (retry outside rescue)", source_file)
+    control_error = _control_flow_error(root)
+    if control_error is not None:
+        log.warning("nur: skipping %s (%s)", source_file, control_error)
         return []
     tasks: dict[str, Task] = {}
     for node, namespace, description in _declarations(root):

@@ -327,3 +327,15 @@ def test_retry_in_task_rescue_is_valid():
         "task :build do\n begin\n  sh 'false'\n rescue\n  retry\n end\nend\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("control", ["break", "next", "redo"])
+def test_control_outside_block_or_loop_rejects_whole_file(control, caplog):
+    assert parse_rakefile(f"task :before\nif false\n {control}\nend\n") == []
+    assert f"{control} outside block or loop" in caplog.text
+
+
+@pytest.mark.parametrize("control", ["break", "next", "redo"])
+def test_loop_control_in_opaque_task_body_is_valid(control):
+    tasks = parse_rakefile(f"task :build do\n while true\n  {control}\n end\nend\n")
+    assert [task.name for task in tasks] == ["build"]
