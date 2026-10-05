@@ -202,6 +202,53 @@ def _control_flow_error(root: Node) -> str | None:
     return None
 
 
+def _constant_target(node: Node | None) -> bool:
+    pending = [node] if node is not None else []
+    while pending:
+        target = pending.pop()
+        if target.type in {"constant", "scope_resolution"}:
+            return True
+        if target.type in {
+            "left_assignment_list",
+            "destructured_left_assignment",
+            "rest_assignment",
+        }:
+            pending.extend(target.named_children)
+    return False
+
+
+def _method_context(node: Node, child: Node, *, inherited: bool) -> bool:
+    if node.type in {"method", "singleton_method"}:
+        # A singleton receiver is evaluated in the enclosing scope.
+        return inherited if child == node.child_by_field_name("object") else True
+    if node.type in {"class", "module", "singleton_class"}:
+        return inherited if child != node.child_by_field_name("body") else False
+    return inherited
+
+
+def _method_context_error(root: Node) -> str | None:
+    # Blocks retain their enclosing method scope; class bodies start a new one.
+    # These compile-time restrictions apply even inside undiscovered bodies.
+    pending = [(root, False)]
+    while pending:
+        node, in_method = pending.pop()
+        if node.type == "yield" and not in_method:
+            return "yield outside method"
+        if (
+            in_method
+            and node.type in {"assignment", "operator_assignment", "for"}
+            and _constant_target(
+                node.child_by_field_name("pattern" if node.type == "for" else "left")
+            )
+        ):
+            return "constant assignment inside method"
+        pending.extend(
+            (child, _method_context(node, child, inherited=in_method))
+            for child in node.named_children
+        )
+    return None
+
+
 def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
     # Each frame owns its pending description; it cannot leak out of a scope.
     # An explicit stack avoids Python recursion on deeply nested namespaces.
@@ -247,7 +294,7 @@ def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     if root.has_error:
         log.warning("nur: skipping %s (invalid Ruby syntax)", source_file)
         return []
-    control_error = _control_flow_error(root)
+    control_error = _control_flow_error(root) or _method_context_error(root)
     if control_error is not None:
         log.warning("nur: skipping %s (%s)", source_file, control_error)
         return []

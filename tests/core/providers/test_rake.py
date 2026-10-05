@@ -371,3 +371,80 @@ def test_ordinary_methods_do_not_override_rake_singleton_dsl(method):
     assert [(task.name, task.description) for task in tasks] == [
         ("db:build", "Real task")
     ]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "yield",
+        "if false; yield; end",
+        "task :hidden do; yield; end",
+        "class Helper; yield; end",
+        "module Helper; -> { yield }; end",
+        "def helper; class << self; yield; end; end",
+        "def (yield).helper; end",
+    ],
+)
+def test_yield_outside_method_rejects_whole_file(body, caplog):
+    assert parse_rakefile(f"task :before\n{body}\ntask :after\n") == []
+    assert "yield outside method" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "def helper; yield; end",
+        "def self.helper; [1].each { yield }; end",
+        "def helper; -> { yield }; end",
+        "class Helper; def helper; yield; end; end",
+        "def helper; def (yield).nested; end; end",
+    ],
+)
+def test_yield_inside_method_is_valid(body):
+    tasks = parse_rakefile(f"{body}\ntask :build\n")
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "assignment",
+    [
+        "CONST = 1",
+        "::CONST = 1",
+        "Helper::CONST = 1",
+        "a, CONST = 1, 2",
+        "a, *CONST = []",
+        "(a, CONST), b = [[1, 2], 3]",
+        "a, (b, CONST) = []",
+        "for CONST in []; end",
+        "for a, CONST in []; end",
+        "CONST ||= 1",
+        "-> { CONST = 1 }",
+        "if false; CONST = 1; end",
+    ],
+)
+def test_constant_assignment_in_method_rejects_whole_file(assignment, caplog):
+    text = f"task :before\ndef helper; {assignment}; end\ntask :after\n"
+    assert parse_rakefile(text) == []
+    assert "constant assignment inside method" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "CONST = 1",
+        "class Helper; CONST = 1; end",
+        "task :hidden do; CONST = 1; end",
+        "def helper; class << self; CONST = 1; end; end",
+        "def helper; CONST[0] = 1; end",
+        "def helper; Thing::value = 1; end",
+        "def (CONST = Object.new).helper; end",
+    ],
+)
+def test_constant_assignments_in_valid_scopes_and_receivers(body):
+    tasks = parse_rakefile(f"{body}\ntask :build\n")
+    assert tasks[-1].name == "build"
+
+
+def test_constant_assignment_in_method_default_rejects_whole_file(caplog):
+    assert parse_rakefile("def helper(x = (CONST = 1)); end\ntask :build\n") == []
+    assert "constant assignment inside method" in caplog.text
