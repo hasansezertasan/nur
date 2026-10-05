@@ -985,3 +985,34 @@ def test_endless_ordinary_and_operator_methods_are_valid(name):
 def test_normal_setter_methods_are_valid():
     tasks = parse_rakefile("def helper=(value); value; end; task :build")
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "helper(&callback) {}",
+        "helper(&callback) do; end",
+        "helper(&nil) {}",
+        "task(:after, &callback) {}",
+        "def helper(&); target(&) {}; end",
+        "def helper(...); target(...) {}; end",
+        "def helper(...); target(...) do; end; end",
+    ],
+)
+def test_calls_with_two_blocks_reject_whole_file(body, caplog):
+    assert parse_rakefile(f"task :before; {body}; task :after") == []
+    assert "both block" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "helper(&callback)",
+        "helper(nested(&callback)) {}",
+        "def helper(...); target(...); end",
+        "helper { nested(&callback) }",
+    ],
+)
+def test_calls_with_one_block_preserve_discovery(body):
+    tasks = parse_rakefile(f"{body}; task :after")
+    assert tasks[-1].name == "after"

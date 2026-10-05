@@ -569,6 +569,18 @@ def _register_forwarding(node: Node, scope: _LocalScope) -> None:
         scope.forwarding[argument] = not scope.block
 
 
+def _call_error(node: Node) -> str | None:
+    if node.type != "call" or node.child_by_field_name("block") is None:
+        return None
+    arguments = node.child_by_field_name("arguments")
+    if arguments is not None and any(
+        argument.type in {"block_argument", "forward_argument"}
+        for argument in arguments.named_children
+    ):
+        return "both block argument and literal block"
+    return None
+
+
 def _forward_error(node: Node, scope: _LocalScope) -> str | None:
     if node.type not in {
         "forward_argument",
@@ -645,7 +657,11 @@ def _lexical_scope_error(root: Node) -> str | None:
             if error is not None:
                 return error
             continue
-        error = _implicit_error(node, scope) or _forward_error(node, scope)
+        error = (
+            _implicit_error(node, scope)
+            or _forward_error(node, scope)
+            or _call_error(node)
+        )
         if error is not None:
             return error
         pending.extend(reversed(_scope_steps(node, scope)))
