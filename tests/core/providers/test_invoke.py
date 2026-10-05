@@ -1029,3 +1029,42 @@ def test_only_surviving_default_copy_remains_discoverable() -> None:
         "saved = build\ndel build\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "invoke.__dict__.update(task=replacement)",
+        "invoke.__dict__.update({'task': replacement})",
+        "vars(invoke).update(task=replacement)",
+        "invoke.__dict__.__setitem__('task', replacement)",
+        "invoke.__dict__.__delitem__('task')",
+        "invoke.__dict__.pop('task')",
+        "invoke.__dict__.clear()",
+        "invoke.__dict__.popitem()",
+        "invoke.__dict__.update(changes)",
+    ],
+)
+def test_namespace_mapping_methods_invalidate_decorator(mutation: str) -> None:
+    assert (
+        parse_tasks(f"import invoke\n{mutation}\n@invoke.task\ndef build(c): ...\n")
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "expression", ["invoke.__dict__.get('task')", "invoke.__dict__.update(other=value)"]
+)
+def test_namespace_mapping_methods_preserve_unmodified_exports(expression: str) -> None:
+    tasks = parse_tasks(
+        f"import invoke\n{expression}\n@invoke.task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_root_mapping_clear_preserves_independent_submodule_export() -> None:
+    tasks = parse_tasks(
+        "import invoke\nfrom invoke import tasks\ninvoke.__dict__.clear()\n"
+        "@tasks.task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]

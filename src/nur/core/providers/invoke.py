@@ -176,34 +176,69 @@ def _builtin_name(expression: ast.expr, bindings: dict[str, str]) -> str | None:
     return None
 
 
-def _mapping_write(
-    node: ast.AST, bindings: dict[str, str]
-) -> tuple[ast.expr, str] | None:
-    if not isinstance(node, ast.Subscript) or not isinstance(
-        node.ctx, (ast.Store, ast.Del)
-    ):
-        return None
-    if not isinstance(node.slice, ast.Constant) or not isinstance(
-        node.slice.value, str
-    ):
-        return None
-    mapping = node.value
+def _mapping_namespace(mapping: ast.expr, bindings: dict[str, str]) -> ast.expr | None:
     if isinstance(mapping, ast.Attribute) and mapping.attr == "__dict__":
-        return mapping.value, node.slice.value
+        return mapping.value
     if (
         isinstance(mapping, ast.Call)
         and _builtin_name(mapping.func, bindings) == "vars"
         and len(mapping.args) == 1
     ):
-        return mapping.args[0], node.slice.value
+        return mapping.args[0]
     return None
 
 
-def _mutated_export(
+def _mapping_keys(call: ast.Call, method: str) -> set[str]:
+    if method in {"clear", "popitem"}:
+        return {"*"}
+    if method in {"__setitem__", "__delitem__", "pop"} and call.args:
+        key = call.args[0]
+        return (
+            {key.value}
+            if isinstance(key, ast.Constant) and isinstance(key.value, str)
+            else {"*"}
+        )
+    if method != "update":
+        return set()
+    keys = {keyword.arg or "*" for keyword in call.keywords}
+    for argument in call.args:
+        if isinstance(argument, ast.Dict):
+            keys.update(
+                key.value
+                if isinstance(key, ast.Constant) and isinstance(key.value, str)
+                else "*"
+                for key in argument.keys
+            )
+        else:
+            keys.add("*")
+    return keys
+
+
+def _mapping_write(
+    node: ast.AST, bindings: dict[str, str]
+) -> tuple[ast.expr, set[str]] | None:
+    if isinstance(node, ast.Subscript) and isinstance(node.ctx, (ast.Store, ast.Del)):
+        namespace = _mapping_namespace(node.value, bindings)
+        if namespace is not None:
+            key = node.slice
+            keys = (
+                {key.value}
+                if isinstance(key, ast.Constant) and isinstance(key.value, str)
+                else {"*"}
+            )
+            return namespace, keys
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+        namespace = _mapping_namespace(node.func.value, bindings)
+        if namespace is not None:
+            return namespace, _mapping_keys(node, node.func.attr)
+    return None
+
+
+def _mutated_exports(
     node: ast.AST, bindings: dict[str, str], tainted: set[str]
-) -> str | None:
+) -> set[str]:
     if isinstance(node, ast.Attribute) and isinstance(node.ctx, (ast.Store, ast.Del)):
-        namespace, attribute = node.value, node.attr
+        namespace, attributes = node.value, {node.attr}
     elif (
         isinstance(node, ast.Call)
         and _builtin_name(node.func, bindings) in {"setattr", "delattr"}
@@ -212,20 +247,22 @@ def _mutated_export(
     ):
         value = node.args[1].value
         if not isinstance(value, str):
-            return None
-        namespace, attribute = node.args[0], value
+            return set()
+        namespace, attributes = node.args[0], {value}
     elif (mapping_write := _mapping_write(node, bindings)) is not None:
-        namespace, attribute = mapping_write
+        namespace, attributes = mapping_write
     else:
-        return None
+        return set()
     kind = _module_kind(namespace, bindings, tainted)
-    return {
-        ("module", "task"): "invoke.task",
-        ("module", "tasks"): "invoke.tasks",
-        ("tasks_module", "task"): "invoke.tasks.task",
-        ("ambiguous_module", "task"): "invoke.*",
-        ("ambiguous_module", "tasks"): "invoke.tasks",
-    }.get((kind or "", attribute))
+    exports: set[str] = set()
+    if kind in {"module", "ambiguous_module"}:
+        if attributes & {"task", "*"}:
+            exports.add("invoke.task")
+        if attributes & {"tasks", "*"}:
+            exports.add("invoke.tasks")
+    if kind in {"tasks_module", "ambiguous_module"} and attributes & {"task", "*"}:
+        exports.add("invoke.tasks.task")
+    return exports
 
 
 def _literal_aliases(expression: ast.expr) -> list[str] | None:
@@ -512,11 +549,7 @@ def _written_names(
     while pending:
         node = pending.pop()
         pending.extend(_module_children(node))
-        export = _mutated_export(node, bindings, tainted)
-        if export == "invoke.*":
-            mutations.update({"invoke.task", "invoke.tasks.task"})
-        elif export is not None:
-            mutations.add(export)
+        mutations.update(_mutated_exports(node, bindings, tainted))
         if inspect_classes and isinstance(node, ast.ClassDef):
             class_writes, class_mutations = _class_mutates_tasks(
                 node, module_bindings, tainted
