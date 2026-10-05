@@ -31,6 +31,7 @@ from nur.core.providers._rake_runtime import (
     empty_for,
     empty_rescue,
     load_assignment_error,
+    mutation_error,
     overridden_method_error,
 )
 from nur.core.providers._rake_source import decode_source
@@ -681,12 +682,8 @@ def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
         )
     ):
         return "undef of Rake DSL method"
-    if node.type == "super" or "invalid:remove_method" in disabled:
-        return (
-            "super outside method during loading"
-            if node.type == "super"
-            else "invalid removal of inherited Rake DSL method during loading"
-        )
+    if node.type == "super":
+        return "super outside method during loading"
     method = node.child_by_field_name("method")
     if node.type != "call" or method is None:
         return None
@@ -747,7 +744,8 @@ def _load_time_error(root: Node) -> str | None:
             deferred_calls.add(node.id)
         record_override(node, disabled)
         error = (
-            _load_declaration_error(node, disabled)
+            mutation_error(node, disabled)
+            or _load_declaration_error(node, disabled)
             or load_assignment_error(node)
             or load_raise_error(node, disabled, bare_raises)
         )

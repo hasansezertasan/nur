@@ -956,7 +956,7 @@ def test_readonly_match_globals_reject_whole_file(target, form, caplog):
     assert "readonly match global" in caplog.text
 
 
-@pytest.mark.parametrize("target", ["$0", "$~", "$_", "$named"])
+@pytest.mark.parametrize("target", ["$~", "$_", "$named"])
 def test_writable_globals_preserve_discovery(target):
     tasks = parse_rakefile(f"{target} = nil; task :build")
     assert [task.name for task in tasks] == ["build"]
@@ -3551,3 +3551,96 @@ def test_rescued_invalid_process_exit_arguments_keep_discovery(expression):
 def test_handled_raise_does_not_execute_ignored_block():
     source = 'begin; raise("stop") { /#{pattern}/ }; rescue; end; task :safe'
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "RangeError",
+        "FloatDomainError",
+        "IOError",
+        "EOFError",
+        "IndexError",
+        "KeyError",
+        "StopIteration",
+        "ThreadError",
+        "FiberError",
+        "EncodingError",
+        "Encoding::CompatibilityError",
+        "UncaughtThrowError",
+        "NoMatchingPatternError",
+        "FrozenError",
+        "SystemCallError",
+        "Errno::ENOENT",
+    ],
+)
+def test_builtin_standard_error_subclasses_are_rescued(kind):
+    source = f"begin; raise {kind}; rescue; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    ("kind", "handler"),
+    [
+        ("EOFError", "IOError"),
+        ("FrozenError", "RuntimeError"),
+        ("FloatDomainError", "RangeError"),
+    ],
+)
+def test_builtin_error_intermediate_parent_handlers_are_respected(kind, handler):
+    source = f"begin; raise {kind}; rescue {handler}; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "source", ["alias helper task", "alias :helper :desc", 'alias :helper :"namespace"']
+)
+def test_lexical_alias_cannot_read_singleton_only_rake_dsl(source):
+    assert parse_rakefile("task :before; " + source + "; task :after") == []
+
+
+def test_lexical_alias_of_preexisting_object_method_is_valid():
+    source = "def task(*); end; alias helper task; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("target", ["$0", "$PROGRAM_NAME", "$stdout", "$stderr", "$>"])
+@pytest.mark.parametrize(
+    "value", ["nil", "1", ":invalid", "[]", "{}", "false", "-1", "(nil)", "!false"]
+)
+def test_invalid_literal_constrained_globals_reject_loading(target, value):
+    assert parse_rakefile(f"task :before; {target} = {value}; task :after") == []
+
+
+@pytest.mark.parametrize("target", ["$0", "$PROGRAM_NAME"])
+def test_string_program_name_assignment_preserves_discovery(target):
+    assert [
+        task.name for task in parse_rakefile(f'{target} = "valid"; task :safe')
+    ] == ["safe"]
+
+
+def test_rescued_invalid_program_name_assignment_preserves_discovery():
+    source = "begin; $PROGRAM_NAME = nil; rescue TypeError; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "$stdout = STDOUT; task :safe",
+        '$0 = +"valid"; task :safe',
+        '$0 = (value = "valid"; value); task :safe',
+        "begin; alias helper task; rescue NameError; end; task :safe",
+        (
+            "begin; singleton_class.remove_method(:task); "
+            "rescue NameError; end; task :safe"
+        ),
+    ],
+)
+def test_valid_or_handled_constrained_globals_and_mutations_keep_tasks(source):
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("target", ["$~", "$/", "$-F"])
+def test_invalid_literal_optional_globals_reject_loading(target):
+    assert parse_rakefile(f"task :before; {target} = 1; task :after") == []

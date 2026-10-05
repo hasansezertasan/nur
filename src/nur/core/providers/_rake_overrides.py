@@ -141,6 +141,8 @@ def _set_singleton_override(name: str, disabled: set[str]) -> None:
 
 def _instance_override(node: Node, name: str, disabled: set[str]) -> None:
     prefix, singleton_scope = _constructor_scope(node)
+    if main_scope(node) or (prefix == "Kernel" and not singleton_scope):
+        disabled.add(f"lexical:{name}")
     if singleton_eval_scope(node, disabled):
         _set_singleton_override(name, disabled)
     elif prefix is not None and singleton_scope:
@@ -172,6 +174,15 @@ def _instance_override(node: Node, name: str, disabled: set[str]) -> None:
 
 
 def _ordinary_override(node: Node, disabled: set[str]) -> None:
+    source = node.child_by_field_name("alias") if node.type == "alias" else None
+    source_name = literal(source) or node_text(source) if source is not None else ""
+    if (
+        main_scope(node)
+        and source_name in RAKE_METHODS
+        and f"lexical:{source_name}" not in disabled
+    ):
+        disabled.add("invalid:lexical_alias")
+        return
     name = node.child_by_field_name("name")
     if name is not None:
         _instance_override(node, literal(name) or node_text(name), disabled)

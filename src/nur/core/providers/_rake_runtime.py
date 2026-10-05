@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from nur.core.providers._rake_raises import handled_error
 from nur.core.providers._rake_syntax import node_text
 
 if TYPE_CHECKING:
@@ -13,6 +14,7 @@ __all__ = [
     "empty_for",
     "empty_rescue",
     "load_assignment_error",
+    "mutation_error",
     "overridden_method_error",
 ]
 
@@ -95,10 +97,88 @@ def empty_rescue(node: Node) -> bool:
     return False
 
 
+_LITERAL_KINDS = {
+    "nil",
+    "true",
+    "false",
+    "integer",
+    "float",
+    "string",
+    "simple_symbol",
+    "delimited_symbol",
+    "array",
+    "hash",
+    "regex",
+    "range",
+    "lambda",
+}
+
+
+def _unary_kind(node: Node) -> str | None:
+    operator = node.child_by_field_name("operator")
+    operand = node.child_by_field_name("operand")
+    if operator is None or operand is None:
+        return None
+    if operator.type in {"!", "not"}:
+        return "true"
+    if operator.type in {"+", "-"} and operand.type in {"integer", "float", "string"}:
+        return operand.type
+    return "integer" if operator.type == "~" and operand.type == "integer" else None
+
+
+def _value_kind(node: Node | None) -> str | None:
+    while node is not None and node.type == "parenthesized_statements":
+        children = [child for child in node.named_children if child.type != "comment"]
+        node = children[0] if len(children) == 1 else None
+    if node is not None and node.type == "unary":
+        return _unary_kind(node)
+    return node.type if node is not None and node.type in _LITERAL_KINDS else None
+
+
+def _constrained_assignment_error(node: Node) -> str | None:
+    target = node.child_by_field_name("left") if node.type == "assignment" else None
+    if target is None or target.type != "global_variable":
+        return None
+    name = node_text(target)
+    kind = _value_kind(node.child_by_field_name("right"))
+    if kind is None:
+        return None
+    invalid = (
+        (name in {"$0", "$PROGRAM_NAME"} and kind != "string")
+        or name in {"$stdout", "$stderr", "$>"}
+        or (name == "$~" and kind != "nil")
+        or (name in {"$/", "$-0", "$,", "$\\", "$-F"} and kind not in {"nil", "string"})
+    )
+    return (
+        "invalid literal value for constrained Ruby global during loading"
+        if invalid and not handled_error(node, "TypeError")
+        else None
+    )
+
+
+def mutation_error(node: Node, disabled: set[str]) -> str | None:
+    messages = {
+        "invalid:remove_method": (
+            "invalid removal of inherited Rake DSL method during loading"
+        ),
+        "invalid:lexical_alias": (
+            "lexical alias of singleton-only Rake DSL method during loading"
+        ),
+    }
+    for marker, message in messages.items():
+        if marker in disabled:
+            if not handled_error(node, "NameError"):
+                return message
+            disabled.discard(marker)
+    return None
+
+
 def load_assignment_error(node: Node) -> str | None:
     """Check assignments that raise only when their code executes during loading."""
     if node.type == "class_variable" and not _class_variable_scope(node):
         return "class variable access from toplevel during loading"
+    if error := _constrained_assignment_error(node):
+        return error
     if empty_for(node) or empty_rescue(node):
         return None
     for target in _assignment_targets(node):
