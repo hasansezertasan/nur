@@ -111,7 +111,7 @@ _STAR_EXPORTS = {
         "call",
     ]),
 }
-_BUILTIN_HELPERS = frozenset({"setattr", "delattr", "vars"})
+_BUILTIN_HELPERS = frozenset({"setattr", "delattr", "vars", "globals", "locals"})
 
 
 # Custom klass= is excluded because it may change naming/registration semantics.
@@ -214,24 +214,57 @@ def _mapping_keys(call: ast.Call, method: str) -> set[str]:
     return keys
 
 
+def _mapping_target_write(node: ast.AST) -> tuple[ast.expr, set[str]] | None:
+    if isinstance(node, ast.Subscript) and isinstance(node.ctx, (ast.Store, ast.Del)):
+        key = node.slice
+        keys = (
+            {key.value}
+            if isinstance(key, ast.Constant) and isinstance(key.value, str)
+            else {"*"}
+        )
+        return node.value, keys
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+        return node.func.value, _mapping_keys(node, node.func.attr)
+    return None
+
+
 def _mapping_write(
     node: ast.AST, bindings: dict[str, str]
 ) -> tuple[ast.expr, set[str]] | None:
-    if isinstance(node, ast.Subscript) and isinstance(node.ctx, (ast.Store, ast.Del)):
-        namespace = _mapping_namespace(node.value, bindings)
+    if (write := _mapping_target_write(node)) is not None:
+        mapping, keys = write
+        namespace = _mapping_namespace(mapping, bindings)
         if namespace is not None:
-            key = node.slice
-            keys = (
-                {key.value}
-                if isinstance(key, ast.Constant) and isinstance(key.value, str)
-                else {"*"}
-            )
             return namespace, keys
-    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-        namespace = _mapping_namespace(node.func.value, bindings)
-        if namespace is not None:
-            return namespace, _mapping_keys(node, node.func.attr)
     return None
+
+
+def _global_mapping_write(
+    node: ast.AST, bindings: dict[str, str]
+) -> tuple[set[str], bool]:
+    if (write := _mapping_target_write(node)) is not None:
+        mapping, keys = write
+        if isinstance(mapping, ast.Call) and not mapping.args and not mapping.keywords:
+            helper = _builtin_name(mapping.func, bindings)
+            if helper in {"globals", "locals"}:
+                return keys, helper == "globals"
+    return set(), False
+
+
+def _scope_mapping_writes(
+    statement: ast.stmt, bindings: dict[str, str], *, module_scope: bool
+) -> tuple[set[str], set[str]]:
+    names: set[str] = set()
+    globals_: set[str] = set()
+    pending: list[ast.AST] = [statement]
+    while pending:
+        node = pending.pop()
+        pending.extend(_module_children(node))
+        mapping_names, global_mapping = _global_mapping_write(node, bindings)
+        names.update(mapping_names)
+        if global_mapping or module_scope:
+            globals_.update(mapping_names)
+    return names, globals_
 
 
 def _mutated_exports(
@@ -279,13 +312,13 @@ def _literal_aliases(expression: ast.expr) -> list[str] | None:
     return aliases
 
 
-def _invalid_literal_option(keyword: ast.keyword) -> bool:
+def _invalid_literal_option(keyword: ast.keyword, bindings: dict[str, str]) -> bool:
     invalid_members = (
         keyword.arg in {"pre", "post"}
         and isinstance(keyword.value, (ast.List, ast.Tuple, ast.Set))
         and any(
             isinstance(element, (ast.List, ast.Tuple, ast.Set, ast.Dict))
-            or _literal_dependency(element, {})
+            or _literal_dependency(element, bindings)
             for element in keyword.value.elts
         )
     )
@@ -318,12 +351,16 @@ def _literal_default(function: ast.FunctionDef) -> bool:
     return False
 
 
-def _literal_metadata(decorator: ast.expr, name: str) -> tuple[str, list[str]] | None:
+def _literal_metadata(
+    decorator: ast.expr, name: str, bindings: dict[str, str]
+) -> tuple[str, list[str]] | None:
     aliases: list[str] = []
     if not isinstance(decorator, ast.Call):
         return name, aliases
     for keyword in decorator.keywords:
-        if keyword.arg not in _TASK_OPTIONS or _invalid_literal_option(keyword):
+        if keyword.arg not in _TASK_OPTIONS or _invalid_literal_option(
+            keyword, bindings
+        ):
             return None
         if keyword.arg == "name":
             if not isinstance(keyword.value, ast.Constant):
@@ -359,9 +396,6 @@ def _literal_help_matches(function: ast.FunctionDef, decorator: ast.expr) -> boo
         (keyword.value for keyword in decorator.keywords if keyword.arg == "help"), None
     )
     if not isinstance(help_mapping, ast.Dict):
-        return True
-    if any(not isinstance(key, ast.Constant) for key in help_mapping.keys):
-        # Computed keys and unpacked mappings remain outside static validation.
         return True
     keys = {key.value for key in help_mapping.keys if isinstance(key, ast.Constant)}
     args = function.args
@@ -420,7 +454,7 @@ def _task_names(
         )
     ):
         return []
-    metadata = _literal_metadata(decorator, function.name)
+    metadata = _literal_metadata(decorator, function.name, bindings)
     if metadata is None:
         return []
     name, aliases = metadata
@@ -458,7 +492,7 @@ def _import_binding(
     if (
         statement.module == "builtins"
         and not statement.level
-        and alias.name in {"setattr", "delattr", "vars"}
+        and alias.name in _BUILTIN_HELPERS
     ):
         return bound, alias.name
     exports = {
@@ -642,6 +676,8 @@ def _merge_possible_modules(
                 "setattr",
                 "delattr",
                 "vars",
+                "globals",
+                "locals",
             }:
                 previous = bindings.get(bound)
                 bindings[bound] = (
@@ -757,7 +793,11 @@ def _class_block_effects(
             ),
             inspect_classes=not bool(_statement_blocks(statement)),
         )
-        global_writes.update(nested_writes | (written & globals_))
+        mapping_writes = _scope_mapping_writes(
+            statement, class_bindings, module_scope=module_bindings is None
+        )
+        written.update(mapping_writes[0])
+        global_writes.update(mapping_writes[1] | nested_writes | (written & globals_))
         class_taints.update(mutation)
         mutations.update(mutation)
         _forget_class_bindings(
@@ -812,7 +852,12 @@ def _task_binding_effects(
     for statement in statements:
         copies = _copied_tasks(statement, functions)
         default_copies = _copied_defaults(statement, defaults)
-        if isinstance(statement, (ast.Try, ast.TryStar)):
+        if isinstance(statement, ast.If):
+            if isinstance(statement.test, ast.Constant):
+                blocks = [statement.body if statement.test.value else statement.orelse]
+            else:
+                blocks = [statement.body, statement.orelse]
+        elif isinstance(statement, (ast.Try, ast.TryStar)):
             blocks = [
                 statement.body + statement.orelse,
                 *(handler.body for handler in statement.handlers),
@@ -833,9 +878,17 @@ def _task_binding_effects(
             defaults.discard(bound)
         functions.update(copies)
         defaults.update(default_copies)
-        for branch_functions, branch_defaults in branches:
-            functions.update(branch_functions)
-            defaults.update(branch_defaults)
+        if branches:
+            functions.update({
+                bound: tasks
+                for bound, tasks in branches[0][0].items()
+                if all(
+                    branch_functions.get(bound) == tasks
+                    for branch_functions, _ in branches
+                )
+            })
+            for _, branch_defaults in branches:
+                defaults.update(branch_defaults)
         if isinstance(statement, (ast.Try, ast.TryStar)):
             functions, defaults = _task_binding_effects(
                 statement.finalbody, functions, defaults

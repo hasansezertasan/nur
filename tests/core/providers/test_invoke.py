@@ -1210,3 +1210,60 @@ def test_computed_builtin_attribute_mutation_invalidates_exports(mutation: str) 
         )
         == []
     )
+
+
+@pytest.mark.parametrize("condition", ["True", "flag"])
+def test_replaced_task_is_not_restored_by_alternative_branch(condition: str) -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\ndef build(c): ...\n"
+            f"if {condition}:\n build = None\nelse:\n pass\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("option", ["pre", "post"])
+def test_plain_function_hook_is_rejected(option: str) -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\ndef helper(c): ...\n"
+            f"@task({option}=[helper])\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_help_literal_keys_checked_alongside_unpacking() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task(help={'missing': 'text', **extra})\n"
+            "def build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("mapping", ["globals()", "locals()"])
+@pytest.mark.parametrize(
+    "mutation",
+    ["{mapping}['task'] = replacement", "{mapping}.update(task=replacement)"],
+)
+def test_global_namespace_mapping_replaces_decorator(
+    mapping: str, mutation: str
+) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n{mutation.format(mapping=mapping)}\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_class_locals_mapping_does_not_replace_module_decorator() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\nclass Helper:\n locals()['task'] = replacement\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
