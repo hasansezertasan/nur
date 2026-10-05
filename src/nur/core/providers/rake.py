@@ -22,7 +22,10 @@ from nur.core.providers._rake_overrides import (
     record_override,
     scope_headers,
     singleton_class_receiver,
+    singleton_eval_block,
+    singleton_eval_scope,
 )
+from nur.core.providers._rake_raises import load_raise_error
 from nur.core.providers._rake_runtime import (
     empty_for,
     empty_rescue,
@@ -642,6 +645,8 @@ def _deferred_call(owner: Node, method: Node, disabled: set[str]) -> bool:
     name = node_text(method)
     if reader_call(owner, disabled):
         return True
+    if singleton_eval_scope(owner, disabled) and name in SINGLETON_MUTATORS:
+        return True
     if _dsl_receiver(owner):
         return name in _DEFERRED_METHODS - disabled
     receiver = owner.child_by_field_name("receiver")
@@ -700,6 +705,7 @@ def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
 def _load_time_error(root: Node) -> str | None:
     disabled: set[str] = set()
     deferred_calls: set[int] = set()
+    bare_raises = unbound_identifier_ids(root, {"raise", "fail"})
     bare_constructors = unbound_identifier_ids(
         root, {"proc", "lambda", "define_method", "define_singleton_method"}
     )
@@ -736,7 +742,11 @@ def _load_time_error(root: Node) -> str | None:
                 return error
             deferred_calls.add(node.id)
         record_override(node, disabled)
-        error = _load_declaration_error(node, disabled) or load_assignment_error(node)
+        error = (
+            _load_declaration_error(node, disabled)
+            or load_assignment_error(node)
+            or load_raise_error(node, disabled, bare_raises)
+        )
         if error is not None:
             return error
         if _invalid_block_arguments(node):
@@ -773,7 +783,9 @@ def _dsl_overrides(
         if in_begin:
             record_override(node, disabled)
         children = (
-            scope_headers(node) if node.type in opaque else _reachable_children(node)
+            scope_headers(node)
+            if node.type in opaque and not singleton_eval_block(node, disabled)
+            else _reachable_children(node)
         )
         pending.extend((child, in_begin) for child in children)
     return disabled

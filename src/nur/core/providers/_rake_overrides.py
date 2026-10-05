@@ -22,6 +22,8 @@ __all__ = [
     "record_override",
     "scope_headers",
     "singleton_class_receiver",
+    "singleton_eval_block",
+    "singleton_eval_scope",
 ]
 
 _METHODS = {
@@ -77,6 +79,35 @@ def reader_call(node: Node, disabled: set[str]) -> bool:
     return f"reader:{key}" in disabled
 
 
+def singleton_eval_block(node: Node, disabled: set[str]) -> bool:
+    if node.type not in {"block", "do_block"} or node.parent is None:
+        return False
+    owner = node.parent
+    method = owner.child_by_field_name("method")
+    return (
+        method is not None
+        and node_text(method) in {"class_eval", "class_exec"}
+        and singleton_class_receiver(owner.child_by_field_name("receiver"), disabled)
+    )
+
+
+def singleton_eval_scope(node: Node, disabled: set[str]) -> bool:
+    parent = node.parent
+    while parent is not None:
+        if singleton_eval_block(parent, disabled):
+            return main_scope(parent.parent) if parent.parent is not None else False
+        if parent.type in {
+            "method",
+            "singleton_method",
+            "class",
+            "module",
+            "singleton_class",
+        }:
+            return False
+        parent = parent.parent
+    return False
+
+
 def _constructor_scope(node: Node) -> tuple[str | None, bool]:
     parent = node.parent
     singleton_scope = False
@@ -107,13 +138,17 @@ def _set_singleton_override(name: str, disabled: set[str]) -> None:
 
 def _instance_override(node: Node, name: str, disabled: set[str]) -> None:
     prefix, singleton_scope = _constructor_scope(node)
-    if prefix is not None and singleton_scope:
+    if singleton_eval_scope(node, disabled):
+        _set_singleton_override(name, disabled)
+    elif prefix is not None and singleton_scope:
         _set_singleton_override(f"{prefix}.{name}", disabled)
     elif main_scope(node) and name in {
         "proc",
         "lambda",
         "define_singleton_method",
         "singleton_class",
+        "raise",
+        "fail",
     }:
         disabled.add(f"inherited:{name}")
         if f"singleton:{name}" not in disabled:
@@ -123,6 +158,8 @@ def _instance_override(node: Node, name: str, disabled: set[str]) -> None:
         "lambda",
         "define_singleton_method",
         "singleton_class",
+        "raise",
+        "fail",
     }:
         disabled.update({name, f"inherited:{name}"})
 
@@ -238,7 +275,7 @@ def _dynamic_override(node: Node, disabled: set[str]) -> None:
             else []
         )
         mutators = {"define_method", "define_singleton_method"}
-        if singleton_receiver:
+        if singleton_receiver or singleton_eval_scope(node, disabled):
             mutators.update(SINGLETON_MUTATORS)
         if method is not None and node_text(method) in mutators - disabled:
             _record_mutation(
@@ -286,7 +323,9 @@ def _record_attribute_readers(
     node: Node, arguments: list[Node], disabled: set[str]
 ) -> None:
     prefix, _ = _constructor_scope(node)
-    if prefix is None and not main_scope(node):
+    if prefix is None and not (
+        main_scope(node) or singleton_eval_scope(node, disabled)
+    ):
         return
     for argument in arguments:
         if (name := literal(argument)) is not None:
@@ -297,7 +336,9 @@ def _record_attribute_readers(
 
 def _record_removal(node: Node, arguments: list[Node], disabled: set[str]) -> None:
     prefix, _ = _constructor_scope(node)
-    if prefix is None and not main_scope(node):
+    if prefix is None and not (
+        main_scope(node) or singleton_eval_scope(node, disabled)
+    ):
         return
     for argument in arguments:
         name = literal(argument)
@@ -331,6 +372,8 @@ def scope_headers(node: Node) -> list[Node]:
 def main_scope(node: Node) -> bool:
     child, parent = node, node.parent
     while parent is not None:
+        if singleton_eval_block(parent, set()):
+            return False
         if parent.type in {
             "class",
             "module",

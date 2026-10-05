@@ -3427,3 +3427,79 @@ def test_removing_same_singleton_override_twice_rejects_loading():
 def test_inactive_invalid_removal_keeps_tasks():
     source = "if false; singleton_class.remove_method(:task); end; task :safe"
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "expression", ['raise "stop"', 'fail "stop"', "raise", 'Kernel.raise "stop"']
+)
+@pytest.mark.parametrize(
+    "context", ["{body}", "if true; {body}; end", "namespace :group do; {body}; end"]
+)
+def test_reachable_uncaught_raise_rejects_loading(expression, context, caplog):
+    source = "task :before; " + context.format(body=expression) + "; task :after"
+    assert parse_rakefile(source) == []
+    assert "uncaught raise during loading" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'begin; raise "stop"; rescue; end',
+        'begin; raise "stop"; rescue RuntimeError; end',
+        'begin; raise "stop"; rescue StandardError; end',
+        'raise "stop" rescue nil',
+        'if false; raise "stop"; end',
+        'task :safe do; raise "stop"; end',
+        'def helper; raise "stop"; end',
+        'def raise(*); end; raise "stop"',
+        'def self.raise(*); end; raise "stop"',
+    ],
+)
+def test_rescued_inactive_or_overridden_raise_keeps_discovery(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'begin; raise "stop"; rescue ArgumentError; end',
+        'begin; raise "stop"; rescue; raise "again"; end',
+        'begin; nil; rescue; nil; ensure; raise "stop"; end',
+        'begin; nil; rescue; nil; else; raise "stop"; end',
+        "begin; raise SystemExit; rescue; end",
+    ],
+)
+def test_rescue_that_does_not_handle_raise_rejects_loading(body):
+    assert parse_rakefile("task :before; " + body + "; task :after") == []
+
+
+@pytest.mark.parametrize("method", ["class_eval", "class_exec"])
+@pytest.mark.parametrize("receiver", ["singleton_class", "self.singleton_class()"])
+def test_singleton_class_evaluation_replaces_main_dsl(method, receiver):
+    source = (
+        f"task :before; {receiver}.{method} {{ define_method(:task) {{ |*| }} }}; "
+        "task :ghost"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["before"]
+
+
+@pytest.mark.parametrize("method", ["class_eval", "class_exec"])
+def test_singleton_class_evaluation_method_bodies_are_deferred(method):
+    source = (
+        f"singleton_class.{method} {{ define_method(:helper) {{ /#{{pattern}}/ }} }}; "
+        "task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_singleton_class_evaluation_self_definition_does_not_replace_main():
+    source = "singleton_class.class_eval { def self.task(*); end }; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_unrelated_class_evaluation_does_not_replace_main():
+    source = (
+        "class Other; singleton_class.class_eval { define_method(:task) { |*| } }; "
+        "end; task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
