@@ -1904,3 +1904,54 @@ def test_replaced_handler_name_may_catch_typeerror() -> None:
         "@task\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    ("decorator", "signature", "fatal"),
+    [
+        ("task(klass=1)", "c", True),
+        ("task(setup, pre=[setup])", "c", True),
+        ("task(klass=Custom)", "c", False),
+        ("task(**options)", "c", False),
+        ("task(lambda c: None)", "c", True),
+        ("task", "", True),
+        ("task(optional=None)", "c", True),
+        ("task()", "c", False),
+        ("other", "c", False),
+    ],
+)
+def test_incompatible_handler_checks_known_constructor_failures(
+    decorator: str, signature: str, *, fatal: bool
+) -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task\ndef setup(c): ...\ntry:\n"
+        f" @{decorator}\n def broken({signature}): ...\nexcept ValueError:\n pass\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ([] if fatal else ["setup", "build"])
+
+
+def test_computed_default_does_not_prove_default_collision() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task(default=computed)\ndef first(c): ...\n"
+        "@task(default=True)\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["first", "build"]
+
+
+def test_computed_alias_member_is_not_resolved() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task(aliases=['literal', computed])\n"
+        "def other(c): ...\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_string_loop_fatal_prefix_before_break() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\nfor item in 'x':\n @task(unknown=True)\n"
+            " def broken(c): ...\n break\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
