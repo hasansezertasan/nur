@@ -2651,3 +2651,57 @@ def test_kernel_singleton_override_does_not_replace_bare_proc():
         "proc { /#{pattern}/ }; task :safe"
     )
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    ["super", "super(1)", "namespace :db do; super; end", "class Example; super; end"],
+)
+def test_load_time_super_aborts_discovery(body, caplog):
+    assert parse_rakefile(f"task :before; {body}; task :after") == []
+    assert "super outside method" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "defined?(super)",
+        "task :deferred do; super; end",
+        "def helper; super; end",
+        "if false; super; end",
+    ],
+)
+def test_deferred_or_unreachable_super_preserves_tasks(body):
+    assert [task.name for task in parse_rakefile(f"{body}; task :safe")][-1] == "safe"
+
+
+@pytest.mark.parametrize("method", ["proc", "lambda", "define_singleton_method"])
+def test_kernel_instance_constructor_overrides_validate_blocks(method):
+    source = (
+        f"task :before; module Kernel; def {method}(*); yield; end; end; "
+        f"{method} {{ /#{{pattern}}/ }}"
+    )
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "class Helper; class << self; end; end",
+        "class Helper; def self.task(*); end; end",
+        "class Helper; define_singleton_method(:task) { |*| }; end",
+    ],
+)
+def test_nested_self_definitions_do_not_disable_main_dsl(body):
+    assert [
+        task.name
+        for task in parse_rakefile(f"{body}; task(:safe) {{ /#{{pattern}}/ }}")
+    ] == ["safe"]
+
+
+def test_kernel_nested_singleton_scope_disables_qualified_constructor():
+    source = (
+        "module Kernel; class << self; def proc(*); yield; end; end; end; "
+        "Kernel.proc { /#{pattern}/ }"
+    )
+    assert parse_rakefile(f"task :before; {source}") == []

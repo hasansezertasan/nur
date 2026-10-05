@@ -668,6 +668,8 @@ def _load_time_children(node: Node, deferred_calls: set[int]) -> list[Node]:
 
 
 def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
+    if node.type == "super":
+        return "super outside method during loading"
     method = node.child_by_field_name("method")
     if node.type != "call" or method is None or not _dsl_receiver(node):
         return None
