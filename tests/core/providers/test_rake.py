@@ -339,3 +339,35 @@ def test_control_outside_block_or_loop_rejects_whole_file(control, caplog):
 def test_loop_control_in_opaque_task_body_is_valid(control):
     tasks = parse_rakefile(f"task :build do\n while true\n  {control}\n end\nend\n")
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("scope", ["class", "module"])
+def test_return_in_class_or_module_rejects_whole_file(scope, caplog):
+    text = f"task :before\n{scope} Helper\n return\nend\ntask :after\n"
+    assert parse_rakefile(text) == []
+    assert "return in class or module body" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "class Helper; def helper; return; end; end",
+        "class Helper; [1].each { return }; end",
+        "module Helper; -> { return }; end",
+        "class Helper; class << self; return; end; end",
+    ],
+)
+def test_returns_in_method_and_block_scopes_are_valid(body):
+    tasks = parse_rakefile(f"{body}\ntask :build\n")
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("method", ["task", "namespace", "desc"])
+def test_ordinary_methods_do_not_override_rake_singleton_dsl(method):
+    tasks = parse_rakefile(
+        f"def {method}(*args); end\n"
+        'namespace :db do\n desc "Real task"\n task :build\nend\n'
+    )
+    assert [(task.name, task.description) for task in tasks] == [
+        ("db:build", "Real task")
+    ]

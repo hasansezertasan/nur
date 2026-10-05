@@ -149,19 +149,36 @@ def _description(arguments: list[Node]) -> str | None:
     return _literal(arguments[0]) if len(arguments) == 1 else None
 
 
+def _return_scope(node: Node, *, inherited: bool) -> bool:
+    if node.type in {"class", "module"}:
+        return False
+    return inherited or node.type in {
+        "method",
+        "singleton_method",
+        "singleton_class",
+        "lambda",
+        "block",
+        "do_block",
+    }
+
+
 def _control_flow_error(root: Node) -> str | None:
     """Validate Ruby control placement beyond the grammar's syntax shapes.
 
     Invalid placement prevents the whole file loading, even in opaque task
     bodies. Retry needs a rescue; break/next/redo need a block or loop. New
     method/class scopes reset both permissions; ensure resets retry only.
+    Direct returns in class/module bodies are invalid, unlike method/block returns.
     """
-    pending = [(root, False, False)]
+    pending = [(root, False, False, True)]
     new_scopes = {"method", "singleton_method", "class", "singleton_class", "module"}
     blocks = {"lambda", "block", "do_block"}
     loops = {"while", "until", "for", "while_modifier", "until_modifier"}
     while pending:
-        node, in_rescue, in_iteration = pending.pop()
+        node, in_rescue, in_iteration, in_return_scope = pending.pop()
+        in_return_scope = _return_scope(node, inherited=in_return_scope)
+        if node.type == "return" and not in_return_scope:
+            return "return in class or module body"
         if node.type == "retry" and not in_rescue:
             return "retry outside rescue"
         if node.type in {"break", "next", "redo"} and not in_iteration:
@@ -178,6 +195,7 @@ def _control_flow_error(root: Node) -> str | None:
                 child,
                 in_rescue or child == rescue_body,
                 in_iteration or child == iteration_body,
+                in_return_scope,
             )
             for child in node.named_children
         )
