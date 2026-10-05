@@ -2069,3 +2069,79 @@ def test_short_circuit_left_operand_effects_are_still_scanned():
 def test_unreachable_initializer_short_circuit_controls_preserve_tasks(expression):
     tasks = parse_rakefile(f"BEGIN {{ {expression} }}; task :build")
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "def helper(options); return **options; end",
+        "proc { next **options }",
+        "while true; break **options; end",
+        "def helper(**); return **; end",
+        "def helper(**); while true; break **; end; end",
+        "def helper(*); return *; end",
+    ],
+)
+def test_unparenthesized_control_splats_are_valid(body):
+    assert [task.name for task in parse_rakefile(f"{body}; task :build")] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "class << (def self.task(*args); end; self); end",
+        "class C < (def self.task(*args); end; Object); end",
+    ],
+)
+def test_load_time_class_and_method_headers_install_dsl_overrides(body):
+    tasks = parse_rakefile(f"task :before; {body}; task :hidden")
+    assert [task.name for task in tasks] == ["before"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'value = /#{")"}/',
+        "value = /#{pattern}/",
+        "namespace :db do; value = /#{pattern}/; end",
+        "class C; value = /#{pattern}/; end",
+        "BEGIN { value = /#{pattern}/ }",
+        "[1].each { /#{pattern}/ }",
+    ],
+)
+def test_load_time_interpolated_regexps_are_conservatively_rejected(body, caplog):
+    assert parse_rakefile(f"task :before; {body}; task :after") == []
+    assert "interpolated regexp during loading" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'def helper; value = /#{")"}/; end',
+        'task :hidden do; value = /#{")"}/; end',
+        'callback = -> { /#{")"}/ }',
+        'callback = proc { /#{")"}/ }',
+        'END { /#{")"}/ }',
+        'if false; value = /#{")"}/; end',
+        'false && /#{")"}/',
+        'defined?(/#{")"}/)',
+    ],
+)
+def test_deferred_or_inactive_interpolated_regexps_preserve_tasks(body):
+    tasks = parse_rakefile(f"{body}; task :build")
+    assert [task.name for task in tasks] == (
+        ["hidden", "build"] if "task :hidden" in body else ["build"]
+    )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "def helper(**); proc { next ** }; end",
+        "def helper(*); proc { next * }; end",
+        "def (def self.task(*args); end; self).helper; end",
+    ],
+)
+def test_unrecognized_ruby_grammar_remains_conservatively_skipped(body, caplog):
+    assert parse_rakefile(f"{body}; task :build") == []
+    assert "invalid Ruby syntax" in caplog.text

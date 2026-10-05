@@ -525,20 +525,16 @@ def _regexp_error(node: Node) -> str | None:
 def _control_argument_valid(control: str, argument: Node) -> bool:
     if argument.type in {"block_argument", "forward_argument"}:
         return False
-    if control == "yield":
-        return True
-    if argument.type in {"pair", "hash_splat_argument"}:
-        return False
-    return argument.type != "splat_argument" or any(
-        child.type != "comment" for child in argument.named_children
-    )
+    return control == "yield" or argument.type != "pair"
 
 
 def _control_parentheses_valid(control: str, arguments: Node) -> bool:
     if control == "yield" or arguments.children[0].type != "(":
         return True
     values = [child for child in arguments.named_children if child.type != "comment"]
-    return len(values) <= 1 and all(value.type != "splat_argument" for value in values)
+    return len(values) <= 1 and all(
+        value.type not in {"splat_argument", "hash_splat_argument"} for value in values
+    )
 
 
 def _control_arguments_error(node: Node) -> str | None:

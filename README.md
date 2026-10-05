@@ -187,6 +187,8 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   Files with complex or encoding-sensitive regexp literals
   (such as named groups, lookbehinds or Unicode property escapes)
   are skipped with a warning.
+  Interpolated regexps evaluated during loading also cause a file to be skipped;
+  interpolated regexps in deferred task or method bodies stay opaque.
 
   `tox` reads the first applicable config file present, in priority order:
   `tox.ini`, `setup.cfg` (`[tox:tox]`), `pyproject.toml` (`[tool.tox]`), then

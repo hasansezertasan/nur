@@ -517,6 +517,43 @@ def _conditional_children(node: Node) -> list[Node]:
     return node.named_children
 
 
+def _scope_headers(node: Node) -> list[Node]:
+    return [
+        child
+        for field in ("object", "value", "name", "superclass")
+        if (child := node.child_by_field_name(field)) is not None
+    ]
+
+
+def _load_time_children(node: Node) -> list[Node]:
+    if node.type in {"method", "singleton_method", "lambda", "end_block"}:
+        return _scope_headers(node)
+    if node.type in {"block", "do_block"}:
+        owner = node.parent
+        method = owner.child_by_field_name("method") if owner is not None else None
+        if (
+            owner is not None
+            and method is not None
+            and owner.child_by_field_name("receiver") is None
+            and node_text(method)
+            in {"task", "multitask", "file", "rule", "proc", "lambda"}
+        ):
+            return []
+    return _reachable_children(node)
+
+
+def _load_time_regexp_error(root: Node) -> str | None:
+    pending = [root]
+    while pending:
+        node = pending.pop()
+        if node.type == "regex" and any(
+            child.type == "interpolation" for child in node.named_children
+        ):
+            return "unsupported interpolated regexp during loading"
+        pending.extend(_load_time_children(node))
+    return None
+
+
 def _dsl_overrides(root: Node, *, in_scope: bool = False) -> set[str]:
     # Ruby executes BEGIN bodies before ordinary statements, even when the
     # BEGIN appears later in the file or has an active postfix condition.
@@ -538,8 +575,10 @@ def _dsl_overrides(root: Node, *, in_scope: bool = False) -> set[str]:
         in_begin = in_begin or node.type == "begin_block"
         if in_begin:
             _record_override(node, disabled)
-        if node.type not in opaque:
-            pending.extend((child, in_begin) for child in _reachable_children(node))
+        children = (
+            _scope_headers(node) if node.type in opaque else _reachable_children(node)
+        )
+        pending.extend((child, in_begin) for child in children)
     return disabled
 
 
@@ -696,6 +735,10 @@ def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
         log.warning("nur: skipping %s (%s)", source_file, control_error)
         return []
     if _begin_exits(root):
+        return []
+    regexp_error = _load_time_regexp_error(root)
+    if regexp_error is not None:
+        log.warning("nur: skipping %s (%s)", source_file, regexp_error)
         return []
     tasks: dict[str, Task] = {}
     descriptions: dict[str, list[str]] = {}
