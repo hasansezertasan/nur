@@ -43,7 +43,7 @@ _METHODS = {
 }
 
 
-TERMINATING_METHODS = frozenset({"raise", "fail", "exit", "exit!", "abort"})
+TERMINATING_METHODS = frozenset({"raise", "fail", "exit", "exit!", "abort", "throw"})
 DEFERRED_METHODS = frozenset(_METHODS - {"namespace"})
 RAKE_METHODS = frozenset(
     _METHODS - {"proc", "lambda", "define_method", "define_singleton_method"}
@@ -158,6 +158,8 @@ def _instance_override(node: Node, name: str, disabled: set[str]) -> None:
         "exit",
         "exit!",
         "abort",
+        "throw",
+        "catch",
     }:
         disabled.add(f"inherited:{name}")
         if f"singleton:{name}" not in disabled:
@@ -172,6 +174,8 @@ def _instance_override(node: Node, name: str, disabled: set[str]) -> None:
         "exit",
         "exit!",
         "abort",
+        "throw",
+        "catch",
     }:
         disabled.update({name, f"inherited:{name}"})
 

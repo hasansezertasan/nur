@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from nur.core.providers._rake_overrides import TERMINATING_METHODS, receiver_name
-from nur.core.providers._rake_syntax import is_self, node_text
+from nur.core.providers._rake_syntax import is_self, literal, node_text
 
 if TYPE_CHECKING:
     from tree_sitter import Node
@@ -288,6 +288,54 @@ def handled_error(node: Node, kind: str) -> bool:
     return False
 
 
+_THROW_MAX_ARGS = 2
+
+
+def _caught_throw(node: Node, disabled: set[str]) -> bool:
+    arguments = _arguments(node)
+    if not arguments or len(arguments) > _THROW_MAX_ARGS:
+        return False
+    tag = arguments[0]
+    if tag.type not in {"simple_symbol", "delimited_symbol"}:
+        return False
+    parent = node.parent
+    while parent is not None:
+        if parent.type in {"block", "do_block"} and parent.parent is not None:
+            owner = parent.parent
+            if _catch_matches(owner, tag, disabled):
+                return True
+        parent = parent.parent
+    return False
+
+
+def _catch_matches(owner: Node, tag: Node, disabled: set[str]) -> bool:
+    method = owner.child_by_field_name("method")
+    if method is None or node_text(method) != "catch":
+        return False
+    receiver = owner.child_by_field_name("receiver")
+    key = (
+        "catch"
+        if receiver is None or is_self(receiver)
+        else f"{receiver_name(receiver)}.catch"
+    )
+    tags = _arguments(owner)
+    return (
+        key in {"catch", "Kernel.catch"} - disabled
+        and len(tags) == 1
+        and tags[0].type in {"simple_symbol", "delimited_symbol"}
+        and literal(tags[0]) == literal(tag)
+    )
+
+
+def _termination_kind(node: Node, name: str) -> str:
+    if name in {"exit", "exit!", "abort"}:
+        return _exit_kind(node, name)
+    if name == "throw":
+        count = len(_arguments(node))
+        return "UncaughtThrowError" if 0 < count <= _THROW_MAX_ARGS else "ArgumentError"
+    return _raised_kind(node)
+
+
 def load_raise_error(
     node: Node, disabled: set[str], bare_raises: set[int]
 ) -> str | None:
@@ -311,7 +359,9 @@ def load_raise_error(
     if key not in known or key in disabled:
         return None
     exit_call = name in {"exit", "exit!", "abort"}
-    kind = _exit_kind(node, name) if exit_call else _raised_kind(node)
+    kind = _termination_kind(node, name)
+    if name == "throw" and _caught_throw(node, disabled):
+        return None
     if (name != "exit!" or kind != "SystemExit") and handled_error(node, kind):
         return None
     return (

@@ -3739,3 +3739,61 @@ def test_rescued_exception_values_preserve_task_discovery(expression, handler):
 )
 def test_dynamic_alias_and_handled_splatted_exit_preserve_discovery(body):
     assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "expression", ["throw :stop", "Kernel.throw(:stop)", "throw(:stop, 1)"]
+)
+def test_uncaught_load_time_throw_rejects_discovery(expression):
+    assert parse_rakefile(f"task :before; {expression}; task :after") == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "begin; throw :stop; rescue UncaughtThrowError; end",
+        "begin; throw :stop; rescue StandardError; end",
+        "catch(:stop) { throw :stop }",
+        "catch(:outer) { catch(:stop) { throw :stop } }",
+        "if false; throw :stop; end",
+        "task :safe do; throw :stop; end",
+        "def throw(*); end; throw :stop",
+        "def self.throw(*); end; throw :stop",
+        "def Kernel.throw(*); end; Kernel.throw(:stop)",
+    ],
+)
+def test_handled_deferred_or_overridden_throw_keeps_tasks(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+def test_mismatched_catch_does_not_handle_throw():
+    assert (
+        parse_rakefile("task :before; catch(:other) { throw :stop }; task :after") == []
+    )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "begin; throw; rescue ArgumentError; end",
+        "begin; throw :stop, 1, 2; rescue ArgumentError; end",
+        "catch(:stop) { throw :stop, 1 }",
+        "Kernel.catch(:stop) { Kernel.throw(:stop) }",
+        "catch(:other) { begin; throw 1; rescue UncaughtThrowError; end }",
+    ],
+)
+def test_throw_arguments_and_qualified_catch_keep_valid_tasks(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "def catch(*); yield; end; catch(:stop) { throw :stop }",
+        "other.catch(:stop) { throw :stop }",
+        "catch('stop') { throw :stop }",
+        "catch { throw :stop }",
+    ],
+)
+def test_nonmatching_or_overridden_catch_cannot_handle_throw(body):
+    assert parse_rakefile("task :before; " + body + "; task :after") == []
