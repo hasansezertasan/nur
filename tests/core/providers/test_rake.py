@@ -960,3 +960,28 @@ def test_readonly_match_globals_reject_whole_file(target, form, caplog):
 def test_writable_globals_preserve_discovery(target):
     tasks = parse_rakefile(f"{target} = nil; task :build")
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("name", ["helper=", "[]="])
+@pytest.mark.parametrize("receiver", ["", "self."])
+def test_endless_setters_reject_whole_file(name, receiver, caplog):
+    assert (
+        parse_rakefile(
+            f"task :before; def {receiver}{name}(value) = value; task :after"
+        )
+        == []
+    )
+    assert "endless setter" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "name", ["helper", "==", "===", "!=", "<=", ">=", "=~", "<=>", "[]"]
+)
+def test_endless_ordinary_and_operator_methods_are_valid(name):
+    tasks = parse_rakefile(f"def {name}(value) = value; task :build")
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_normal_setter_methods_are_valid():
+    tasks = parse_rakefile("def helper=(value); value; end; task :build")
+    assert [task.name for task in tasks] == ["build"]

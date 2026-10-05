@@ -375,12 +375,25 @@ def _node_binding_error(node: Node) -> str | None:
     return None
 
 
+def _endless_setter(node: Node) -> bool:
+    if node.type not in {"method", "singleton_method"}:
+        return False
+    name = node.child_by_field_name("name")
+    return (
+        name is not None
+        and (name.type == "setter" or _text(name) == "[]=")
+        and any(child.type == "=" for child in node.children)
+    )
+
+
 def _method_context_error(root: Node) -> str | None:
     # Blocks retain their enclosing method scope; class bodies start a new one.
     # These compile-time restrictions apply even inside undiscovered bodies.
     pending = [(root, False)]
     while pending:
         node, in_method = pending.pop()
+        if _endless_setter(node):
+            return "endless setter definition"
         error = _node_binding_error(node) or _assignment_error(
             node, in_method=in_method
         )
