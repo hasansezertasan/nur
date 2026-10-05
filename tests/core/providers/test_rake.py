@@ -341,9 +341,10 @@ def test_loop_control_in_opaque_task_body_is_valid(control):
     assert [task.name for task in tasks] == ["build"]
 
 
-@pytest.mark.parametrize("scope", ["class", "module"])
+@pytest.mark.parametrize("scope", ["class", "module", "class <<"])
 def test_return_in_class_or_module_rejects_whole_file(scope, caplog):
-    text = f"task :before\n{scope} Helper\n return\nend\ntask :after\n"
+    declaration = "class << self" if scope == "class <<" else f"{scope} Helper"
+    text = f"task :before\n{declaration}\n return\nend\ntask :after\n"
     assert parse_rakefile(text) == []
     assert "return in class or module body" in caplog.text
 
@@ -354,7 +355,8 @@ def test_return_in_class_or_module_rejects_whole_file(scope, caplog):
         "class Helper; def helper; return; end; end",
         "class Helper; [1].each { return }; end",
         "module Helper; -> { return }; end",
-        "class Helper; class << self; return; end; end",
+        "class Helper; class << self; def helper; return; end; end; end",
+        "def helper; class << self; return; end; end",
     ],
 )
 def test_returns_in_method_and_block_scopes_are_valid(body):
@@ -448,3 +450,43 @@ def test_constant_assignments_in_valid_scopes_and_receivers(body):
 def test_constant_assignment_in_method_default_rejects_whole_file(caplog):
     assert parse_rakefile("def helper(x = (CONST = 1)); end\ntask :build\n") == []
     assert "constant assignment inside method" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "def helper; class Helper; end; end",
+        "def self.helper; module Helper; end; end",
+        "def helper; -> { class Helper; end }; end",
+        "def helper; if false; module Helper; end; end; end",
+    ],
+)
+def test_class_or_module_inside_method_rejects_whole_file(body, caplog):
+    assert parse_rakefile(f"task :before\n{body}\ntask :after\n") == []
+    assert "class or module definition inside method" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "task :hidden do; BEGIN {}; end",
+        "def helper; BEGIN {}; end",
+        "class Helper; BEGIN {}; end",
+        "if false; BEGIN {}; end",
+        "begin; BEGIN {}; end",
+        "END { BEGIN {} }",
+    ],
+)
+def test_begin_outside_top_level_rejects_whole_file(body, caplog):
+    assert parse_rakefile(f"task :before\n{body}\ntask :after\n") == []
+    assert "BEGIN outside top level" in caplog.text
+
+
+def test_nested_top_level_begin_blocks_are_valid():
+    tasks = parse_rakefile("BEGIN { BEGIN {} }\ntask :build\n")
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_singleton_receiver_return_keeps_enclosing_file_scope():
+    tasks = parse_rakefile("task :before\nclass << (return; self); end\n")
+    assert [task.name for task in tasks] == ["before"]

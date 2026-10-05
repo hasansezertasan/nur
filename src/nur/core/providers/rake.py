@@ -149,17 +149,20 @@ def _description(arguments: list[Node]) -> str | None:
     return _literal(arguments[0]) if len(arguments) == 1 else None
 
 
-def _return_scope(node: Node, *, inherited: bool) -> bool:
+def _return_scope(node: Node, child: Node, *, inherited: bool | None) -> bool | None:
     if node.type in {"class", "module"}:
-        return False
-    return inherited or node.type in {
-        "method",
-        "singleton_method",
-        "singleton_class",
-        "lambda",
-        "block",
-        "do_block",
-    }
+        return False if child == node.child_by_field_name("body") else inherited
+    if node.type == "singleton_class":
+        return (
+            inherited is True
+            if child == node.child_by_field_name("body")
+            else inherited
+        )
+    if node.type == "singleton_method" and child == node.child_by_field_name("object"):
+        return inherited
+    if node.type in {"method", "singleton_method", "lambda", "block", "do_block"}:
+        return True
+    return inherited
 
 
 def _control_flow_error(root: Node) -> str | None:
@@ -168,16 +171,18 @@ def _control_flow_error(root: Node) -> str | None:
     Invalid placement prevents the whole file loading, even in opaque task
     bodies. Retry needs a rescue; break/next/redo need a block or loop. New
     method/class scopes reset both permissions; ensure resets retry only.
-    Direct returns in class/module bodies are invalid, unlike method/block returns.
+    Class/module returns are invalid. Singleton-class returns need an enclosing
+    method or block in current Ruby.
     """
-    pending = [(root, False, False, True)]
+    # None denotes file scope: return is valid there, but not in a nested
+    # singleton class unless an enclosing method or block permits it.
+    pending: list[tuple[Node, bool, bool, bool | None]] = [(root, False, False, None)]
     new_scopes = {"method", "singleton_method", "class", "singleton_class", "module"}
     blocks = {"lambda", "block", "do_block"}
     loops = {"while", "until", "for", "while_modifier", "until_modifier"}
     while pending:
         node, in_rescue, in_iteration, in_return_scope = pending.pop()
-        in_return_scope = _return_scope(node, inherited=in_return_scope)
-        if node.type == "return" and not in_return_scope:
+        if node.type == "return" and in_return_scope is False:
             return "return in class or module body"
         if node.type == "retry" and not in_rescue:
             return "retry outside rescue"
@@ -195,7 +200,7 @@ def _control_flow_error(root: Node) -> str | None:
                 child,
                 in_rescue or child == rescue_body,
                 in_iteration or child == iteration_body,
-                in_return_scope,
+                _return_scope(node, child, inherited=in_return_scope),
             )
             for child in node.named_children
         )
@@ -232,6 +237,14 @@ def _method_context_error(root: Node) -> str | None:
     pending = [(root, False)]
     while pending:
         node, in_method = pending.pop()
+        if node.type in {"class", "module"} and in_method:
+            return "class or module definition inside method"
+        if (
+            node.type == "begin_block"
+            and node.parent is not None
+            and node.parent.type not in {"program", "begin_block"}
+        ):
+            return "BEGIN outside top level"
         if node.type == "yield" and not in_method:
             return "yield outside method"
         if (
