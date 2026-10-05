@@ -2404,3 +2404,67 @@ def test_starred_loop_break_does_not_guarantee_else() -> None:
         " @task(unknown=True)\n def broken(c): ...\n@task\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "inner",
+    [
+        "for j in [1]: break",
+        "while True: break",
+        "for j in []:\n  pass\n else: pass",
+        "if False: break",
+    ],
+)
+def test_nested_loop_break_does_not_hide_outer_fatal_else(inner: str) -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\nfor i in [1]:\n "
+            + inner
+            + "\nelse:\n @task(unknown=True)\n def broken(c): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_nested_loop_else_break_targets_outer_loop() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\nfor i in [1]:\n for j in []: pass\n else: break\n"
+        "else:\n @task(unknown=True)\n def broken(c): ...\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "x = 1",
+        "x = y = []",
+        "x = {'key': [1, None]}",
+        "x = 1 < 2",
+        "x = False and computed",
+    ],
+)
+def test_literal_name_assignment_try_reaches_fatal_else(body: str) -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\ntry:\n "
+            + body
+            + "\nexcept Exception: pass\nelse:\n @task(unknown=True)\n"
+            " def broken(c): ...\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "body", ["holder.x = 1", "x = compute()", "x = computed", "x, y = [1]", "x = {[1]}"]
+)
+def test_potentially_raising_assignment_try_does_not_guarantee_else(body: str) -> None:
+    tasks = parse_tasks(
+        "from invoke import task\ntry:\n "
+        + body
+        + "\nexcept Exception: pass\nelse:\n @task(unknown=True)\n"
+        " def broken(c): ...\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]

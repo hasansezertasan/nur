@@ -149,9 +149,26 @@ def loop_exhausts(statement: ast.For | ast.AsyncFor | ast.While) -> bool:
         isinstance(statement.iter, ast.Constant)
         and isinstance(statement.iter.value, (str, bytes))
     )
-    return finite and not any(
-        isinstance(node, ast.Break) for node in ast.walk(statement)
-    )
+    return finite and not _loop_breaks(statement.body)
+
+
+def _loop_breaks(statements: list[ast.stmt]) -> bool:
+    pending: list[ast.AST] = list(statements)
+    while pending:
+        node = pending.pop()
+        if isinstance(node, ast.Break):
+            return True
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        if isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
+            # A break in a nested loop body exits that loop. Its else suite,
+            # however, executes outside the nested loop and can exit ours.
+            pending.extend(node.orelse)
+        elif isinstance(node, ast.If) and constant_truth(node.test) is not None:
+            pending.extend(node.body if constant_truth(node.test) else node.orelse)
+        else:
+            pending.extend(ast.iter_child_nodes(node))
+    return False
 
 
 def loop_must_enter(statement: ast.For | ast.AsyncFor | ast.While) -> bool:
@@ -263,15 +280,20 @@ def exception_taints(written: set[str]) -> set[str]:
     }
 
 
-def nonraising_block(statements: list[ast.stmt]) -> bool:
-    return all(
-        isinstance(statement, ast.Pass)
-        or (
-            isinstance(statement, ast.Expr)
-            and isinstance(statement.value, ast.Constant)
-        )
-        for statement in statements
+def _nonraising_statement(statement: ast.stmt) -> bool:
+    if isinstance(statement, ast.Pass):
+        return True
+    if isinstance(statement, ast.Expr):
+        return _constant_value(statement.value) is not _UNKNOWN
+    return (
+        isinstance(statement, ast.Assign)
+        and all(isinstance(target, ast.Name) for target in statement.targets)
+        and _constant_value(statement.value) is not _UNKNOWN
     )
+
+
+def nonraising_block(statements: list[ast.stmt]) -> bool:
+    return all(_nonraising_statement(statement) for statement in statements)
 
 
 MAX_UNROLLED_ITERATIONS = 2
