@@ -225,19 +225,43 @@ def _control_flow_error(root: Node) -> str | None:
     return None
 
 
-def _constant_target(node: Node | None) -> bool:
-    pending = [node] if node is not None else []
+def _assignment_error(node: Node, *, in_method: bool) -> str | None:
+    field_name = {
+        "assignment": "left",
+        "operator_assignment": "left",
+        "for": "pattern",
+        "rescue": "variable",
+    }.get(node.type)
+    target = node.child_by_field_name(field_name) if field_name else None
+    pending = [target] if target is not None else []
     while pending:
         target = pending.pop()
-        if target.type in {"constant", "scope_resolution"}:
-            return True
+        if target.type in {"nil", "true", "false", "self"}:
+            return "nonassignable target"
+        if in_method and target.type in {"constant", "scope_resolution"}:
+            return "constant assignment inside method"
         if target.type in {
             "left_assignment_list",
             "destructured_left_assignment",
             "rest_assignment",
+            "exception_variable",
         }:
             pending.extend(target.named_children)
-    return False
+    return None
+
+
+def _begin_at_top_level(node: Node) -> bool:
+    parent = node.parent
+    modifiers = {
+        "if_modifier",
+        "unless_modifier",
+        "while_modifier",
+        "until_modifier",
+        "rescue_modifier",
+    }
+    while parent is not None and parent.type in modifiers:
+        parent = parent.parent
+    return parent is not None and parent.type in {"program", "begin_block"}
 
 
 def _method_context(node: Node, child: Node, *, inherited: bool) -> bool:
@@ -321,27 +345,17 @@ def _method_context_error(root: Node) -> str | None:
     pending = [(root, False)]
     while pending:
         node, in_method = pending.pop()
-        error = _node_binding_error(node)
+        error = _node_binding_error(node) or _assignment_error(
+            node, in_method=in_method
+        )
         if error is not None:
             return error
         if node.type in {"class", "module"} and in_method:
             return "class or module definition inside method"
-        if (
-            node.type == "begin_block"
-            and node.parent is not None
-            and node.parent.type not in {"program", "begin_block"}
-        ):
+        if node.type == "begin_block" and not _begin_at_top_level(node):
             return "BEGIN outside top level"
         if node.type == "yield" and not in_method:
             return "yield outside method"
-        if (
-            in_method
-            and node.type in {"assignment", "operator_assignment", "for"}
-            and _constant_target(
-                node.child_by_field_name("pattern" if node.type == "for" else "left")
-            )
-        ):
-            return "constant assignment inside method"
         pending.extend(
             (child, _method_context(node, child, inherited=in_method))
             for child in node.named_children
@@ -353,15 +367,19 @@ def _method_context_error(root: Node) -> str | None:
 class _LocalScope:
     parent: _LocalScope | None = None
     names: set[str] = field(default_factory=set)
+    implicit_names: set[str] = field(default_factory=set)
     block: bool = False
     explicit: bool = False
     numbered: bool = False
     inner_numbered: bool = False
+    implicit_it: bool = False
 
-    def contains(self, name: str) -> bool:
+    def contains(self, name: str, *, include_implicit: bool = True) -> bool:
         current: _LocalScope | None = self
         while current is not None:
-            if name in current.names:
+            if name in current.names or (
+                include_implicit and name in current.implicit_names
+            ):
                 return True
             current = current.parent
         return False
@@ -371,6 +389,8 @@ class _LocalScope:
             return None
         if self.explicit:
             return "numbered parameter with explicit block parameters"
+        if self.implicit_it:
+            return "numbered parameter with implicit it"
         if self.inner_numbered:
             return "numbered parameter already used in inner block"
         outer = self.parent
@@ -380,7 +400,20 @@ class _LocalScope:
             outer.inner_numbered = True
             outer = outer.parent
         self.numbered = True
-        self.names.update(f"_{number}" for number in range(1, int(name[1]) + 1))
+        self.implicit_names.update(
+            f"_{number}" for number in range(1, int(name[1]) + 1)
+        )
+        return None
+
+    def use_it(self) -> str | None:
+        if not self.block or self.contains("it", include_implicit=False):
+            return None
+        if self.explicit:
+            return "implicit it with explicit block parameters"
+        if self.numbered:
+            return "implicit it with numbered parameter"
+        self.implicit_it = True
+        self.implicit_names.add("it")
         return None
 
 
@@ -463,8 +496,8 @@ def _scope_steps(
     return [(child, scope, child == target) for child in node.named_children]
 
 
-def _numbered_reference(node: Node) -> bool:
-    if node.type != "identifier" or re.fullmatch(r"_[1-9]", _text(node)) is None:
+def _implicit_reference(node: Node) -> bool:
+    if node.type != "identifier" or re.fullmatch(r"_[1-9]|it", _text(node)) is None:
         return False
     parent = node.parent
     return parent is None or (
@@ -487,6 +520,24 @@ def _register_binding(node: Node, scope: _LocalScope) -> str | None:
     return None
 
 
+def _implicit_error(node: Node, scope: _LocalScope) -> str | None:
+    if not _implicit_reference(node):
+        return None
+    name = _text(node)
+    return scope.use_it() if name == "it" else scope.use_numbered(name)
+
+
+def _pin_error(node: Node, scope: _LocalScope) -> str | None:
+    name_node = node.child_by_field_name("name")
+    if name_node is None or name_node.type != "identifier":
+        return None
+    error = _implicit_error(name_node, scope)
+    if error is not None:
+        return error
+    name = _text(name_node)
+    return None if scope.contains(name) else f"{name}: no such local variable"
+
+
 def _lexical_scope_error(root: Node) -> str | None:
     # Visit source order: assignment targets bind before their RHS, while a
     # pattern pin sees only preceding bindings. Blocks inherit locals; method
@@ -503,16 +554,13 @@ def _lexical_scope_error(root: Node) -> str | None:
             )
             continue
         if node.type == "variable_reference_pattern":
-            name_node = node.child_by_field_name("name")
-            if name_node is not None and name_node.type == "identifier":
-                name = _text(name_node)
-                if not scope.contains(name):
-                    return f"{name}: no such local variable"
-            continue
-        if _numbered_reference(node):
-            error = scope.use_numbered(_text(node))
+            error = _pin_error(node, scope)
             if error is not None:
                 return error
+            continue
+        error = _implicit_error(node, scope)
+        if error is not None:
+            return error
         pending.extend(reversed(_scope_steps(node, scope)))
     return None
 

@@ -712,3 +712,99 @@ def test_undefined_pins_reject_whole_file(body, caplog):
 def test_valid_lexical_scopes_preserve_discovery(body):
     tasks = parse_rakefile(f"{body}; task :after")
     assert tasks[-1].name == "after"
+
+
+@pytest.mark.parametrize("target", ["nil", "true", "false", "self"])
+@pytest.mark.parametrize(
+    "form",
+    [
+        "{target} = 1",
+        "({target}, other) = 1, 2",
+        "for {target} in []; end",
+        "begin; rescue => {target}; end",
+    ],
+)
+def test_nonassignable_targets_reject_whole_file(target, form, caplog):
+    assert (
+        parse_rakefile(f"task :before; {form.format(target=target)}; task :after") == []
+    )
+    assert "nonassignable target" in caplog.text
+
+
+@pytest.mark.parametrize("target", ["CONST", "Helper::CONST", "::CONST"])
+def test_rescue_constant_targets_in_methods_reject_whole_file(target, caplog):
+    assert (
+        parse_rakefile(f"task :before; def helper; begin; rescue => {target}; end; end")
+        == []
+    )
+    assert "constant assignment inside method" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "call { |arg| it }",
+        "call { it; other { |arg| it } }",
+        "call { it; other { _1; it } }",
+        "call { |arg| 1 in ^it }",
+        "call { _1; 1 in ^it }",
+        "call { it; 1 in ^_1 }",
+        "call { || it }",
+        "->(arg) { it }",
+        "call { it; _1 }",
+        "call { _1; it }",
+    ],
+)
+def test_invalid_implicit_it_rejects_whole_file(body, caplog):
+    assert parse_rakefile(f"task :before; {body}; task :after") == []
+    assert "implicit it" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "call { it }",
+        "call { 1 in ^it }",
+        "call { 1 in ^_1 }",
+        "call { it; other { 1 in ^it } }",
+        "call { it; it = 1; other { |arg| it } }",
+        "call { |it| it }",
+        "call { |; it| it }",
+        "it = 1; call { |arg| it }",
+        "it = 1; call { _1; it }",
+        "call { it = 1; _1; it }",
+        "call { |arg| it = 1; it }",
+        "call { it; it = 1 }",
+        "call { it; other { _1 } }",
+        "call { _1; other { it } }",
+        "call { |arg| self.it; it() }",
+        "begin; rescue => CONST; end",
+        "def helper; begin; rescue => array[0]; end; end",
+        "case 1; in nil; in true; in false; end",
+        "def helper; it; end",
+    ],
+)
+def test_valid_it_and_assignment_scopes_preserve_discovery(body):
+    tasks = parse_rakefile(f"{body}; task :after")
+    assert tasks[-1].name == "after"
+
+
+@pytest.mark.parametrize(
+    "modifier",
+    [
+        "if false",
+        "unless true",
+        "while false",
+        "until true",
+        "rescue nil",
+        "if false while false",
+    ],
+)
+def test_top_level_begin_modifiers_are_valid(modifier):
+    tasks = parse_rakefile(f"task :before; BEGIN {{}} {modifier}; task :after")
+    assert [task.name for task in tasks] == ["before", "after"]
+
+
+def test_begin_modifier_inside_block_still_rejects_file(caplog):
+    assert parse_rakefile("task :before; call { BEGIN {} if false }") == []
+    assert "BEGIN outside top level" in caplog.text
