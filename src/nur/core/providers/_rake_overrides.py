@@ -46,6 +46,7 @@ SINGLETON_MUTATORS = frozenset({
     "alias_method",
     "undef_method",
     "remove_method",
+    "attr",
     "attr_reader",
     "attr_accessor",
 })
@@ -253,7 +254,7 @@ def _record_mutation(
     *,
     singleton_receiver: bool,
 ) -> None:
-    if method in {"attr_reader", "attr_accessor"}:
+    if method in {"attr", "attr_reader", "attr_accessor"}:
         _record_attribute_readers(node, arguments, disabled)
         return
     if method == "define_singleton_method" and singleton_receiver:

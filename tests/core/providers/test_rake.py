@@ -3370,3 +3370,27 @@ def test_singleton_remove_method_rejects_invalid_names(value):
 )
 def test_unrelated_or_dynamic_singleton_mutations_keep_rake_dsl(source):
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "arguments", [":task", ":task, true", ":task, false", ":task, :helper"]
+)
+def test_singleton_legacy_attr_macro_replaces_dsl_reader(arguments):
+    assert (
+        parse_rakefile(f"task :before; singleton_class.attr({arguments}); task :ghost")
+        == []
+    )
+
+
+@pytest.mark.parametrize("arguments", [":task", ":task, true", ":task, false", ""])
+def test_singleton_legacy_attr_preserves_tasks_without_invalid_reader_calls(arguments):
+    source = f"task :safe; singleton_class.attr({arguments})"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("arguments", ["nil", ":task, nil", ":task, true, :helper"])
+def test_singleton_legacy_attr_invalid_names_reject_loading(arguments):
+    assert (
+        parse_rakefile(f"task :before; singleton_class.attr({arguments}); task :after")
+        == []
+    )

@@ -87,10 +87,13 @@ _INVALID_METHOD_NAME_KINDS = {
 def _simple_constructor_error(
     name: str, kinds: list[str | None], arity: int | None, *, has_block: bool
 ) -> str | None:
+    if name == "attr" and kinds[1:] in (["true"], ["false"]):
+        kinds = kinds[:1]
     if name in {
         "alias_method",
         "undef_method",
         "remove_method",
+        "attr",
         "attr_reader",
         "attr_accessor",
     }:
@@ -122,6 +125,7 @@ def constructor_arguments_error(
             "alias_method",
             "undef_method",
             "remove_method",
+            "attr",
             "attr_reader",
             "attr_accessor",
             "proc",
