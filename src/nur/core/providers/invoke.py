@@ -277,16 +277,25 @@ def _literal_aliases(expression: ast.expr) -> list[str] | None:
 
 
 def _invalid_literal_option(keyword: ast.keyword) -> bool:
+    invalid_members = (
+        keyword.arg in {"pre", "post"}
+        and isinstance(keyword.value, (ast.List, ast.Tuple, ast.Set))
+        and any(
+            isinstance(element, (ast.List, ast.Tuple, ast.Set, ast.Dict))
+            or _literal_dependency(element, {})
+            for element in keyword.value.elts
+        )
+    )
     try:
         value = ast.literal_eval(keyword.value)
     except (ValueError, TypeError) as _exc:
-        # Computed option values are not evaluated by discovery.
-        return False
+        # Computed members remain unknown, but literal hook members are checked.
+        return invalid_members
     iterable = isinstance(value, (str, bytes, list, tuple, dict, set))
     if keyword.arg in {"optional", "positional"}:
         return not iterable and not (keyword.arg == "positional" and value is None)
     if keyword.arg in {"pre", "post"}:
-        return bool(value)
+        return bool(value) or invalid_members
     if keyword.arg in {"iterable", "incrementable"}:
         return bool(value) and not iterable
     if keyword.arg == "help":
@@ -800,9 +809,15 @@ def _task_binding_effects(
     for statement in statements:
         copies = _copied_tasks(statement, functions)
         default_copies = _copied_defaults(statement, defaults)
+        if isinstance(statement, (ast.Try, ast.TryStar)):
+            blocks = [
+                statement.body + statement.orelse,
+                *(handler.body for handler in statement.handlers),
+            ]
+        else:
+            blocks = _statement_blocks(statement)
         branches = [
-            _task_binding_effects(block, functions, defaults)
-            for block in _statement_blocks(statement)
+            _task_binding_effects(block, functions, defaults) for block in blocks
         ]
         written, _, _ = _written_names(
             statement, {}, tainted=set(), inspect_classes=False
@@ -818,6 +833,10 @@ def _task_binding_effects(
         for branch_functions, branch_defaults in branches:
             functions.update(branch_functions)
             defaults.update(branch_defaults)
+        if isinstance(statement, (ast.Try, ast.TryStar)):
+            functions, defaults = _task_binding_effects(
+                statement.finalbody, functions, defaults
+            )
     return functions, defaults
 
 

@@ -1167,3 +1167,33 @@ def test_replaced_compound_default_copy_does_not_collide(replacement: str) -> No
         f"if True:\n saved = build\n {replacement}\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("final", ["del build", "build = None"])
+def test_finally_removes_task_after_try_outcomes(final: str) -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\ndef build(c): ...\n"
+            f"try:\n pass\nexcept Exception:\n pass\nfinally:\n {final}\n"
+        )
+        == []
+    )
+
+
+def test_finally_removes_copied_default_without_collision() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task(default=True)\ndef build(c): ...\n"
+        "try:\n saved = build\nfinally:\n del saved\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("hook", ["[setup, 'bad']", "(setup, None)", "{setup, 7}"])
+@pytest.mark.parametrize("option", ["pre", "post"])
+def test_mixed_hook_collections_reject_literal_members(hook: str, option: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task({option}={hook})\ndef build(c): ...\n"
+        )
+        == []
+    )
