@@ -15,6 +15,7 @@ from nur.core.providers._rake_callbacks import (
 from nur.core.providers._rake_syntax import (
     binding_names,
     defined_probe,
+    is_self,
     literal,
     node_text,
     syntax_error,
@@ -41,11 +42,19 @@ _DEFERRED_METHODS = {
     "file_create",
     "directory",
     "rule",
+    "desc",
     "proc",
     "lambda",
     "define_method",
     "define_singleton_method",
 }
+
+_RAKE_METHODS = _DEFERRED_METHODS - {
+    "proc",
+    "lambda",
+    "define_method",
+    "define_singleton_method",
+} | {"namespace"}
 
 
 def _arguments(node: Node) -> list[Node]:
@@ -68,18 +77,9 @@ def _block_arguments(node: Node) -> list[Node]:
     )
 
 
-def _is_self(node: Node | None) -> bool:
-    while node is not None and node.type == "parenthesized_statements":
-        children = [child for child in node.named_children if child.type != "comment"]
-        if len(children) != 1:
-            return False
-        node = children[0]
-    return node is not None and node.type == "self"
-
-
 def _dsl_receiver(node: Node) -> bool:
     receiver = node.child_by_field_name("receiver")
-    return receiver is None or _is_self(receiver)
+    return receiver is None or is_self(receiver)
 
 
 def _record_override(node: Node, disabled: set[str]) -> None:
@@ -87,12 +87,12 @@ def _record_override(node: Node, disabled: set[str]) -> None:
     # A singleton-class body can replace any of them; do not guess its effects.
     if node.type == "singleton_class":
         value = node.child_by_field_name("value")
-        if _is_self(value):
+        if is_self(value):
             disabled.update(_DEFERRED_METHODS | {"namespace", "desc"})
     if node.type == "singleton_method":
         owner = node.child_by_field_name("object")
         name_node = node.child_by_field_name("name")
-        if _is_self(owner) and name_node is not None:
+        if is_self(owner) and name_node is not None:
             disabled.add(node_text(name_node))
         elif (
             owner is not None
@@ -102,6 +102,14 @@ def _record_override(node: Node, disabled: set[str]) -> None:
             disabled.add(
                 f"{node_text(owner).removeprefix('::')}.{node_text(name_node)}"
             )
+    if node.type == "method" and _main_scope(node):
+        name_node = node.child_by_field_name("name")
+        if name_node is not None and node_text(name_node) in {
+            "proc",
+            "lambda",
+            "define_singleton_method",
+        }:
+            disabled.add(node_text(name_node))
     if node.type == "call" and _dsl_receiver(node):
         method = node.child_by_field_name("method")
         arguments = _arguments(node)
@@ -109,10 +117,9 @@ def _record_override(node: Node, disabled: set[str]) -> None:
             method is not None
             and node_text(method) == "define_singleton_method"
             and arguments
+            and (name := literal(arguments[0])) is not None
         ):
-            name = literal(arguments[0])
-            if name is not None:
-                disabled.add(name)
+            disabled.add(name)
 
 
 def _method(node: Node, disabled: set[str]) -> str | None:
@@ -120,8 +127,7 @@ def _method(node: Node, disabled: set[str]) -> str | None:
     # overrides, including top-level and namespace conditionals.
     disabled.update(_dsl_overrides(node, in_scope=True))
     if node.type == "undef" and any(
-        (literal(child) or node_text(child))
-        in {"task", "multitask", "namespace", "desc"}
+        (literal(child) or node_text(child)) in _RAKE_METHODS
         for child in node.named_children
     ):
         return "undef"
@@ -704,13 +710,7 @@ def _load_time_children(node: Node, deferred_calls: set[int]) -> list[Node]:
     return _reachable_children(node)
 
 
-def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
-    method = node.child_by_field_name("method")
-    if node.type != "call" or method is None or not _dsl_receiver(node):
-        return None
-    name = node_text(method)
-    if name in disabled:
-        return None
+def _main_scope(node: Node) -> bool:
     child, parent = node, node.parent
     while parent is not None:
         if parent.type in {
@@ -718,8 +718,20 @@ def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
             "module",
             "singleton_class",
         } and child not in _scope_headers(parent):
-            return None
+            return False
         child, parent = parent, parent.parent
+    return True
+
+
+def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
+    method = node.child_by_field_name("method")
+    if node.type != "call" or method is None or not _dsl_receiver(node):
+        return None
+    name = node_text(method)
+    if name in disabled:
+        return None
+    if not _main_scope(node):
+        return None
     return _declaration_error(node, name, _arguments(node), None, disabled)
 
 

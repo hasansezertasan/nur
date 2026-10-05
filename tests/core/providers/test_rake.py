@@ -2585,3 +2585,44 @@ def test_overridden_proc_constructor_signature_is_unknown():
 )
 def test_bare_constructor_names_respect_bindings_and_deferred_scopes(source):
     assert [task.name for task in parse_rakefile(f"{source}; task :safe")][-1] == "safe"
+
+
+@pytest.mark.parametrize("name", ["file", "directory", "file_create", "rule"])
+def test_undefining_other_rake_helpers_aborts_loading(name, caplog):
+    assert parse_rakefile(f"task :before; undef {name}; task :after") == []
+    assert "undef of Rake DSL method" in caplog.text
+
+
+@pytest.mark.parametrize("name", ["proc", "lambda", "define_singleton_method"])
+def test_ordinary_kernel_constructor_overrides_validate_blocks(name):
+    source = f"task :before; def {name}(*); yield; end; {name} {{ /#{{pattern}}/ }}"
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "class Example; def proc; yield; end; end",
+        "module Example; def lambda; yield; end; end",
+        "task :later do; def proc; yield; end; end",
+    ],
+)
+def test_opaque_ordinary_constructor_definitions_do_not_override_main(body):
+    assert [
+        task.name
+        for task in parse_rakefile(f"{body}; proc {{ /#{{pattern}}/ }}; task :safe")
+    ][-1] == "safe"
+
+
+def test_description_blocks_remain_deferred():
+    tasks = parse_rakefile('desc("Safe") { /#{pattern}/; helper(&1) }; task :safe')
+    assert [(task.name, task.description) for task in tasks] == [("safe", "Safe")]
+
+
+def test_overridden_description_method_validates_its_block():
+    assert (
+        parse_rakefile(
+            'task :before; def self.desc(*); yield; end; desc("Safe") { /#{pattern}/ }'
+        )
+        == []
+    )

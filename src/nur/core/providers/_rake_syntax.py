@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 __all__ = [
     "binding_names",
     "defined_probe",
+    "is_self",
     "literal",
     "node_text",
     "syntax_error",
@@ -24,6 +25,15 @@ _MAX_REGEXP_CAPTURE_GROUPS = 32_767
 
 def node_text(node: Node) -> str:
     return (node.text or b"").decode("utf-8")
+
+
+def is_self(node: Node | None) -> bool:
+    while node is not None and node.type == "parenthesized_statements":
+        children = [child for child in node.named_children if child.type != "comment"]
+        if len(children) != 1:
+            return False
+        node = children[0]
+    return node is not None and node.type == "self"
 
 
 def literal(node: Node) -> str | None:
