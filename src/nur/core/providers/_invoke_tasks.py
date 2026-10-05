@@ -73,6 +73,10 @@ def _literal_aliases(expression: ast.expr) -> list[str] | None:
 def _invalid_literal_option(keyword: ast.keyword, bindings: dict[str, str]) -> bool:
     invalid_members = (
         keyword.arg in {"pre", "post"}
+        and isinstance(keyword.value, ast.Name)
+        and bindings.get(keyword.value.id) == "task_object"
+    ) or (
+        keyword.arg in {"pre", "post"}
         and isinstance(keyword.value, (ast.List, ast.Tuple, ast.Set))
         and any(
             isinstance(element, (ast.List, ast.Tuple, ast.Set, ast.Dict))

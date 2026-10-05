@@ -414,7 +414,39 @@ def _unpacked_pairs(
     return pairs
 
 
-def _assignment_pairs(statement: ast.stmt) -> list[tuple[ast.Name, ast.expr]]:
+def _constant_truth(expression: ast.expr) -> bool | None:
+    try:
+        return bool(ast.literal_eval(expression))
+    except (ValueError, TypeError) as _exc:
+        return None
+
+
+def _certain_children(node: ast.AST) -> list[ast.AST]:
+    if isinstance(node, ast.BoolOp):
+        children: list[ast.AST] = []
+        for value in node.values:
+            children.append(value)
+            truth = _constant_truth(value)
+            if truth is None or truth == isinstance(node.op, ast.Or):
+                break
+        return children
+    if isinstance(node, ast.IfExp):
+        truth = _constant_truth(node.test)
+        return (
+            [node.test]
+            if truth is None
+            else [node.test, node.body if truth else node.orelse]
+        )
+    if isinstance(node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+        return [node.generators[0].iter]
+    if isinstance(node, ast.Compare):
+        return [node.left, node.comparators[0]]
+    return _module_children(node)
+
+
+def _assignment_pairs(
+    statement: ast.stmt, *, certain: bool = True
+) -> list[tuple[ast.Name, ast.expr]]:
     pending: list[tuple[ast.expr, ast.expr]]
     if isinstance(statement, ast.Assign):
         pending = [(target, statement.value) for target in statement.targets]
@@ -426,7 +458,11 @@ def _assignment_pairs(statement: ast.stmt) -> list[tuple[ast.Name, ast.expr]]:
     while nodes:
         node = nodes.pop()
         nodes.extend(
-            child for child in _module_children(node) if not isinstance(child, ast.stmt)
+            child
+            for child in (
+                _certain_children(node) if certain else _module_children(node)
+            )
+            if not isinstance(child, ast.stmt)
         )
         if isinstance(node, ast.NamedExpr):
             pending.append((node.target, node.value))
@@ -446,7 +482,7 @@ def _copied_modules(
     statement: ast.stmt, bindings: dict[str, str], tainted: set[str]
 ) -> dict[str, str]:
     copies: dict[str, str] = {}
-    for target, value in _assignment_pairs(statement):
+    for target, value in _assignment_pairs(statement, certain=False):
         kind = _module_kind(value, bindings, tainted)
         if isinstance(value, ast.Name) and bindings.get(value.id) == "builtins":
             kind = "builtins"
@@ -687,6 +723,49 @@ def _task_binding_effects(
     return functions, defaults
 
 
+def _definitely_executed_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
+    if isinstance(statement, ast.If):
+        truth = _constant_truth(statement.test)
+        return [] if truth is None else [statement.body if truth else statement.orelse]
+    if isinstance(statement, ast.ClassDef):
+        return [statement.body]
+    if isinstance(statement, (ast.For, ast.AsyncFor, ast.While)):
+        count = _loop_count(statement)
+        return [statement.body] if count else []
+    return []
+
+
+def _fatal_block(
+    statements: list[ast.stmt], bindings: dict[str, str], tainted: set[str]
+) -> bool:
+    bindings, tainted = bindings.copy(), tainted.copy()
+    for statement in statements:
+        if isinstance(
+            statement, (ast.FunctionDef, ast.AsyncFunctionDef)
+        ) and _fatal_decorator(statement, bindings, tainted):
+            return True
+        if any(
+            _fatal_block(block, bindings, tainted)
+            for block in _definitely_executed_blocks(statement)
+        ):
+            return True
+        copies = _copied_modules(statement, bindings, tainted)
+        copies.update(_copied_callables(statement, bindings, tainted))
+        written, mutation, _ = _written_names(
+            statement, bindings, tainted=tainted, inspect_classes=False
+        )
+        tainted.update(mutation)
+        if "*" in written:
+            bindings.clear()
+        for bound in written:
+            bindings.pop(bound, None)
+        bindings.update(copies)
+        _bind_callable_definition(statement, bindings)
+        if isinstance(statement, (ast.Import, ast.ImportFrom)):
+            _bind_import(statement, bindings, tainted)
+    return False
+
+
 def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     """Read top-level decorated functions and literal names/aliases.
 
@@ -703,9 +782,7 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     tainted: set[str] = set()
     possible_bindings: dict[str, str] = {}
     for statement in tree.body:
-        if isinstance(
-            statement, (ast.FunctionDef, ast.AsyncFunctionDef)
-        ) and _fatal_decorator(statement, bindings, tainted):
+        if _fatal_block([statement], bindings, tainted):
             log.warning("nur: skipping %s (fatal Invoke decorator)", source_file)
             return []
         # Decorators are evaluated before function defaults. Read the task
@@ -761,6 +838,9 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
                 )
                 for name in names
             ]
+        bindings.update({
+            bound: "task_object" for bound, tasks in functions.items() if tasks
+        })
     if len(defaults) > 1:
         log.warning("nur: skipping %s (colliding Invoke default tasks)", source_file)
         return []

@@ -1459,3 +1459,39 @@ def test_starred_task_copy_survives_deleted_original() -> None:
         "*rest, saved = (1, build)\ndel build\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "False and (saved := build)",
+        "True or (saved := build)",
+        "(saved := build) if False else None",
+    ],
+)
+def test_unreachable_named_expression_does_not_copy_task(expression: str) -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\ndef build(c): ...\n"
+            f"{expression}\ndel build\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("option", ["pre", "post"])
+def test_task_object_direct_hook_is_rejected(option: str) -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task\ndef setup(c): ...\n"
+        f"@task({option}=setup)\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["setup"]
+
+
+@pytest.mark.parametrize("condition", ["True", "False"])
+def test_fatal_decorator_in_literal_branch(condition: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\nif {condition}:\n @task(unknown=True)\n"
+        " def broken(c): ...\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ([] if condition == "True" else ["build"])
