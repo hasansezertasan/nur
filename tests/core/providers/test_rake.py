@@ -1070,3 +1070,57 @@ def test_mixed_global_and_method_aliases_reject_whole_file(body, caplog):
 def test_valid_aliases_preserve_discovery(body):
     tasks = parse_rakefile(f"{body}; task :build")
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "parameters", ["||", "|scope|", "|scope; scratch|", "|*scopes|", "|**options|"]
+)
+def test_harmless_namespace_parameters_preserve_discovery(parameters):
+    tasks = parse_rakefile(
+        f"namespace :db do {parameters}; desc 'Migrate'; task :migrate; end; task :root"
+    )
+    assert [task.name for task in tasks] == ["db:migrate", "root"]
+    assert tasks[0].description == "Migrate"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "defined?(break)",
+        "defined?(next)",
+        "defined?(redo)",
+        "defined?(retry)",
+        "defined?(return)",
+        "defined?(yield)",
+        "defined? break",
+        "defined?(begin; break; end)",
+        "defined?(class C; break; end)",
+        "defined?(class C; next; end)",
+        "defined?(class C; redo; end)",
+        "defined?(class C; yield; end)",
+        "defined?(class << self; yield; end)",
+        "defined?(foo { retry })",
+        "defined?(-> { retry })",
+        "defined?(def foo; defined?(break); end)",
+    ],
+)
+def test_defined_control_probes_preserve_discovery(body):
+    tasks = parse_rakefile(f"task :before; {body}; task :after")
+    assert [task.name for task in tasks] == ["before", "after"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "class C; defined?(return); end",
+        "defined?(while (break); end)",
+        "defined?(def foo(a,a); end)",
+        "defined?(def foo; break; end)",
+        "defined?(def self.foo; break; end)",
+        "defined?(def foo; retry; end)",
+        "defined?(class C; retry; end)",
+        "defined?(class << self; break; end)",
+    ],
+)
+def test_defined_probes_retain_compile_time_restrictions(body):
+    assert parse_rakefile(f"task :before; {body}; task :after") == []

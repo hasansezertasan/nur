@@ -116,10 +116,16 @@ def _namespace_body(
     block = node.child_by_field_name("block")
     if name is None or not _NAME.fullmatch(name) or block is None:
         return None
-    # Parameters may shadow the Rake DSL. Rescue/ensure bodies are conditional;
-    # skip the whole namespace rather than claiming its tasks are unconditional.
-    if block.child_by_field_name("parameters") is not None:
+    # DSL bindings can change Ruby's parsing of calls inside the namespace.
+    parameters = block.child_by_field_name("parameters")
+    if parameters is not None and set(_binding_names(parameters)) & {
+        "task",
+        "multitask",
+        "namespace",
+        "desc",
+    }:
         return None
+    # Rescue/ensure bodies are conditional, so leave the namespace opaque.
     body = block.child_by_field_name("body")
     if body is None or any(
         child.type in {"rescue", "else", "ensure"} for child in body.named_children
@@ -236,6 +242,28 @@ def _control_permissions(
     return in_rescue, in_iteration
 
 
+def _defined_probe(node: Node) -> bool:
+    operator = node.child_by_field_name("operator")
+    return node.type == "unary" and operator is not None and operator.type == "defined?"
+
+
+def _within_defined(node: Node, boundaries: set[str]) -> bool:
+    # A probe does not execute its operand, but separately compiled bodies
+    # still enforce their own control placement.
+    child = node
+    parent = child.parent
+    while parent is not None:
+        if _defined_probe(parent):
+            return True
+        if parent.type in boundaries and child not in {
+            parent.child_by_field_name(field)
+            for field in ("object", "value", "name", "superclass")
+        }:
+            return False
+        child, parent = parent, parent.parent
+    return False
+
+
 def _control_flow_error(root: Node) -> str | None:
     """Validate Ruby control placement beyond the grammar's syntax shapes.
 
@@ -257,9 +285,22 @@ def _control_flow_error(root: Node) -> str | None:
             return "void value in loop condition"
         if node.type == "return" and in_return_scope is False:
             return "return in class or module body"
-        if node.type == "retry" and not in_rescue:
+        if (
+            node.type == "retry"
+            and not in_rescue
+            and not _within_defined(
+                node,
+                {"method", "singleton_method", "class", "module", "singleton_class"},
+            )
+        ):
             return "retry outside rescue"
-        if node.type in {"break", "next", "redo"} and not in_iteration:
+        if (
+            node.type in {"break", "next", "redo"}
+            and not in_iteration
+            and not _within_defined(
+                node, {"method", "singleton_method", "singleton_class"}
+            )
+        ):
             return f"{node.type} outside block or loop"
         pending.extend(
             (
@@ -438,7 +479,7 @@ def _method_context_error(root: Node) -> str | None:
             return "class or module definition inside method"
         if node.type == "begin_block" and not _begin_at_top_level(node):
             return "BEGIN outside top level"
-        if node.type == "yield" and not in_method:
+        if node.type == "yield" and not in_method and not _within_defined(node, set()):
             return "yield outside method"
         pending.extend(
             (child, _method_context(node, child, inherited=in_method))
@@ -710,6 +751,8 @@ def _escaping_control(root: Node) -> str | None:
     local_control = None
     while pending:
         node, in_loop = pending.pop()
+        if _defined_probe(node):
+            continue
         if node.type == "return":
             return "return"
         if node.type in {"break", "next", "redo"} and not in_loop:
