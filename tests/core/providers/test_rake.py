@@ -2753,3 +2753,80 @@ def test_undefined_qualified_constructor_rejects_later_call():
     assert (
         parse_rakefile("class << Proc; undef new; end; Proc.new {}; task :safe") == []
     )
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        "# encoding: ISO-8859-1",
+        "# coding= ISO8859-1",
+        "# -*- coding: ISO-8859-1 -*-",
+        '# encoding: "ISO-8859-1"',
+        "#!/usr/bin/ruby\n# encoding: ISO-8859-1",
+    ],
+)
+def test_source_encoding_declarations_decode_descriptions(tmp_path, header):
+    (tmp_path / "Rakefile").write_bytes(
+        f'{header}\ndesc "café"; task :build\n'.encode("latin-1")
+    )
+    assert [
+        (task.name, task.description) for task in RakeProvider().discover(tmp_path)
+    ] == [("build", "café")]
+
+
+@pytest.mark.parametrize(
+    ("encoding", "codec", "description"),
+    [
+        ("Windows-1252", "cp1252", "€ café"),
+        ("Windows-31J", "cp932", "日本語"),
+        ("Shift_JIS", "shift_jis", "日本語"),
+        ("ASCII-8BIT", "latin-1", "café"),
+    ],
+)
+def test_common_ascii_compatible_ruby_encodings(tmp_path, encoding, codec, description):
+    source = f'# encoding: {encoding}\ndesc "{description}"; task :build\n'
+    (tmp_path / "Rakefile").write_bytes(source.encode(codec))
+    assert [
+        (task.name, task.description) for task in RakeProvider().discover(tmp_path)
+    ] == [("build", description)]
+
+
+@pytest.mark.parametrize(
+    "encoding",
+    [
+        "unknown-codec",
+        "UTF-16",
+        "UTF-7",
+        "ISO-2022-JP",
+        "latin1",
+        "utf8",
+        "ISO-8859-99",
+    ],
+)
+def test_unsupported_source_encodings_skip_file(tmp_path, caplog, encoding):
+    (tmp_path / "Rakefile").write_bytes(
+        f"# encoding: {encoding}\ntask :safe\n".encode()
+    )
+    assert RakeProvider().discover(tmp_path) == []
+    assert "skipping Rakefile" in caplog.text
+
+
+def test_second_line_encoding_requires_shebang(tmp_path, caplog):
+    (tmp_path / "Rakefile").write_bytes(
+        b'# ordinary comment\n# encoding: ISO-8859-1\ndesc "calf\xe9"; task :build\n'
+    )
+    assert RakeProvider().discover(tmp_path) == []
+    assert "skipping Rakefile" in caplog.text
+
+
+def test_utf8_bom_is_removed_before_parsing(tmp_path):
+    (tmp_path / "Rakefile").write_bytes(b"\xef\xbb\xbftask :safe\n")
+    assert [task.name for task in RakeProvider().discover(tmp_path)] == ["safe"]
+
+
+def test_equals_encoding_comment_without_separator_is_ignored(tmp_path, caplog):
+    (tmp_path / "Rakefile").write_bytes(
+        b'# coding=ISO-8859-1\ndesc "calf\xe9"; task :build\n'
+    )
+    assert RakeProvider().discover(tmp_path) == []
+    assert "skipping Rakefile" in caplog.text

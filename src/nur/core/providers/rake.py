@@ -17,6 +17,7 @@ from nur.core.providers._rake_overrides import (
     record_override,
     scope_headers,
 )
+from nur.core.providers._rake_source import decode_source
 from nur.core.providers._rake_syntax import (
     binding_names,
     defined_probe,
@@ -951,8 +952,8 @@ class RakeProvider:
 
     def discover(self, cwd: Path) -> list[Task]:
         try:
-            text = (cwd / _SOURCE_FILE).read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError) as exc:
+            text = decode_source((cwd / _SOURCE_FILE).read_bytes())
+        except (OSError, UnicodeError, LookupError, ValueError) as exc:
             log.warning("nur: skipping %s (%s)", _SOURCE_FILE, exc)
             return []
         return parse_rakefile(text)
