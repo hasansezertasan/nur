@@ -2031,3 +2031,29 @@ def test_unreachable_match_capture_cannot_hide_fatal_case() -> None:
         )
         == []
     )
+
+
+@pytest.mark.parametrize("loop", ["while False", "for item in []", "for item in ()"])
+def test_zero_iteration_loop_preserves_decorator_import(loop: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n{loop}:\n task = replacement\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "outer",
+    [
+        "setattr(invoke, 'task', replacement) or identity",
+        "(task := replacement) and identity",
+    ],
+)
+def test_outer_decorator_mutation_precedes_lower_decorator(outer: str) -> None:
+    tasks = parse_tasks(
+        "import invoke\nfrom invoke import task, task as stable\n"
+        "def replacement(**kwargs): return lambda f: f\n"
+        f"@({outer})\n@{('task' if ':=' in outer else 'invoke.task')}(unknown=True)\n"
+        "def other(c): ...\n@stable\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]

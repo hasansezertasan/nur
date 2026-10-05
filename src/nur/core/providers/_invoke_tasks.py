@@ -363,8 +363,12 @@ def fatal_decorator(
     function: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
     bindings: dict[str, str],
     tainted: set[str],
+    *,
+    states: list[tuple[dict[str, str], set[str]]] | None = None,
 ) -> bool:
-    for decorator in function.decorator_list:
+    for index, decorator in enumerate(function.decorator_list):
+        if states is not None:
+            bindings, tainted = states[index]
         expression = decorator.func if isinstance(decorator, ast.Call) else decorator
         if not decorator_matches(expression, bindings, tainted):
             continue
@@ -397,9 +401,13 @@ def typeerror_decorator(
     node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
     bindings: dict[str, str],
     tainted: set[str],
+    *,
+    states: list[tuple[dict[str, str], set[str]]] | None = None,
 ) -> bool:
     """Recognize constructor TypeErrors, excluding later collection failures."""
-    for decorator in node.decorator_list:
+    for index, decorator in enumerate(node.decorator_list):
+        if states is not None:
+            bindings, tainted = states[index]
         expression = decorator.func if isinstance(decorator, ast.Call) else decorator
         if not decorator_matches(expression, bindings, tainted):
             continue
@@ -483,10 +491,14 @@ def constructor_exception(
     node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
     bindings: dict[str, str],
     tainted: set[str],
+    *,
+    states: list[tuple[dict[str, str], set[str]]] | None = None,
 ) -> str | None:
-    if typeerror_decorator(node, bindings, tainted):
+    if typeerror_decorator(node, bindings, tainted, states=states):
         return "TypeError"
-    for decorator in node.decorator_list:
+    for index, decorator in enumerate(node.decorator_list):
+        if states is not None:
+            bindings, tainted = states[index]
         if (
             isinstance(decorator, ast.Call)
             and decorator_matches(decorator.func, bindings, tainted)

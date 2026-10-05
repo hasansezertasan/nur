@@ -283,7 +283,10 @@ def _module_children(node: ast.AST) -> list[ast.AST]:
         # still bind in the containing scope and are visited normally.
         return [node.iter, *node.ifs]
     children: list[ast.AST] = list(ast.iter_child_nodes(node))
-    if isinstance(node, ast.If):
+    if isinstance(node, (ast.For, ast.AsyncFor, ast.While)) and _loop_count(node) == 0:
+        expression = node.test if isinstance(node, ast.While) else node.iter
+        children = [expression, *node.orelse]
+    elif isinstance(node, ast.If):
         truth = _constant_truth(node.test)
         if truth is not None:
             children = [node.test, *(node.body if truth else node.orelse)]
@@ -370,6 +373,11 @@ def _all_statement_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
 
 
 def _statement_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
+    if (
+        isinstance(statement, (ast.For, ast.AsyncFor, ast.While))
+        and _loop_count(statement) == 0
+    ):
+        return [statement.orelse]
     if isinstance(statement, ast.If):
         truth = _constant_truth(statement.test)
         if truth is not None:
@@ -822,6 +830,34 @@ def _fatal_children(
     )
 
 
+def _fatal_definition(
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
+    bindings: dict[str, str],
+    tainted: set[str],
+    exception: str | None,
+) -> bool:
+    bindings, tainted = bindings.copy(), tainted.copy()
+    states: list[tuple[dict[str, str], set[str]]] = []
+    for decorator in node.decorator_list:
+        states.append((bindings.copy(), tainted.copy()))
+        expression = ast.Expr(value=decorator)
+        copies = _copied_modules(expression, bindings, tainted)
+        copies.update(_copied_callables(expression, bindings, tainted))
+        written, mutation, _ = _written_names(expression, bindings, tainted=tainted)
+        written.update(
+            _scope_mapping_writes(expression, bindings, module_scope=True)[0]
+        )
+        tainted.update(mutation)
+        for bound in written:
+            bindings.pop(bound, None)
+        bindings.update(copies)
+    if exception is not None:
+        return (
+            _constructor_exception(node, bindings, tainted, states=states) == exception
+        )
+    return _fatal_decorator(node, bindings, tainted, states=states)
+
+
 def _fatal_block(
     statements: list[ast.stmt],
     bindings: dict[str, str],
@@ -833,11 +869,7 @@ def _fatal_block(
     for statement in statements:
         if isinstance(
             statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
-        ) and (
-            _constructor_exception(statement, bindings, tainted) == exception
-            if exception is not None
-            else _fatal_decorator(statement, bindings, tainted)
-        ):
+        ) and _fatal_definition(statement, bindings, tainted, exception):
             return True
         if exception is None and _fatal_children(statement, bindings, tainted):
             return True
