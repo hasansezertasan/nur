@@ -14,6 +14,7 @@ from nur.core.providers.npm import NpmProvider
 from nur.core.providers.pdm import PdmProvider
 from nur.core.providers.poe import PoeProvider
 from nur.core.providers.pre_commit import PreCommitProvider
+from nur.core.providers.rake import RakeProvider
 from nur.core.providers.task import TaskfileProvider
 from nur.core.providers.tox import ToxProvider
 from nur.core.providers.vscode import VsCodeProvider
@@ -41,6 +42,7 @@ PROVIDERS: list[Provider] = [
     NoxProvider(),
     MaskProvider(),
     InvokeProvider(),
+    RakeProvider(),
 ]
 
 __all__ = [
@@ -59,6 +61,7 @@ __all__ = [
     "PdmProvider",
     "PoeProvider",
     "PreCommitProvider",
+    "RakeProvider",
     "TaskfileProvider",
     "ToxProvider",
     "VsCodeProvider",

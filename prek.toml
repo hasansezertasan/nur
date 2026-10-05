@@ -134,6 +134,8 @@ hooks = [
   { id = "mypy", name = "Mypy Type Checker", files = "^src/", additional_dependencies = [
     "typer",
     "textual",
+    "tree-sitter>=0.26.0,<0.27",
+    "tree-sitter-ruby>=0.23.1,<0.24",
   ] },
 ]
 

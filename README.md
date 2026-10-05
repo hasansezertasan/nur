@@ -24,7 +24,7 @@
 
 Run `nur` in a project and it discovers the tasks your project already defines —
 from npm, Make, deno, composer, just, Taskfile, pre-commit, PDM/poe, tox, mise,
-cargo-make, moon, xc, VS Code tasks, nox, mask, and Invoke — then lets you run them from a TUI picker or directly from the command line.
+cargo-make, moon, xc, VS Code tasks, nox, mask, Invoke, and Rake — then lets you run them from a TUI picker or directly from the command line.
 Discovery is limited to the current directory. See [Features](#features) for the
 full list of source files.
 
@@ -134,7 +134,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 
 ## Features
 
-- **Zero-config discovery** across eighteen providers, each parsed from a single
+- **Zero-config discovery** across nineteen providers, each parsed from a single
   source file in the current directory:
 
   | Provider | Prefix | Source file |
@@ -157,6 +157,22 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   | Invoke | `invoke` | `tasks.py` (see below) |
   | nox | `nox` | `noxfile.py` (see below) |
   | mask | `mask` | `maskfile.md` (see below) |
+  | Rake | `rake` | `Rakefile` (see below) |
+
+  `rake` parses `Rakefile` with Tree-sitter without running Ruby or `rake -T`.
+  It discovers direct literal `task` and `multitask` declarations, including
+  dependency-only tasks, and tracks nested literal `namespace` blocks. An
+  adjacent ordinary quoted `desc` supplies the description. For example,
+  `task :migrate` inside `namespace :db` runs as `rake db:migrate` and is
+  available as `nur rake:db:migrate`.
+  Task bodies stay opaque, so `definition` is empty. Conditional declarations,
+  loops, helper methods, dynamic names/namespaces, file tasks, rules, imported
+  files and `rakelib/*.rake` are skipped. Escaped/interpolated names, percent
+  literals and heredocs are omitted; task names must contain only letters,
+  digits, underscores, colons, dots, slashes and hyphens, starting with a letter,
+  digit or underscore. Names beginning with the reserved `rake:` lookup prefix
+  are skipped. Files with Ruby syntax errors reported by the parser are skipped
+  with a warning.
 
   `tox` reads the first applicable config file present, in priority order:
   `tox.ini`, `setup.cfg` (`[tox:tox]`), `pyproject.toml` (`[tool.tox]`), then
