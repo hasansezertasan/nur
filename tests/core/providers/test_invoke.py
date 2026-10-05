@@ -2367,3 +2367,40 @@ def test_loop_target_overwrites_header_callable_copy() -> None:
         " @task(unknown=True)\n def broken(c): ...\n@stable\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "iterable",
+    [
+        "[1, *values]",
+        "(1, *values)",
+        "{1, *values}",
+        "{1: 1, **values}",
+        "[*values]",
+        "{**values}",
+    ],
+)
+def test_finite_starred_loop_reaches_fatal_else(iterable: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\nfor item in {iterable}: pass\nelse:\n"
+            " @task(unknown=True)\n def broken(c): ...\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_optional_starred_loop_body_is_not_guaranteed() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\nfor item in [*values]:\n @task(unknown=True)\n"
+        " def broken(c): ...\nelse: pass\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_starred_loop_break_does_not_guarantee_else() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\nfor item in [1, *values]: break\nelse:\n"
+        " @task(unknown=True)\n def broken(c): ...\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]

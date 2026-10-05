@@ -20,6 +20,8 @@ from nur.core.providers._invoke_control_flow import (
     iteration_jump as _iteration_jump,
     iteration_prefix as _iteration_prefix,
     loop_count as _loop_count,
+    loop_else_separately as _loop_else_separately,
+    loop_must_enter as _loop_must_enter,
     loop_task_blocks as _loop_task_blocks,
     nonraising_block as _nonraising_block,
     reachable_match_cases as _reachable_match_cases,
@@ -773,9 +775,9 @@ def _fatal_try(
     return _fatal_block(statement.finalbody, bindings, tainted)
 
 
-def _fatal_children(
+def _fatal_header_bindings(
     statement: ast.stmt, bindings: dict[str, str], tainted: set[str]
-) -> bool:
+) -> dict[str, str]:
     bindings = bindings.copy()
     if isinstance(statement, (ast.For, ast.AsyncFor, ast.While, ast.Match)):
         copies = _copied_modules(statement, bindings, tainted)
@@ -788,18 +790,27 @@ def _fatal_children(
             # Loop targets and match captures are assigned before their bodies.
             bindings.pop(bound, None)
         bindings.update(copies)
-    if isinstance(statement, (ast.For, ast.AsyncFor)) and (
-        (_loop_count(statement) or 0) > _MAX_UNROLLED_ITERATIONS
-        or (
-            (_loop_count(statement) or 0) > 0
-            and any(isinstance(node, ast.Continue) for node in ast.walk(statement))
-        )
+    return bindings
+
+
+def _fatal_children(
+    statement: ast.stmt, bindings: dict[str, str], tainted: set[str]
+) -> bool:
+    bindings = _fatal_header_bindings(statement, bindings, tainted)
+    if _loop_else_separately(statement) and isinstance(
+        statement, (ast.For, ast.AsyncFor)
     ):
-        if _fatal_block(statement.body, bindings, tainted):
+        if _loop_must_enter(statement) and _fatal_block(
+            statement.body, bindings, tainted
+        ):
             return True
         _, mutation, bindings = _class_block_effects(
             _iteration_prefix(statement.body), bindings, None, tainted, set()
         )
+        if not _loop_must_enter(statement):
+            written, _, _, _ = _written_names(statement, bindings, tainted=tainted)
+            for bound in written:
+                bindings.pop(bound, None)
         return _fatal_block(statement.orelse, bindings, tainted | mutation)
     if isinstance(statement, (ast.Try, ast.TryStar)):
         return _fatal_try(statement, bindings, tainted)

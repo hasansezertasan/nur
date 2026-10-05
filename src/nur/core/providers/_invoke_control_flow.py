@@ -22,6 +22,8 @@ __all__ = [
     "iteration_jump",
     "iteration_prefix",
     "loop_count",
+    "loop_else_separately",
+    "loop_exhausts",
     "loop_must_enter",
     "loop_task_blocks",
     "nonraising_block",
@@ -138,6 +140,18 @@ def loop_count(statement: ast.For | ast.AsyncFor | ast.While) -> int | None:
     except (ValueError, TypeError) as _exc:
         return None
     return len(value) if isinstance(value, (str, bytes, dict, set)) else None
+
+
+def loop_exhausts(statement: ast.For | ast.AsyncFor | ast.While) -> bool:
+    if isinstance(statement, ast.While):
+        return constant_truth(statement.test) is False
+    finite = isinstance(statement.iter, (ast.List, ast.Tuple, ast.Set, ast.Dict)) or (
+        isinstance(statement.iter, ast.Constant)
+        and isinstance(statement.iter.value, (str, bytes))
+    )
+    return finite and not any(
+        isinstance(node, ast.Break) for node in ast.walk(statement)
+    )
 
 
 def loop_must_enter(statement: ast.For | ast.AsyncFor | ast.While) -> bool:
@@ -261,6 +275,18 @@ def nonraising_block(statements: list[ast.stmt]) -> bool:
 
 
 MAX_UNROLLED_ITERATIONS = 2
+
+
+def loop_else_separately(statement: ast.stmt) -> bool:
+    if not isinstance(statement, (ast.For, ast.AsyncFor)):
+        return False
+    count = loop_count(statement)
+    if count is None:
+        return loop_exhausts(statement)
+    return count > MAX_UNROLLED_ITERATIONS or (
+        count > 0
+        and any(isinstance(node, ast.Continue) for node in ast.walk(statement))
+    )
 
 
 def loop_task_blocks(
