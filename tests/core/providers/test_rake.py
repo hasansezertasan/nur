@@ -1124,3 +1124,69 @@ def test_defined_control_probes_preserve_discovery(body):
 )
 def test_defined_probes_retain_compile_time_restrictions(body):
     assert parse_rakefile(f"task :before; {body}; task :after") == []
+
+
+@pytest.mark.parametrize("control", ["next", "break", "redo", "return"])
+def test_end_controls_are_deferred_and_preserve_discovery(control):
+    tasks = parse_rakefile(
+        f"task :before; END {{ {control}; task :hidden }}; desc 'After'; task :after"
+    )
+    assert [task.name for task in tasks] == ["before", "after"]
+    assert tasks[1].description == "After"
+
+
+def test_end_retry_does_not_inherit_enclosing_rescue(caplog):
+    assert parse_rakefile("task :before; begin; rescue; END { retry }; end") == []
+    assert "retry outside rescue" in caplog.text
+
+
+def test_end_return_still_rejects_class_context(caplog):
+    assert parse_rakefile("class Helper; END { return }; end; task :after") == []
+    assert "return in class" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        "BEGIN { def self.task(*args); end }",
+        "BEGIN { BEGIN { def self.task(*args); end } }",
+        "BEGIN { def (self).task(*args); end }",
+        "BEGIN { class << self; def task(*args); end; end }",
+        "BEGIN { def self.task(*args); end } if true",
+        "BEGIN { def self.task(*args); end } unless false",
+        "BEGIN { def self.task(*args); end } while false",
+        "BEGIN { def self.task(*args); end } until true",
+    ],
+)
+def test_begin_overrides_apply_before_earlier_declarations(override):
+    assert parse_rakefile(f"desc 'Ghost'; task :ghost; {override}; task :later") == []
+
+
+def test_begin_desc_override_preserves_tasks_without_descriptions():
+    tasks = parse_rakefile(
+        "desc 'Ghost'; task :build; BEGIN { def self.desc(*args); end }"
+    )
+    assert [task.name for task in tasks] == ["build"]
+    assert tasks[0].description is None
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "BEGIN { END { def self.task(*args); end } }",
+        "BEGIN { def helper; def self.task(*args); end; end }",
+        "BEGIN { call { def self.task(*args); end } }",
+        "BEGIN { class Helper; def self.task(*args); end; end }",
+    ],
+)
+def test_begin_nested_opaque_overrides_preserve_discovery(body):
+    tasks = parse_rakefile(f"task :before; {body}; task :after")
+    assert [task.name for task in tasks] == ["before", "after"]
+
+
+@pytest.mark.parametrize("modifier", ["if false", "if nil", "unless true"])
+def test_inactive_begin_overrides_preserve_discovery(modifier):
+    tasks = parse_rakefile(
+        f"task :before; BEGIN {{ def self.task(*args); end }} {modifier}; task :after"
+    )
+    assert [task.name for task in tasks] == ["before", "after"]

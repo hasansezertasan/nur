@@ -221,7 +221,7 @@ def _control_permissions(
     node: Node, child: Node, *, in_rescue: bool, in_iteration: bool
 ) -> tuple[bool, bool]:
     new_scopes = {"method", "singleton_method", "class", "singleton_class", "module"}
-    blocks = {"lambda", "block", "do_block"}
+    blocks = {"lambda", "block", "do_block", "end_block"}
     loops = {"while", "until", "for", "while_modifier", "until_modifier"}
     if node.type in new_scopes:
         headers = {
@@ -235,7 +235,7 @@ def _control_permissions(
     body = node.child_by_field_name("body")
     if node.type == "rescue" and child == body:
         in_rescue = True
-    if node.type in blocks | loops and child == body:
+    if node.type == "end_block" or (node.type in blocks | loops and child == body):
         in_iteration = True
     if node.type in loops - {"for"} and child == node.child_by_field_name("condition"):
         in_iteration = True
@@ -759,7 +759,7 @@ def _escaping_control(root: Node) -> str | None:
             if node.type == "redo":
                 return "redo"
             local_control = node.type
-        if node.type in {"method", "block", "do_block", "lambda"}:
+        if node.type in {"method", "block", "do_block", "lambda", "end_block"}:
             continue
         if node.type == "singleton_method":
             receiver = node.child_by_field_name("object")
@@ -776,13 +776,45 @@ def _escaping_control(root: Node) -> str | None:
     return local_control
 
 
+def _begin_overrides(root: Node) -> set[str]:
+    # Ruby executes BEGIN bodies before ordinary statements, even when the
+    # BEGIN appears later in the file or has an active postfix condition.
+    disabled: set[str] = set()
+    pending = [(root, False)]
+    opaque = {
+        "method",
+        "singleton_method",
+        "class",
+        "module",
+        "singleton_class",
+        "block",
+        "do_block",
+        "lambda",
+        "end_block",
+    }
+    while pending:
+        node, in_begin = pending.pop()
+        condition = node.child_by_field_name("condition")
+        if condition is not None and (
+            (node.type == "if_modifier" and condition.type in {"false", "nil"})
+            or (node.type == "unless_modifier" and condition.type == "true")
+        ):
+            continue
+        in_begin = in_begin or node.type == "begin_block"
+        if in_begin:
+            _method(node, disabled)
+        if node.type not in opaque:
+            pending.extend((child, in_begin) for child in node.named_children)
+    return disabled
+
+
 def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
     # Each frame owns its pending description; it cannot leak out of a scope.
     # An explicit stack avoids Python recursion on deeply nested namespaces.
     scopes: list[tuple[Iterator[Node], str, str | None]] = [
         (iter(root.named_children), "", None)
     ]
-    disabled: set[str] = set()
+    disabled = _begin_overrides(root)
     while scopes:
         statements, namespace, description = scopes.pop()
         node = next(statements, None)
