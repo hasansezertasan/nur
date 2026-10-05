@@ -260,7 +260,13 @@ def test_reserved_prefix_inside_an_ordinary_namespace_is_literal():
 
 @pytest.mark.parametrize(
     "replacement",
-    ["def self.task(*args); end", "class << self; def task(*args); end; end"],
+    [
+        "def self.task(*args); end",
+        "def (self).task(*args); end",
+        "def ((self)).task(*args); end",
+        "class << self; def task(*args); end; end",
+        "class << ((self)); def task(*args); end; end",
+    ],
 )
 def test_redefined_task_method_is_not_discovered(replacement):
     tasks = parse_rakefile(f"task :before\n{replacement}\ntask :ghost\n")
@@ -490,3 +496,62 @@ def test_nested_top_level_begin_blocks_are_valid():
 def test_singleton_receiver_return_keeps_enclosing_file_scope():
     tasks = parse_rakefile("task :before\nclass << (return; self); end\n")
     assert [task.name for task in tasks] == ["before"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "def helper(arg, arg); end",
+        "def self.helper(arg, arg = 1); end",
+        "def helper(arg, *arg); end",
+        "def helper(arg, arg:); end",
+        "def helper(arg, arg: 1); end",
+        "def helper(arg, **arg); end",
+        "def helper(arg, &arg); end",
+        "def helper((arg, other), arg); end",
+        "task :hidden do |arg, arg|; end",
+        "task :hidden do |arg; arg|; end",
+        "task :hidden do |; arg, arg|; end",
+        "->(arg, arg) {}",
+        "if false; def helper(arg, arg); end; end",
+    ],
+)
+def test_duplicate_parameter_names_reject_whole_file(body, caplog):
+    assert parse_rakefile(f"task :before\n{body}\ntask :after\n") == []
+    assert "duplicated argument name" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "def helper(_arg, _arg); end",
+        "def helper(arg = call(arg), other: arg); end",
+        "def helper(arg, *rest, key: 1, **options, &block); end",
+        "def helper(*, **, &); end",
+        "def first(arg); end; def second(arg); end",
+        "task :build do |arg|; call { |arg| }; end",
+        "task :build do |arg; other|; end",
+        "def helper((arg, (other, *rest))); end",
+    ],
+)
+def test_valid_parameter_bindings_preserve_discovery(body):
+    tasks = parse_rakefile(f"{body}\ntask :after\n")
+    assert tasks[-1].name == "after"
+
+
+@pytest.mark.parametrize(
+    "replacement",
+    [
+        "def ((other)).task(*args); end",
+        "class << (self; other); def task(*args); end; end",
+        "class << (); end",
+    ],
+)
+def test_other_singleton_receivers_preserve_discovery(replacement):
+    tasks = parse_rakefile(f"{replacement}\ntask :build\n")
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_parenthesized_self_with_comments_overrides_dsl():
+    tasks = parse_rakefile("class << ( # receiver\n self); end\ntask :ghost\n")
+    assert tasks == []

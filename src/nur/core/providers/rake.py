@@ -57,17 +57,26 @@ def _arguments(node: Node) -> list[Node]:
     return [child for child in arguments.named_children if child.type != "comment"]
 
 
+def _is_self(node: Node | None) -> bool:
+    while node is not None and node.type == "parenthesized_statements":
+        children = [child for child in node.named_children if child.type != "comment"]
+        if len(children) != 1:
+            return False
+        node = children[0]
+    return node is not None and node.type == "self"
+
+
 def _method(node: Node, disabled: set[str]) -> str | None:
     # Direct singleton definitions replace the methods Rake extends main with.
     # A singleton-class body can replace any of them; do not guess its effects.
     if node.type == "singleton_class":
         value = node.child_by_field_name("value")
-        if value is not None and value.type == "self":
+        if _is_self(value):
             disabled.update({"task", "multitask", "namespace", "desc"})
     if node.type == "singleton_method":
         owner = node.child_by_field_name("object")
         name_node = node.child_by_field_name("name")
-        if owner is not None and owner.type == "self" and name_node is not None:
+        if _is_self(owner) and name_node is not None:
             disabled.add(_text(name_node))
     if node.type != "call" or node.child_by_field_name("receiver") is not None:
         return None
@@ -231,12 +240,41 @@ def _method_context(node: Node, child: Node, *, inherited: bool) -> bool:
     return inherited
 
 
+def _duplicate_parameters(node: Node) -> bool:
+    """Check bindings only, leaving default expressions in their own scopes."""
+    names: set[str] = set()
+    pending = list(node.named_children)
+    while pending:
+        parameter = pending.pop()
+        if parameter.type == "identifier":
+            name = _text(parameter)
+            # Ruby deliberately permits repeated underscore-prefixed bindings.
+            if name.startswith("_"):
+                continue
+            if name in names:
+                return True
+            names.add(name)
+        elif parameter.type == "destructured_parameter":
+            pending.extend(parameter.named_children)
+        else:
+            binding = parameter.child_by_field_name("name")
+            if binding is not None:
+                pending.append(binding)
+    return False
+
+
 def _method_context_error(root: Node) -> str | None:
     # Blocks retain their enclosing method scope; class bodies start a new one.
     # These compile-time restrictions apply even inside undiscovered bodies.
     pending = [(root, False)]
     while pending:
         node, in_method = pending.pop()
+        if node.type in {
+            "method_parameters",
+            "lambda_parameters",
+            "block_parameters",
+        } and _duplicate_parameters(node):
+            return "duplicated argument name"
         if node.type in {"class", "module"} and in_method:
             return "class or module definition inside method"
         if (
