@@ -65,7 +65,7 @@ def _method(node: Node, disabled: set[str]) -> str | None:
     _record_override(node, disabled)
     if (
         node.parent is not None
-        and node.parent.type in {"begin", "parenthesized_statements"}
+        and node.parent.type in {"begin", "begin_block", "parenthesized_statements"}
         and node.type not in {"begin", "parenthesized_statements"}
     ):
         # Flattened wrappers retain source order while each statement still
@@ -350,6 +350,11 @@ def _scope_statements(root: Node) -> Iterator[Node]:
         node = next(pending[-1], None)
         if node is None:
             pending.pop()
+        elif node.type == "begin_block" or (
+            (body := node.child_by_field_name("body")) is not None
+            and body.type == "begin_block"
+        ):
+            continue
         elif node.type == "parenthesized_statements" or (
             node.type == "begin"
             and not any(
@@ -362,19 +367,69 @@ def _scope_statements(root: Node) -> Iterator[Node]:
             yield node
 
 
+def _begin_statements(root: Node, disabled: set[str]) -> Iterator[Node]:
+    # MRI hoists each nested initializer before its enclosing BEGIN body.
+    pending = [(root, False)]
+    while pending:
+        node, completed = pending.pop()
+        if completed:
+            yield from _scope_statements(node)
+        elif node.type in {"program", "begin_block"}:
+            if node.type == "begin_block":
+                pending.append((node, True))
+            pending.extend((child, False) for child in reversed(node.named_children))
+        elif node.type in {"if_modifier", "unless_modifier"}:
+            condition = node.child_by_field_name("condition")
+            while (
+                condition is not None and condition.type == "parenthesized_statements"
+            ):
+                children = [
+                    child
+                    for child in condition.named_children
+                    if child.type != "comment"
+                ]
+                condition = children[0] if len(children) == 1 else None
+            if condition is not None and condition.type in {"true", "false", "nil"}:
+                pending.extend(
+                    (child, False)
+                    for child in reversed(_reachable_begin_children(node))
+                )
+            else:
+                disabled.update(_dsl_overrides(node))
+        elif node.type in {"while_modifier", "until_modifier", "rescue_modifier"}:
+            body = node.child_by_field_name("body")
+            if body is not None and body.type == "begin_block":
+                pending.append((body, False))
+
+
+def _load_statements(root: Node, disabled: set[str]) -> Iterator[Node]:
+    yield from _begin_statements(root, disabled)
+    # Unknown initializer conditions remain opaque, but their possible overrides
+    # still prevent ordinary calls from being mistaken for the Rake DSL.
+    disabled.update(_dsl_overrides(root))
+    yield from _scope_statements(root)
+
+
+def _in_initializer(node: Node) -> bool:
+    parent = node.parent
+    while parent is not None and parent.type not in {"begin_block", "program"}:
+        parent = parent.parent
+    return parent is not None and parent.type == "begin_block"
+
+
 def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
     # Each frame owns its pending description; it cannot leak out of a scope.
     # An explicit stack avoids Python recursion on deeply nested namespaces.
+    disabled: set[str] = set()
     scopes: list[tuple[Iterator[Node], str, str | None]] = [
-        (_scope_statements(root), "", None)
+        (_load_statements(root, disabled), "", None)
     ]
-    disabled = _dsl_overrides(root)
     while scopes:
         statements, namespace, description = scopes.pop()
         node = next(statements, None)
         if node is None:
             continue
-        control = _escaping_control(node)
+        control = _escaping_control(node, include_begin=_in_initializer(node))
         if control in {"return", "redo"}:
             return
         if control in {"break", "next"}:
@@ -403,7 +458,8 @@ def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     Only direct ``task``/``multitask`` calls and adjacent literal ``desc`` calls
     are read. Task bodies, conditional/generated declarations, file tasks,
     rules and imported files are opaque. Parentheses and plain begin/end
-    wrappers without exception handlers are transparent. No Ruby code or
+    wrappers without exception handlers are transparent. Active literal BEGIN
+    initializers are read before ordinary statements. No Ruby code or
     runner is executed. Regexp literals outside the validated ASCII syntax
     subset cause the file to be skipped.
     """

@@ -1657,3 +1657,72 @@ def test_regexp_capture_count_at_ruby_limit_is_supported():
     assert [task.name for task in parse_rakefile(f"/{pattern}/; task :build")] == [
         "build"
     ]
+
+
+@pytest.mark.parametrize(
+    "initializer",
+    [
+        "BEGIN { task :bootstrap }",
+        "BEGIN { task :bootstrap } if true",
+        "BEGIN { task :bootstrap } unless false",
+        "BEGIN { task :bootstrap } while false",
+        "BEGIN { task :bootstrap } until true",
+        "BEGIN { task :bootstrap } rescue nil",
+    ],
+)
+def test_active_begin_tasks_precede_ordinary_declarations(initializer):
+    tasks = parse_rakefile(f"task :ordinary; {initializer}")
+    assert [task.name for task in tasks] == ["bootstrap", "ordinary"]
+
+
+def test_nested_begin_tasks_follow_initializer_execution_order():
+    tasks = parse_rakefile(
+        "BEGIN { task :outer; BEGIN { task :inner } }; "
+        "BEGIN { task :second; BEGIN { task :second_inner } }; task :ordinary"
+    )
+    assert [task.name for task in tasks] == [
+        "inner",
+        "outer",
+        "second_inner",
+        "second",
+        "ordinary",
+    ]
+
+
+def test_begin_descriptions_share_ordinary_scope():
+    tasks = parse_rakefile('task :build; BEGIN { desc "Build" }')
+    assert [(task.name, task.description) for task in tasks] == [("build", "Build")]
+
+
+def test_begin_tasks_and_namespaces_read_descriptions():
+    tasks = parse_rakefile(
+        'BEGIN { desc "Boot"; task :bootstrap; '
+        'namespace :db do; desc "Migrate"; task :migrate; end }'
+    )
+    assert [(task.name, task.description) for task in tasks] == [
+        ("bootstrap", "Boot"),
+        ("db:migrate", "Migrate"),
+    ]
+
+
+def test_begin_overrides_preserve_earlier_initializer_tasks():
+    tasks = parse_rakefile(
+        "task :ordinary; BEGIN { task :bootstrap; def self.task(*args); end }; "
+        "BEGIN { task :hidden }"
+    )
+    assert [task.name for task in tasks] == ["bootstrap"]
+
+
+@pytest.mark.parametrize("modifier", ["if false", "unless true", "if condition"])
+def test_inactive_or_dynamic_begin_tasks_remain_opaque(modifier):
+    tasks = parse_rakefile(f"BEGIN {{ task :hidden }} {modifier}; task :ordinary")
+    assert [task.name for task in tasks] == ["ordinary"]
+
+
+def test_dynamic_begin_overrides_disable_later_initializer_tasks():
+    tasks = parse_rakefile(
+        "BEGIN { task :bootstrap }; "
+        "BEGIN { def self.task(*args); end } if condition; "
+        "BEGIN { task :hidden }; task :ordinary"
+    )
+    assert [task.name for task in tasks] == ["bootstrap"]

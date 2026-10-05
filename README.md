@@ -175,6 +175,8 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   and task names ending in a colon are skipped. Files with Ruby syntax errors
   reported by the parser are skipped
   with a warning.
+  Direct declarations in active literal `BEGIN` initializers are read
+  before ordinary statements, matching Ruby initialization order.
   Regexp literal checks support ASCII patterns with ordinary groups,
   character classes, anchors and quantifiers.
   Files with complex or encoding-sensitive regexp literals
