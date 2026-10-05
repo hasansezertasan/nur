@@ -161,8 +161,9 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 
   `rake` parses `Rakefile` with Tree-sitter without running Ruby or `rake -T`.
   It discovers direct literal `task` and `multitask` declarations, including
-  dependency-only tasks, and tracks nested literal `namespace` blocks. An
-  adjacent ordinary quoted `desc` supplies the description. For example,
+  dependency-only tasks, and tracks nested literal `namespace` blocks. A
+  pending ordinary quoted `desc` supplies the next task description,
+  including across unrelated statements and namespaces. For example,
   `task :migrate` inside `namespace :db` runs as `rake db:migrate` and is
   available as `nur rake:db:migrate`.
   Task bodies stay opaque, so `definition` is empty. Conditional declarations,
@@ -177,8 +178,8 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   with a warning.
   Explicit task-name dependency hashes are supported.
   Files that directly undefine a Rake DSL method are skipped with a warning.
-  Tasks with adjacent descriptions of a known invalid type
-  (such as symbols or numbers) are skipped.
+  Statically invalid task or namespace calls and descriptions of a known
+  invalid type (such as symbols or numbers) cause the file to be skipped.
   Direct declarations in active literal `BEGIN` initializers are read
   before ordinary statements, matching Ruby initialization order.
   Regexp literal checks support ASCII patterns with ordinary groups,

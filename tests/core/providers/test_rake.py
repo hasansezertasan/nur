@@ -136,14 +136,14 @@ def test_nonliteral_descriptions_do_not_hide_tasks():
     assert all(task.description is None for task in tasks)
 
 
-def test_description_does_not_leak_past_other_declarations():
+def test_pending_descriptions_are_consumed_by_tasks_and_files():
     tasks = parse_rakefile(
         'desc "For file"\nfile "output"\ntask :build\n'
         'desc "For skipped"\ntask computed\ntask :test\n'
         'namespace :db do\n desc "Unused"\nend\ntask :root\n'
     )
     assert [task.name for task in tasks] == ["build", "test", "root"]
-    assert all(task.description is None for task in tasks)
+    assert [task.description for task in tasks] == [None, None, "Unused"]
 
 
 def test_duplicate_declarations_are_merged():
@@ -1278,12 +1278,10 @@ def test_active_begin_branches_override_earlier_declarations(body):
         ":build, [nil]",
         ":build, 123",
         ":build, nil",
-        ":build, **options",
     ],
 )
-def test_malformed_task_argument_tails_are_skipped(arguments):
-    tasks = parse_rakefile(f"task({arguments}); task :safe")
-    assert [task.name for task in tasks] == ["safe"]
+def test_malformed_task_argument_tails_reject_whole_file(arguments):
+    assert parse_rakefile(f"task({arguments}); task :safe") == []
 
 
 @pytest.mark.parametrize(
@@ -1749,9 +1747,8 @@ def test_literal_task_name_hashes_are_discovered(method, arguments):
     "description",
     [":Build", ':"Build"', "123", "1.5", "true", "[]", "{}", "/Build/", "( :Build )"],
 )
-def test_known_invalid_descriptions_suppress_affected_tasks(method, description):
-    tasks = parse_rakefile(f"desc({description}); {method} :hidden; task :safe")
-    assert [task.name for task in tasks] == ["safe"]
+def test_known_invalid_descriptions_reject_whole_file(method, description):
+    assert parse_rakefile(f"desc({description}); {method} :hidden; task :safe") == []
 
 
 @pytest.mark.parametrize("description", ["nil", "false", '"Build"', '("Build")'])
@@ -1853,3 +1850,117 @@ def test_invalid_control_arguments_reject_whole_file(body, caplog):
 )
 def test_valid_control_arguments_preserve_discovery(body):
     assert [t.name for t in parse_rakefile(f"{body}; task :build")] == ["build"]
+
+
+@pytest.mark.parametrize("method", ["task", "multitask"])
+@pytest.mark.parametrize(
+    "arguments", [":bad, bar: :baz", ":bad, {}", ":bad, 123", "{one: :dep, two: :dep}"]
+)
+def test_statically_invalid_task_calls_reject_file(method, arguments, caplog):
+    assert parse_rakefile(f"task :before; {method}({arguments}); task :after") == []
+    assert "invalid Rake task" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "declaration",
+    [
+        "namespace :broken",
+        "namespace(:broken)",
+        "namespace(123) {}",
+        "namespace(true) {}",
+        "namespace(false) {}",
+        "namespace(:one, :two) {}",
+        "namespace(:broken, &nil)",
+    ],
+)
+def test_statically_invalid_namespaces_reject_file(declaration, caplog):
+    assert parse_rakefile(f"task :before; {declaration}; task :after") == []
+    assert "invalid Rake namespace" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'desc "Good"; nil; task :build',
+        'desc "Good"; namespace :db do; task :build; end',
+        'namespace :db do; desc "Good"; end; task :build',
+        'desc "Good"; rule ".o" => ".c"; task :build',
+    ],
+)
+def test_pending_descriptions_follow_rake_global_metadata(body):
+    tasks = parse_rakefile(body)
+    assert [(task.name, task.description) for task in tasks] == [
+        ("db:build" if "task :build; end" in body else "build", "Good")
+    ]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "desc :Bad; nil; task :build",
+        "desc :Bad; namespace :db do; task :build; end",
+        "namespace :db do; desc :Bad; end; task :build",
+        'desc :Bad; file "output"; task :build',
+    ],
+)
+def test_pending_invalid_descriptions_reject_file(body, caplog):
+    assert parse_rakefile(f"task :before; {body}") == []
+    assert "invalid Rake description" in caplog.text
+
+
+def test_dynamic_task_argument_tail_remains_opaque():
+    tasks = parse_rakefile("task(:hidden, **options); task :safe")
+    assert [task.name for task in tasks] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "declaration",
+    [
+        "task(:hidden, options => :dep)",
+        "task({**options})",
+        "task(:hidden, first => :dep, second => :dep)",
+        "task(:hidden, first => :dep, second => :dep, third => :dep)",
+        "task()",
+        "namespace {}",
+        "namespace(:db, &callback)",
+        "namespace(*names) {}",
+    ],
+)
+def test_unknown_declaration_shapes_are_opaque(declaration):
+    tasks = parse_rakefile(f"{declaration}; task :safe")
+    assert [task.name for task in tasks] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "declaration", ["desc()", 'desc("First", "Second")', "desc {}"]
+)
+def test_statically_wrong_description_arity_rejects_file(declaration, caplog):
+    assert parse_rakefile(f"task :before; {declaration}; task :after") == []
+    assert "invalid Rake description arguments" in caplog.text
+
+
+@pytest.mark.parametrize("condition", ["(true)", "((true))"])
+def test_parenthesized_active_initializer_conditions_preserve_declarations(condition):
+    tasks = parse_rakefile(
+        f"BEGIN {{ task :bootstrap }} if {condition}; task :ordinary"
+    )
+    assert [task.name for task in tasks] == ["bootstrap", "ordinary"]
+
+
+@pytest.mark.parametrize("condition", ["(false)", "(flag)", "(true; flag)"])
+def test_parenthesized_inactive_or_dynamic_initializer_conditions_are_opaque(condition):
+    tasks = parse_rakefile(f"BEGIN {{ task :hidden }} if {condition}; task :ordinary")
+    assert [task.name for task in tasks] == ["ordinary"]
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        "{build: :first, build: :second}",
+        "build: :first, build: :second, build: :third",
+        ":build, {[:mode] => :first, [:mode] => :second}",
+        ":build, [:mode] => :first, [:mode] => :second",
+    ],
+)
+def test_duplicate_dependency_keys_follow_ruby_hash_semantics(arguments):
+    assert [task.name for task in parse_rakefile(f"task({arguments})")] == ["build"]

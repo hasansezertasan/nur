@@ -98,7 +98,7 @@ def _order_only_key(node: Node) -> bool:
     )
 
 
-def _valid_task_tail(arguments: list[Node]) -> bool:
+def _task_arguments(arguments: list[Node]) -> tuple[list[Node], list[Node] | None]:
     positional = arguments
     pairs: list[Node] | None = None
     if arguments and arguments[-1].type == "hash":
@@ -111,14 +111,19 @@ def _valid_task_tail(arguments: list[Node]) -> bool:
             if argument.type == "pair":
                 positional, pairs = arguments[:index], arguments[index:]
                 break
+    return positional, pairs
+
+
+def _valid_task_tail(arguments: list[Node]) -> bool:
+    positional, pairs = _task_arguments(arguments)
     if pairs is None:
         return (len(positional) == 1 and _argument_array(positional[0])) or all(
             literal(argument) is not None for argument in positional
         )
-    if len(pairs) not in {1, 2} or any(pair.type != "pair" for pair in pairs):
+    keys = _known_hash_keys(pairs)
+    if keys is None:
         return False
-    keys = [pair.child_by_field_name("key") for pair in pairs]
-    ordinary = [key for key in keys if key is not None and not _order_only_key(key)]
+    ordinary = [key for key in keys if not _order_only_key(key)]
     if len(ordinary) > 1:
         return False
     key = ordinary[0] if ordinary else None
@@ -131,16 +136,163 @@ def _valid_task_tail(arguments: list[Node]) -> bool:
     )
 
 
+class _InvalidDeclarationError(ValueError):
+    """A direct Rake declaration is known to fail while loading."""
+
+
+def _invalid_argument_name(node: Node) -> bool:
+    return node.type in {
+        "nil",
+        "true",
+        "false",
+        "integer",
+        "float",
+        "array",
+        "hash",
+        "regex",
+        "range",
+    }
+
+
+def _invalid_argument_names(arguments: list[Node]) -> bool:
+    if len(arguments) == 1 and arguments[0].type == "array":
+        arguments = arguments[0].named_children
+    return any(_invalid_argument_name(argument) for argument in arguments)
+
+
+def _key_identity(root: Node) -> str | None:
+    pending = [(root, False)]
+    identity: list[str] = []
+    while pending:
+        node, closing = pending.pop()
+        if closing:
+            identity.append("]")
+        elif node.type == "array":
+            identity.append("[")
+            pending.append((node, True))
+            pending.extend(
+                (child, False)
+                for child in reversed(node.named_children)
+                if child.type != "comment"
+            )
+        elif node.type == "nil":
+            identity.append("nil")
+        else:
+            value = literal(node)
+            if value is None:
+                return None
+            kind = "string" if node.type == "string" else "symbol"
+            identity.append(repr((kind, value)))
+    return repr(identity)
+
+
+def _known_hash_keys(pairs: list[Node]) -> list[Node] | None:
+    if any(pair.type != "pair" for pair in pairs):
+        return None
+    keys: dict[str, Node] = {}
+    for pair in pairs:
+        key = pair.child_by_field_name("key")
+        identity = _key_identity(key) if key is not None else None
+        if key is None or identity is None:
+            return None
+        keys[identity] = key
+    return list(keys.values())
+
+
+def _invalid_argument_names_value(node: Node | None) -> bool:
+    if node is None or node.type == "nil":
+        return False
+    if node.type == "array":
+        return any(_invalid_argument_name(child) for child in node.named_children)
+    return _invalid_argument_name(node) or literal(node) is not None
+
+
+def _invalid_task_arguments(arguments: list[Node]) -> bool:
+    positional, pairs = _task_arguments(arguments)
+    if pairs is None:
+        return _invalid_argument_names(positional[1:])
+    keys = _known_hash_keys(pairs)
+    if keys is None:
+        return False
+    ordinary = [key for key in keys if not _order_only_key(key)]
+    if len(keys) not in {1, 2} or len(ordinary) > 1:
+        return True
+    if not positional:
+        return False
+    key = ordinary[0] if ordinary else None
+    if key is None or key.type == "nil":
+        key = positional[1] if len(positional) > 1 else None
+    return _invalid_argument_names_value(key)
+
+
+def _invalid_namespace(node: Node, arguments: list[Node]) -> bool:
+    callbacks = [
+        argument for argument in arguments if argument.type == "block_argument"
+    ]
+    if node.child_by_field_name("block") is None and (
+        not callbacks
+        or any(
+            any(child.type in {"nil", "false"} for child in callback.named_children)
+            for callback in callbacks
+        )
+    ):
+        return True
+    names = [argument for argument in arguments if argument.type != "block_argument"]
+    if any(
+        argument.type in {"splat_argument", "hash_splat_argument", "forward_argument"}
+        for argument in names
+    ):
+        return False
+    return len(names) > 1 or any(
+        _invalid_argument_name(argument) and argument.type != "nil"
+        for argument in names
+    )
+
+
+def _declaration_error(
+    node: Node, method: str | None, arguments: list[Node], description: Node | None
+) -> str | None:
+    if method == "undef":
+        return "undef of Rake DSL method"
+    if method in {"task", "multitask", "file", "rule"} and _invalid_task_arguments(
+        arguments
+    ):
+        return "invalid Rake task arguments"
+    if method in {"task", "multitask", "file"} and not _valid_description(description):
+        return "invalid Rake description type"
+    if method == "namespace" and _invalid_namespace(node, arguments):
+        return "invalid Rake namespace call"
+    if (
+        method == "desc"
+        and len(arguments) != 1
+        and not any(
+            argument.type
+            in {"splat_argument", "hash_splat_argument", "forward_argument"}
+            for argument in arguments
+        )
+    ):
+        return "invalid Rake description arguments"
+    return None
+
+
+def _validate_declaration(
+    node: Node, method: str | None, arguments: list[Node], description: Node | None
+) -> None:
+    error = _declaration_error(node, method, arguments, description)
+    if error is not None:
+        raise _InvalidDeclarationError(error)
+
+
 def _task_hash_key(arguments: list[Node]) -> Node | None:
     pairs = arguments
     if len(arguments) == 1 and arguments[0].type == "hash":
         pairs = [
             child for child in arguments[0].named_children if child.type != "comment"
         ]
-    if len(pairs) not in {1, 2} or any(pair.type != "pair" for pair in pairs):
+    keys = _known_hash_keys(pairs)
+    if keys is None:
         return None
-    keys = [pair.child_by_field_name("key") for pair in pairs]
-    ordinary = [key for key in keys if key is not None and not _order_only_key(key)]
+    ordinary = [key for key in keys if not _order_only_key(key)]
     return ordinary[0] if len(ordinary) == 1 else None
 
 
@@ -457,21 +609,14 @@ def _in_initializer(node: Node) -> bool:
     return parent is not None and parent.type == "begin_block"
 
 
-def _runnable_declaration(method: str | None, description: Node | None) -> bool:
-    return method == "undef" or (
-        method in {"task", "multitask"} and _valid_description(description)
-    )
-
-
 def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
-    # Each frame owns its pending description; it cannot leak out of a scope.
+    # Rake's pending description is global, including across namespaces.
     # An explicit stack avoids Python recursion on deeply nested namespaces.
     disabled: set[str] = set()
-    scopes: list[tuple[Iterator[Node], str, Node | None]] = [
-        (_load_statements(root, disabled), "", None)
-    ]
+    scopes: list[tuple[Iterator[Node], str]] = [(_load_statements(root, disabled), "")]
+    description: Node | None = None
     while scopes:
-        statements, namespace, description = scopes.pop()
+        statements, namespace = scopes.pop()
         node = next(statements, None)
         if node is None:
             continue
@@ -480,28 +625,30 @@ def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
             return
         if control in {"break", "next"}:
             continue
+        scopes.append((statements, namespace))
         method = _method(node, disabled)
         arguments = _arguments(node)
-        if node.type == "comment":
-            scopes.append((statements, namespace, description))
-            continue
+        _validate_declaration(node, method, arguments, description)
         if method == "desc":
-            scopes.append((statements, namespace, _description(arguments)))
-            continue
-        scopes.append((statements, namespace, None))
-        if _runnable_declaration(method, description):
-            yield node, namespace, _description_text(description)
+            description = _description(arguments)
+        elif method in {"task", "multitask", "file"}:
+            if method != "file":
+                yield node, namespace, _description_text(description)
+            description = None
         elif method == "namespace":
             nested = _namespace_body(node, arguments, namespace)
             if nested is not None:
                 qualified, body = nested
-                scopes.append((_scope_statements(body), qualified, None))
+                scopes.append((_scope_statements(body), qualified))
+            else:
+                # An opaque namespace may consume or replace the global comment.
+                description = None
 
 
 def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     """Discover literal Rake tasks at file scope or inside literal namespaces.
 
-    Only direct ``task``/``multitask`` calls and adjacent literal ``desc`` calls
+    Only direct ``task``/``multitask`` calls and pending literal ``desc`` calls
     are read. Task bodies, conditional/generated declarations, file tasks,
     rules and imported files are opaque. Parentheses and plain begin/end
     wrappers without exception handlers are transparent. Active literal BEGIN
@@ -521,15 +668,16 @@ def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
         return []
     tasks: dict[str, Task] = {}
     descriptions: dict[str, list[str]] = {}
-    for node, namespace, description in _declarations(root):
-        if node.type == "undef":
-            log.warning("nur: skipping %s (undef of Rake DSL method)", source_file)
-            return []
-        task = _make_task(
-            descriptions, _arguments(node), namespace, description, source_file
-        )
-        if task is not None:
-            tasks[task.name] = task
+    try:
+        for node, namespace, description in _declarations(root):
+            task = _make_task(
+                descriptions, _arguments(node), namespace, description, source_file
+            )
+            if task is not None:
+                tasks[task.name] = task
+    except _InvalidDeclarationError as error:
+        log.warning("nur: skipping %s (%s)", source_file, error)
+        return []
     return list(tasks.values())
 
 
