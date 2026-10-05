@@ -87,7 +87,13 @@ _INVALID_METHOD_NAME_KINDS = {
 def _simple_constructor_error(
     name: str, kinds: list[str | None], arity: int | None, *, has_block: bool
 ) -> str | None:
-    if name in {"alias_method", "undef_method", "attr_reader", "attr_accessor"}:
+    if name in {
+        "alias_method",
+        "undef_method",
+        "remove_method",
+        "attr_reader",
+        "attr_accessor",
+    }:
         if name == "alias_method" and arity not in {2, None}:
             return "invalid method alias call"
         return (
@@ -115,6 +121,7 @@ def constructor_arguments_error(
         in {
             "alias_method",
             "undef_method",
+            "remove_method",
             "attr_reader",
             "attr_accessor",
             "proc",

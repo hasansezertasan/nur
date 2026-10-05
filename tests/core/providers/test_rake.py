@@ -3293,3 +3293,80 @@ def test_singleton_class_own_singleton_definition_keeps_main_dsl():
 )
 def test_attribute_readers_replacing_constructors_use_reader_arity(source):
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        "def self.task(*); end",
+        "singleton_class.define_method(:task) { |*| }",
+        "singleton_class.attr_reader(:task)",
+        "singleton_class.alias_method(:task, :desc)",
+    ],
+)
+@pytest.mark.parametrize("receiver", ["singleton_class", "self.singleton_class()"])
+def test_removing_temporary_singleton_override_restores_rake_dsl(override, receiver):
+    source = f"{override}; {receiver}.remove_method(:task); task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_removing_singleton_constructor_override_preserves_inherited_override():
+    source = (
+        "def proc; yield; end; def self.proc; end; "
+        'singleton_class.remove_method(:proc); pattern = ")"; '
+        "proc { /#{pattern}/ }; task :ghost"
+    )
+    assert parse_rakefile(source) == []
+
+
+def test_removing_singleton_constructor_override_restores_inherited_constructor():
+    source = (
+        "def self.proc; yield; end; singleton_class.remove_method(:proc); "
+        "proc { /#{pattern}/ }; task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_removing_overridden_main_define_method_does_not_restore_missing_wrapper():
+    source = (
+        "def self.define_method(*); end; "
+        "singleton_class.remove_method(:define_method); "
+        "define_method(:helper) {}; task :ghost"
+    )
+    assert parse_rakefile(source) == []
+
+
+def test_singleton_remove_method_accepts_empty_arguments():
+    assert [
+        task.name
+        for task in parse_rakefile("singleton_class.remove_method(); task :safe")
+    ] == ["safe"]
+
+
+@pytest.mark.parametrize("value", ["nil", "1", "[]"])
+def test_singleton_remove_method_rejects_invalid_names(value):
+    assert (
+        parse_rakefile(
+            f"task :before; singleton_class.remove_method({value}); task :after"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        (
+            "class Other; def self.helper; end; "
+            "singleton_class.remove_method(:helper); end; task :safe"
+        ),
+        "class Other; singleton_class.attr_reader(:task); end; task :safe",
+        (
+            "def self.helper; end; name = :helper; "
+            "singleton_class.remove_method(name); task :safe"
+        ),
+        "singleton_class.remove_method(:to_s); task :safe",
+    ],
+)
+def test_unrelated_or_dynamic_singleton_mutations_keep_rake_dsl(source):
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]

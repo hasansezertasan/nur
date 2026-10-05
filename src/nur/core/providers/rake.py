@@ -88,7 +88,9 @@ def _dsl_receiver(node: Node) -> bool:
 def _method(node: Node, disabled: set[str]) -> str | None:
     # Every declaration-scope statement contributes reachable load-time
     # overrides, including top-level and namespace conditionals.
-    disabled.update(_dsl_overrides(node, in_scope=True, existing=disabled))
+    overrides = _dsl_overrides(node, in_scope=True, existing=disabled)
+    disabled.clear()
+    disabled.update(overrides)
     if node.type == "undef" and any(
         (literal(child) or node_text(child)) in _RAKE_METHODS
         for child in node.named_children

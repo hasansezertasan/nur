@@ -45,6 +45,7 @@ SINGLETON_MUTATORS = frozenset({
     "define_singleton_method",
     "alias_method",
     "undef_method",
+    "remove_method",
     "attr_reader",
     "attr_accessor",
 })
@@ -94,24 +95,31 @@ def _set_override(name: str, disabled: set[str]) -> None:
     disabled.discard(f"reader:{name}")
 
 
+def _set_singleton_override(name: str, disabled: set[str]) -> None:
+    _set_override(name, disabled)
+    disabled.add(f"singleton:{name}")
+
+
 def _instance_override(node: Node, name: str, disabled: set[str]) -> None:
     prefix, singleton_scope = _constructor_scope(node)
     if prefix is not None and singleton_scope:
-        _set_override(f"{prefix}.{name}", disabled)
+        _set_singleton_override(f"{prefix}.{name}", disabled)
     elif main_scope(node) and name in {
         "proc",
         "lambda",
         "define_singleton_method",
         "singleton_class",
     }:
-        _set_override(name, disabled)
+        disabled.add(f"inherited:{name}")
+        if f"singleton:{name}" not in disabled:
+            _set_override(name, disabled)
     elif prefix == "Kernel" and name in {
         "proc",
         "lambda",
         "define_singleton_method",
         "singleton_class",
     }:
-        disabled.add(name)
+        disabled.update({name, f"inherited:{name}"})
 
 
 def _ordinary_override(node: Node, disabled: set[str]) -> None:
@@ -143,9 +151,9 @@ def _record_undef(node: Node, disabled: set[str]) -> None:
 def _self_override(node: Node, name: str, disabled: set[str]) -> None:
     prefix, _ = _constructor_scope(node)
     if prefix is not None:
-        _set_override(f"{prefix}.{name}", disabled)
+        _set_singleton_override(f"{prefix}.{name}", disabled)
     elif main_scope(node):
-        _set_override(name, disabled)
+        _set_singleton_override(name, disabled)
 
 
 def record_override(node: Node, disabled: set[str]) -> None:
@@ -165,7 +173,7 @@ def record_override(node: Node, disabled: set[str]) -> None:
             and name_node is not None
             and node_text(owner) in {"Kernel", "::Kernel", "Proc", "::Proc"}
         ):
-            _set_override(
+            _set_singleton_override(
                 f"{node_text(owner).removeprefix('::')}.{node_text(name_node)}",
                 disabled,
             )
@@ -250,6 +258,9 @@ def _record_mutation(
         return
     if method == "define_singleton_method" and singleton_receiver:
         return
+    if method == "remove_method":
+        _record_removal(node, arguments, disabled)
+        return
     if method == "undef_method":
         prefix, _ = _constructor_scope(node)
         if prefix is None and not main_scope(node):
@@ -275,8 +286,31 @@ def _record_attribute_readers(
     for argument in arguments:
         if (name := literal(argument)) is not None:
             key = f"{prefix}.{name}" if prefix else name
-            _set_override(key, disabled)
+            _set_singleton_override(key, disabled)
             disabled.add(f"reader:{key}")
+
+
+def _record_removal(node: Node, arguments: list[Node], disabled: set[str]) -> None:
+    prefix, _ = _constructor_scope(node)
+    if prefix is None and not main_scope(node):
+        return
+    for argument in arguments:
+        name = literal(argument)
+        if name is None:
+            continue
+        key = f"{prefix}.{name}" if prefix else name
+        if f"singleton:{key}" not in disabled:
+            continue
+        disabled.difference_update({
+            key,
+            f"singleton:{key}",
+            f"reader:{key}",
+            f"undef:{key}",
+        })
+        if key in {"define_method", "Kernel.proc", "Kernel.lambda"}:
+            disabled.update({key, f"undef:{key}"})
+        elif f"inherited:{key}" in disabled:
+            disabled.add(key)
 
 
 def scope_headers(node: Node) -> list[Node]:
