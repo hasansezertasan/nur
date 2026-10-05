@@ -71,6 +71,12 @@ def _method(node: Node, disabled: set[str]) -> str | None:
         # Flattened wrappers retain source order while each statement still
         # contributes reachable load-time overrides, including conditionals.
         disabled.update(_dsl_overrides(node, in_scope=True))
+    if node.type == "undef" and any(
+        (literal(child) or node_text(child))
+        in {"task", "multitask", "namespace", "desc"}
+        for child in node.named_children
+    ):
+        return "undef"
     if node.type != "call" or node.child_by_field_name("receiver") is not None:
         return None
     method = node.child_by_field_name("method")
@@ -451,6 +457,12 @@ def _in_initializer(node: Node) -> bool:
     return parent is not None and parent.type == "begin_block"
 
 
+def _runnable_declaration(method: str | None, description: Node | None) -> bool:
+    return method == "undef" or (
+        method in {"task", "multitask"} and _valid_description(description)
+    )
+
+
 def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
     # Each frame owns its pending description; it cannot leak out of a scope.
     # An explicit stack avoids Python recursion on deeply nested namespaces.
@@ -477,7 +489,7 @@ def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
             scopes.append((statements, namespace, _description(arguments)))
             continue
         scopes.append((statements, namespace, None))
-        if method in {"task", "multitask"} and _valid_description(description):
+        if _runnable_declaration(method, description):
             yield node, namespace, _description_text(description)
         elif method == "namespace":
             nested = _namespace_body(node, arguments, namespace)
@@ -510,6 +522,9 @@ def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     tasks: dict[str, Task] = {}
     descriptions: dict[str, list[str]] = {}
     for node, namespace, description in _declarations(root):
+        if node.type == "undef":
+            log.warning("nur: skipping %s (undef of Rake DSL method)", source_file)
+            return []
         task = _make_task(
             descriptions, _arguments(node), namespace, description, source_file
         )

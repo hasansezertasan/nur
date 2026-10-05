@@ -1760,3 +1760,96 @@ def test_valid_description_types_preserve_tasks(description):
     assert [(task.name, task.description) for task in tasks] == [
         ("build", "Build" if "Build" in description else None)
     ]
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["task", "multitask", "namespace", "desc", ":task", ':"task"', ":task, :desc"],
+)
+@pytest.mark.parametrize(
+    "wrapper",
+    ["{}", "( {} )", "begin; {}; end", "BEGIN {{ {} }}", "namespace :db do; {}; end"],
+)
+def test_direct_undef_of_rake_dsl_rejects_file(name, wrapper, caplog):
+    body = wrapper.format(f"undef {name}")
+    assert parse_rakefile(f"task :before; {body}; task :after") == []
+    assert "undef of Rake DSL" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "def helper; undef task; end",
+        "class C; undef task; end",
+        "proc { undef task }",
+        "END { undef task }",
+    ],
+)
+def test_deferred_or_opaque_undef_does_not_hide_tasks(body):
+    assert [t.name for t in parse_rakefile(f"{body}; task :build")] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "def helper; yield(&callback); end",
+        "def helper; defined?(yield(&callback)); end",
+        "def helper(&); yield(&); end",
+        "def helper(...); yield(...); end",
+        "proc { redo() }",
+        "proc { redo(1) }",
+        "begin; rescue; retry(); end",
+        "begin; rescue; retry(1); end",
+        "defined?(redo(1))",
+        "defined?(retry())",
+        "def helper; return(&callback); end",
+        "proc { next(&callback) }",
+        "while true; break(&callback); end",
+        "def helper; return(**options); end",
+        "proc { next(**options) }",
+        "while true; break(**options); end",
+        "def helper(...); return(...); end",
+        "def helper(*); return(*); end",
+        "def helper(**); return(**); end",
+        "def helper(*); proc { next(*) }; end",
+        "def helper(*); while true; break(*); end; end",
+        "def helper; return(foo: 1); end",
+        "proc { next(foo: 1) }",
+        "while true; break(foo: 1); end",
+        "def helper; return(*values); end",
+        "proc { next(*values) }",
+        "while true; break(*values); end",
+        "def helper; return(1, 2); end",
+        "proc { next(1, 2) }",
+        "while true; break(1, 2); end",
+    ],
+)
+def test_invalid_control_arguments_reject_whole_file(body, caplog):
+    assert parse_rakefile(f"task :before; {body}; task :after") == []
+    assert "arguments" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "def helper; return(); end",
+        "proc { next() }",
+        "while true; break(); end",
+        "def helper; yield(); end",
+        "def helper; yield({a: 1}); end",
+        "def helper; yield **options; end",
+        "def helper(*); yield(*); end",
+        "def helper(**); yield(**); end",
+        "def helper; return({a: 1}); end",
+        "proc { next({a: 1}) }",
+        "while true; break({a: 1}); end",
+        "def helper; return *values; end",
+        "proc { next *values }",
+        "while true; break *values; end",
+        "def helper; return 1, 2; end",
+        "proc { next 1, 2 }",
+        "while true; break 1, 2; end",
+    ],
+)
+def test_valid_control_arguments_preserve_discovery(body):
+    assert [t.name for t in parse_rakefile(f"{body}; task :build")] == ["build"]

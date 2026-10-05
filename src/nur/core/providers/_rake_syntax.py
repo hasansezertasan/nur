@@ -522,6 +522,44 @@ def _regexp_error(node: Node) -> str | None:
     )
 
 
+def _control_argument_valid(control: str, argument: Node) -> bool:
+    if argument.type in {"block_argument", "forward_argument"}:
+        return False
+    if control == "yield":
+        return True
+    if argument.type in {"pair", "hash_splat_argument"}:
+        return False
+    return argument.type != "splat_argument" or any(
+        child.type != "comment" for child in argument.named_children
+    )
+
+
+def _control_parentheses_valid(control: str, arguments: Node) -> bool:
+    if control == "yield" or arguments.children[0].type != "(":
+        return True
+    values = [child for child in arguments.named_children if child.type != "comment"]
+    return len(values) <= 1 and all(value.type != "splat_argument" for value in values)
+
+
+def _control_arguments_error(node: Node) -> str | None:
+    if node.type not in {"yield", "return", "break", "next", "redo", "retry"}:
+        return None
+    arguments = next(
+        (child for child in node.named_children if child.type == "argument_list"), None
+    )
+    if arguments is None:
+        return None
+    if not _control_parentheses_valid(node.type, arguments):
+        return f"invalid {node.type} arguments"
+    if node.type in {"redo", "retry"} or any(
+        not _control_argument_valid(node.type, argument)
+        for argument in arguments.named_children
+        if argument.type != "comment"
+    ):
+        return f"invalid {node.type} arguments"
+    return None
+
+
 def _method_context_error(root: Node) -> str | None:
     # Blocks retain their enclosing method scope; class bodies start a new one.
     # These compile-time restrictions apply even inside undiscovered bodies.
@@ -534,6 +572,7 @@ def _method_context_error(root: Node) -> str | None:
             _node_binding_error(node)
             or _assignment_error(node, in_method=in_method)
             or _alias_error(node)
+            or _control_arguments_error(node)
             or (_regexp_error(node) if node.type == "regex" else None)
         )
         if error is not None:

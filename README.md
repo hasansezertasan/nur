@@ -176,6 +176,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   reported by the parser are skipped
   with a warning.
   Explicit task-name dependency hashes are supported.
+  Files that directly undefine a Rake DSL method are skipped with a warning.
   Tasks with adjacent descriptions of a known invalid type
   (such as symbols or numbers) are skipped.
   Direct declarations in active literal `BEGIN` initializers are read
