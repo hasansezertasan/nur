@@ -905,3 +905,58 @@ def test_invalid_argument_forwarding_rejects_whole_file(body, caplog):
 def test_valid_argument_forwarding_preserves_discovery(body):
     tasks = parse_rakefile(f"{body}; task :after")
     assert tasks[-1].name == "after"
+
+
+@pytest.mark.parametrize("loop", ["while", "until"])
+@pytest.mark.parametrize("control", ["break", "next", "redo"])
+def test_loop_condition_controls_are_valid(loop, control):
+    tasks = parse_rakefile(f"task :before; {loop} ({control}; false); end; task :after")
+    assert [task.name for task in tasks] == ["before", "after"]
+
+
+@pytest.mark.parametrize(
+    "condition", ["enabled && break", "if enabled; break; else; false; end"]
+)
+def test_loop_condition_can_conditionally_exit(condition):
+    tasks = parse_rakefile(f"task :before; while ({condition}); end; task :after")
+    assert [task.name for task in tasks] == ["before", "after"]
+
+
+@pytest.mark.parametrize(
+    "condition",
+    [
+        "break",
+        "next",
+        "redo",
+        "return",
+        "if enabled; break; else; next; end",
+        "enabled ? break : next",
+    ],
+)
+def test_void_loop_conditions_reject_whole_file(condition, caplog):
+    assert parse_rakefile(f"task :before; while ({condition}); end; task :after") == []
+    assert "void value" in caplog.text
+
+
+@pytest.mark.parametrize("target", ["$1", "$10", "$&", "$+", "$'", "$`"])
+@pytest.mark.parametrize(
+    "form",
+    [
+        "{target} = 1",
+        "{target} += 1",
+        "other, {target} = 1, 2",
+        "for {target} in []; end",
+        "begin; rescue => {target}; end",
+    ],
+)
+def test_readonly_match_globals_reject_whole_file(target, form, caplog):
+    assert (
+        parse_rakefile(f"task :before; {form.format(target=target)}; task :after") == []
+    )
+    assert "readonly match global" in caplog.text
+
+
+@pytest.mark.parametrize("target", ["$0", "$~", "$_", "$named"])
+def test_writable_globals_preserve_discovery(target):
+    tasks = parse_rakefile(f"{target} = nil; task :build")
+    assert [task.name for task in tasks] == ["build"]

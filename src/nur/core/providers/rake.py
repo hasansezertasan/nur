@@ -185,6 +185,32 @@ def _return_scope(node: Node, child: Node, *, inherited: bool | None) -> bool | 
     return inherited
 
 
+def _void_value(root: Node) -> bool:
+    pending = [root]
+    while pending:
+        node = pending.pop()
+        if node.type in {"break", "next", "redo", "retry", "return"}:
+            continue
+        if node.type in {"parenthesized_statements", "then", "else"}:
+            children = [
+                child for child in node.named_children if child.type != "comment"
+            ]
+            if not children:
+                return False
+            pending.append(children[-1])
+        elif node.type in {"if", "unless", "conditional"}:
+            branches = [
+                node.child_by_field_name(field)
+                for field in ("consequence", "alternative")
+            ]
+            if any(branch is None for branch in branches):
+                return False
+            pending.extend(branch for branch in branches if branch is not None)
+        else:
+            return False
+    return True
+
+
 def _control_flow_error(root: Node) -> str | None:
     """Validate Ruby control placement beyond the grammar's syntax shapes.
 
@@ -202,6 +228,10 @@ def _control_flow_error(root: Node) -> str | None:
     loops = {"while", "until", "for", "while_modifier", "until_modifier"}
     while pending:
         node, in_rescue, in_iteration, in_return_scope = pending.pop()
+        condition = node.child_by_field_name("condition")
+        loop_condition = condition if node.type in loops - {"for"} else None
+        if loop_condition is not None and _void_value(loop_condition):
+            return "void value in loop condition"
         if node.type == "return" and in_return_scope is False:
             return "return in class or module body"
         if node.type == "retry" and not in_rescue:
@@ -219,7 +249,7 @@ def _control_flow_error(root: Node) -> str | None:
             (
                 child,
                 in_rescue or child == rescue_body,
-                in_iteration or child == iteration_body,
+                in_iteration or child in {iteration_body, loop_condition},
                 _return_scope(node, child, inherited=in_return_scope),
             )
             for child in node.named_children
@@ -240,6 +270,10 @@ def _assignment_error(node: Node, *, in_method: bool) -> str | None:
         target = pending.pop()
         if target.type in {"nil", "true", "false", "self"}:
             return "nonassignable target"
+        if target.type == "global_variable" and re.fullmatch(
+            r"\$(?:[1-9][0-9]*|[&`'+])", _text(target)
+        ):
+            return "readonly match global"
         if in_method and target.type in {"constant", "scope_resolution"}:
             return "constant assignment inside method"
         if target.type in {
