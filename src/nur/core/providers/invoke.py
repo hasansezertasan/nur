@@ -648,7 +648,9 @@ def _assignment_pairs(statement: ast.stmt) -> list[tuple[ast.Name, ast.expr]]:
     nodes: list[ast.AST] = [statement]
     while nodes:
         node = nodes.pop()
-        nodes.extend(_module_children(node))
+        nodes.extend(
+            child for child in _module_children(node) if not isinstance(child, ast.stmt)
+        )
         if isinstance(node, ast.NamedExpr):
             pending.append((node.target, node.value))
     pairs: list[tuple[ast.Name, ast.expr]] = []
@@ -791,6 +793,34 @@ def _copied_tasks(
     }
 
 
+def _task_binding_effects(
+    statements: list[ast.stmt], functions: dict[str, list[Task]], defaults: set[str]
+) -> tuple[dict[str, list[Task]], set[str]]:
+    functions, defaults = functions.copy(), defaults.copy()
+    for statement in statements:
+        copies = _copied_tasks(statement, functions)
+        default_copies = _copied_defaults(statement, defaults)
+        branches = [
+            _task_binding_effects(block, functions, defaults)
+            for block in _statement_blocks(statement)
+        ]
+        written, _, _ = _written_names(
+            statement, {}, tainted=set(), inspect_classes=False
+        )
+        if "*" in written:
+            functions.clear()
+            defaults.clear()
+        for bound in written:
+            functions.pop(bound, None)
+            defaults.discard(bound)
+        functions.update(copies)
+        defaults.update(default_copies)
+        for branch_functions, branch_defaults in branches:
+            functions.update(branch_functions)
+            defaults.update(branch_defaults)
+    return functions, defaults
+
+
 def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     """Read top-level decorated functions and literal names/aliases.
 
@@ -815,8 +845,9 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             else []
         )
         copied_callables = _copied_callables(statement, bindings)
-        copied_defaults = _copied_defaults(statement, defaults)
-        copied_tasks = _copied_tasks(statement, functions)
+        copied_tasks, copied_defaults = _task_binding_effects(
+            [statement], functions, defaults
+        )
         global_writes, mutation, possible_bindings = _class_block_effects(
             [statement], possible_bindings, None, tainted, set()
         )
@@ -836,8 +867,12 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             functions.pop(bound, None)
             defaults.discard(bound)
         bindings.update(dict.fromkeys(copied_callables, "ordinary_callable"))
-        defaults.update(copied_defaults)
-        functions.update(copied_tasks)
+        defaults.update(copied_defaults - global_writes)
+        functions.update({
+            bound: tasks
+            for bound, tasks in copied_tasks.items()
+            if bound not in global_writes
+        })
         if isinstance(statement, (ast.Import, ast.ImportFrom)):
             _bind_import(statement, bindings, tainted)
         elif isinstance(statement, ast.FunctionDef):

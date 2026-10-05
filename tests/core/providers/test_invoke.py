@@ -1139,3 +1139,31 @@ def test_named_expression_module_alias_mutates_original(copy: str) -> None:
         )
         == []
     )
+
+
+@pytest.mark.parametrize("block", ["if True:", "for item in [1]:", "with manager:"])
+def test_compound_task_copy_survives_deleted_original(block: str) -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task\ndef build(c): ...\n"
+        f"{block}\n saved = build\n second = saved\ndel build, saved\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_compound_default_task_copy_collides() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task(default=True)\ndef build(c): ...\n"
+            "if True:\n saved = build\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("replacement", ["saved = None", "del saved"])
+def test_replaced_compound_default_copy_does_not_collide(replacement: str) -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task(default=True)\ndef build(c): ...\n"
+        f"if True:\n saved = build\n {replacement}\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
