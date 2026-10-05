@@ -1955,3 +1955,24 @@ def test_string_loop_fatal_prefix_before_break() -> None:
         )
         == []
     )
+
+
+@pytest.mark.parametrize("name", ["1", "1.5", "b'bad'", "['bad']", "{'bad': 1}"])
+def test_truthy_nonstring_names_suppress_sibling_tasks(name: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task(name={name})\ndef broken(c): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_try_else_constructor_error_is_not_caught_by_handler() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\ntry:\n pass\nexcept TypeError:\n pass\nelse:\n"
+            " @task(unknown=True)\n def broken(c): ...\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )

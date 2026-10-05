@@ -291,6 +291,14 @@ def task_definition(
     return decorator_matches(expression, bindings, tainted)
 
 
+def _literal_name_failure(expression: ast.expr) -> bool:
+    try:
+        value = ast.literal_eval(expression)
+    except (ValueError, TypeError) as _exc:
+        return False
+    return bool(value) and not isinstance(value, str)
+
+
 def _fatal_parser_option(
     node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
     keyword: ast.keyword,
@@ -299,6 +307,12 @@ def _fatal_parser_option(
 ) -> bool:
     if len(node.decorator_list) != 1:
         return False
+    if keyword.arg == "name":
+        return _literal_name_failure(keyword.value)
+    if isinstance(node, ast.FunctionDef) and not _literal_help_matches(
+        node, node.decorator_list[0]
+    ):
+        return True
     if keyword.arg in {"aliases", "positional", "help"}:
         return _invalid_literal_option(keyword, bindings, tainted)
     if keyword.arg not in {"iterable", "incrementable"} or isinstance(
@@ -342,11 +356,6 @@ def _fatal_keyword(
         )
         or _fatal_help_literal(keyword)
         or _fatal_parser_option(node, keyword, bindings, tainted)
-        or (
-            isinstance(node, ast.FunctionDef)
-            and len(node.decorator_list) == 1
-            and not _literal_help_matches(node, node.decorator_list[0])
-        )
     )
 
 

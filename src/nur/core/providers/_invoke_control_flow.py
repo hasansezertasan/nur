@@ -12,6 +12,7 @@ __all__ = [
     "iteration_jump",
     "loop_count",
     "loop_must_enter",
+    "nonraising_block",
 ]
 
 
@@ -117,3 +118,14 @@ def exception_taints(written: set[str]) -> set[str]:
         for name in NON_TYPEERROR_EXCEPTIONS
         if name in written or "*" in written
     }
+
+
+def nonraising_block(statements: list[ast.stmt]) -> bool:
+    return all(
+        isinstance(statement, ast.Pass)
+        or (
+            isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Constant)
+        )
+        for statement in statements
+    )

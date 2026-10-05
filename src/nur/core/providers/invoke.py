@@ -16,6 +16,7 @@ from nur.core.providers._invoke_control_flow import (
     iteration_jump as _iteration_jump,
     loop_count as _loop_count,
     loop_must_enter as _loop_must_enter,
+    nonraising_block as _nonraising_block,
 )
 from nur.core.providers._invoke_exports import STAR_EXPORTS as _STAR_EXPORTS
 from nur.core.providers._invoke_tasks import (
@@ -796,6 +797,12 @@ def _fatal_try(
     written, _, _ = _written_names(statement, bindings, tainted=tainted)
     handler_taints = tainted | _exception_taints(written)
     if (
+        _nonraising_block(statement.body)
+        and not any(_iteration_jump(child) for child in statement.finalbody)
+        and _fatal_block(statement.orelse, bindings, tainted)
+    ):
+        return True
+    if (
         all(
             _excludes_typeerror(handler.type, bindings, handler_taints)
             for handler in statement.handlers
@@ -811,11 +818,7 @@ def _fatal_try(
         return True
     bindings, tainted = bindings.copy(), tainted.copy()
     handlers = statement.handlers
-    if all(
-        isinstance(child, ast.Pass)
-        or (isinstance(child, ast.Expr) and isinstance(child.value, ast.Constant))
-        for child in statement.body
-    ):
+    if _nonraising_block(statement.body):
         # These bodies cannot raise into a handler. Other code stays
         # conservative: its exception outcomes may change the decorator.
         handlers = []
