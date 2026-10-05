@@ -12,6 +12,11 @@ from nur.core.providers._rake_callbacks import (
     constructor_arguments_error,
     invalid_namespace_lambda_parameters,
 )
+from nur.core.providers._rake_overrides import (
+    main_scope,
+    record_override,
+    scope_headers,
+)
 from nur.core.providers._rake_syntax import (
     binding_names,
     defined_probe,
@@ -80,46 +85,6 @@ def _block_arguments(node: Node) -> list[Node]:
 def _dsl_receiver(node: Node) -> bool:
     receiver = node.child_by_field_name("receiver")
     return receiver is None or is_self(receiver)
-
-
-def _record_override(node: Node, disabled: set[str]) -> None:
-    # Direct singleton definitions replace the methods Rake extends main with.
-    # A singleton-class body can replace any of them; do not guess its effects.
-    if node.type == "singleton_class":
-        value = node.child_by_field_name("value")
-        if is_self(value):
-            disabled.update(_DEFERRED_METHODS | {"namespace", "desc"})
-    if node.type == "singleton_method":
-        owner = node.child_by_field_name("object")
-        name_node = node.child_by_field_name("name")
-        if is_self(owner) and name_node is not None:
-            disabled.add(node_text(name_node))
-        elif (
-            owner is not None
-            and name_node is not None
-            and node_text(owner) in {"Kernel", "::Kernel", "Proc", "::Proc"}
-        ):
-            disabled.add(
-                f"{node_text(owner).removeprefix('::')}.{node_text(name_node)}"
-            )
-    if node.type == "method" and _main_scope(node):
-        name_node = node.child_by_field_name("name")
-        if name_node is not None and node_text(name_node) in {
-            "proc",
-            "lambda",
-            "define_singleton_method",
-        }:
-            disabled.add(node_text(name_node))
-    if node.type == "call" and _dsl_receiver(node):
-        method = node.child_by_field_name("method")
-        arguments = _arguments(node)
-        if (
-            method is not None
-            and node_text(method) == "define_singleton_method"
-            and arguments
-            and (name := literal(arguments[0])) is not None
-        ):
-            disabled.add(name)
 
 
 def _method(node: Node, disabled: set[str]) -> str | None:
@@ -678,14 +643,6 @@ def _conditional_children(node: Node) -> list[Node]:
     return node.named_children
 
 
-def _scope_headers(node: Node) -> list[Node]:
-    return [
-        child
-        for field in ("object", "value", "name", "superclass")
-        if (child := node.child_by_field_name(field)) is not None
-    ]
-
-
 def _deferred_call(owner: Node, method: Node, disabled: set[str]) -> bool:
     name = node_text(method)
     if _dsl_receiver(owner):
@@ -701,26 +658,13 @@ def _deferred_call(owner: Node, method: Node, disabled: set[str]) -> bool:
 
 def _load_time_children(node: Node, deferred_calls: set[int]) -> list[Node]:
     if node.type in {"method", "singleton_method", "lambda", "end_block"}:
-        return _scope_headers(node)
+        return scope_headers(node)
     if node.type in {"block", "do_block"}:
         owner = node.parent
         method = owner.child_by_field_name("method") if owner is not None else None
         if owner is not None and method is not None and owner.id in deferred_calls:
             return []
     return _reachable_children(node)
-
-
-def _main_scope(node: Node) -> bool:
-    child, parent = node, node.parent
-    while parent is not None:
-        if parent.type in {
-            "class",
-            "module",
-            "singleton_class",
-        } and child not in _scope_headers(parent):
-            return False
-        child, parent = parent, parent.parent
-    return True
 
 
 def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
@@ -730,7 +674,7 @@ def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
     name = node_text(method)
     if name in disabled:
         return None
-    if not _main_scope(node):
+    if not main_scope(node):
         return None
     return _declaration_error(node, name, _arguments(node), None, disabled)
 
@@ -768,7 +712,7 @@ def _load_time_error(root: Node) -> str | None:
             if error is not None:
                 return error
             deferred_calls.add(node.id)
-        _record_override(node, disabled)
+        record_override(node, disabled)
         error = _load_declaration_error(node, disabled)
         if error is not None:
             return error
@@ -802,9 +746,9 @@ def _dsl_overrides(root: Node, *, in_scope: bool = False) -> set[str]:
         node, in_begin = pending.pop()
         in_begin = in_begin or node.type == "begin_block"
         if in_begin:
-            _record_override(node, disabled)
+            record_override(node, disabled)
         children = (
-            _scope_headers(node) if node.type in opaque else _reachable_children(node)
+            scope_headers(node) if node.type in opaque else _reachable_children(node)
         )
         pending.extend((child, in_begin) for child in children)
     return disabled

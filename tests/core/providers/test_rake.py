@@ -2626,3 +2626,28 @@ def test_overridden_description_method_validates_its_block():
         )
         == []
     )
+
+
+@pytest.mark.parametrize(
+    ("body", "call"),
+    [
+        ("class Proc; def self.new(*); yield; end; end", "Proc.new"),
+        ("class << Proc; def new(*); yield; end; end", "Proc.new"),
+        ("module Kernel; def self.proc(*); yield; end; end", "Kernel.proc"),
+        ("module Kernel; def self.lambda(*); yield; end; end", "Kernel.lambda"),
+        (
+            "class Proc; define_singleton_method(:new) { |&block| block.call }; end",
+            "Proc.new",
+        ),
+    ],
+)
+def test_qualified_constructor_self_overrides_validate_blocks(body, call):
+    assert parse_rakefile(f"task :before; {body}; {call} {{ /#{{pattern}}/ }}") == []
+
+
+def test_kernel_singleton_override_does_not_replace_bare_proc():
+    source = (
+        "module Kernel; def self.proc(*); yield; end; end; "
+        "proc { /#{pattern}/ }; task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
