@@ -1190,3 +1190,76 @@ def test_inactive_begin_overrides_preserve_discovery(modifier):
         f"task :before; BEGIN {{ def self.task(*args); end }} {modifier}; task :after"
     )
     assert [task.name for task in tasks] == ["before", "after"]
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        "{a:} | {b:}",
+        "[a] | [b]",
+        "{key: a} | {other: b}",
+        "[*a] | [*b]",
+        "{**a} | {**b}",
+        "([1] => a) | [2]",
+    ],
+)
+def test_alternative_pattern_bindings_reject_whole_file(pattern, caplog):
+    assert (
+        parse_rakefile(f"task :before; case value; in {pattern}; end; task :after")
+        == []
+    )
+    assert "alternative pattern" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        "{a: _a} | {b: _b}",
+        "[_a] | [_b]",
+        "[*_a] | [*_b]",
+        "{**_a} | {**_b}",
+        "[1] | [2] => whole",
+        "[^a] | [^b]",
+    ],
+)
+def test_valid_alternative_patterns_preserve_discovery(pattern):
+    tasks = parse_rakefile(f"a = 1; b = 2; case value; in {pattern}; end; task :build")
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "if false; def self.task(*args); end; end",
+        "unless true; def self.task(*args); end; end",
+        "if nil; def self.task(*args); end; end",
+        "if (false); def self.task(*args); end; end",
+        "if true; nil; else; def self.task(*args); end; end",
+        "unless false; nil; else; def self.task(*args); end; end",
+        (
+            "if false; def self.task(*args); end; "
+            "elsif false; def self.task(*args); end; end"
+        ),
+        "while false; def self.task(*args); end; end",
+        "until true; def self.task(*args); end; end",
+        "defined?(def self.task(*args); end)",
+    ],
+)
+def test_inactive_begin_branches_preserve_discovery(body):
+    tasks = parse_rakefile(f"task :before; BEGIN {{ {body} }}; task :after")
+    assert [task.name for task in tasks] == ["before", "after"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "if true; def self.task(*args); end; end",
+        "unless false; def self.task(*args); end; end",
+        "if false; nil; else; def self.task(*args); end; end",
+        "unless true; nil; else; def self.task(*args); end; end",
+        "if false; nil; elsif true; def self.task(*args); end; end",
+        "if false; nil; elsif false; nil; else; def self.task(*args); end; end",
+    ],
+)
+def test_active_begin_branches_override_earlier_declarations(body):
+    assert parse_rakefile(f"task :before; BEGIN {{ {body} }}; task :after") == []

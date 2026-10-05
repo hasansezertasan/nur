@@ -424,6 +424,10 @@ def _binding_error(node: Node, *, pattern: bool = False) -> str | None:
 
 
 def _node_binding_error(node: Node) -> str | None:
+    if node.type == "alternative_pattern" and any(
+        not name.startswith("_") for name in _binding_names(node)
+    ):
+        return "variable binding in alternative pattern"
     if node.type in {"method_parameters", "lambda_parameters", "block_parameters"}:
         return _binding_error(node)
     if node.type in {"in_clause", "match_pattern", "test_pattern"}:
@@ -776,6 +780,45 @@ def _escaping_control(root: Node) -> str | None:
     return local_control
 
 
+def _reachable_begin_children(node: Node) -> list[Node]:
+    if _defined_probe(node):
+        return []
+    condition = node.child_by_field_name("condition")
+    while condition is not None and condition.type == "parenthesized_statements":
+        children = [
+            child for child in condition.named_children if child.type != "comment"
+        ]
+        if len(children) != 1:
+            break
+        condition = children[0]
+    if condition is None or condition.type not in {"true", "false", "nil"}:
+        return node.named_children
+    truth = condition.type == "true"
+    if node.type in {"unless", "unless_modifier", "until", "until_modifier"}:
+        truth = not truth
+    if node.type in {"if", "unless", "elsif", "conditional"}:
+        branch = node.child_by_field_name("consequence" if truth else "alternative")
+        return [branch] if branch is not None else []
+    if not truth and node.type in {
+        "if_modifier",
+        "unless_modifier",
+        "while",
+        "until",
+        "while_modifier",
+        "until_modifier",
+    }:
+        body = node.child_by_field_name("body")
+        # BEGIN and begin/end loop modifiers execute their body once first.
+        if (
+            node.type in {"while_modifier", "until_modifier"}
+            and body is not None
+            and body.type in {"begin_block", "begin"}
+        ):
+            return node.named_children
+        return []
+    return node.named_children
+
+
 def _begin_overrides(root: Node) -> set[str]:
     # Ruby executes BEGIN bodies before ordinary statements, even when the
     # BEGIN appears later in the file or has an active postfix condition.
@@ -794,17 +837,13 @@ def _begin_overrides(root: Node) -> set[str]:
     }
     while pending:
         node, in_begin = pending.pop()
-        condition = node.child_by_field_name("condition")
-        if condition is not None and (
-            (node.type == "if_modifier" and condition.type in {"false", "nil"})
-            or (node.type == "unless_modifier" and condition.type == "true")
-        ):
-            continue
         in_begin = in_begin or node.type == "begin_block"
         if in_begin:
             _method(node, disabled)
         if node.type not in opaque:
-            pending.extend((child, in_begin) for child in node.named_children)
+            pending.extend(
+                (child, in_begin) for child in _reachable_begin_children(node)
+            )
     return disabled
 
 
