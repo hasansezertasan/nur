@@ -42,28 +42,52 @@ def _constructor_scope(node: Node) -> tuple[str | None, bool]:
     return None, singleton_scope
 
 
-def _ordinary_override(node: Node, disabled: set[str]) -> None:
+def _set_override(name: str, disabled: set[str]) -> None:
+    disabled.add(name)
+    disabled.discard(f"undef:{name}")
+
+
+def _instance_override(node: Node, name: str, disabled: set[str]) -> None:
     prefix, singleton_scope = _constructor_scope(node)
-    name_node = node.child_by_field_name("name")
-    if name_node is None:
-        return
-    name = node_text(name_node)
     if prefix is not None and singleton_scope:
-        disabled.add(f"{prefix}.{name}")
-    elif (main_scope(node) or prefix == "Kernel") and name in {
-        "proc",
-        "lambda",
-        "define_singleton_method",
-    }:
+        _set_override(f"{prefix}.{name}", disabled)
+    elif main_scope(node) and name in {"proc", "lambda", "define_singleton_method"}:
+        _set_override(name, disabled)
+    elif prefix == "Kernel" and name in {"proc", "lambda", "define_singleton_method"}:
         disabled.add(name)
+
+
+def _ordinary_override(node: Node, disabled: set[str]) -> None:
+    name = node.child_by_field_name("name")
+    if name is not None:
+        _instance_override(node, node_text(name), disabled)
+
+
+def _record_undef(node: Node, disabled: set[str]) -> None:
+    prefix, singleton_scope = _constructor_scope(node)
+    for child in node.named_children:
+        name = literal(child) or node_text(child)
+        if prefix is not None and singleton_scope:
+            name = f"{prefix}.{name}"
+        elif not (main_scope(node) or prefix == "Kernel"):
+            continue
+        if name in {
+            "proc",
+            "lambda",
+            "define_singleton_method",
+            "Kernel.proc",
+            "Kernel.lambda",
+            "Proc.new",
+        }:
+            disabled.update({name, f"undef:{name}"})
 
 
 def _self_override(node: Node, name: str, disabled: set[str]) -> None:
     prefix, _ = _constructor_scope(node)
     if prefix is not None:
-        disabled.add(f"{prefix}.{name}")
+        _set_override(f"{prefix}.{name}", disabled)
     elif main_scope(node):
-        disabled.add(name)
+        _set_override(name, disabled)
 
 
 def record_override(node: Node, disabled: set[str]) -> None:
@@ -83,11 +107,18 @@ def record_override(node: Node, disabled: set[str]) -> None:
             and name_node is not None
             and node_text(owner) in {"Kernel", "::Kernel", "Proc", "::Proc"}
         ):
-            disabled.add(
-                f"{node_text(owner).removeprefix('::')}.{node_text(name_node)}"
+            _set_override(
+                f"{node_text(owner).removeprefix('::')}.{node_text(name_node)}",
+                disabled,
             )
     if node.type == "method":
         _ordinary_override(node, disabled)
+    if node.type == "undef":
+        _record_undef(node, disabled)
+    _dynamic_override(node, disabled)
+
+
+def _dynamic_override(node: Node, disabled: set[str]) -> None:
     receiver = node.child_by_field_name("receiver")
     if node.type == "call" and (receiver is None or is_self(receiver)):
         method = node.child_by_field_name("method")
@@ -103,11 +134,15 @@ def record_override(node: Node, disabled: set[str]) -> None:
         )
         if (
             method is not None
-            and node_text(method) == "define_singleton_method"
+            and node_text(method) in {"define_method", "define_singleton_method"}
+            and node_text(method) not in disabled
             and arguments
             and (defined_name := literal(arguments[0])) is not None
         ):
-            _self_override(node, defined_name, disabled)
+            if node_text(method) == "define_singleton_method":
+                _self_override(node, defined_name, disabled)
+            else:
+                _instance_override(node, defined_name, disabled)
 
 
 def scope_headers(node: Node) -> list[Node]:

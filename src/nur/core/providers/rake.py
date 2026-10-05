@@ -671,10 +671,20 @@ def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
     if node.type == "super":
         return "super outside method during loading"
     method = node.child_by_field_name("method")
-    if node.type != "call" or method is None or not _dsl_receiver(node):
+    if node.type != "call" or method is None:
         return None
     name = node_text(method)
-    if name in disabled:
+    receiver = node.child_by_field_name("receiver")
+    key = (
+        name
+        if _dsl_receiver(node)
+        else f"{node_text(receiver).removeprefix('::')}.{name}"
+        if receiver is not None
+        else name
+    )
+    if f"undef:{key}" in disabled:
+        return "call to undefined constructor during loading"
+    if not _dsl_receiver(node) or name in disabled:
         return None
     if not main_scope(node):
         return None
@@ -684,14 +694,18 @@ def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
 def _load_time_error(root: Node) -> str | None:
     disabled: set[str] = set()
     deferred_calls: set[int] = set()
-    bare_constructors = unbound_identifier_ids(root, {"proc", "lambda"})
+    bare_constructors = unbound_identifier_ids(
+        root, {"proc", "lambda", "define_method", "define_singleton_method"}
+    )
     pending = [_load_statements(root, disabled)]
     while pending:
         node = next(pending[-1], None)
         if node is None:
             pending.pop()
             continue
-        if node.id in bare_constructors and node_text(node) not in disabled:
+        if node.id in bare_constructors and (
+            node_text(node) not in disabled or f"undef:{node_text(node)}" in disabled
+        ):
             return "invalid Proc constructor call"
         method = node.child_by_field_name("method")
         if (

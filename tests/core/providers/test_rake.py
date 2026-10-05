@@ -2705,3 +2705,51 @@ def test_kernel_nested_singleton_scope_disables_qualified_constructor():
         "Kernel.proc { /#{pattern}/ }"
     )
     assert parse_rakefile(f"task :before; {source}") == []
+
+
+@pytest.mark.parametrize(
+    ("body", "call"),
+    [
+        ("module Kernel; define_method(:proc) { |&block| block.call }; end", "proc"),
+        (
+            "module Kernel; define_method(:lambda) { |&block| block.call }; end",
+            "lambda",
+        ),
+        ("class << Proc; define_method(:new) { |&block| block.call }; end", "Proc.new"),
+        ("define_method(:proc) { |&block| block.call }", "proc"),
+    ],
+)
+def test_dynamic_instance_constructor_overrides_validate_blocks(body, call):
+    assert parse_rakefile(f"task :before; {body}; {call} {{ /#{{pattern}}/ }}") == []
+
+
+@pytest.mark.parametrize("name", ["proc", "lambda", "define_singleton_method"])
+def test_undefined_constructors_reject_later_direct_calls(name):
+    assert parse_rakefile(f"task :before; undef {name}; {name} {{}}; task :safe") == []
+
+
+@pytest.mark.parametrize("name", ["proc", "lambda"])
+def test_undefined_constructors_reject_later_bare_calls(name):
+    assert parse_rakefile(f"undef {name}; {name}; task :safe") == []
+
+
+@pytest.mark.parametrize(
+    "restore",
+    [
+        "def proc(*); end",
+        "def self.proc(*); end",
+        "define_method(:proc) { |*| }",
+        "define_singleton_method(:proc) { |*| }",
+    ],
+)
+def test_direct_definition_restores_undefined_constructor(restore):
+    assert [
+        task.name
+        for task in parse_rakefile(f"undef proc; {restore}; proc {{}}; task :safe")
+    ] == ["safe"]
+
+
+def test_undefined_qualified_constructor_rejects_later_call():
+    assert (
+        parse_rakefile("class << Proc; undef new; end; Proc.new {}; task :safe") == []
+    )
