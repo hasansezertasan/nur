@@ -1670,3 +1670,49 @@ def test_replaced_decorator_in_try_is_not_assumed_fatal_in_finally() -> None:
         "@invoke.task\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+def test_unrolled_loop_reassigns_target_before_each_iteration() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\ndef build(c): ...\n"
+            "for saved in [1, 2]:\n copy = saved\n saved = build\n"
+            "del build, saved\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("hook", ["task", "invoke.task", "invoke.tasks.task"])
+@pytest.mark.parametrize("option", ["pre", "post"])
+def test_decorator_functions_are_not_hook_members(hook: str, option: str) -> None:
+    assert (
+        parse_tasks(
+            "import invoke.tasks\nfrom invoke import task\n"
+            f"@task({option}=[{hook}])\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("aliases", ["7", "None", "False", "1.5"])
+def test_noniterable_aliases_suppress_all_module_tasks(aliases: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task(aliases={aliases})\ndef broken(c): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_unreachable_handler_cannot_hide_fatal_finalizer() -> None:
+    assert (
+        parse_tasks(
+            "import invoke\nfrom invoke import task\ntry:\n pass\n"
+            "except Exception:\n task = replacement\nfinally:\n"
+            " @task(unknown=True)\n def broken(c): ...\n"
+            "@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )

@@ -682,7 +682,15 @@ def _loop_task_blocks(
 ) -> list[list[ast.stmt]]:
     count = _loop_count(statement)
     if count is not None and count <= _MAX_UNROLLED_ITERATIONS:
-        return [statement.body * count + statement.orelse]
+        body = statement.body
+        if isinstance(statement, (ast.For, ast.AsyncFor)):
+            # Every iteration overwrites the target, even if the body assigns a
+            # Task to that name. Its next runtime value is not a known Task.
+            body = [
+                ast.Assign(targets=[statement.target], value=ast.Constant(None)),
+                *body,
+            ]
+        return [body * count + statement.orelse]
     # Inspect possible copies for default collisions, but survival of written
     # task bindings is handled conservatively for arbitrary iteration counts.
     return [statement.body + statement.orelse, statement.orelse]
@@ -827,10 +835,19 @@ def _fatal_children(
 ) -> bool:
     if isinstance(statement, (ast.Try, ast.TryStar)):
         bindings, tainted = bindings.copy(), tainted.copy()
+        handlers = statement.handlers
+        if all(
+            isinstance(child, ast.Pass)
+            or (isinstance(child, ast.Expr) and isinstance(child.value, ast.Constant))
+            for child in statement.body
+        ):
+            # These bodies cannot raise into a handler. Other code stays
+            # conservative: its exception outcomes may change the decorator.
+            handlers = []
         for child in [
             *statement.body,
             *statement.orelse,
-            *(child for handler in statement.handlers for child in handler.body),
+            *(child for handler in handlers for child in handler.body),
         ]:
             written, mutation, _ = _written_names(
                 child, bindings, tainted=tainted, inspect_classes=False

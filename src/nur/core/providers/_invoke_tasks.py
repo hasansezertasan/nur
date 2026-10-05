@@ -71,7 +71,9 @@ def _literal_aliases(expression: ast.expr) -> list[str] | None:
     return aliases
 
 
-def _invalid_literal_option(keyword: ast.keyword, bindings: dict[str, str]) -> bool:
+def _invalid_literal_option(
+    keyword: ast.keyword, bindings: dict[str, str], tainted: set[str]
+) -> bool:
     invalid_members = (
         keyword.arg in {"pre", "post"}
         and isinstance(keyword.value, ast.Name)
@@ -81,7 +83,7 @@ def _invalid_literal_option(keyword: ast.keyword, bindings: dict[str, str]) -> b
         and isinstance(keyword.value, (ast.List, ast.Tuple, ast.Set))
         and any(
             isinstance(element, (ast.List, ast.Tuple, ast.Set, ast.Dict))
-            or _literal_dependency(element, bindings)
+            or _literal_dependency(element, bindings, tainted)
             for element in keyword.value.elts
         )
     )
@@ -91,7 +93,7 @@ def _invalid_literal_option(keyword: ast.keyword, bindings: dict[str, str]) -> b
         # Computed members remain unknown, but literal hook members are checked.
         return invalid_members
     iterable = isinstance(value, (str, bytes, list, tuple, dict, set))
-    if keyword.arg in {"optional", "positional"}:
+    if keyword.arg in {"aliases", "optional", "positional"}:
         return not iterable and not (keyword.arg == "positional" and value is None)
     if keyword.arg in {"pre", "post"}:
         return bool(value) or invalid_members
@@ -117,14 +119,14 @@ def literal_default(
 
 
 def _literal_metadata(
-    decorator: ast.expr, name: str, bindings: dict[str, str]
+    decorator: ast.expr, name: str, bindings: dict[str, str], tainted: set[str]
 ) -> tuple[str, list[str]] | None:
     aliases: list[str] = []
     if not isinstance(decorator, ast.Call):
         return name, aliases
     for keyword in decorator.keywords:
         if keyword.arg not in _TASK_OPTIONS or _invalid_literal_option(
-            keyword, bindings
+            keyword, bindings, tainted
         ):
             return None
         if keyword.arg == "name":
@@ -181,7 +183,11 @@ def _literal_help_matches(function: ast.FunctionDef, decorator: ast.expr) -> boo
     return not keys
 
 
-def _literal_dependency(expression: ast.expr, bindings: dict[str, str]) -> bool:
+def _literal_dependency(
+    expression: ast.expr, bindings: dict[str, str], tainted: set[str]
+) -> bool:
+    if decorator_matches(expression, bindings, tainted):
+        return True
     if isinstance(expression, ast.Lambda) or (
         isinstance(expression, ast.Name)
         and bindings.get(expression.id) == "ordinary_callable"
@@ -307,7 +313,8 @@ def fatal_decorator(
             if keyword.arg is not None and keyword.arg not in _TASK_OPTIONS:
                 return True
             if (
-                keyword.arg == "optional" and _invalid_literal_option(keyword, bindings)
+                keyword.arg in {"aliases", "optional"}
+                and _invalid_literal_option(keyword, bindings, tainted)
             ) or _fatal_help_literal(keyword):
                 return True
     return False
@@ -337,12 +344,13 @@ def task_names(
         and (
             any(keyword.arg == "pre" for keyword in decorator.keywords)
             or any(
-                _literal_dependency(argument, bindings) for argument in decorator.args
+                _literal_dependency(argument, bindings, tainted)
+                for argument in decorator.args
             )
         )
     ):
         return []
-    metadata = _literal_metadata(decorator, function.name, bindings)
+    metadata = _literal_metadata(decorator, function.name, bindings, tainted)
     if metadata is None:
         return []
     name, aliases = metadata
