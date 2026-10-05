@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from nur.core.models import Task
 from nur.core.providers._invoke_control_flow import (
     MAX_UNROLLED_ITERATIONS as _MAX_UNROLLED_ITERATIONS,
+    certain_comparison_children as _certain_comparison_children,
     compound_children as _compound_children,
     constant_truth as _constant_truth,
     definitely_executed_blocks as _definitely_executed_blocks,
@@ -37,6 +38,7 @@ from nur.core.providers._invoke_tasks import (
     constructor_exception as _constructor_exception,
     decorator_matches as _decorator_matches,
     deferred_failure as _deferred_failure,
+    definition_exception as _definition_exception,
     fatal_decorator as _fatal_decorator,
     literal_default as _literal_default,
     module_kind as _module_kind,
@@ -406,7 +408,7 @@ def _certain_children(node: ast.AST) -> list[ast.AST]:
     if isinstance(node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
         return [node.generators[0].iter]
     if isinstance(node, ast.Compare):
-        return [node.left, node.comparators[0]]
+        return _certain_comparison_children(node)
     return _module_children(node)
 
 
@@ -824,6 +826,8 @@ def _fatal_definition(
     tainted: set[str],
     exception: str | None,
 ) -> bool:
+    if (definition_error := _definition_exception(node, bindings, tainted)) is not None:
+        return exception is None or definition_error == exception
     bindings, tainted = bindings.copy(), tainted.copy()
     states: list[tuple[dict[str, str], set[str]]] = []
     for decorator in node.decorator_list:

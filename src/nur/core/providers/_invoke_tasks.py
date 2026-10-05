@@ -11,6 +11,7 @@ __all__ = [
     "constructor_exception",
     "decorator_matches",
     "deferred_failure",
+    "definition_exception",
     "fatal_decorator",
     "literal_default",
     "module_kind",
@@ -557,6 +558,29 @@ def task_names(
     )
 
 
+def definition_exception(
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
+    bindings: dict[str, str],
+    tainted: set[str],
+) -> str | None:
+    if isinstance(node, ast.ClassDef):
+        return None
+    if any(
+        isinstance(decorator, ast.Call)
+        and decorator_matches(decorator.func, bindings, tainted)
+        and _positional_pre_conflict(decorator, bindings)
+        for decorator in node.decorator_list
+    ):
+        return "TypeError"
+    for value in [
+        *node.args.defaults,
+        *(value for value in node.args.kw_defaults if value is not None),
+    ]:
+        if (exception := literal_exception(value)) is not None:
+            return exception
+    return None
+
+
 def constructor_exception(
     node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
     bindings: dict[str, str],
@@ -564,6 +588,8 @@ def constructor_exception(
     *,
     states: list[tuple[dict[str, str], set[str]]] | None = None,
 ) -> str | None:
+    if (exception := definition_exception(node, bindings, tainted)) is not None:
+        return exception
     if typeerror_decorator(node, bindings, tainted, states=states):
         return "TypeError"
     if (

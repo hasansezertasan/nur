@@ -2755,3 +2755,112 @@ def test_safe_or_unresolved_literal_annotation_preserves_commands(
         f"def other(c, value: {annotation} = None): ...\n@task\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["other", "build"]
+
+
+@pytest.mark.parametrize(
+    "prefix", ["1 == 1", "1 < 2", "1 <= 1", "(marker := 1) == 1", "1 == 1 == 1"]
+)
+def test_known_true_comparison_prefix_preserves_later_callable_copy(
+    prefix: str,
+) -> None:
+    tasks = parse_tasks(
+        "from invoke import task as stable\ntask = replacement\n"
+        f"if {prefix} == (task := stable): pass\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("prefix", ["1 == 2", "1 > 2", "1 == 2 == 1"])
+def test_false_comparison_prefix_skips_later_import_shadow(prefix: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\nif {prefix} == (task := replacement): pass\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_unknown_comparison_prefix_does_not_guarantee_callable_copy() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task as stable\ntask = replacement\n"
+            "if computed == 1 == (task := stable): pass\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_unknown_comparison_prefix_still_tracks_possible_shadow() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\nif computed == 1 == (task := replacement): pass\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("default", ["1 / 0", "1 + 'x'", "[][0]", "{}['missing']"])
+@pytest.mark.parametrize("signature", ["c, value={default}", "c, *, value={default}"])
+def test_failing_literal_task_default_suppresses_siblings(
+    default: str, signature: str
+) -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\n"
+            f"def broken({signature.format(default=default)}): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "decorator", ["@task", "@task(aliases=7)", "@task(unknown=True)"]
+)
+def test_handled_literal_default_failure_preserves_sibling(decorator: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\ntry:\n {decorator}\n"
+        " def broken(c, value=1 / 0): ...\n"
+        "except ZeroDivisionError: pass\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_incompatible_default_failure_handler_does_not_hide_module_failure() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\ntry:\n @task\n def broken(c, value=1 / 0): ...\n"
+            "except TypeError: pass\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_future_annotations_do_not_defer_default_expressions() -> None:
+    assert (
+        parse_tasks(
+            "from __future__ import annotations\nfrom invoke import task\n@task\n"
+            "def broken(c, value=1 / 0): ...\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_safe_or_unknown_defaults_preserve_commands() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task\ndef other(c, value=1 + 2): ...\n"
+        "@task\ndef computed(c, value=make_default()): ...\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["other", "computed", "build"]
+
+
+@pytest.mark.parametrize("handler", ["TypeError", "ZeroDivisionError"])
+def test_factory_pre_conflict_precedes_failing_function_default(handler: str) -> None:
+    tasks = parse_tasks(
+        "from invoke import task\ntry:\n @task(None, pre=[])\n"
+        " def broken(c, value=1 / 0): ...\n"
+        f"except {handler}: pass\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == (
+        ["build"] if handler == "TypeError" else []
+    )

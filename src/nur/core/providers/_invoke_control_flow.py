@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 __all__ = [
     "MAX_UNROLLED_ITERATIONS",
     "all_statement_blocks",
+    "certain_comparison_children",
     "compound_children",
     "constant_truth",
     "definitely_executed_blocks",
@@ -170,6 +171,8 @@ def constant_truth(expression: ast.expr) -> bool | None:
 
 
 def _constant_value(expression: ast.expr) -> object:
+    if isinstance(expression, ast.NamedExpr):
+        return _constant_value(expression.value)
     if isinstance(expression, ast.Call):
         return _UNKNOWN
     try:
@@ -208,6 +211,29 @@ def _compare_literals(operation: ast.cmpop, left: object, right: object) -> obje
         return bool(compare(left, right))
     except (ValueError, TypeError) as _exc:
         return _UNKNOWN
+
+
+def certain_comparison_children(expression: ast.Compare) -> list[ast.AST]:
+    return _comparison_children(expression, certain=True)
+
+
+def _comparison_children(expression: ast.Compare, *, certain: bool) -> list[ast.AST]:
+    children: list[ast.AST] = [expression.left]
+    left = _constant_value(expression.left)
+    for operation, comparator in zip(
+        expression.ops, expression.comparators, strict=True
+    ):
+        children.append(comparator)
+        right = _constant_value(comparator)
+        matches = (
+            _UNKNOWN
+            if left is _UNKNOWN or right is _UNKNOWN
+            else _compare_literals(operation, left, right)
+        )
+        if matches is False or (certain and matches is _UNKNOWN):
+            break
+        left = right
+    return children
 
 
 def _comparison_value(expression: ast.Compare) -> object:
@@ -665,17 +691,23 @@ def _exception_children(
     ]
 
 
+def _loop_children(node: ast.For | ast.AsyncFor | ast.While) -> list[ast.AST]:
+    expression = node.test if isinstance(node, ast.While) else node.iter
+    if loop_count(node) == 0:
+        return [expression, *node.orelse]
+    target = [] if isinstance(node, ast.While) else [node.target]
+    return [expression, *target, *iteration_prefix(node.body), *node.orelse]
+
+
 def compound_children(node: ast.AST) -> list[ast.AST] | None:
+    if isinstance(node, ast.Compare):
+        return _comparison_children(node, certain=False)
     if isinstance(node, (ast.Try, ast.TryStar, ast.ExceptHandler)):
         return _exception_children(node)
     if isinstance(node, ast.Match):
         return [node.subject, *reachable_match_cases(node)]
     if isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
-        expression = node.test if isinstance(node, ast.While) else node.iter
-        if loop_count(node) == 0:
-            return [expression, *node.orelse]
-        target = [] if isinstance(node, ast.While) else [node.target]
-        return [expression, *target, *iteration_prefix(node.body), *node.orelse]
+        return _loop_children(node)
     if isinstance(node, ast.If):
         truth = constant_truth(node.test)
         bodies = (
