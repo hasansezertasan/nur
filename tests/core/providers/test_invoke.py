@@ -2176,3 +2176,60 @@ def test_removed_class_global_malformed_task_preserves_siblings() -> None:
         " def broken(c): ...\ndel broken\n@task\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    ("condition", "expected"),
+    [
+        ("1 == 1", []),
+        ("not False", []),
+        ("1 != 2", []),
+        ("1 < 2 < 3", []),
+        ("1 <= 1", []),
+        ("2 > 1", []),
+        ("2 >= 2", []),
+        ("'x' in ['x']", []),
+        ("'x' not in ['y']", []),
+        ("None is None", []),
+        ("True is not False", []),
+        ("True and True", []),
+        ("False or True", []),
+        ("True or computed", []),
+        ("False and computed", ["build"]),
+        ("1 == 2", ["build"]),
+    ],
+)
+def test_literal_boolean_conditions_control_fatal_decorators(
+    condition: str, expected: list[str]
+) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\nif {condition}:\n @task(unknown=True)\n"
+        " def broken(c): ...\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == expected
+
+
+@pytest.mark.parametrize("iterable", ["[1, *values]", "(1, *values)", "{1, *values}"])
+def test_explicit_loop_members_beside_starred_values_have_fatal_prefix(
+    iterable: str,
+) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\nfor item in {iterable}:\n @task(unknown=True)\n"
+            " def broken(c): ...\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "condition", ["computed == 1", "not computed", "computed and False", "1 is 2"]
+)
+def test_uncertain_boolean_conditions_do_not_prove_fatal_execution(
+    condition: str,
+) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\nif {condition}:\n @task(unknown=True)\n"
+        " def broken(c): ...\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]

@@ -657,8 +657,9 @@ def _copied_tasks(
 
 def _task_outcome_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
     if isinstance(statement, ast.If):
-        if isinstance(statement.test, ast.Constant):
-            return [statement.body if statement.test.value else statement.orelse]
+        truth = _constant_truth(statement.test)
+        if truth is not None:
+            return [statement.body if truth else statement.orelse]
         return [statement.body, statement.orelse]
     if isinstance(statement, ast.Match):
         blocks = [case.body for case in statement.cases]

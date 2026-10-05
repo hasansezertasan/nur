@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 import ast
+import operator
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Container
 
 __all__ = [
     "MAX_UNROLLED_ITERATIONS",
@@ -22,11 +27,85 @@ __all__ = [
 ]
 
 
+_UNKNOWN = object()
+
+
+def _literal_contains(left: object, right: object) -> bool:
+    container: Container[object] = cast("Container[object]", right)
+    return operator.contains(container, left)
+
+
+_COMPARE_OPERATORS: dict[type[ast.cmpop], Callable[[object, object], object]] = {
+    ast.Eq: operator.eq,
+    ast.NotEq: operator.ne,
+    ast.Lt: cast("Callable[[object, object], object]", operator.lt),
+    ast.LtE: cast("Callable[[object, object], object]", operator.le),
+    ast.Gt: cast("Callable[[object, object], object]", operator.gt),
+    ast.GtE: cast("Callable[[object, object], object]", operator.ge),
+    ast.In: _literal_contains,
+    ast.NotIn: lambda left, right: not _literal_contains(left, right),
+}
+
+
 def constant_truth(expression: ast.expr) -> bool | None:
+    value = _constant_value(expression)
+    return None if value is _UNKNOWN else bool(value)
+
+
+def _constant_value(expression: ast.expr) -> object:
+    if isinstance(expression, ast.Call):
+        return _UNKNOWN
     try:
-        return bool(ast.literal_eval(expression))
+        value: object = ast.literal_eval(expression)
     except (ValueError, TypeError) as _exc:
-        return None
+        return _boolean_value(expression)
+    return value
+
+
+def _boolean_value(expression: ast.expr) -> object:
+    if isinstance(expression, ast.UnaryOp) and isinstance(expression.op, ast.Not):
+        value = _constant_value(expression.operand)
+        return _UNKNOWN if value is _UNKNOWN else not value
+    if isinstance(expression, ast.BoolOp):
+        value = _UNKNOWN
+        for child in expression.values:
+            value = _constant_value(child)
+            if value is _UNKNOWN or bool(value) == isinstance(expression.op, ast.Or):
+                break
+        return value
+    if isinstance(expression, ast.Compare):
+        return _comparison_value(expression)
+    return _UNKNOWN
+
+
+def _compare_literals(operation: ast.cmpop, left: object, right: object) -> object:
+    if isinstance(operation, (ast.Is, ast.IsNot)):
+        # Identity of non-singleton literals depends on Python's constant pool.
+        if any(
+            value is not None and not isinstance(value, bool) for value in (left, right)
+        ):
+            return _UNKNOWN
+        return (left is right) == isinstance(operation, ast.Is)
+    compare = _COMPARE_OPERATORS[type(operation)]
+    try:
+        return bool(compare(left, right))
+    except (ValueError, TypeError) as _exc:
+        return _UNKNOWN
+
+
+def _comparison_value(expression: ast.Compare) -> object:
+    left = _constant_value(expression.left)
+    for operation, comparator in zip(
+        expression.ops, expression.comparators, strict=True
+    ):
+        right = _constant_value(comparator)
+        if left is _UNKNOWN or right is _UNKNOWN:
+            return _UNKNOWN
+        matches = _compare_literals(operation, left, right)
+        if matches is _UNKNOWN or not matches:
+            return matches
+        left = right
+    return True
 
 
 def loop_count(statement: ast.For | ast.AsyncFor | ast.While) -> int | None:
@@ -63,9 +142,7 @@ def loop_must_enter(statement: ast.For | ast.AsyncFor | ast.While) -> bool:
     if isinstance(statement, ast.While):
         return constant_truth(statement.test) is True
     if isinstance(statement.iter, (ast.List, ast.Tuple, ast.Set)):
-        return bool(statement.iter.elts) and not any(
-            isinstance(item, ast.Starred) for item in statement.iter.elts
-        )
+        return any(not isinstance(item, ast.Starred) for item in statement.iter.elts)
     if isinstance(statement.iter, ast.Dict):
         return any(key is not None for key in statement.iter.keys)
     if isinstance(statement.iter, ast.Constant) and isinstance(
