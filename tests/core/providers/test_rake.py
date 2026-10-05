@@ -289,9 +289,29 @@ def test_redefinition_in_task_body_does_not_run_during_loading():
     assert [task.name for task in tasks] == ["build", "test"]
 
 
-@pytest.mark.parametrize("control", ["redo", "retry"])
+@pytest.mark.parametrize("control", ["redo"])
 def test_restart_control_flow_stops_file_discovery(control):
     tasks = parse_rakefile(
         f"namespace :db do\n task :before\n {control}\n task :hidden\nend\ntask :root\n"
     )
     assert [task.name for task in tasks] == ["db:before"]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "task :before\nretry\ntask :after\n",
+        "task :before\nnamespace :db do\n task :inside\n retry\nend\n",
+    ],
+)
+def test_retry_outside_rescue_rejects_whole_file(text, caplog):
+    assert parse_rakefile(text) == []
+    assert "retry outside rescue" in caplog.text
+
+
+def test_retry_inside_rescue_does_not_invalidate_file():
+    tasks = parse_rakefile(
+        "task :before\nnamespace :db do\n task :conditional\nrescue\n retry\nend\n"
+        "task :after\n"
+    )
+    assert [task.name for task in tasks] == ["before", "after"]

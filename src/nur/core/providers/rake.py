@@ -149,6 +149,15 @@ def _description(arguments: list[Node]) -> str | None:
     return _literal(arguments[0]) if len(arguments) == 1 else None
 
 
+def _stops_file(node: Node) -> bool:
+    # Traversal visits only file/namespace statements, never rescue clauses.
+    # Ruby rejects retry here even though Tree-sitter accepts the syntax shape.
+    if node.type == "retry":
+        msg = "retry outside rescue"
+        raise ValueError(msg)
+    return node.type in {"return", "redo"}
+
+
 def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
     # Each frame owns its pending description; it cannot leak out of a scope.
     # An explicit stack avoids Python recursion on deeply nested namespaces.
@@ -161,7 +170,7 @@ def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
         node = next(statements, None)
         if node is None:
             continue
-        if node.type in {"return", "redo", "retry"}:
+        if _stops_file(node):
             return
         if node.type in {"break", "next"}:
             continue
@@ -195,8 +204,12 @@ def parse_rakefile(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
         log.warning("nur: skipping %s (invalid Ruby syntax)", source_file)
         return []
     tasks: dict[str, Task] = {}
-    for node, namespace, description in _declarations(root):
-        _add_task(tasks, _arguments(node), namespace, description, source_file)
+    try:
+        for node, namespace, description in _declarations(root):
+            _add_task(tasks, _arguments(node), namespace, description, source_file)
+    except ValueError as exc:
+        log.warning("nur: skipping %s (%s)", source_file, exc)
+        return []
     return list(tasks.values())
 
 
