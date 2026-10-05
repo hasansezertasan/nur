@@ -1976,3 +1976,58 @@ def test_try_else_constructor_error_is_not_caught_by_handler() -> None:
         )
         == []
     )
+
+
+@pytest.mark.parametrize(
+    ("handler", "expected"),
+    [
+        ("ValueError", []),
+        ("TypeError", []),
+        ("AttributeError", ["build"]),
+        ("Exception", ["build"]),
+        ("(ValueError, AttributeError)", ["build"]),
+    ],
+)
+def test_constructor_attributeerror_respects_handler_types(
+    handler: str, expected: list[str]
+) -> None:
+    tasks = parse_tasks(
+        "from invoke import task\ntry:\n @task(help='bad')\n def broken(c): ...\n"
+        f"except {handler}:\n pass\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == expected
+
+
+@pytest.mark.parametrize(
+    ("subject", "pattern", "expected"),
+    [
+        ("1", "1", []),
+        ("1", "1 | 2", []),
+        ("True", "True", []),
+        ("None", "None", []),
+        ("'a'", "'a'", []),
+        ("1", "2", ["build"]),
+        ("computed", "1", ["build"]),
+        ("1", "1 if flag", ["build"]),
+        ("1", "1 if False", ["build"]),
+    ],
+)
+def test_literal_match_guarantees_fatal_case(
+    subject: str, pattern: str, expected: list[str]
+) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\nmatch {subject}:\n case {pattern}:\n"
+        "  @task(unknown=True)\n  def broken(c): ...\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == expected
+
+
+def test_unreachable_match_capture_cannot_hide_fatal_case() -> None:
+    assert (
+        parse_tasks(
+            "import invoke\nfrom invoke import task\nmatch 1:\n case 0 as task:\n"
+            "  pass\n case 1:\n  @task(unknown=True)\n  def broken(c): ...\n"
+            "@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )

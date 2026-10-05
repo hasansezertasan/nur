@@ -10,23 +10,26 @@ from typing import TYPE_CHECKING
 
 from nur.core.models import Task
 from nur.core.providers._invoke_control_flow import (
+    MAX_UNROLLED_ITERATIONS as _MAX_UNROLLED_ITERATIONS,
     constant_truth as _constant_truth,
+    definitely_executed_blocks as _definitely_executed_blocks,
     exception_taints as _exception_taints,
-    excludes_typeerror as _excludes_typeerror,
+    excludes_exception as _excludes_exception,
+    guaranteed_match_case as _guaranteed_match_case,
     iteration_jump as _iteration_jump,
     loop_count as _loop_count,
-    loop_must_enter as _loop_must_enter,
+    loop_task_blocks as _loop_task_blocks,
     nonraising_block as _nonraising_block,
 )
 from nur.core.providers._invoke_exports import STAR_EXPORTS as _STAR_EXPORTS
 from nur.core.providers._invoke_tasks import (
+    constructor_exception as _constructor_exception,
     decorator_matches as _decorator_matches,
     fatal_decorator as _fatal_decorator,
     literal_default as _literal_default,
     module_kind as _module_kind,
     task_definition as _task_definition,
     task_names as _task_names,
-    typeerror_decorator as _typeerror_decorator,
 )
 
 if TYPE_CHECKING:
@@ -37,7 +40,6 @@ __all__ = ["InvokeProvider", "parse_tasks"]
 log = logging.getLogger("nur")
 _SOURCE_FILE = "tasks.py"
 _ATTRIBUTE_ARGS_MIN = 2
-_MAX_UNROLLED_ITERATIONS = 2
 _BUILTIN_HELPERS = frozenset({"setattr", "delattr", "vars", "globals", "locals"})
 
 
@@ -655,25 +657,6 @@ def _copied_tasks(
     }
 
 
-def _loop_task_blocks(
-    statement: ast.For | ast.AsyncFor | ast.While,
-) -> list[list[ast.stmt]]:
-    count = _loop_count(statement)
-    if count is not None and count <= _MAX_UNROLLED_ITERATIONS:
-        body = statement.body
-        if isinstance(statement, (ast.For, ast.AsyncFor)):
-            # Every iteration overwrites the target, even if the body assigns a
-            # Task to that name. Its next runtime value is not a known Task.
-            body = [
-                ast.Assign(targets=[statement.target], value=ast.Constant(None)),
-                *body,
-            ]
-        return [body * count + statement.orelse]
-    # Inspect possible copies for default collisions, but survival of written
-    # task bindings is handled conservatively for arbitrary iteration counts.
-    return [statement.body + statement.orelse, statement.orelse]
-
-
 def _task_outcome_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
     if isinstance(statement, ast.If):
         if isinstance(statement.test, ast.Constant):
@@ -769,28 +752,6 @@ def _task_binding_effects(
     return functions, defaults
 
 
-def _definitely_executed_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
-    if isinstance(statement, ast.If):
-        truth = _constant_truth(statement.test)
-        return [] if truth is None else [statement.body if truth else statement.orelse]
-    if isinstance(statement, ast.ClassDef):
-        return [statement.body]
-    if isinstance(statement, (ast.For, ast.AsyncFor, ast.While)):
-        count = _loop_count(statement)
-        if count is not None and count <= _MAX_UNROLLED_ITERATIONS:
-            return _loop_task_blocks(statement)
-        return [statement.body] if _loop_must_enter(statement) else []
-    if isinstance(statement, ast.Match) and len(statement.cases) == 1:
-        case = statement.cases[0]
-        if (
-            isinstance(case.pattern, ast.MatchAs)
-            and case.pattern.pattern is None
-            and case.guard is None
-        ):
-            return [case.body]
-    return []
-
-
 def _fatal_try(
     statement: ast.Try | ast.TryStar, bindings: dict[str, str], tainted: set[str]
 ) -> bool:
@@ -802,20 +763,15 @@ def _fatal_try(
         and _fatal_block(statement.orelse, bindings, tainted)
     ):
         return True
-    if (
-        all(
-            _excludes_typeerror(handler.type, bindings, handler_taints)
-            for handler in statement.handlers
-        )
-        and not any(_iteration_jump(child) for child in statement.finalbody)
-        and _fatal_block(
-            statement.body + statement.orelse,
-            bindings,
-            tainted,
-            typeerror_only=bool(statement.handlers),
-        )
-    ):
-        return True
+    if not any(_iteration_jump(child) for child in statement.finalbody):
+        if not statement.handlers and _fatal_block(statement.body, bindings, tainted):
+            return True
+        for exception in ("TypeError", "AttributeError"):
+            if all(
+                _excludes_exception(handler.type, exception, bindings, handler_taints)
+                for handler in statement.handlers
+            ) and _fatal_block(statement.body, bindings, tainted, exception=exception):
+                return True
     bindings, tainted = bindings.copy(), tainted.copy()
     handlers = statement.handlers
     if _nonraising_block(statement.body):
@@ -841,7 +797,12 @@ def _fatal_children(
 ) -> bool:
     bindings = bindings.copy()
     if isinstance(statement, (ast.For, ast.AsyncFor, ast.While, ast.Match)):
-        for bound in _header_writes(statement):
+        header = statement
+        if isinstance(statement, ast.Match) and (
+            case := _guaranteed_match_case(statement)
+        ):
+            header = ast.Match(subject=statement.subject, cases=[case])
+        for bound in _header_writes(header):
             # Loop targets and match captures are assigned before their bodies.
             bindings.pop(bound, None)
     if isinstance(statement, (ast.For, ast.AsyncFor)) and (
@@ -866,16 +827,19 @@ def _fatal_block(
     bindings: dict[str, str],
     tainted: set[str],
     *,
-    typeerror_only: bool = False,
+    exception: str | None = None,
 ) -> bool:
     bindings, tainted = bindings.copy(), tainted.copy()
-    decorator_check = _typeerror_decorator if typeerror_only else _fatal_decorator
     for statement in statements:
         if isinstance(
             statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
-        ) and decorator_check(statement, bindings, tainted):
+        ) and (
+            _constructor_exception(statement, bindings, tainted) == exception
+            if exception is not None
+            else _fatal_decorator(statement, bindings, tainted)
+        ):
             return True
-        if not typeerror_only and _fatal_children(statement, bindings, tainted):
+        if exception is None and _fatal_children(statement, bindings, tainted):
             return True
         if _iteration_jump(statement):
             break

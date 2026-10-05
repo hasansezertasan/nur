@@ -5,13 +5,16 @@ from __future__ import annotations
 import ast
 
 __all__ = [
-    "NON_TYPEERROR_EXCEPTIONS",
+    "MAX_UNROLLED_ITERATIONS",
     "constant_truth",
+    "definitely_executed_blocks",
     "exception_taints",
-    "excludes_typeerror",
+    "excludes_exception",
+    "guaranteed_match_case",
     "iteration_jump",
     "loop_count",
     "loop_must_enter",
+    "loop_task_blocks",
     "nonraising_block",
 ]
 
@@ -69,33 +72,45 @@ def loop_must_enter(statement: ast.For | ast.AsyncFor | ast.While) -> bool:
     return False
 
 
-NON_TYPEERROR_EXCEPTIONS = frozenset({
-    "ValueError",
-    "AttributeError",
-    "KeyError",
-    "IndexError",
-    "LookupError",
-    "RuntimeError",
-    "OSError",
-    "AssertionError",
-    "SyntaxError",
-    "ImportError",
-})
+_EXCEPTIONS: dict[str, type[BaseException]] = {
+    cls.__name__: cls
+    for cls in (
+        TypeError,
+        AttributeError,
+        ValueError,
+        KeyError,
+        IndexError,
+        LookupError,
+        RuntimeError,
+        OSError,
+        AssertionError,
+        SyntaxError,
+        ImportError,
+        Exception,
+        BaseException,
+    )
+}
 
 
-def excludes_typeerror(
-    expression: ast.expr | None, bindings: dict[str, str], tainted: set[str]
+def excludes_exception(
+    expression: ast.expr | None,
+    exception: str,
+    bindings: dict[str, str],
+    tainted: set[str],
 ) -> bool:
     if isinstance(expression, ast.Tuple):
         return all(
-            excludes_typeerror(item, bindings, tainted) for item in expression.elts
+            excludes_exception(item, exception, bindings, tainted)
+            for item in expression.elts
         )
-    return (
-        isinstance(expression, ast.Name)
-        and expression.id in NON_TYPEERROR_EXCEPTIONS
-        and expression.id not in bindings
-        and "builtins." + expression.id not in tainted
-    )
+    if (
+        not isinstance(expression, ast.Name)
+        or expression.id not in _EXCEPTIONS
+        or expression.id in bindings
+        or "builtins." + expression.id in tainted
+    ):
+        return False
+    return not issubclass(_EXCEPTIONS[exception], _EXCEPTIONS[expression.id])
 
 
 def iteration_jump(statement: ast.stmt) -> bool:
@@ -114,9 +129,7 @@ def iteration_jump(statement: ast.stmt) -> bool:
 
 def exception_taints(written: set[str]) -> set[str]:
     return {
-        "builtins." + name
-        for name in NON_TYPEERROR_EXCEPTIONS
-        if name in written or "*" in written
+        "builtins." + name for name in _EXCEPTIONS if name in written or "*" in written
     }
 
 
@@ -129,3 +142,78 @@ def nonraising_block(statements: list[ast.stmt]) -> bool:
         )
         for statement in statements
     )
+
+
+MAX_UNROLLED_ITERATIONS = 2
+
+
+def loop_task_blocks(
+    statement: ast.For | ast.AsyncFor | ast.While,
+) -> list[list[ast.stmt]]:
+    count = loop_count(statement)
+    if count is not None and count <= MAX_UNROLLED_ITERATIONS:
+        body = statement.body
+        if isinstance(statement, (ast.For, ast.AsyncFor)):
+            # Every iteration overwrites the target, even if the body assigns a
+            # Task to that name. Its next runtime value is not a known Task.
+            body = [
+                ast.Assign(targets=[statement.target], value=ast.Constant(None)),
+                *body,
+            ]
+        return [body * count + statement.orelse]
+    # Inspect possible copies for default collisions, but survival of written
+    # task bindings is handled conservatively for arbitrary iteration counts.
+    return [statement.body + statement.orelse, statement.orelse]
+
+
+def definitely_executed_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
+    if isinstance(statement, ast.If):
+        truth = constant_truth(statement.test)
+        return [] if truth is None else [statement.body if truth else statement.orelse]
+    if isinstance(statement, ast.ClassDef):
+        return [statement.body]
+    if isinstance(statement, (ast.For, ast.AsyncFor, ast.While)):
+        count = loop_count(statement)
+        if count is not None and count <= MAX_UNROLLED_ITERATIONS:
+            return loop_task_blocks(statement)
+        return [statement.body] if loop_must_enter(statement) else []
+    if isinstance(statement, ast.Match):
+        case = guaranteed_match_case(statement)
+        return [case.body] if case is not None else []
+    return []
+
+
+def _pattern_matches(pattern: ast.pattern, value: object) -> bool | None:
+    if isinstance(pattern, ast.MatchAs):
+        return (
+            True
+            if pattern.pattern is None
+            else _pattern_matches(pattern.pattern, value)
+        )
+    if isinstance(pattern, ast.MatchSingleton):
+        return value is pattern.value
+    if isinstance(pattern, ast.MatchValue):
+        try:
+            return bool(value == ast.literal_eval(pattern.value))
+        except (ValueError, TypeError) as _exc:
+            return None
+    if isinstance(pattern, ast.MatchOr):
+        matches = [_pattern_matches(child, value) for child in pattern.patterns]
+        return True if True in matches else (None if None in matches else False)
+    return None
+
+
+def guaranteed_match_case(statement: ast.Match) -> ast.match_case | None:
+    try:
+        value = ast.literal_eval(statement.subject)
+    except (ValueError, TypeError) as _exc:
+        if len(statement.cases) != 1:
+            return None
+        value = object()
+    for case in statement.cases:
+        matches = _pattern_matches(case.pattern, value)
+        guard = True if case.guard is None else constant_truth(case.guard)
+        if matches is False or guard is False:
+            continue
+        return case if matches is True and guard is True else None
+    return None

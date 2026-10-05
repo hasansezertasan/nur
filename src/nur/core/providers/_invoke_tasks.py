@@ -5,13 +5,13 @@ from __future__ import annotations
 import ast
 
 __all__ = [
+    "constructor_exception",
     "decorator_matches",
     "fatal_decorator",
     "literal_default",
     "module_kind",
     "task_definition",
     "task_names",
-    "typeerror_decorator",
 ]
 
 _TASK_OPTIONS = frozenset({
@@ -477,3 +477,23 @@ def task_names(
             if item and "." not in item and not item.startswith("-")
         )
     )
+
+
+def constructor_exception(
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
+    bindings: dict[str, str],
+    tainted: set[str],
+) -> str | None:
+    if typeerror_decorator(node, bindings, tainted):
+        return "TypeError"
+    for decorator in node.decorator_list:
+        if (
+            isinstance(decorator, ast.Call)
+            and decorator_matches(decorator.func, bindings, tainted)
+            and not any(
+                keyword.arg in {"klass", None} for keyword in decorator.keywords
+            )
+            and any(_fatal_help_literal(keyword) for keyword in decorator.keywords)
+        ):
+            return "AttributeError"
+    return None
