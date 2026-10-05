@@ -214,6 +214,25 @@ def _fatal_contextless_task(
     return True
 
 
+def _positional_pre_conflict(decorator: ast.Call, bindings: dict[str, str]) -> bool:
+    if not decorator.args or not any(
+        keyword.arg == "pre" for keyword in decorator.keywords
+    ):
+        return False
+    if any(isinstance(argument, ast.Starred) for argument in decorator.args):
+        return False
+    if len(decorator.args) > 1:
+        return True
+    argument = decorator.args[0]
+    if isinstance(argument, ast.Name):
+        return bindings.get(argument.id) == "task_object"
+    try:
+        ast.literal_eval(argument)
+    except (ValueError, TypeError) as _exc:
+        return False
+    return True
+
+
 def fatal_decorator(
     function: ast.FunctionDef | ast.AsyncFunctionDef,
     bindings: dict[str, str],
@@ -224,6 +243,10 @@ def fatal_decorator(
         if not decorator_matches(expression, bindings, tainted):
             continue
         keywords = decorator.keywords if isinstance(decorator, ast.Call) else []
+        if isinstance(decorator, ast.Call) and _positional_pre_conflict(
+            decorator, bindings
+        ):
+            return True
         if any(keyword.arg == "klass" for keyword in keywords):
             # A custom Task constructor may accept a different option set.
             continue

@@ -1495,3 +1495,60 @@ def test_fatal_decorator_in_literal_branch(condition: str) -> None:
         " def broken(c): ...\n@task\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ([] if condition == "True" else ["build"])
+
+
+@pytest.mark.parametrize(
+    "options", ["setup, pre=[setup]", "setup, pre=[setup], klass=Custom"]
+)
+def test_positional_pre_conflict_is_module_fatal(options: str) -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\ndef setup(c): ...\n"
+            f"@task({options})\ndef broken(c): ...\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "block",
+    [
+        "for build in [1]:\n pass",
+        "with manager as build:\n pass",
+        "try:\n pass\nexcept Exception as build:\n pass",
+        "match value:\n case build:\n  pass",
+    ],
+)
+def test_compound_header_can_replace_task_binding(block: str) -> None:
+    assert (
+        parse_tasks(f"from invoke import task\n@task\ndef build(c): ...\n{block}\n")
+        == []
+    )
+
+
+def test_literal_false_branch_preserves_imported_decorator() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\nif False:\n task = None\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_literal_false_branch_cannot_hide_fatal_decorator() -> None:
+    assert (
+        parse_tasks(
+            "import invoke\nfrom invoke import task\nif False:\n task = None\n"
+            "@task(unknown=True)\ndef broken(c): ...\n@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_fatal_positional_pre_conflict_inside_literal_branch() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\nif True:\n @task\n def setup(c): ...\n"
+            " saved = setup\n @task(saved, pre=[saved])\n def broken(c): ...\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )

@@ -272,7 +272,12 @@ def _module_children(node: ast.AST) -> list[ast.AST]:
         # The iteration target is local. Walrus assignments in the expressions
         # still bind in the containing scope and are visited normally.
         return [node.iter, *node.ifs]
-    return list(ast.iter_child_nodes(node))
+    children: list[ast.AST] = list(ast.iter_child_nodes(node))
+    if isinstance(node, ast.If):
+        truth = _constant_truth(node.test)
+        if truth is not None:
+            children = [node.test, *(node.body if truth else node.orelse)]
+    return children
 
 
 def _import_writes(node: ast.Import | ast.ImportFrom) -> set[str]:
@@ -338,7 +343,7 @@ def _deleted_names(statement: ast.stmt) -> set[str]:
     return names
 
 
-def _statement_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
+def _all_statement_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
     """Get compound blocks without crossing function or class scopes."""
     if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
         return []
@@ -354,12 +359,20 @@ def _statement_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
     return blocks
 
 
+def _statement_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
+    if isinstance(statement, ast.If):
+        truth = _constant_truth(statement.test)
+        if truth is not None:
+            return [statement.body if truth else statement.orelse]
+    return _all_statement_blocks(statement)
+
+
 def _global_names(statements: list[ast.stmt]) -> set[str]:
     names: set[str] = set()
     for statement in statements:
         if isinstance(statement, ast.Global):
             names.update(statement.names)
-        for block in _statement_blocks(statement):
+        for block in _all_statement_blocks(statement):
             names.update(_global_names(block))
     return names
 
@@ -497,11 +510,13 @@ def _copied_callables(
 ) -> dict[str, str]:
     copies: dict[str, str] = {}
     for target, value in _assignment_pairs(statement):
-        if isinstance(value, ast.Lambda) or (
-            isinstance(value, ast.Name)
-            and bindings.get(value.id) == "ordinary_callable"
-        ):
+        if isinstance(value, ast.Lambda):
             copies[target.id] = "ordinary_callable"
+        elif isinstance(value, ast.Name) and bindings.get(value.id) in {
+            "ordinary_callable",
+            "task_object",
+        }:
+            copies[target.id] = bindings[value.id]
         elif _decorator_matches(value, bindings, tainted):
             copies[target.id] = "task"
     return copies
@@ -677,6 +692,27 @@ def _task_outcome_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
     return _statement_blocks(statement)
 
 
+def _header_writes(statement: ast.stmt) -> set[str]:
+    names: set[str] = set()
+    pending: list[ast.AST] = [statement]
+    while pending:
+        node = pending.pop()
+        children = _module_children(node)
+        if isinstance(node, (ast.For, ast.AsyncFor)) and _loop_count(node) == 0:
+            children = [child for child in children if child is not node.target]
+        pending.extend(child for child in children if not isinstance(child, ast.stmt))
+        if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            names.add(node.id)
+        elif (
+            isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar))
+            and node.name
+        ):
+            names.add(node.name)
+        elif isinstance(node, ast.MatchMapping) and node.rest:
+            names.add(node.rest)
+    return names
+
+
 def _task_binding_effects(
     statements: list[ast.stmt], functions: dict[str, list[Task]], defaults: set[str]
 ) -> tuple[dict[str, list[Task]], set[str]]:
@@ -684,6 +720,9 @@ def _task_binding_effects(
     for statement in statements:
         copies = _copied_tasks(statement, functions)
         default_copies = _copied_defaults(statement, defaults)
+        for bound in _header_writes(statement):
+            functions.pop(bound, None)
+            defaults.discard(bound)
         blocks = _task_outcome_blocks(statement)
         branches = [
             _task_binding_effects(block, functions, defaults) for block in blocks
@@ -749,6 +788,9 @@ def _fatal_block(
             for block in _definitely_executed_blocks(statement)
         ):
             return True
+        task_object = isinstance(statement, ast.FunctionDef) and bool(
+            _task_names(statement, bindings, tainted)
+        )
         copies = _copied_modules(statement, bindings, tainted)
         copies.update(_copied_callables(statement, bindings, tainted))
         written, mutation, _ = _written_names(
@@ -761,6 +803,8 @@ def _fatal_block(
             bindings.pop(bound, None)
         bindings.update(copies)
         _bind_callable_definition(statement, bindings)
+        if task_object and isinstance(statement, ast.FunctionDef):
+            bindings[statement.name] = "task_object"
         if isinstance(statement, (ast.Import, ast.ImportFrom)):
             _bind_import(statement, bindings, tainted)
     return False
