@@ -370,6 +370,7 @@ class _LocalScope:
     parent: _LocalScope | None = None
     names: set[str] = field(default_factory=set)
     implicit_names: set[str] = field(default_factory=set)
+    forwarding: dict[str, bool] = field(default_factory=dict)
     block: bool = False
     explicit: bool = False
     numbered: bool = False
@@ -508,7 +509,44 @@ def _implicit_reference(node: Node) -> bool:
     )
 
 
+def _register_forwarding(node: Node, scope: _LocalScope) -> None:
+    argument = {
+        "forward_parameter": "forward_argument",
+        "splat_parameter": "splat_argument",
+        "hash_splat_parameter": "hash_splat_argument",
+        "block_parameter": "block_argument",
+    }.get(node.type)
+    if argument is not None and node.child_by_field_name("name") is None:
+        # Methods grant forwarding; an anonymous block parameter makes the
+        # corresponding enclosing-method forwarding ambiguous.
+        scope.forwarding[argument] = not scope.block
+
+
+def _forward_error(node: Node, scope: _LocalScope) -> str | None:
+    if node.type not in {
+        "forward_argument",
+        "splat_argument",
+        "hash_splat_argument",
+        "block_argument",
+    }:
+        return None
+    if any(child.type != "comment" for child in node.named_children):
+        return None
+    current: _LocalScope | None = scope
+    while current is not None:
+        permission = current.forwarding.get(node.type)
+        if permission is not None:
+            return (
+                None
+                if permission
+                else "argument forwarding conflicts with anonymous block parameter"
+            )
+        current = current.parent
+    return "argument forwarding without matching method parameter"
+
+
 def _register_binding(node: Node, scope: _LocalScope) -> str | None:
+    _register_forwarding(node, scope)
     name = None
     if node.type == "identifier":
         name = _text(node)
@@ -560,7 +598,7 @@ def _lexical_scope_error(root: Node) -> str | None:
             if error is not None:
                 return error
             continue
-        error = _implicit_error(node, scope)
+        error = _implicit_error(node, scope) or _forward_error(node, scope)
         if error is not None:
             return error
         pending.extend(reversed(_scope_steps(node, scope)))

@@ -856,3 +856,52 @@ def test_conditional_namespace_escape_keeps_parent_scope(escape):
 def test_local_controls_do_not_escape_discovery_scope(body):
     tasks = parse_rakefile(f"{body}; task :after")
     assert tasks[-1].name == "after"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "call(...)",
+        "def helper; call(...); end",
+        "def helper(...); def nested; call(...); end; end",
+        "def helper(...); class << self; call(...); end; end",
+        "def helper(arg = call(...), ...); end",
+        "def helper(*args); call(*); end",
+        "def helper(**kw); call(**); end",
+        "def helper(&block); call(&); end",
+        "call(*)",
+        "call(**)",
+        "call(&)",
+        "def helper(...); call(*); end",
+        "def helper(...); call(**); end",
+        "def helper(...); call(&); end",
+        "def helper(*); call { |*| target(*) }; end",
+        "def helper(**); call { |**| target(**) }; end",
+        "def helper(&); call { |&| target(&) }; end",
+        "call { |*| target(*) }",
+    ],
+)
+def test_invalid_argument_forwarding_rejects_whole_file(body, caplog):
+    assert parse_rakefile(f"task :before; {body}; task :after") == []
+    assert "argument forwarding" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "def helper(...); call(...); end",
+        "def self.helper(first, ...); call(...); end",
+        "def helper(...); call { target(...) }; end",
+        "def helper(...); -> { target(...) }; end",
+        "def helper(*); call(*); end",
+        "def helper(**); call(**); end",
+        "def helper(&); call(&); end",
+        "def helper(*, **, &); call(*, **, &); end",
+        "def helper(*); call { |*args| target(*) }; end",
+        "def helper(...); def (call(...)).nested; end; end",
+        "def helper(*args, **kw, &block); call(*args, **kw, &block); end",
+    ],
+)
+def test_valid_argument_forwarding_preserves_discovery(body):
+    tasks = parse_rakefile(f"{body}; task :after")
+    assert tasks[-1].name == "after"
