@@ -243,12 +243,15 @@ def _mutated_exports(
         isinstance(node, ast.Call)
         and _builtin_name(node.func, bindings) in {"setattr", "delattr"}
         and len(node.args) >= _ATTRIBUTE_ARGS_MIN
-        and isinstance(node.args[1], ast.Constant)
     ):
-        value = node.args[1].value
-        if not isinstance(value, str):
-            return set()
-        namespace, attributes = node.args[0], {value}
+        attribute = node.args[1]
+        if isinstance(attribute, ast.Constant):
+            if not isinstance(attribute.value, str):
+                return set()
+            attributes = {attribute.value}
+        else:
+            attributes = {"*"}
+        namespace = node.args[0]
     elif (mapping_write := _mapping_write(node, bindings)) is not None:
         namespace, attributes = mapping_write
     else:

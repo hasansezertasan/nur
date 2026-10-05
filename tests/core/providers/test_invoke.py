@@ -1197,3 +1197,16 @@ def test_mixed_hook_collections_reject_literal_members(hook: str, option: str) -
         )
         == []
     )
+
+
+@pytest.mark.parametrize(
+    "mutation", ["setattr(invoke, attr, replacement)", "delattr(invoke, attr)"]
+)
+def test_computed_builtin_attribute_mutation_invalidates_exports(mutation: str) -> None:
+    assert (
+        parse_tasks(
+            f"import invoke\nattr = 'task'\n{mutation}\n"
+            "@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )
