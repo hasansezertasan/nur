@@ -386,6 +386,34 @@ def _merge_possible_modules(
                 )
 
 
+def _unpacked_pairs(
+    target: ast.Tuple | ast.List, value: ast.Tuple | ast.List
+) -> list[tuple[ast.expr, ast.expr]]:
+    if any(isinstance(item, ast.Starred) for item in value.elts):
+        return []
+    starred = next(
+        (
+            index
+            for index, item in enumerate(target.elts)
+            if isinstance(item, ast.Starred)
+        ),
+        None,
+    )
+    if starred is None:
+        return (
+            list(zip(target.elts, value.elts, strict=True))
+            if len(target.elts) == len(value.elts)
+            else []
+        )
+    if len(value.elts) < len(target.elts) - 1:
+        return []
+    suffix = len(target.elts) - starred - 1
+    pairs = list(zip(target.elts[:starred], value.elts[:starred], strict=True))
+    if suffix:
+        pairs.extend(zip(target.elts[-suffix:], value.elts[-suffix:], strict=True))
+    return pairs
+
+
 def _assignment_pairs(statement: ast.stmt) -> list[tuple[ast.Name, ast.expr]]:
     pending: list[tuple[ast.expr, ast.expr]]
     if isinstance(statement, ast.Assign):
@@ -407,12 +435,10 @@ def _assignment_pairs(statement: ast.stmt) -> list[tuple[ast.Name, ast.expr]]:
         target, value = pending.pop()
         if isinstance(target, ast.Name):
             pairs.append((target, value))
-        elif (
-            isinstance(target, (ast.Tuple, ast.List))
-            and isinstance(value, (ast.Tuple, ast.List))
-            and len(target.elts) == len(value.elts)
+        elif isinstance(target, (ast.Tuple, ast.List)) and isinstance(
+            value, (ast.Tuple, ast.List)
         ):
-            pending.extend(zip(target.elts, value.elts, strict=True))
+            pending.extend(_unpacked_pairs(target, value))
     return pairs
 
 
@@ -560,7 +586,9 @@ def _copied_tasks(
 def _loop_count(statement: ast.For | ast.AsyncFor | ast.While) -> int | None:
     if any(
         node is not statement
-        and isinstance(node, (ast.For, ast.AsyncFor, ast.While, ast.Break))
+        and isinstance(
+            node, (ast.For, ast.AsyncFor, ast.While, ast.Break, ast.Continue)
+        )
         for node in ast.walk(statement)
     ):
         return None

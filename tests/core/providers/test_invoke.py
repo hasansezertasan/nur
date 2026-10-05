@@ -1421,3 +1421,41 @@ def test_nested_repeated_loops_remain_fast() -> None:
     started = time.perf_counter()
     assert [task.name for task in parse_tasks(source)] == ["build"]
     assert time.perf_counter() - started < 2
+
+
+def test_continue_does_not_create_unreachable_task_copy() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\ndef build(c): ...\n"
+            "for item in [1]:\n saved = None\n continue\n saved = build\ndel build\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("copy", ["saved, *rest = (build,)", "*rest, saved = (build,)"])
+def test_starred_default_task_copy_collides(copy: str) -> None:
+    assert (
+        parse_tasks(
+            f"from invoke import task\n@task(default=True)\ndef build(c): ...\n{copy}\n"
+        )
+        == []
+    )
+
+
+def test_starred_unpacking_module_alias_mutates_original() -> None:
+    assert (
+        parse_tasks(
+            "import invoke\nalias, *rest = (invoke,)\nalias.task = replacement\n"
+            "@invoke.task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_starred_task_copy_survives_deleted_original() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task\ndef build(c): ...\n"
+        "*rest, saved = (1, build)\ndel build\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
