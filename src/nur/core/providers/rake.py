@@ -66,9 +66,9 @@ def _method(node: Node, disabled: set[str]) -> str | None:
             disabled.update({"task", "multitask", "namespace", "desc"})
     if node.type == "singleton_method":
         owner = node.child_by_field_name("object")
-        name = node.child_by_field_name("name")
-        if owner is not None and owner.type == "self" and name is not None:
-            disabled.add(_text(name))
+        name_node = node.child_by_field_name("name")
+        if owner is not None and owner.type == "self" and name_node is not None:
+            disabled.add(_text(name_node))
     if node.type != "call" or node.child_by_field_name("receiver") is not None:
         return None
     method = node.child_by_field_name("method")
@@ -161,9 +161,9 @@ def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
         node = next(statements, None)
         if node is None:
             continue
-        if node.type == "return":
+        if node.type in {"return", "redo", "retry"}:
             return
-        if node.type in {"break", "next", "redo", "retry"}:
+        if node.type in {"break", "next"}:
             continue
         method = _method(node, disabled)
         arguments = _arguments(node)

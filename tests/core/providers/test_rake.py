@@ -234,7 +234,7 @@ def test_empty_file_and_custom_source():
     assert parse_rakefile("task :build", "custom.rb")[0].source_file == "custom.rb"
 
 
-@pytest.mark.parametrize("control", ["next", "break", "redo"])
+@pytest.mark.parametrize("control", ["next", "break"])
 def test_namespace_control_flow_stops_discovery(control):
     tasks = parse_rakefile(
         f"namespace :db do\n task :before\n {control}\n task :hidden\nend\ntask :root\n"
@@ -287,3 +287,11 @@ def test_redefinition_in_task_body_does_not_run_during_loading():
         "task :build do\n def self.task(*args); end\nend\ntask :test\n"
     )
     assert [task.name for task in tasks] == ["build", "test"]
+
+
+@pytest.mark.parametrize("control", ["redo", "retry"])
+def test_restart_control_flow_stops_file_discovery(control):
+    tasks = parse_rakefile(
+        f"namespace :db do\n task :before\n {control}\n task :hidden\nend\ntask :root\n"
+    )
+    assert [task.name for task in tasks] == ["db:before"]
