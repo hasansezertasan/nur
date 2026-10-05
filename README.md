@@ -24,7 +24,7 @@
 
 Run `nur` in a project and it discovers the tasks your project already defines —
 from npm, Make, deno, composer, just, Taskfile, pre-commit, PDM/poe, tox, mise,
-cargo-make, moon, xc, VS Code tasks, nox, and mask — then lets you run them from a TUI picker or directly from the command line.
+cargo-make, moon, xc, VS Code tasks, nox, mask, and Invoke — then lets you run them from a TUI picker or directly from the command line.
 Discovery is limited to the current directory. See [Features](#features) for the
 full list of source files.
 
@@ -134,7 +134,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 
 ## Features
 
-- **Zero-config discovery** across seventeen providers, each parsed from a single
+- **Zero-config discovery** across eighteen providers, each parsed from a single
   source file in the current directory:
 
   | Provider | Prefix | Source file |
@@ -154,6 +154,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   | moon | `moon` | `moon.yml` |
   | xc | `xc` | `README.md` (see below) |
   | VS Code | `vscode` | `.vscode/tasks.json` (see below) |
+  | Invoke | `invoke` | `tasks.py` (see below) |
   | nox | `nox` | `noxfile.py` (see below) |
   | mask | `mask` | `maskfile.md` (see below) |
 
@@ -181,6 +182,20 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   setting `env`, `shell`, or a `cwd` other than the project root. Shell tasks run
   through `$SHELL -c` on POSIX (falling back to `/bin/sh`) and `cmd.exe` on
   Windows; an object-form `command` is quoted as a single literal token.
+
+  `invoke` parses `tasks.py` as a Python syntax tree without importing it or
+  running `inv --list`. It discovers top-level functions with a single `@task`,
+  `@task(...)`, or `@invoke.task` decorator, including import aliases. Literal
+  `name=` and list/tuple `aliases=` are supported; underscores become dashes
+  following Invoke's default configuration. Tasks run as `invoke <name>` with
+  extra CLI flags passed through, and the first docstring line is the description.
+  Command bodies, required parameters, pre/post hooks, imported or dynamic tasks,
+  conditional definitions, custom decorators, and explicit `Collection` wiring
+  are not resolved. Explicit namespaces may therefore make the discovered bare
+  names unavailable, and configuration disabling automatic dashes is not read.
+  Names and aliases containing dots or beginning with a dash are excluded because
+  Invoke interprets them as namespace paths or CLI options.
+
   `nox` parses `noxfile.py` as a Python syntax tree (never importing it, unlike
   `nox --list`) and surfaces top-level `@nox.session`-decorated functions,
   runnable as `nox -s <name>`, using an explicit string `name=` when given and
