@@ -2407,3 +2407,52 @@ def test_overridden_lambda_constructor_has_unknown_callback_arity():
         "namespace(:ok, &lambda {}); task :after"
     )
     assert [task.name for task in parse_rakefile(source)] == ["after"]
+
+
+@pytest.mark.parametrize(
+    "wrapper",
+    [
+        "if true; {call}; end",
+        "unless false; {call}; end",
+        "{call} if true",
+        "true && ({call})",
+        "namespace :db do; if true; {call}; end; end",
+    ],
+)
+@pytest.mark.parametrize(
+    "call", ["namespace(foo: :bar) {}", "task :bad, [1]", "directory nil", "desc 1, 2"]
+)
+def test_active_branches_validate_dsl_declarations(wrapper, call, caplog):
+    assert (
+        parse_rakefile(f"task :before; {wrapper.format(call=call)}; task :after") == []
+    )
+    assert "invalid Rake" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "wrapper",
+    [
+        "if false; {call}; end",
+        "unless true; {call}; end",
+        "{call} if false",
+        "false && ({call})",
+    ],
+)
+def test_inactive_branches_do_not_validate_dsl_calls(wrapper):
+    source = wrapper.format(call="namespace(foo: :bar) {}")
+    assert [task.name for task in parse_rakefile(f"{source}; task :after")] == ["after"]
+
+
+def test_overridden_dsl_in_active_branch_is_not_validated():
+    source = (
+        "def self.namespace(*); end; if true; namespace(foo: :bar) {}; end; task :after"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["after"]
+
+
+def test_class_body_dsl_method_has_unknown_implementation():
+    source = (
+        "class Example; def self.namespace(*); end; "
+        "namespace(foo: :bar) {}; end; task :after"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["after"]

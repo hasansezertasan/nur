@@ -9,7 +9,14 @@ if TYPE_CHECKING:
 
     from tree_sitter import Node
 
-__all__ = ["binding_names", "defined_probe", "literal", "node_text", "syntax_error"]
+__all__ = [
+    "binding_names",
+    "callback_nodes",
+    "defined_probe",
+    "literal",
+    "node_text",
+    "syntax_error",
+]
 
 _MAX_REGEXP_REPEAT = 100_000
 _MAX_REGEXP_CAPTURE_GROUPS = 32_767
@@ -17,6 +24,29 @@ _MAX_REGEXP_CAPTURE_GROUPS = 32_767
 
 def node_text(node: Node) -> str:
     return (node.text or b"").decode("utf-8")
+
+
+def callback_nodes(root: Node) -> Iterator[Node]:
+    pending = [root]
+    while pending:
+        node = pending.pop()
+        yield node
+        if (
+            node == root
+            or node.type
+            not in {
+                "lambda",
+                "block",
+                "do_block",
+                "method",
+                "singleton_method",
+                "class",
+                "module",
+                "singleton_class",
+            }
+            or (root.type == "lambda" and node == root.child_by_field_name("body"))
+        ):
+            pending.extend(node.named_children)
 
 
 def literal(node: Node) -> str | None:

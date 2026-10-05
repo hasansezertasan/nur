@@ -10,6 +10,7 @@ from tree_sitter import Language, Node, Parser
 from nur.core.models import Task
 from nur.core.providers._rake_syntax import (
     binding_names,
+    callback_nodes,
     defined_probe,
     literal,
     node_text,
@@ -332,7 +333,7 @@ def _lambda_parameter_error(callback: Node) -> bool:
         # Implicit numbered/it parameters may establish an arity dynamically.
         arities = [
             int(name[1]) if name.startswith("_") else 1
-            for child in _walk_nodes(callback)
+            for child in callback_nodes(callback)
             if (name := node_text(child))
             in {"it", "_1", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9"}
         ]
@@ -357,29 +358,6 @@ def _lambda_parameter_error(callback: Node) -> bool:
             maximum += 1
             required += parameter.type != "optional_parameter"
     return required > 1 or (maximum < 1 and not rest)
-
-
-def _walk_nodes(root: Node) -> Iterator[Node]:
-    pending = [root]
-    while pending:
-        node = pending.pop()
-        yield node
-        if (
-            node == root
-            or node.type
-            not in {
-                "lambda",
-                "block",
-                "do_block",
-                "method",
-                "singleton_method",
-                "class",
-                "module",
-                "singleton_class",
-            }
-            or (root.type == "lambda" and node == root.child_by_field_name("body"))
-        ):
-            pending.extend(node.named_children)
 
 
 def _invalid_namespace(node: Node, arguments: list[Node], disabled: set[str]) -> bool:
@@ -746,6 +724,25 @@ def _load_time_children(node: Node, disabled: set[str]) -> list[Node]:
     return _reachable_children(node)
 
 
+def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
+    method = node.child_by_field_name("method")
+    if node.type != "call" or method is None or not _dsl_receiver(node):
+        return None
+    name = node_text(method)
+    if name in disabled:
+        return None
+    child, parent = node, node.parent
+    while parent is not None:
+        if parent.type in {
+            "class",
+            "module",
+            "singleton_class",
+        } and child not in _scope_headers(parent):
+            return None
+        child, parent = parent, parent.parent
+    return _declaration_error(node, name, _arguments(node), None, disabled)
+
+
 def _load_time_error(root: Node) -> str | None:
     disabled: set[str] = set()
     pending = [_load_statements(root, disabled)]
@@ -755,6 +752,9 @@ def _load_time_error(root: Node) -> str | None:
             pending.pop()
             continue
         _record_override(node, disabled)
+        error = _load_declaration_error(node, disabled)
+        if error is not None:
+            return error
         if _invalid_block_arguments(node):
             return "invalid block argument during loading"
         if node.type == "regex" and any(
