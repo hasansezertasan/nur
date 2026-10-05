@@ -1267,3 +1267,40 @@ def test_class_locals_mapping_does_not_replace_module_decorator() -> None:
         "@task\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "loop", ["for item in []:", "for item in items:", "while False:", "while flag:"]
+)
+def test_loop_copy_must_survive_zero_iteration_outcome(loop: str) -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\ndef build(c): ...\n"
+            f"{loop}\n saved = build\ndel build\n"
+        )
+        == []
+    )
+
+
+def test_extra_positional_only_task_parameter_is_rejected() -> None:
+    assert (
+        parse_tasks("from invoke import task\n@task\ndef build(c, target, /): ...\n")
+        == []
+    )
+
+
+def test_positional_only_context_is_supported() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task\ndef build(c, /, target): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize(
+    "copy", ["decorator = task", "(decorator,) = (task,)", "decorator: Callable = task"]
+)
+def test_assigned_task_decorator_alias_is_supported(copy: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n{copy}\n@decorator\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]

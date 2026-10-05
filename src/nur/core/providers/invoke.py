@@ -9,6 +9,7 @@ import warnings
 from typing import TYPE_CHECKING
 
 from nur.core.models import Task
+from nur.core.providers._invoke_exports import STAR_EXPORTS as _STAR_EXPORTS
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -18,99 +19,6 @@ __all__ = ["InvokeProvider", "parse_tasks"]
 log = logging.getLogger("nur")
 _SOURCE_FILE = "tasks.py"
 _ATTRIBUTE_ARGS_MIN = 2
-# Public bindings of the supported Invoke modules. Star imports replace these
-# names, while unrelated project functions and aliases remain bound.
-_STAR_EXPORTS = {
-    "invoke": frozenset([
-        "metadata",
-        "Any",
-        "Collection",
-        "Config",
-        "Context",
-        "MockContext",
-        "AmbiguousEnvVar",
-        "AuthFailure",
-        "CollectionNotFound",
-        "CommandTimedOut",
-        "Exit",
-        "ParseError",
-        "PlatformError",
-        "ResponseNotAccepted",
-        "SubprocessPipeError",
-        "ThreadException",
-        "UncastableEnvVar",
-        "UnexpectedExit",
-        "UnknownFileType",
-        "UnpicklableConfigMember",
-        "WatcherError",
-        "Executor",
-        "FilesystemLoader",
-        "Argument",
-        "Parser",
-        "ParserContext",
-        "ParseResult",
-        "Program",
-        "Failure",
-        "Local",
-        "Promise",
-        "Result",
-        "Runner",
-        "Call",
-        "Task",
-        "call",
-        "task",
-        "pty_size",
-        "FailingResponder",
-        "Responder",
-        "StreamWatcher",
-        "run",
-        "sudo",
-        "collection",
-        "config",
-        "context",
-        "exceptions",
-        "executor",
-        "loader",
-        "parser",
-        "program",
-        "runners",
-        "tasks",
-        "terminals",
-        "watchers",
-        "util",
-        "env",
-        "completion",
-        "vendor",
-    ]),
-    "invoke.tasks": frozenset([
-        "inspect",
-        "types",
-        "deepcopy",
-        "update_wrapper",
-        "TYPE_CHECKING",
-        "Any",
-        "Callable",
-        "Dict",
-        "Generic",
-        "Iterable",
-        "List",
-        "Optional",
-        "Set",
-        "Tuple",
-        "Type",
-        "TypeVar",
-        "Union",
-        "Context",
-        "Argument",
-        "ParseResult",
-        "translate_underscores",
-        "T",
-        "Task",
-        "task",
-        "Call",
-        "call",
-    ]),
-}
 _BUILTIN_HELPERS = frozenset({"setattr", "delattr", "vars", "globals", "locals"})
 
 
@@ -433,8 +341,10 @@ def _task_names(
     function: ast.FunctionDef, bindings: dict[str, str], tainted: set[str]
 ) -> list[str]:
     # Other decorators can replace the callable/name or discard the Task object.
-    if len(function.decorator_list) != 1 or not (
-        function.args.posonlyargs or function.args.args or function.args.vararg
+    if (
+        len(function.args.posonlyargs) > 1
+        or len(function.decorator_list) != 1
+        or not (function.args.posonlyargs or function.args.args or function.args.vararg)
     ):
         return []
     decorator = function.decorator_list[0]
@@ -729,16 +639,19 @@ def _copied_modules(
     return copies
 
 
-def _copied_callables(statement: ast.stmt, bindings: dict[str, str]) -> set[str]:
-    return {
-        target.id
-        for target, value in _assignment_pairs(statement)
-        if isinstance(value, ast.Lambda)
-        or (
+def _copied_callables(
+    statement: ast.stmt, bindings: dict[str, str], tainted: set[str]
+) -> dict[str, str]:
+    copies: dict[str, str] = {}
+    for target, value in _assignment_pairs(statement):
+        if isinstance(value, ast.Lambda) or (
             isinstance(value, ast.Name)
             and bindings.get(value.id) == "ordinary_callable"
-        )
-    }
+        ):
+            copies[target.id] = "ordinary_callable"
+        elif _decorator_matches(value, bindings, tainted):
+            copies[target.id] = "task"
+    return copies
 
 
 def _forget_class_bindings(
@@ -845,6 +758,36 @@ def _copied_tasks(
     }
 
 
+def _loop_task_blocks(
+    statement: ast.For | ast.AsyncFor | ast.While,
+) -> list[list[ast.stmt]]:
+    expression = statement.test if isinstance(statement, ast.While) else statement.iter
+    if isinstance(expression, ast.Constant):
+        runs = bool(expression.value)
+    elif isinstance(expression, (ast.List, ast.Tuple, ast.Set)) and not any(
+        isinstance(item, ast.Starred) for item in expression.elts
+    ):
+        runs = bool(expression.elts)
+    else:
+        return [statement.body + statement.orelse, statement.orelse]
+    return [statement.body + statement.orelse if runs else statement.orelse]
+
+
+def _task_outcome_blocks(statement: ast.stmt) -> list[list[ast.stmt]]:
+    if isinstance(statement, ast.If):
+        if isinstance(statement.test, ast.Constant):
+            return [statement.body if statement.test.value else statement.orelse]
+        return [statement.body, statement.orelse]
+    if isinstance(statement, (ast.For, ast.AsyncFor, ast.While)):
+        return _loop_task_blocks(statement)
+    if isinstance(statement, (ast.Try, ast.TryStar)):
+        return [
+            statement.body + statement.orelse,
+            *(handler.body for handler in statement.handlers),
+        ]
+    return _statement_blocks(statement)
+
+
 def _task_binding_effects(
     statements: list[ast.stmt], functions: dict[str, list[Task]], defaults: set[str]
 ) -> tuple[dict[str, list[Task]], set[str]]:
@@ -852,18 +795,7 @@ def _task_binding_effects(
     for statement in statements:
         copies = _copied_tasks(statement, functions)
         default_copies = _copied_defaults(statement, defaults)
-        if isinstance(statement, ast.If):
-            if isinstance(statement.test, ast.Constant):
-                blocks = [statement.body if statement.test.value else statement.orelse]
-            else:
-                blocks = [statement.body, statement.orelse]
-        elif isinstance(statement, (ast.Try, ast.TryStar)):
-            blocks = [
-                statement.body + statement.orelse,
-                *(handler.body for handler in statement.handlers),
-            ]
-        else:
-            blocks = _statement_blocks(statement)
+        blocks = _task_outcome_blocks(statement)
         branches = [
             _task_binding_effects(block, functions, defaults) for block in blocks
         ]
@@ -919,7 +851,7 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             if isinstance(statement, ast.FunctionDef)
             else []
         )
-        copied_callables = _copied_callables(statement, bindings)
+        copied_callables = _copied_callables(statement, bindings, tainted)
         copied_tasks, copied_defaults = _task_binding_effects(
             [statement], functions, defaults
         )
@@ -941,7 +873,7 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             bindings.pop(bound, None)
             functions.pop(bound, None)
             defaults.discard(bound)
-        bindings.update(dict.fromkeys(copied_callables, "ordinary_callable"))
+        bindings.update(copied_callables)
         defaults.update(copied_defaults - global_writes)
         functions.update({
             bound: tasks
