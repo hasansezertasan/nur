@@ -3000,3 +3000,40 @@ def test_readonly_truthy_globals_do_not_assign_with_or_equals(target):
     assert [task.name for task in parse_rakefile(f"{target} ||= nil; task :safe")] == [
         "safe"
     ]
+
+
+@pytest.mark.parametrize(
+    "receiver",
+    [
+        "singleton_class",
+        "self.singleton_class",
+        "singleton_class()",
+        "self.singleton_class()",
+    ],
+)
+@pytest.mark.parametrize("name", [":task", '"task"'])
+def test_singleton_class_alias_method_replaces_dsl(receiver, name):
+    source = f"task :before; {receiver}.alias_method({name}, :desc); task :ghost"
+    assert [task.name for task in parse_rakefile(source)] == ["before"]
+
+
+def test_singleton_class_alias_of_unrelated_method_keeps_dsl():
+    source = "singleton_class.alias_method(:helper, :desc); task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("name", ["EUCJP", "eucJP", "euc-jp"])
+def test_ruby_eucjp_source_encoding_alias_decodes_description(tmp_path, name):
+    (tmp_path / "Rakefile").write_bytes(
+        (f'# encoding: {name}\ndesc "構築"; task :build').encode("euc_jp")
+    )
+    assert [
+        (task.name, task.description) for task in RakeProvider().discover(tmp_path)
+    ] == [("build", "構築")]
+
+
+@pytest.mark.parametrize("encoding", ["EUC_JP", "UTF_8", "ASCII_8BIT", "ISO_8859_1"])
+def test_invalid_underscore_encoding_aliases_skip_file(tmp_path, caplog, encoding):
+    (tmp_path / "Rakefile").write_text(f"# encoding: {encoding}\ntask :ghost")
+    assert RakeProvider().discover(tmp_path) == []
+    assert "unsupported Ruby source encoding" in caplog.text

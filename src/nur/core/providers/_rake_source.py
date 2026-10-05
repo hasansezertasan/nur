@@ -19,8 +19,10 @@ _ENCODINGS = {
     "binary": "latin-1",
     "windows-31j": "cp932",
     "shift-jis": "shift_jis",
+    "shift_jis": "shift_jis",
     "sjis": "shift_jis",
     "euc-jp": "euc_jp",
+    "eucjp": "euc_jp",
     "euc-kr": "euc_kr",
     "gb18030": "gb18030",
     "gbk": "gbk",
@@ -44,7 +46,7 @@ def decode_source(source: bytes) -> tuple[str, str]:
     match = _MAGIC_ENCODING.search(header)
     if match is None:
         return source.decode("utf-8"), "utf-8"
-    encoding = match[1].decode("ascii").lower().replace("_", "-")
+    encoding = match[1].decode("ascii").lower()
     codec = _ENCODINGS.get(encoding)
     if codec is None and re.fullmatch(
         r"iso-?8859-[0-9]+|(?:windows-|cp)(?:125[0-8]|874|932|949|950)", encoding

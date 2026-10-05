@@ -182,9 +182,12 @@ def _dynamic_override(node: Node, disabled: set[str]) -> None:
             if argument_list is not None
             else []
         )
+        mutators = {"define_method", "define_singleton_method"}
+        if singleton_receiver:
+            mutators.add("alias_method")
         if (
             method is not None
-            and node_text(method) in {"define_method", "define_singleton_method"}
+            and node_text(method) in mutators
             and node_text(method) not in disabled
             and arguments
             and (defined_name := literal(arguments[0])) is not None
