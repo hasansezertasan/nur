@@ -1304,3 +1304,33 @@ def test_assigned_task_decorator_alias_is_supported(copy: str) -> None:
         f"from invoke import task\n{copy}\n@decorator\ndef build(c): ...\n"
     )
     assert [task.name for task in tasks] == ["build"]
+
+
+@pytest.mark.parametrize("options", ["unknown=True", "optional=None"])
+def test_fatal_decorator_suppresses_all_module_tasks(options: str) -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task\ndef before(c): ...\n"
+            f"@task({options})\ndef broken(c): ...\n@task\ndef after(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_unsupported_computed_metadata_preserves_other_tasks() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\n@task(name=computed)\ndef dynamic(c): ...\n"
+        "@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_variadic_parameters_after_context_are_rejected() -> None:
+    assert (
+        parse_tasks("from invoke import task\n@task\ndef build(c, *items): ...\n") == []
+    )
+
+
+def test_variadic_context_remains_supported() -> None:
+    tasks = parse_tasks("from invoke import task\n@task\ndef build(*items): ...\n")
+    assert [task.name for task in tasks] == ["build"]

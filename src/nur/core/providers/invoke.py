@@ -337,15 +337,36 @@ def _literal_dependency(expression: ast.expr, bindings: dict[str, str]) -> bool:
     return True
 
 
+def _fatal_decorator(
+    function: ast.FunctionDef, bindings: dict[str, str], tainted: set[str]
+) -> bool:
+    for decorator in function.decorator_list:
+        if not isinstance(decorator, ast.Call) or not _decorator_matches(
+            decorator.func, bindings, tainted
+        ):
+            continue
+        if any(keyword.arg == "klass" for keyword in decorator.keywords):
+            # A custom Task constructor may accept a different option set.
+            continue
+        for keyword in decorator.keywords:
+            if keyword.arg is not None and keyword.arg not in _TASK_OPTIONS:
+                return True
+            if keyword.arg == "optional" and _invalid_literal_option(keyword, bindings):
+                return True
+    return False
+
+
+def _supported_signature(function: ast.FunctionDef) -> bool:
+    if not (function.args.posonlyargs or function.args.args):
+        return function.args.vararg is not None
+    return len(function.args.posonlyargs) <= 1 and function.args.vararg is None
+
+
 def _task_names(
     function: ast.FunctionDef, bindings: dict[str, str], tainted: set[str]
 ) -> list[str]:
     # Other decorators can replace the callable/name or discard the Task object.
-    if (
-        len(function.args.posonlyargs) > 1
-        or len(function.decorator_list) != 1
-        or not (function.args.posonlyargs or function.args.args or function.args.vararg)
-    ):
+    if len(function.decorator_list) != 1 or not _supported_signature(function):
         return []
     decorator = function.decorator_list[0]
     expression = decorator.func if isinstance(decorator, ast.Call) else decorator
@@ -654,6 +675,14 @@ def _copied_callables(
     return copies
 
 
+def _bind_callable_definition(statement: ast.stmt, bindings: dict[str, str]) -> None:
+    if (
+        isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        and not statement.decorator_list
+    ):
+        bindings[statement.name] = "ordinary_callable"
+
+
 def _forget_class_bindings(
     statement: ast.stmt,
     bindings: dict[str, str],
@@ -844,6 +873,11 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     tainted: set[str] = set()
     possible_bindings: dict[str, str] = {}
     for statement in tree.body:
+        if isinstance(statement, ast.FunctionDef) and _fatal_decorator(
+            statement, bindings, tainted
+        ):
+            log.warning("nur: skipping %s (fatal Invoke decorator)", source_file)
+            return []
         # Decorators are evaluated before function defaults. Read the task
         # decorator binding first, then apply writes from definition headers.
         names = (
@@ -880,11 +914,10 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
             for bound, tasks in copied_tasks.items()
             if bound not in global_writes
         })
+        _bind_callable_definition(statement, bindings)
         if isinstance(statement, (ast.Import, ast.ImportFrom)):
             _bind_import(statement, bindings, tainted)
         elif isinstance(statement, ast.FunctionDef):
-            if not statement.decorator_list:
-                bindings[statement.name] = "ordinary_callable"
             if names and _literal_default(statement):
                 defaults.add(statement.name)
             docstring = ast.get_docstring(statement)
@@ -898,11 +931,6 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
                 )
                 for name in names
             ]
-        elif (
-            isinstance(statement, (ast.AsyncFunctionDef, ast.ClassDef))
-            and not statement.decorator_list
-        ):
-            bindings[statement.name] = "ordinary_callable"
     if len(defaults) > 1:
         log.warning("nur: skipping %s (colliding Invoke default tasks)", source_file)
         return []
