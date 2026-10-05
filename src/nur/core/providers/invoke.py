@@ -315,24 +315,26 @@ def _written_names(
     tainted: set[str],
     module_bindings: dict[str, str] | None = None,
     inspect_classes: bool = True,
-) -> tuple[set[str], set[str], set[str]]:
+) -> tuple[set[str], set[str], set[str], dict[str, str]]:
     """Over-approximate names a compound statement can replace."""
     module_bindings = bindings if module_bindings is None else module_bindings
     names: set[str] = set()
     mutations: set[str] = set()
     global_writes: set[str] = set()
+    global_bindings: dict[str, str] = {}
     pending: list[ast.AST] = [statement]
     while pending:
         node = pending.pop()
         pending.extend(_module_children(node))
         mutations.update(_mutated_exports(node, bindings, tainted))
         if inspect_classes and isinstance(node, ast.ClassDef):
-            class_writes, class_mutations = _class_mutates_tasks(
+            class_writes, class_mutations, class_bindings = _class_mutates_tasks(
                 node, module_bindings, tainted
             )
             names.update(class_writes)
             global_writes.update(class_writes)
             mutations.update(class_mutations)
+            global_bindings.update(class_bindings)
         if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
             names.add(node.id)
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
@@ -346,7 +348,7 @@ def _written_names(
             names.add(node.name)
         elif isinstance(node, ast.MatchMapping) and node.rest:
             names.add(node.rest)
-    return names, mutations, global_writes
+    return names, mutations, global_writes, global_bindings
 
 
 def _deleted_names(statement: ast.stmt) -> set[str]:
@@ -572,7 +574,7 @@ def _class_block_effects(
             global_writes.update(writes)
             mutations.update(effects)
             branch_bindings.append(possible)
-        written, mutation, nested_writes = _written_names(
+        written, mutation, nested_writes, possible = _written_names(
             statement,
             class_bindings,
             tainted=class_taints,
@@ -581,6 +583,7 @@ def _class_block_effects(
             ),
             inspect_classes=not bool(_statement_blocks(statement)),
         )
+        copied_modules.update(possible)
         mapping_writes = _scope_mapping_writes(
             statement, class_bindings, module_scope=module_bindings is None
         )
@@ -617,13 +620,21 @@ def _class_block_effects(
 
 def _class_mutates_tasks(
     node: ast.ClassDef, bindings: dict[str, str], tainted: set[str]
-) -> tuple[set[str], set[str]]:
+) -> tuple[set[str], set[str], dict[str, str]]:
     """Inspect executed class code and propagate global writes outward."""
     globals_ = _global_names(node.body)
-    writes, mutations, _ = _class_block_effects(
+    writes, mutations, possible = _class_block_effects(
         node.body, bindings, bindings, tainted, globals_
     )
-    return writes, mutations
+    return (
+        writes,
+        mutations,
+        {
+            bound: kind
+            for bound, kind in possible.items()
+            if bound in writes and kind == "invalid_task"
+        },
+    )
 
 
 def _copied_defaults(statement: ast.stmt, defaults: set[str]) -> set[str]:
@@ -704,7 +715,7 @@ def _task_binding_effects(
         branches = [
             _task_binding_effects(block, functions, defaults) for block in blocks
         ]
-        written, _, _ = _written_names(
+        written, _, _, _ = _written_names(
             statement, {}, tainted=set(), inspect_classes=False
         )
         if "*" in written:
@@ -742,7 +753,7 @@ def _task_binding_effects(
 def _fatal_try(
     statement: ast.Try | ast.TryStar, bindings: dict[str, str], tainted: set[str]
 ) -> bool:
-    written, _, _ = _written_names(statement, bindings, tainted=tainted)
+    written, _, _, _ = _written_names(statement, bindings, tainted=tainted)
     handler_taints = tainted | _exception_taints(written)
     if (
         _nonraising_block(statement.body)
@@ -770,7 +781,7 @@ def _fatal_try(
         *statement.orelse,
         *(child for handler in handlers for child in handler.body),
     ]:
-        written, mutation, _ = _written_names(
+        written, mutation, _, _ = _written_names(
             child, bindings, tainted=tainted, inspect_classes=False
         )
         tainted.update(mutation)
@@ -797,7 +808,7 @@ def _fatal_children(
     ):
         if _fatal_block(statement.body, bindings, tainted):
             return True
-        written, mutation, _ = _written_names(statement, bindings, tainted=tainted)
+        written, mutation, _, _ = _written_names(statement, bindings, tainted=tainted)
         for bound in written:
             bindings.pop(bound, None)
         return _fatal_block(statement.orelse, bindings, tainted | mutation)
@@ -822,7 +833,7 @@ def _fatal_definition(
         expression = ast.Expr(value=decorator)
         copies = _copied_modules(expression, bindings, tainted)
         copies.update(_copied_callables(expression, bindings, tainted))
-        written, mutation, _ = _written_names(expression, bindings, tainted=tainted)
+        written, mutation, _, _ = _written_names(expression, bindings, tainted=tainted)
         written.update(
             _scope_mapping_writes(expression, bindings, module_scope=True)[0]
         )
@@ -857,7 +868,7 @@ def _fatal_block(
         copies = _copied_modules(statement, bindings, tainted)
         copies.update(_copied_callables(statement, bindings, tainted))
         copies.update(_defined_task_bindings(statement, bindings, tainted))
-        written, mutation, _ = _written_names(
+        written, mutation, _, _ = _written_names(
             statement, bindings, tainted=tainted, inspect_classes=False
         )
         tainted.update(mutation)
@@ -908,7 +919,7 @@ def parse_tasks(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
         global_writes, mutation, possible_bindings = _class_block_effects(
             [statement], possible_bindings, None, tainted, set()
         )
-        written, _, _ = _written_names(
+        written, _, _, _ = _written_names(
             statement, bindings, tainted=tainted, inspect_classes=False
         )
         written.update(global_writes)

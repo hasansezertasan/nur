@@ -2131,3 +2131,48 @@ def test_async_help_key_failure_suppresses_siblings() -> None:
         )
         == []
     )
+
+
+def test_class_global_malformed_task_suppresses_siblings() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\nclass Holder:\n global broken\n"
+            " @task(aliases=7)\n def broken(c): ...\n@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+def test_class_global_malformed_copy_survives_original_deletion() -> None:
+    assert (
+        parse_tasks(
+            "from invoke import task\n@task(aliases=7)\ndef broken(c): ...\n"
+            "class Holder:\n global saved\n saved = broken\ndel broken\n"
+            "@task\ndef build(c): ...\n"
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("name", ["None", "False", "0", "0.0", "b''", "[]", "()", "{}"])
+def test_falsy_literal_task_name_uses_function_name(name: str) -> None:
+    tasks = parse_tasks(
+        f"from invoke import task\n@task(name={name})\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_class_local_malformed_task_is_not_in_module_collection() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\nclass Holder:\n @task(aliases=7)\n"
+        " def broken(c): ...\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]
+
+
+def test_removed_class_global_malformed_task_preserves_siblings() -> None:
+    tasks = parse_tasks(
+        "from invoke import task\nclass Holder:\n global broken\n @task(aliases=7)\n"
+        " def broken(c): ...\ndel broken\n@task\ndef build(c): ...\n"
+    )
+    assert [task.name for task in tasks] == ["build"]

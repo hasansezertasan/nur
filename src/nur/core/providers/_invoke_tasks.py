@@ -126,6 +126,18 @@ def literal_default(
     return False
 
 
+def _literal_name(expression: ast.expr, fallback: str) -> str | None:
+    if isinstance(expression, ast.Call):
+        return None
+    try:
+        value = ast.literal_eval(expression)
+    except (ValueError, TypeError) as _exc:
+        return None
+    if value and not isinstance(value, str):
+        return None
+    return value if isinstance(value, str) and value else fallback
+
+
 def _literal_metadata(
     decorator: ast.expr, name: str, bindings: dict[str, str], tainted: set[str]
 ) -> tuple[str, list[str]] | None:
@@ -138,12 +150,10 @@ def _literal_metadata(
         ):
             return None
         if keyword.arg == "name":
-            if not isinstance(keyword.value, ast.Constant):
+            parsed_name = _literal_name(keyword.value, name)
+            if parsed_name is None:
                 return None
-            value = keyword.value.value
-            if value is not None and not isinstance(value, str):
-                return None
-            name = value or name
+            name = parsed_name
         elif keyword.arg == "aliases":
             parsed = _literal_aliases(keyword.value)
             if parsed is None:
