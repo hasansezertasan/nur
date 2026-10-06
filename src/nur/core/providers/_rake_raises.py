@@ -4,6 +4,7 @@ import re
 import struct
 from typing import TYPE_CHECKING
 
+from nur.core.providers._rake_catch_tags import generated_tag_matches
 from nur.core.providers._rake_overrides import (
     TERMINATING_METHODS,
     receiver_name,
@@ -639,7 +640,7 @@ def _caught_throw(node: Node, catch_calls: set[int]) -> bool:
     if not arguments or len(arguments) > _THROW_MAX_ARGS:
         return False
     tag = arguments[0]
-    if _tag_identity(tag) is None:
+    if _tag_identity(tag) is None and tag.type != "identifier":
         return False
     parent = node.parent
     while parent is not None:
@@ -672,12 +673,12 @@ def record_catch(node: Node, disabled: set[str], catch_calls: set[int]) -> None:
 
 
 def _catch_matches(owner: Node, tag: Node, catch_calls: set[int]) -> bool:
+    if owner.id not in catch_calls:
+        return False
+    if tag.type == "identifier":
+        return generated_tag_matches(owner, tag)
     tags = _arguments(owner)
-    return (
-        owner.id in catch_calls
-        and len(tags) == 1
-        and _tag_identity(tags[0]) == _tag_identity(tag)
-    )
+    return len(tags) == 1 and _tag_identity(tags[0]) == _tag_identity(tag)
 
 
 def _termination_kind(node: Node, name: str) -> str:

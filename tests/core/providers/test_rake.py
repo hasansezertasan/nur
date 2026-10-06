@@ -4042,6 +4042,66 @@ def test_inline_catch_callbacks_preserve_matching_handler(receiver, callback):
 @pytest.mark.parametrize(
     "body",
     [
+        "catch { |tag| throw tag }",
+        "self.catch { |tag| throw tag }",
+        "Kernel.catch { |tag| throw tag }",
+        "catch(:stop) { |tag| throw tag }",
+        "catch(Object.new) { |tag| throw tag }",
+        "catch(&->(tag) { throw tag })",
+        "catch(&proc { |tag| throw tag })",
+        "catch(&Proc.new { |tag| throw tag })",
+    ],
+)
+def test_generated_catch_tag_parameter_matches(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "catch { |tag| tag = :other; throw tag }",
+        "catch { |tag| tag ||= :other; tag = :other; throw tag }",
+        "catch { |tag| for tag in [:other]; end; throw tag }",
+        "catch { |tag| throw other }",
+        "catch { |tag, other| throw other }",
+        "catch { throw missing }",
+        "catch { |tag| [1].each { |tag| throw tag } }",
+        "catch { |tag| begin; raise 'x'; rescue => tag; throw tag; end }",
+    ],
+)
+def test_unknown_or_reassigned_catch_parameter_is_not_generated_tag(body):
+    assert parse_rakefile(body + "; task :after") == []
+
+
+@pytest.mark.parametrize(
+    "assignment", ["$-i = 1", '$. = "x"', "$-i = false", "$. = nil"]
+)
+def test_additional_constrained_globals_reject_invalid_values(assignment):
+    assert parse_rakefile(f"task :before; {assignment}; task :after") == []
+
+
+@pytest.mark.parametrize(
+    "assignment",
+    ["$-F = /,/", "$-i = nil", '$-i = ".bak"', "$. = 1", "$. = 1.5", "$! &&= 1"],
+)
+def test_valid_special_global_assignments_keep_tasks(assignment):
+    tasks = parse_rakefile(assignment + "; task :safe")
+    assert [task.name for task in tasks] == ["safe"]
+
+
+def test_exception_global_write_in_active_rescue_is_not_short_circuited():
+    source = 'begin; raise "x"; rescue; $! &&= 1; end; task :after'
+    assert parse_rakefile(source) == []
+
+
+def test_rescued_additional_global_type_error_keeps_tasks():
+    source = "begin; $-i = 1; rescue TypeError; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
         'def self.catch(*); end; catch(:stop, &->(_) { raise "never" })',
         'task(:safe, &->(_) { raise "never" })',
         'begin; catch(:stop, &->(_) { raise "handled" }); rescue RuntimeError; end',

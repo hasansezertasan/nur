@@ -167,8 +167,9 @@ def _constrained_assignment_error(node: Node) -> str | None:
         (name in {"$0", "$PROGRAM_NAME"} and kind != "string")
         or name in {"$stdout", "$stderr", "$>"}
         or (name == "$~" and kind != "nil")
-        or (name == "$;" and kind not in {"nil", "string", "regex"})
-        or (name in {"$/", "$-0", "$,", "$\\", "$-F"} and kind not in {"nil", "string"})
+        or (name in {"$;", "$-F"} and kind not in {"nil", "string", "regex"})
+        or (name in {"$/", "$-0", "$,", "$\\", "$-i"} and kind not in {"nil", "string"})
+        or (name == "$." and kind not in {"integer", "float"})
     )
     return (
         "invalid literal value for constrained Ruby global during loading"
@@ -201,6 +202,15 @@ def mutation_error(
     return None
 
 
+def _falsey_exception_global(node: Node) -> bool:
+    parent = node.parent
+    while parent is not None:
+        if parent.type in {"rescue", "rescue_modifier", "ensure"}:
+            return False
+        parent = parent.parent
+    return True
+
+
 def load_assignment_error(
     node: Node, raised_scopes: dict[int, str | None]
 ) -> str | None:
@@ -223,6 +233,13 @@ def load_assignment_error(
                 operator is not None
                 and node_text(operator) == "||="
                 and node_text(target) in _READONLY_TRUTHY_GLOBALS
+            ):
+                continue
+            if (
+                operator is not None
+                and node_text(operator) == "&&="
+                and node_text(target) == "$!"
+                and _falsey_exception_global(node)
             ):
                 continue
             return handled_load_error(
