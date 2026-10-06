@@ -65,6 +65,8 @@ SINGLETON_MUTATORS = frozenset({
 def termination_method(
     name: str, disabled: set[str], *, lexical: bool = False
 ) -> str | None:
+    if not lexical and (owned := _singleton_termination(name, disabled)) is not None:
+        return owned
     kind = next(
         (
             kind
@@ -89,6 +91,17 @@ def termination_method(
     return None
 
 
+def _singleton_termination(name: str, disabled: set[str]) -> str | None:
+    return next(
+        (
+            kind
+            for kind in TERMINATING_METHODS
+            if f"singleton_terminator:{name}:{kind}" in disabled
+        ),
+        None,
+    )
+
+
 def terminating_names(root: Node) -> set[str]:
     names = set(TERMINATING_METHODS)
     pending = [root]
@@ -97,6 +110,16 @@ def terminating_names(root: Node) -> set[str]:
         name = node.child_by_field_name("name") if node.type == "alias" else None
         if name is not None:
             names.add(literal(name) or node_text(name))
+        method = node.child_by_field_name("method")
+        arguments = node.child_by_field_name("arguments")
+        if (
+            method is not None
+            and node_text(method) == "alias_method"
+            and arguments is not None
+        ):
+            for argument in arguments.named_children[:1]:
+                if (target := literal(argument)) is not None:
+                    names.add(target)
         pending.extend(node.named_children)
     return names
 
@@ -174,6 +197,9 @@ def _set_override(name: str, disabled: set[str]) -> None:
     disabled.discard(f"undef:{name}")
     disabled.discard(f"reader:{name}")
     disabled.discard(f"removed:{name}")
+    disabled.difference_update({
+        f"singleton_terminator:{name}:{kind}" for kind in TERMINATING_METHODS
+    })
 
 
 def _set_singleton_override(name: str, disabled: set[str]) -> None:
@@ -382,11 +408,33 @@ def _record_mutation(
     if method == "alias_method" and _missing_alias_source(node, arguments, disabled):
         disabled.add("invalid:alias_method")
         return
-    if arguments and (defined_name := literal(arguments[0])) is not None:
-        if method == "define_singleton_method" or singleton_receiver:
-            _self_override(node, defined_name, disabled)
-        else:
-            _instance_override(node, defined_name, disabled)
+    _record_named_override(
+        node, method, arguments, disabled, singleton_receiver=singleton_receiver
+    )
+
+
+def _record_named_override(
+    node: Node,
+    method: str,
+    arguments: list[Node],
+    disabled: set[str],
+    *,
+    singleton_receiver: bool,
+) -> None:
+    if not arguments or (name := literal(arguments[0])) is None:
+        return
+    source = (
+        literal(arguments[1])
+        if method == "alias_method" and len(arguments) == _ALIAS_ARITY
+        else None
+    )
+    kind = termination_method(source, disabled) if source is not None else None
+    if method == "define_singleton_method" or singleton_receiver:
+        _self_override(node, name, disabled)
+    else:
+        _instance_override(node, name, disabled)
+    if kind is not None:
+        disabled.add(f"singleton_terminator:{name}:{kind}")
 
 
 def _record_dynamic_undef(
@@ -449,6 +497,9 @@ def _record_removal(node: Node, arguments: list[Node], disabled: set[str]) -> No
             f"singleton:{key}",
             f"reader:{key}",
             f"undef:{key}",
+        })
+        disabled.difference_update({
+            f"singleton_terminator:{key}:{kind}" for kind in TERMINATING_METHODS
         })
         if key in {"define_method", "Kernel.proc", "Kernel.lambda"}:
             disabled.update({key, f"undef:{key}"})

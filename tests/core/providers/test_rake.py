@@ -3966,3 +3966,47 @@ def test_raise_with_valid_cause_preserves_the_exception_type(cause):
 def test_invalid_literal_raise_cause_is_a_type_error():
     source = 'begin; raise "x", cause: 1; rescue TypeError; end; task :safe'
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("method", ["raise", "fail", "exit", "exit!", "abort", "throw"])
+def test_singleton_aliases_preserve_termination(method):
+    source = (
+        f"singleton_class.alias_method(:stop, :{method}); "
+        "task :before; stop; task :after"
+    )
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        (
+            "singleton_class.alias_method(:stop, :raise); "
+            'begin; stop "x"; rescue RuntimeError; end'
+        ),
+        "singleton_class.alias_method(:stop, :throw); catch(:stop) { stop :stop }",
+        (
+            "singleton_class.alias_method(:stop, :raise); "
+            "singleton_class.alias_method(:halt, :stop); "
+            'begin; halt "x"; rescue RuntimeError; end'
+        ),
+        'singleton_class.alias_method(:stop, :raise); def self.stop(*); end; stop "x"',
+        'def self.raise(*); end; singleton_class.alias_method(:stop, :raise); stop "x"',
+        (
+            "singleton_class.class_eval { alias_method(:stop, :raise) }; "
+            'begin; stop "x"; rescue RuntimeError; end'
+        ),
+        'singleton_class.alias_method(:stop, :raise); task :safe do; stop "x"; end',
+        (
+            "singleton_class.alias_method(:stop, :raise); "
+            'begin; stop("x") { /#{pattern}/ }; rescue; end'
+        ),
+        (
+            "alias stop raise; def self.stop(*); end; "
+            "singleton_class.remove_method(:stop); "
+            'begin; stop "x"; rescue RuntimeError; end'
+        ),
+    ],
+)
+def test_handled_deferred_or_overridden_singleton_termination_aliases_keep_tasks(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
