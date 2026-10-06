@@ -213,6 +213,17 @@ def _set_singleton_override(name: str, disabled: set[str]) -> None:
     disabled.add(f"singleton:{name}")
 
 
+def _main_singleton_scope(node: Node) -> bool:
+    parent = node.parent
+    while parent is not None:
+        if parent.type in {"method", "singleton_method", "class", "module"}:
+            return False
+        if parent.type == "singleton_class":
+            return is_self(parent.child_by_field_name("value")) and main_scope(parent)
+        parent = parent.parent
+    return False
+
+
 def _instance_override(node: Node, name: str, disabled: set[str]) -> None:
     prefix, singleton_scope = _constructor_scope(node)
     if main_scope(node) or (prefix == "Kernel" and not singleton_scope):
@@ -220,7 +231,7 @@ def _instance_override(node: Node, name: str, disabled: set[str]) -> None:
         disabled.difference_update({
             f"terminator:{name}:{kind}" for kind in TERMINATING_METHODS
         })
-    if singleton_eval_scope(node, disabled):
+    if singleton_eval_scope(node, disabled) or _main_singleton_scope(node):
         _set_singleton_override(name, disabled)
     elif prefix is not None and singleton_scope:
         _set_singleton_override(f"{prefix}.{name}", disabled)
@@ -268,10 +279,13 @@ def _ordinary_override(node: Node, disabled: set[str]) -> None:
         return
     name = node.child_by_field_name("name")
     if name is not None:
-        kind = termination_method(source_name, disabled, lexical=True)
+        singleton = _main_singleton_scope(node)
+        kind = termination_method(source_name, disabled, lexical=not singleton)
         target = literal(name) or node_text(name)
         _instance_override(node, target, disabled)
-        if main_scope(node) and kind is not None:
+        if singleton and kind is not None:
+            disabled.add(f"singleton_terminator:{target}:{kind}")
+        elif main_scope(node) and kind is not None:
             disabled.add(f"terminator:{target}:{kind}")
 
 

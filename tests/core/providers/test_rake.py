@@ -4437,3 +4437,33 @@ def test_unrescued_undefined_terminating_alias_rejects_loading():
 def test_frozen_tag_and_undefined_alias_boundaries(source):
     expected = ["safe"] if "undef stop" in source else []
     assert [task.name for task in parse_rakefile(source)] == expected
+
+
+@pytest.mark.parametrize("call", ['stop "boom"', 'self.stop "boom"'])
+def test_keyword_alias_in_main_singleton_class_terminates_loading(call):
+    source = f"task :before; class << self; alias stop raise; end; {call}; task :after"
+    assert parse_rakefile(source) == []
+
+
+def test_rescued_keyword_alias_in_main_singleton_class_keeps_tasks():
+    source = (
+        'task :safe; class << self; alias stop raise; end; begin; stop "boom"; '
+        "rescue RuntimeError; end"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_redefined_keyword_alias_in_main_singleton_class_keeps_tasks():
+    source = (
+        "task :safe; class << self; alias stop raise; def stop(*); end; end; "
+        'stop "boom"'
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_other_singleton_class_alias_does_not_terminate_main():
+    source = (
+        "class Helper; class << self; alias stop raise; end; end; "
+        'def stop(*); end; stop "boom"; task :safe'
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
