@@ -4524,3 +4524,52 @@ def test_scope_with_own_dsl_provider_keeps_outer_tasks(provider):
 def test_later_scope_method_definition_does_not_cover_earlier_call():
     source = "class Helper; task :inside; def self.task(*); end; end; task :safe"
     assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize(
+    "loop", ["while true; end", "until false; end", "while 0; nil; end"]
+)
+def test_statically_endless_loop_rejects_loading(loop):
+    assert parse_rakefile(f"task :before; {loop}; task :after") == []
+
+
+@pytest.mark.parametrize(
+    "loop", ["while true; break; end", "until false; break; end", "while false; end"]
+)
+def test_loop_with_escape_or_false_condition_keeps_tasks(loop):
+    assert [task.name for task in parse_rakefile(f"{loop}; task :safe")] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        'case 1; when 2; raise "never"; end; task :safe',
+        (
+            'case 1; when 2, 3; raise "never"; when 1; nil; '
+            'else; raise "never"; end; task :safe'
+        ),
+        'case :yes; when :no; raise "never"; else; nil; end; task :safe',
+        'case nil; when false; raise "never"; when nil; nil; end; task :safe',
+    ],
+)
+def test_impossible_literal_case_arms_are_not_validated(source):
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_matching_literal_case_arm_is_validated():
+    assert parse_rakefile('case 1; when 1; raise "executed"; end; task :safe') == []
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "case; when false; nil; end; task :safe",
+        "case (1; 2); when 3; nil; end; task :safe",
+        "case 012; when 10; nil; end; task :safe",
+        'case 1.0; when 1; nil; else; raise "never"; end; task :safe',
+        'case 0x10; when 16; nil; else; raise "never"; end; task :safe',
+        "case 1; when Integer; nil; end; task :safe",
+    ],
+)
+def test_literal_case_boundaries_and_unknown_patterns(source):
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]

@@ -21,6 +21,7 @@ from nur.core.providers._rake_callbacks import (
     namespace_callbacks,
     return_path,
 )
+from nur.core.providers._rake_control import case_children, endless_loop_error
 from nur.core.providers._rake_overrides import (
     DEFERRED_METHODS as _DEFERRED_METHODS,
     RAKE_METHODS as _RAKE_METHODS,
@@ -580,6 +581,8 @@ def _binary_children(node: Node) -> list[Node]:
 def _reachable_children(node: Node) -> list[Node]:
     if defined_probe(node) or empty_for(node) or empty_rescue(node):
         return []
+    if (children := case_children(node)) is not None:
+        return children
     if node.type == "binary":
         return _binary_children(node)
     return _conditional_children(node)
@@ -716,7 +719,8 @@ def _load_time_error(root: Node) -> str | None:
         record_catch(node, disabled, catch_calls)
         record_override(node, disabled)
         error = (
-            mutation_error(node, disabled, raised_scopes)
+            endless_loop_error(node, _literal_truth, _reachable_children)
+            or mutation_error(node, disabled, raised_scopes)
             or _load_declaration_error(node, disabled, raised_scopes)
             or load_assignment_error(node, raised_scopes)
             or load_raise_error(node, disabled, bare_raises, catch_calls, raised_scopes)
