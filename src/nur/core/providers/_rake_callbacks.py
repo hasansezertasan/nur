@@ -2,14 +2,21 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from nur.core.providers._rake_syntax import node_text
+from nur.core.providers._rake_overrides import main_scope, receiver_name
+from nur.core.providers._rake_syntax import is_self, node_text
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from tree_sitter import Node
 
-__all__ = ["constructor_arguments_error", "invalid_namespace_lambda_parameters"]
+__all__ = [
+    "block_arguments",
+    "constructor_arguments_error",
+    "dsl_receiver",
+    "invalid_namespace_lambda_parameters",
+    "namespace_callbacks",
+]
 
 _METHOD_BODY_ARITY = 2
 
@@ -151,3 +158,63 @@ def constructor_arguments_error(
     ):
         return "invalid method definition body"
     return None
+
+
+def block_arguments(node: Node) -> list[Node]:
+    arguments = node.child_by_field_name("arguments")
+    return (
+        [child for child in arguments.named_children if child.type == "block_argument"]
+        if arguments is not None
+        else []
+    )
+
+
+def dsl_receiver(node: Node) -> bool:
+    receiver = node.child_by_field_name("receiver")
+    return receiver is None or is_self(receiver)
+
+
+def namespace_callbacks(node: Node, disabled: set[str]) -> set[int]:
+    method = node.child_by_field_name("method")
+    if (
+        method is None
+        or node_text(method) != "namespace"
+        or "namespace" in disabled
+        or not main_scope(node)
+        or not dsl_receiver(node)
+    ):
+        return set()
+    return {
+        identity
+        for argument in block_arguments(node)
+        for callback in argument.named_children
+        for identity in _inline_callback_ids(callback, disabled)
+    }
+
+
+def _inline_callback_ids(callback: Node, disabled: set[str]) -> set[int]:
+    while (
+        callback.type == "parenthesized_statements"
+        and len(callback.named_children) == 1
+    ):
+        callback = callback.named_children[0]
+    if callback.type == "lambda":
+        return {callback.id}
+    method = callback.child_by_field_name("method")
+    if method is None:
+        return set()
+    receiver = callback.child_by_field_name("receiver")
+    name = node_text(method)
+    key = (
+        name
+        if receiver is None or is_self(receiver)
+        else f"{receiver_name(receiver)}.{name}"
+    )
+    block = callback.child_by_field_name("block")
+    if (
+        key
+        not in {"proc", "lambda", "Kernel.proc", "Kernel.lambda", "Proc.new"} - disabled
+        or block is None
+    ):
+        return set()
+    return {callback.id, block.id}

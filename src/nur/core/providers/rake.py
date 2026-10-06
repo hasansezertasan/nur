@@ -9,14 +9,16 @@ from tree_sitter import Language, Node, Parser
 
 from nur.core.models import Task
 from nur.core.providers._rake_callbacks import (
+    block_arguments as _block_arguments,
     constructor_arguments_error,
+    dsl_receiver as _dsl_receiver,
     invalid_namespace_lambda_parameters,
+    namespace_callbacks,
 )
 from nur.core.providers._rake_overrides import (
     DEFERRED_METHODS as _DEFERRED_METHODS,
     RAKE_METHODS as _RAKE_METHODS,
     SINGLETON_MUTATORS,
-    TERMINATING_METHODS,
     main_scope,
     reader_call,
     receiver_name,
@@ -40,7 +42,6 @@ from nur.core.providers._rake_source import decode_source
 from nur.core.providers._rake_syntax import (
     binding_names,
     defined_probe,
-    is_self,
     literal,
     node_text,
     syntax_error,
@@ -71,20 +72,6 @@ def _arguments(node: Node) -> list[Node]:
         for child in arguments.named_children
         if child.type not in {"comment", "block_argument"}
     ]
-
-
-def _block_arguments(node: Node) -> list[Node]:
-    arguments = node.child_by_field_name("arguments")
-    return (
-        [child for child in arguments.named_children if child.type == "block_argument"]
-        if arguments is not None
-        else []
-    )
-
-
-def _dsl_receiver(node: Node) -> bool:
-    receiver = node.child_by_field_name("receiver")
-    return receiver is None or is_self(receiver)
 
 
 def _method(node: Node, disabled: set[str]) -> str | None:
@@ -660,19 +647,27 @@ def _deferred_call(owner: Node, method: Node, disabled: set[str]) -> bool:
     if name in SINGLETON_MUTATORS and singleton_class_receiver(receiver, disabled):
         return True
     key = f"{receiver_name(receiver)}.{name}" if receiver is not None else ""
-    canonical = {"Kernel.proc", "Kernel.lambda", "Proc.new"} | {
-        f"Kernel.{method}" for method in TERMINATING_METHODS
-    }
-    return key in canonical - disabled
+    canonical = {"Kernel.proc", "Kernel.lambda", "Proc.new"}
+    return key in canonical - disabled or termination_method(key, disabled) is not None
 
 
-def _load_time_children(node: Node, deferred_calls: set[int]) -> list[Node]:
-    if node.type in {"method", "singleton_method", "lambda", "end_block"}:
+def _load_time_children(
+    node: Node, deferred_calls: set[int], callbacks: set[int]
+) -> list[Node]:
+    if (
+        node.type in {"method", "singleton_method", "lambda", "end_block"}
+        and node.id not in callbacks
+    ):
         return scope_headers(node)
     if node.type in {"block", "do_block"}:
         owner = node.parent
         method = owner.child_by_field_name("method") if owner is not None else None
-        if owner is not None and method is not None and owner.id in deferred_calls:
+        if (
+            owner is not None
+            and method is not None
+            and owner.id in deferred_calls
+            and node.id not in callbacks
+        ):
             return []
     return _reachable_children(node)
 
@@ -712,6 +707,7 @@ def _load_time_error(root: Node) -> str | None:
     disabled: set[str] = set()
     deferred_calls: set[int] = set()
     catch_calls: set[int] = set()
+    callbacks: set[int] = set()
     bare_raises = unbound_identifier_ids(root, terminating_names(root))
     bare_constructors = unbound_identifier_ids(
         root, {"proc", "lambda", "define_method", "define_singleton_method"}
@@ -748,6 +744,7 @@ def _load_time_error(root: Node) -> str | None:
             if error is not None:
                 return error
             deferred_calls.add(node.id)
+        callbacks.update(namespace_callbacks(node, disabled))
         record_catch(node, disabled, catch_calls)
         record_override(node, disabled)
         error = (
@@ -764,7 +761,7 @@ def _load_time_error(root: Node) -> str | None:
             child.type == "interpolation" for child in node.named_children
         ):
             return "unsupported interpolated regexp during loading"
-        pending.append(iter(_load_time_children(node, deferred_calls)))
+        pending.append(iter(_load_time_children(node, deferred_calls, callbacks)))
     return None
 
 

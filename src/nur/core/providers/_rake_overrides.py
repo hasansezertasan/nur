@@ -83,7 +83,9 @@ def termination_method(
         return None
     if kind is not None:
         return kind
-    canonical = name.removeprefix("Kernel.")
+    canonical = name.removeprefix("Kernel.").removeprefix("Process.")
+    if name.startswith("Process.") and canonical not in {"exit", "exit!", "abort"}:
+        return None
     if canonical in TERMINATING_METHODS and (
         not lexical or f"inherited:{name}" not in disabled
     ):
@@ -187,7 +189,11 @@ def _constructor_scope(node: Node) -> tuple[str | None, bool]:
                 parent = parent.parent
                 continue
             name = node_text(owner).removeprefix("::") if owner is not None else ""
-            return name if name in {"Proc", "Kernel"} else None, singleton_scope
+            return name if name in {
+                "Proc",
+                "Kernel",
+                "Process",
+            } else None, singleton_scope
         parent = parent.parent
     return None, singleton_scope
 
@@ -312,7 +318,8 @@ def record_override(node: Node, disabled: set[str]) -> None:
         elif (
             owner is not None
             and name_node is not None
-            and node_text(owner) in {"Kernel", "::Kernel", "Proc", "::Proc"}
+            and node_text(owner)
+            in {"Kernel", "::Kernel", "Proc", "::Proc", "Process", "::Process"}
         ):
             _set_singleton_override(
                 f"{node_text(owner).removeprefix('::')}.{node_text(name_node)}",

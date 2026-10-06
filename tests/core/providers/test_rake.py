@@ -4010,3 +4010,64 @@ def test_singleton_aliases_preserve_termination(method):
 )
 def test_handled_deferred_or_overridden_singleton_termination_aliases_keep_tasks(body):
     assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "callback",
+    [
+        '->(_) { raise "boom" }',
+        'lambda { |_| raise "boom" }',
+        'proc { |_| raise "boom" }',
+    ],
+)
+def test_namespace_executes_inline_callback_during_loading(callback):
+    source = f"task :before; namespace(:db, &{callback}); task :after"
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'callback = ->(_) { raise "boom" }',
+        'task(:safe, &->(_) { raise "boom" })',
+        'def self.namespace(*); end; namespace(:db, &->(_) { raise "boom" })',
+        'begin; namespace(:db, &->(_) { raise "boom" }); rescue RuntimeError; end',
+        "namespace(:db, &->(_) { nil })",
+    ],
+)
+def test_deferred_overridden_or_handled_namespace_callbacks_keep_tasks(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+@pytest.mark.parametrize("method", ["exit", "exit!", "abort"])
+def test_process_termination_methods_reject_loading(method):
+    assert parse_rakefile(f"task :before; Process.{method}; task :after") == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "begin; Process.exit(0); rescue SystemExit; end",
+        "def Process.exit(*); end; Process.exit(0)",
+        "module Process; class << self; def exit(*); end; end; end; Process.exit(0)",
+        "task :safe do; Process.exit(0); end",
+        "begin; Process.exit(0) { /#{pattern}/ }; rescue SystemExit; end",
+        "begin; (::Process).exit(0); rescue SystemExit; end",
+    ],
+)
+def test_overridden_deferred_or_handled_process_exit_keeps_tasks(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "callback",
+    [
+        'Kernel.proc { |_| raise "boom" }',
+        'Proc.new { |_| raise "boom" }',
+        '(->(_) { raise "boom" })',
+        'Kernel.lambda { |_| raise "boom" }',
+    ],
+)
+def test_namespace_executes_qualified_and_parenthesized_inline_callbacks(callback):
+    source = f"task :before; namespace(:db, &{callback}); task :after"
+    assert parse_rakefile(source) == []
