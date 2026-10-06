@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from nur.core.providers._rake_overrides import main_scope, receiver_name, scope_headers
-from nur.core.providers._rake_raises import inactive_handler
+from nur.core.providers._rake_raises import handled_load_error, inactive_handler
 from nur.core.providers._rake_syntax import is_self, node_text
 
 if TYPE_CHECKING:
@@ -12,8 +12,10 @@ if TYPE_CHECKING:
     from tree_sitter import Node
 
 __all__ = [
+    "bare_constructor_error",
     "block_arguments",
     "constructor_arguments_error",
+    "constructor_exception",
     "declaration_exception",
     "dsl_receiver",
     "invalid_block_arguments",
@@ -320,3 +322,27 @@ def return_path(node: Node) -> list[Node] | None:
         )
         child, parent = parent, parent.parent
     return children
+
+
+def constructor_exception(error: str | None) -> str:
+    return (
+        "TypeError"
+        if error is not None and error.endswith(("name", "body"))
+        else "ArgumentError"
+    )
+
+
+def bare_constructor_error(
+    node: Node,
+    disabled: set[str],
+    bare_constructors: set[int],
+    raised_scopes: dict[int, str | None],
+) -> str | None:
+    name = node_text(node)
+    if node.id in bare_constructors and (
+        name not in disabled or f"undef:{name}" in disabled
+    ):
+        return handled_load_error(
+            node, "invalid Proc constructor call", "ArgumentError", raised_scopes
+        )
+    return None

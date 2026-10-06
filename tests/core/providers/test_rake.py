@@ -4364,3 +4364,27 @@ def test_rescued_compound_constrained_global_write_keeps_tasks():
 def test_return_inside_ensure_does_not_reexecute_ensure():
     source = 'task :safe; begin; nil; ensure; return; raise "unreachable"; end'
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    ("expression", "kind"),
+    [
+        ("proc(1) {}", "ArgumentError"),
+        ("proc", "ArgumentError"),
+        ("define_method(nil) {}", "TypeError"),
+        ("define_method(:helper, 1)", "TypeError"),
+        ("lambda(1) {}", "ArgumentError"),
+        ("Proc.new(1) {}", "ArgumentError"),
+        ("@@missing", "RuntimeError"),
+        ("@@missing = 1", "RuntimeError"),
+        ("super", "NoMethodError"),
+        ("private :task", "NameError"),
+    ],
+)
+def test_rescued_load_errors_skip_other_handlers_and_else(expression, kind):
+    source = (
+        f"begin; {expression}; rescue {kind}; nil; "
+        'rescue Exception; raise "wrong handler"; else; raise "unreachable"; end; '
+        "task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]

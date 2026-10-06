@@ -9,8 +9,10 @@ from tree_sitter import Language, Node, Parser
 
 from nur.core.models import Task
 from nur.core.providers._rake_callbacks import (
+    bare_constructor_error,
     block_arguments as _block_arguments,
     constructor_arguments_error,
+    constructor_exception,
     declaration_exception,
     dsl_receiver as _dsl_receiver,
     invalid_block_arguments as _invalid_block_arguments,
@@ -650,7 +652,9 @@ def _load_declaration_error(
     ):
         return "undef of Rake DSL method"
     if node.type == "super":
-        return "super outside method during loading"
+        return handled_load_error(
+            node, "super outside method during loading", "NoMethodError", raised_scopes
+        )
     method = node.child_by_field_name("method")
     if node.type != "call" or method is None:
         return None
@@ -691,10 +695,10 @@ def _load_time_error(root: Node) -> str | None:
         if node is None:
             pending.pop()
             continue
-        if node.id in bare_constructors and (
-            node_text(node) not in disabled or f"undef:{node_text(node)}" in disabled
+        if error := bare_constructor_error(
+            node, disabled, bare_constructors, raised_scopes
         ):
-            return "invalid Proc constructor call"
+            return error
         method = node.child_by_field_name("method")
         if (
             node.type == "call"
@@ -714,14 +718,15 @@ def _load_time_error(root: Node) -> str | None:
                 has_block=has_block,
                 is_reader=reader_call(node, disabled),
             )
-            if error is not None:
+            kind = constructor_exception(error)
+            if error := handled_load_error(node, error, kind, raised_scopes):
                 return error
             deferred_calls.add(node.id)
         callbacks.update(namespace_callbacks(node, disabled))
         record_catch(node, disabled, catch_calls)
         record_override(node, disabled)
         error = (
-            mutation_error(node, disabled)
+            mutation_error(node, disabled, raised_scopes)
             or _load_declaration_error(node, disabled, raised_scopes)
             or load_assignment_error(node, raised_scopes)
             or load_raise_error(node, disabled, bare_raises, catch_calls, raised_scopes)

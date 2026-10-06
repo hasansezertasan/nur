@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from nur.core.providers._rake_raises import handled_error, handled_load_error
+from nur.core.providers._rake_raises import handled_load_error
 from nur.core.providers._rake_syntax import literal, node_text
 
 if TYPE_CHECKING:
@@ -173,7 +173,9 @@ def _constrained_assignment_error(node: Node) -> str | None:
     )
 
 
-def mutation_error(node: Node, disabled: set[str]) -> str | None:
+def mutation_error(
+    node: Node, disabled: set[str], raised_scopes: dict[int, str | None]
+) -> str | None:
     messages = {
         "invalid:visibility": (
             "visibility change to singleton-only Rake method during loading"
@@ -188,9 +190,10 @@ def mutation_error(node: Node, disabled: set[str]) -> str | None:
     }
     for marker, message in messages.items():
         if marker in disabled:
-            if not handled_error(node, "NameError"):
-                return message
+            error = handled_load_error(node, message, "NameError", raised_scopes)
             disabled.discard(marker)
+            if error is not None:
+                return error
     return None
 
 
@@ -199,7 +202,12 @@ def load_assignment_error(
 ) -> str | None:
     """Check assignments that raise only when their code executes during loading."""
     if node.type == "class_variable" and not _class_variable_scope(node):
-        return "class variable access from toplevel during loading"
+        return handled_load_error(
+            node,
+            "class variable access from toplevel during loading",
+            "RuntimeError",
+            raised_scopes,
+        )
     if error := _constrained_assignment_error(node):
         return handled_load_error(node, error, "TypeError", raised_scopes)
     if empty_for(node) or empty_rescue(node):
@@ -220,7 +228,12 @@ def load_assignment_error(
                 raised_scopes,
             )
         if target.type == "class_variable" and not _class_variable_scope(target):
-            return "class variable access from toplevel during loading"
+            return handled_load_error(
+                node,
+                "class variable access from toplevel during loading",
+                "RuntimeError",
+                raised_scopes,
+            )
     return None
 
 
