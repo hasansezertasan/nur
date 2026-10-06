@@ -13,7 +13,13 @@ from nur.core.providers._rake_syntax import is_self, literal, node_text
 if TYPE_CHECKING:
     from tree_sitter import Node
 
-__all__ = ["handled_error", "inactive_else", "load_raise_error", "record_catch"]
+__all__ = [
+    "handled_error",
+    "handled_load_error",
+    "inactive_handler",
+    "load_raise_error",
+    "record_catch",
+]
 
 _CORE_VALUES = {
     "ARGV": "array",
@@ -650,12 +656,46 @@ def _termination_kind(node: Node, name: str) -> str:
     return _raised_kind(node)
 
 
-def inactive_else(node: Node, raised_scopes: set[int]) -> bool:
-    return (
-        node.type == "else"
-        and node.parent is not None
-        and node.parent.id in raised_scopes
-    )
+def inactive_handler(node: Node, raised_scopes: dict[int, str | None]) -> bool:
+    if node.parent is None or node.parent.id not in raised_scopes:
+        return False
+    if node.type == "else":
+        return True
+    kind = raised_scopes[node.parent.id]
+    if node.type != "rescue" or kind is None:
+        return False
+    for handler in node.parent.named_children:
+        if handler.type == "rescue" and _rescue_matches(handler, kind):
+            return handler != node
+    return True
+
+
+def _record_scope_error(
+    node: Node, kind: str | None, scopes: dict[int, str | None]
+) -> None:
+    if node.parent is not None and node.parent.type in {"begin", "body_statement"}:
+        scopes.setdefault(node.parent.id, kind)
+
+
+def handled_load_error(
+    node: Node, error: str | None, kind: str | None, scopes: dict[int, str | None]
+) -> str | None:
+    if error is None or kind is None:
+        return error
+    _record_scope_error(node, kind, scopes)
+    return None if handled_error(node, kind) else error
+
+
+def _scope_exception_kind(node: Node, name: str, kind: str) -> str | None:
+    if kind == "Exception":
+        return None
+    if name in {"raise", "fail"} and not _arguments(node):
+        parent = node.parent
+        while parent is not None:
+            if parent.type == "rescue":
+                return kind if _protected_exception(parent) is not None else None
+            parent = parent.parent
+    return kind
 
 
 def load_raise_error(
@@ -663,7 +703,7 @@ def load_raise_error(
     disabled: set[str],
     bare_raises: set[int],
     catch_calls: set[int],
-    raised_scopes: set[int],
+    raised_scopes: dict[int, str | None],
 ) -> str | None:
     method = node.child_by_field_name("method")
     name = (
@@ -687,8 +727,7 @@ def load_raise_error(
     kind = _termination_kind(node, name)
     if name == "throw" and _caught_throw(node, catch_calls):
         return None
-    if node.parent is not None and node.parent.type in {"begin", "body_statement"}:
-        raised_scopes.add(node.parent.id)
+    _record_scope_error(node, _scope_exception_kind(node, name, kind), raised_scopes)
     if (name != "exit!" or kind != "SystemExit") and handled_error(node, kind):
         return None
     return (

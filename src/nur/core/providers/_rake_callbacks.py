@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from nur.core.providers._rake_overrides import main_scope, receiver_name, scope_headers
-from nur.core.providers._rake_raises import inactive_else
+from nur.core.providers._rake_raises import inactive_handler
 from nur.core.providers._rake_syntax import is_self, node_text
 
 if TYPE_CHECKING:
@@ -14,7 +14,9 @@ if TYPE_CHECKING:
 __all__ = [
     "block_arguments",
     "constructor_arguments_error",
+    "declaration_exception",
     "dsl_receiver",
+    "invalid_block_arguments",
     "invalid_namespace_lambda_parameters",
     "load_time_children",
     "namespace_callbacks",
@@ -226,13 +228,13 @@ def load_time_children(
     node: Node,
     deferred_calls: set[int],
     callbacks: set[int],
-    raised_scopes: set[int],
+    raised_scopes: dict[int, str | None],
     reachable_children: Callable[[Node], list[Node]],
 ) -> list[Node]:
     if (
         node.type in {"method", "singleton_method", "lambda", "end_block"}
         and node.id not in callbacks
-    ) or inactive_else(node, raised_scopes):
+    ) or inactive_handler(node, raised_scopes):
         return scope_headers(node)
     if node.type in {"block", "do_block"}:
         owner = node.parent
@@ -245,3 +247,58 @@ def load_time_children(
         ):
             return []
     return reachable_children(node)
+
+
+def invalid_block_arguments(
+    node: Node, literal_kind: Callable[[Node | None], str | None]
+) -> bool:
+    if node.type != "call":
+        return False
+    for argument in block_arguments(node):
+        value = next(
+            (child for child in argument.named_children if child.type != "comment"),
+            None,
+        )
+        if literal_kind(value) in {
+            "integer",
+            "float",
+            "true",
+            "false",
+            "string",
+            "array",
+            "regex",
+            "range",
+        }:
+            return True
+    return False
+
+
+def declaration_exception(
+    node: Node,
+    name: str,
+    arguments: list[Node],
+    *,
+    literal_kind: Callable[[Node | None], str | None],
+    call_arity: Callable[[list[Node]], int | None],
+) -> str | None:
+    if invalid_block_arguments(node, literal_kind):
+        return "TypeError"
+    if name == "desc":
+        return "ArgumentError"
+    if name != "namespace":
+        return None
+    arity = call_arity(arguments)
+    invalid_name = any(
+        literal_kind(argument) in _INVALID_METHOD_NAME_KINDS - {"nil"}
+        for argument in arguments
+    )
+    block = node.child_by_field_name("block") is not None or any(
+        literal_kind(value) not in {"nil", "false"}
+        for callback in block_arguments(node)
+        for value in callback.named_children
+    )
+    return (
+        "ArgumentError"
+        if invalid_name or arity not in {0, 1, None} or block
+        else "LocalJumpError"
+    )

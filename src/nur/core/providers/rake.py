@@ -11,7 +11,9 @@ from nur.core.models import Task
 from nur.core.providers._rake_callbacks import (
     block_arguments as _block_arguments,
     constructor_arguments_error,
+    declaration_exception,
     dsl_receiver as _dsl_receiver,
+    invalid_block_arguments as _invalid_block_arguments,
     invalid_namespace_lambda_parameters,
     load_time_children as _load_time_children,
     namespace_callbacks,
@@ -31,7 +33,11 @@ from nur.core.providers._rake_overrides import (
     terminating_names,
     termination_method,
 )
-from nur.core.providers._rake_raises import load_raise_error, record_catch
+from nur.core.providers._rake_raises import (
+    handled_load_error,
+    load_raise_error,
+    record_catch,
+)
 from nur.core.providers._rake_runtime import (
     empty_for,
     empty_rescue,
@@ -166,28 +172,6 @@ def _literal_kind(node: Node | None) -> str | None:
         ):
             return operand.type
     return "hash" if node.type == "pair" else node.type
-
-
-def _invalid_block_arguments(node: Node) -> bool:
-    if node.type != "call":
-        return False
-    for argument in _block_arguments(node):
-        value = next(
-            (child for child in argument.named_children if child.type != "comment"),
-            None,
-        )
-        if _literal_kind(value) in {
-            "integer",
-            "float",
-            "true",
-            "false",
-            "string",
-            "array",
-            "regex",
-            "range",
-        }:
-            return True
-    return False
 
 
 def _call_arity(arguments: list[Node]) -> int | None:
@@ -652,7 +636,9 @@ def _deferred_call(owner: Node, method: Node, disabled: set[str]) -> bool:
     return key in canonical - disabled or termination_method(key, disabled) is not None
 
 
-def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
+def _load_declaration_error(
+    node: Node, disabled: set[str], raised_scopes: dict[int, str | None]
+) -> str | None:
     if (
         node.type == "undef"
         and main_scope(node)
@@ -680,7 +666,12 @@ def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
         return error
     if not _dsl_receiver(node) or name in disabled or not main_scope(node):
         return None
-    return _declaration_error(node, name, _arguments(node), None, disabled)
+    arguments = _arguments(node)
+    error = _declaration_error(node, name, arguments, None, disabled)
+    kind = declaration_exception(
+        node, name, arguments, literal_kind=_literal_kind, call_arity=_call_arity
+    )
+    return handled_load_error(node, error, kind, raised_scopes)
 
 
 def _load_time_error(root: Node) -> str | None:
@@ -688,7 +679,7 @@ def _load_time_error(root: Node) -> str | None:
     deferred_calls: set[int] = set()
     catch_calls: set[int] = set()
     callbacks: set[int] = set()
-    raised_scopes: set[int] = set()
+    raised_scopes: dict[int, str | None] = {}
     bare_raises = unbound_identifier_ids(root, terminating_names(root))
     bare_constructors = unbound_identifier_ids(
         root, {"proc", "lambda", "define_method", "define_singleton_method"}
@@ -730,14 +721,21 @@ def _load_time_error(root: Node) -> str | None:
         record_override(node, disabled)
         error = (
             mutation_error(node, disabled)
-            or _load_declaration_error(node, disabled)
-            or load_assignment_error(node)
+            or _load_declaration_error(node, disabled, raised_scopes)
+            or load_assignment_error(node, raised_scopes)
             or load_raise_error(node, disabled, bare_raises, catch_calls, raised_scopes)
         )
         if error is not None:
             return error
-        if _invalid_block_arguments(node):
-            return "invalid block argument during loading"
+        if _invalid_block_arguments(node, _literal_kind) and (
+            error := handled_load_error(
+                node,
+                "invalid block argument during loading",
+                "TypeError",
+                raised_scopes,
+            )
+        ):
+            return error
         if node.type == "regex" and any(
             child.type == "interpolation" for child in node.named_children
         ):

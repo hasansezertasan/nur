@@ -4271,3 +4271,64 @@ def test_invalid_core_value_exit_arguments_are_type_errors(constant, method):
 )
 def test_core_value_constants_preserve_their_actual_argument_kinds(body):
     assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+def test_nonmatching_rescue_handlers_are_unreachable_for_known_exception():
+    source = (
+        'begin; raise TypeError; rescue ArgumentError; raise "never"; '
+        "rescue TypeError; nil; rescue StandardError; exit!; end; task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_only_first_matching_rescue_handler_executes():
+    source = (
+        "begin; raise TypeError; rescue; nil; rescue TypeError; exit!; end; task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("target", ["$LOAD_PATH", "$?", "$LOADED_FEATURES"])
+@pytest.mark.parametrize("handler", ["NameError", "StandardError"])
+def test_rescued_readonly_global_assignment_preserves_tasks(target, handler):
+    source = f"begin; {target} = []; rescue {handler}; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "begin; desc(); rescue ArgumentError; end",
+        'begin; desc("one", "two"); rescue ArgumentError; end',
+        "begin; namespace(1) {}; rescue ArgumentError; end",
+        "begin; namespace(:db); rescue LocalJumpError; end",
+        "begin; namespace(:db, &false); rescue TypeError; end",
+    ],
+)
+def test_rescued_invalid_dsl_declaration_keeps_tasks(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+def test_wrong_handler_does_not_rescue_invalid_dsl_call():
+    assert parse_rakefile("begin; desc(); rescue NameError; end; task :after") == []
+
+
+def test_known_assignment_error_skips_nonmatching_handler_and_else():
+    source = (
+        'begin; $LOAD_PATH = []; rescue ArgumentError; raise "never"; '
+        "rescue NameError; nil; else; exit!; end; task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_known_constrained_global_error_skips_nonmatching_handler():
+    source = (
+        "begin; $PROGRAM_NAME = nil; rescue NameError; exit!; "
+        "rescue TypeError; nil; end; task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_rescued_invalid_dsl_call_skips_else():
+    source = "begin; desc(); rescue ArgumentError; nil; else; exit!; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]

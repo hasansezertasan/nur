@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from nur.core.providers._rake_raises import handled_error
+from nur.core.providers._rake_raises import handled_error, handled_load_error
 from nur.core.providers._rake_syntax import literal, node_text
 
 if TYPE_CHECKING:
@@ -156,7 +156,7 @@ def _constrained_assignment_error(node: Node) -> str | None:
     )
     return (
         "invalid literal value for constrained Ruby global during loading"
-        if invalid and not handled_error(node, "TypeError")
+        if invalid
         else None
     )
 
@@ -182,12 +182,14 @@ def mutation_error(node: Node, disabled: set[str]) -> str | None:
     return None
 
 
-def load_assignment_error(node: Node) -> str | None:
+def load_assignment_error(
+    node: Node, raised_scopes: dict[int, str | None]
+) -> str | None:
     """Check assignments that raise only when their code executes during loading."""
     if node.type == "class_variable" and not _class_variable_scope(node):
         return "class variable access from toplevel during loading"
     if error := _constrained_assignment_error(node):
-        return error
+        return handled_load_error(node, error, "TypeError", raised_scopes)
     if empty_for(node) or empty_rescue(node):
         return None
     for target in _assignment_targets(node):
@@ -199,7 +201,12 @@ def load_assignment_error(node: Node) -> str | None:
                 and node_text(target) in _READONLY_TRUTHY_GLOBALS
             ):
                 continue
-            return "assignment to readonly global during loading"
+            return handled_load_error(
+                node,
+                "assignment to readonly global during loading",
+                "NameError",
+                raised_scopes,
+            )
         if target.type == "class_variable" and not _class_variable_scope(target):
             return "class variable access from toplevel during loading"
     return None
