@@ -12,7 +12,7 @@ from nur.core.providers._rake_syntax import is_self, literal, node_text
 if TYPE_CHECKING:
     from tree_sitter import Node
 
-__all__ = ["handled_error", "load_raise_error", "record_catch"]
+__all__ = ["handled_error", "inactive_else", "load_raise_error", "record_catch"]
 
 _ERROR_PARENTS = {
     "ArgumentError": "StandardError",
@@ -498,8 +498,20 @@ def _termination_kind(node: Node, name: str) -> str:
     return _raised_kind(node)
 
 
+def inactive_else(node: Node, raised_scopes: set[int]) -> bool:
+    return (
+        node.type == "else"
+        and node.parent is not None
+        and node.parent.id in raised_scopes
+    )
+
+
 def load_raise_error(
-    node: Node, disabled: set[str], bare_raises: set[int], catch_calls: set[int]
+    node: Node,
+    disabled: set[str],
+    bare_raises: set[int],
+    catch_calls: set[int],
+    raised_scopes: set[int],
 ) -> str | None:
     method = node.child_by_field_name("method")
     name = (
@@ -523,6 +535,8 @@ def load_raise_error(
     kind = _termination_kind(node, name)
     if name == "throw" and _caught_throw(node, catch_calls):
         return None
+    if node.parent is not None and node.parent.type in {"begin", "body_statement"}:
+        raised_scopes.add(node.parent.id)
     if (name != "exit!" or kind != "SystemExit") and handled_error(node, kind):
         return None
     return (

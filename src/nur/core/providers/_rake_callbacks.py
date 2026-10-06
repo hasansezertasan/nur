@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from nur.core.providers._rake_overrides import main_scope, receiver_name
+from nur.core.providers._rake_overrides import main_scope, receiver_name, scope_headers
+from nur.core.providers._rake_raises import inactive_else
 from nur.core.providers._rake_syntax import is_self, node_text
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
     from tree_sitter import Node
 
@@ -15,6 +16,7 @@ __all__ = [
     "constructor_arguments_error",
     "dsl_receiver",
     "invalid_namespace_lambda_parameters",
+    "load_time_children",
     "namespace_callbacks",
 ]
 
@@ -218,3 +220,28 @@ def _inline_callback_ids(callback: Node, disabled: set[str]) -> set[int]:
     ):
         return set()
     return {callback.id, block.id}
+
+
+def load_time_children(
+    node: Node,
+    deferred_calls: set[int],
+    callbacks: set[int],
+    raised_scopes: set[int],
+    reachable_children: Callable[[Node], list[Node]],
+) -> list[Node]:
+    if (
+        node.type in {"method", "singleton_method", "lambda", "end_block"}
+        and node.id not in callbacks
+    ) or inactive_else(node, raised_scopes):
+        return scope_headers(node)
+    if node.type in {"block", "do_block"}:
+        owner = node.parent
+        method = owner.child_by_field_name("method") if owner is not None else None
+        if (
+            owner is not None
+            and method is not None
+            and owner.id in deferred_calls
+            and node.id not in callbacks
+        ):
+            return []
+    return reachable_children(node)

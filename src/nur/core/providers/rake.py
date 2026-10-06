@@ -13,6 +13,7 @@ from nur.core.providers._rake_callbacks import (
     constructor_arguments_error,
     dsl_receiver as _dsl_receiver,
     invalid_namespace_lambda_parameters,
+    load_time_children as _load_time_children,
     namespace_callbacks,
 )
 from nur.core.providers._rake_overrides import (
@@ -651,27 +652,6 @@ def _deferred_call(owner: Node, method: Node, disabled: set[str]) -> bool:
     return key in canonical - disabled or termination_method(key, disabled) is not None
 
 
-def _load_time_children(
-    node: Node, deferred_calls: set[int], callbacks: set[int]
-) -> list[Node]:
-    if (
-        node.type in {"method", "singleton_method", "lambda", "end_block"}
-        and node.id not in callbacks
-    ):
-        return scope_headers(node)
-    if node.type in {"block", "do_block"}:
-        owner = node.parent
-        method = owner.child_by_field_name("method") if owner is not None else None
-        if (
-            owner is not None
-            and method is not None
-            and owner.id in deferred_calls
-            and node.id not in callbacks
-        ):
-            return []
-    return _reachable_children(node)
-
-
 def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
     if (
         node.type == "undef"
@@ -708,6 +688,7 @@ def _load_time_error(root: Node) -> str | None:
     deferred_calls: set[int] = set()
     catch_calls: set[int] = set()
     callbacks: set[int] = set()
+    raised_scopes: set[int] = set()
     bare_raises = unbound_identifier_ids(root, terminating_names(root))
     bare_constructors = unbound_identifier_ids(
         root, {"proc", "lambda", "define_method", "define_singleton_method"}
@@ -751,7 +732,7 @@ def _load_time_error(root: Node) -> str | None:
             mutation_error(node, disabled)
             or _load_declaration_error(node, disabled)
             or load_assignment_error(node)
-            or load_raise_error(node, disabled, bare_raises, catch_calls)
+            or load_raise_error(node, disabled, bare_raises, catch_calls, raised_scopes)
         )
         if error is not None:
             return error
@@ -761,7 +742,13 @@ def _load_time_error(root: Node) -> str | None:
             child.type == "interpolation" for child in node.named_children
         ):
             return "unsupported interpolated regexp during loading"
-        pending.append(iter(_load_time_children(node, deferred_calls, callbacks)))
+        pending.append(
+            iter(
+                _load_time_children(
+                    node, deferred_calls, callbacks, raised_scopes, _reachable_children
+                )
+            )
+        )
     return None
 
 

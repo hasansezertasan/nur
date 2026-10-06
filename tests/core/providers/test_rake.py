@@ -4147,3 +4147,34 @@ def test_equivalent_integer_tag_spellings_match(tag, equivalent):
 )
 def test_distinct_or_heap_allocated_literal_tags_do_not_match(body):
     assert parse_rakefile("task :before; " + body + "; task :after") == []
+
+
+@pytest.mark.parametrize(
+    "expression", ["raise TypeError", 'raise "stop"', "exit 0", "throw :stop"]
+)
+def test_handled_protected_exception_skips_rescue_else(expression):
+    source = (
+        f"begin; {expression}; rescue Exception; nil; "
+        'else; raise "never"; end; task :safe'
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_redefined_raise_in_handler_does_not_make_else_reachable():
+    source = (
+        "begin; raise TypeError; rescue; def self.raise(*); end; "
+        "else; exit!; end; task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'begin; nil; rescue; nil; else; raise "reachable"; end',
+        "def self.raise(*); end; begin; raise TypeError; rescue; nil; else; exit!; end",
+        "begin; raise TypeError; rescue; nil; else; nil; ensure; exit!; end",
+    ],
+)
+def test_reachable_else_and_ensure_calls_still_reject_loading(body):
+    assert parse_rakefile("task :before; " + body + "; task :after") == []
