@@ -4018,9 +4018,83 @@ def test_handled_deferred_or_overridden_singleton_termination_aliases_keep_tasks
         'proc { |_| raise "boom" }',
     ],
 )
-def test_namespace_executes_inline_callback_during_loading(callback):
-    source = f"task :before; namespace(:db, &{callback}); task :after"
+@pytest.mark.parametrize("method", ["namespace", "catch", "self.catch", "Kernel.catch"])
+def test_namespace_executes_inline_callback_during_loading(callback, method):
+    source = f"task :before; {method}(:db, &{callback}); task :after"
     assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize("receiver", ["catch", "self.catch", "Kernel.catch"])
+@pytest.mark.parametrize(
+    "callback",
+    [
+        "->(_) { throw :stop }",
+        "proc { |_| throw :stop }",
+        "Kernel.proc { |_| throw :stop }",
+        "Proc.new { |_| throw :stop }",
+    ],
+)
+def test_inline_catch_callbacks_preserve_matching_handler(receiver, callback):
+    source = f"{receiver}(:stop, &{callback}); task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'def self.catch(*); end; catch(:stop, &->(_) { raise "never" })',
+        'task(:safe, &->(_) { raise "never" })',
+        'begin; catch(:stop, &->(_) { raise "handled" }); rescue RuntimeError; end',
+    ],
+)
+def test_deferred_overridden_or_rescued_catch_callbacks_keep_tasks(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "singleton_class.define_method(:task, 1)",
+        "singleton_class.define_method(:task)",
+        "define_singleton_method(:task, 1)",
+        "singleton_class.alias_method(:task)",
+        "singleton_class.alias_method(:task, 1)",
+        "singleton_class.attr_reader(:task, 1)",
+    ],
+)
+def test_failed_rescued_mutations_preserve_dsl(mutation):
+    source = f"begin; {mutation}; rescue ArgumentError, TypeError; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "if true; task :hidden; end",
+        "unless false; task :hidden; end",
+        "if ENV['HIDDEN']; task :hidden; end",
+        "[1].each { task :hidden }",
+    ],
+)
+def test_skipped_declarations_invalidate_pending_description(statement):
+    tasks = parse_rakefile(f'desc "Hidden"; {statement}; task :shown')
+    assert [task.name for task in tasks] == ["shown"]
+    assert tasks[0].description is None
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "if false; task :hidden; end",
+        "proc { task :hidden }",
+        "def helper; task :hidden; end",
+        "nil",
+    ],
+)
+def test_inactive_or_deferred_declarations_preserve_description(statement):
+    tasks = parse_rakefile(f'desc "Shown"; {statement}; task :shown')
+    assert [task.name for task in tasks] == ["shown"]
+    assert tasks[0].description == "Shown"
 
 
 @pytest.mark.parametrize(

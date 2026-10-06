@@ -15,13 +15,14 @@ from nur.core.providers._rake_callbacks import (
     constructor_exception,
     declaration_exception,
     dsl_receiver as _dsl_receiver,
+    executing_callbacks,
     invalid_block_arguments as _invalid_block_arguments,
     invalid_namespace_lambda_parameters,
     load_time_children as _load_time_children,
-    namespace_callbacks,
     return_path,
 )
 from nur.core.providers._rake_control import case_children, endless_loop_error
+from nur.core.providers._rake_descriptions import pending_description, valid_description
 from nur.core.providers._rake_overrides import (
     DEFERRED_METHODS as _DEFERRED_METHODS,
     RAKE_METHODS as _RAKE_METHODS,
@@ -362,7 +363,7 @@ def _declaration_error(
         "file",
         "file_create",
         "directory",
-    } and not _valid_description(description):
+    } and not valid_description(description, _literal_kind, _invalid_argument_name):
         return "invalid Rake description type"
     if method == "namespace" and _invalid_namespace(node, arguments, disabled):
         return "invalid Rake namespace call"
@@ -491,17 +492,6 @@ def _description(arguments: list[Node]) -> Node | None:
         children = [child for child in node.named_children if child.type != "comment"]
         node = children[0] if len(children) == 1 else None
     return node
-
-
-def _valid_description(node: Node | None) -> bool:
-    # Rake calls strip on truthy descriptions. Symbols and other known non-string
-    # literals cannot supply a comment; unknown expressions remain opaque.
-    if node is None or _literal_kind(node) in {"nil", "false"}:
-        return True
-    return not _invalid_argument_name(node) and node.type not in {
-        "simple_symbol",
-        "delimited_symbol",
-    }
 
 
 def _description_text(node: Node | None) -> str | None:
@@ -672,6 +662,35 @@ def _load_declaration_error(
     return handled_load_error(node, error, kind, raised_scopes)
 
 
+def _constructor_error(node: Node, disabled: set[str]) -> str | None:
+    method = node.child_by_field_name("method")
+    if (
+        node.type != "call"
+        or method is None
+        or not _deferred_call(node, method, disabled)
+    ):
+        return None
+    arguments = _arguments(node)
+    has_block = node.child_by_field_name("block") is not None or any(
+        _literal_kind(child) not in {"nil", "false"}
+        for callback in _block_arguments(node)
+        for child in callback.named_children
+    )
+    return constructor_arguments_error(
+        node_text(method),
+        [_literal_kind(argument) for argument in arguments],
+        _call_arity(arguments),
+        has_block=has_block,
+        is_reader=reader_call(node, disabled),
+    )
+
+
+def _record_valid_override(node: Node, disabled: set[str]) -> None:
+    # Invalid constructor arguments fail before changing Ruby's method table.
+    if _constructor_error(node, disabled) is None:
+        record_override(node, disabled)
+
+
 def _load_time_error(root: Node) -> str | None:
     disabled: set[str] = set()
     deferred_calls: set[int] = set()
@@ -698,26 +717,14 @@ def _load_time_error(root: Node) -> str | None:
             and method is not None
             and _deferred_call(node, method, disabled)
         ):
-            arguments = _arguments(node)
-            has_block = node.child_by_field_name("block") is not None or any(
-                _literal_kind(child) not in {"nil", "false"}
-                for callback in _block_arguments(node)
-                for child in callback.named_children
-            )
-            error = constructor_arguments_error(
-                node_text(method),
-                [_literal_kind(argument) for argument in arguments],
-                _call_arity(arguments),
-                has_block=has_block,
-                is_reader=reader_call(node, disabled),
-            )
+            error = _constructor_error(node, disabled)
             kind = constructor_exception(error)
             if error := handled_load_error(node, error, kind, raised_scopes):
                 return error
             deferred_calls.add(node.id)
-        callbacks.update(namespace_callbacks(node, disabled))
+        callbacks.update(executing_callbacks(node, disabled))
         record_catch(node, disabled, catch_calls)
-        record_override(node, disabled)
+        _record_valid_override(node, disabled)
         error = (
             endless_loop_error(node, _literal_truth, _reachable_children)
             or mutation_error(node, disabled, raised_scopes)
@@ -775,7 +782,7 @@ def _dsl_overrides(
         node, in_begin = pending.pop()
         in_begin = in_begin or node.type == "begin_block"
         if in_begin:
-            record_override(node, disabled)
+            _record_valid_override(node, disabled)
         children = (
             scope_headers(node)
             if node.type in opaque and not singleton_eval_block(node, disabled)
@@ -902,6 +909,13 @@ def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
         method = _method(node, disabled)
         arguments = _arguments(node)
         _validate_declaration(node, method, arguments, description, disabled)
+        description = pending_description(
+            node,
+            method,
+            description,
+            _reachable_children,
+            lambda owner, method_node: _deferred_call(owner, method_node, disabled),
+        )
         if method == "desc":
             description = _description(arguments)
         elif method in {"task", "multitask", "file", "file_create", "directory"}:

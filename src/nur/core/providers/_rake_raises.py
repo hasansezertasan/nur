@@ -647,6 +647,12 @@ def _caught_throw(node: Node, catch_calls: set[int]) -> bool:
             owner = parent.parent
             if _catch_matches(owner, tag, catch_calls):
                 return True
+        if parent.type == "block_argument" and parent.parent is not None:
+            callback_owner = parent.parent.parent
+            if callback_owner is not None and _catch_matches(
+                callback_owner, tag, catch_calls
+            ):
+                return True
         parent = parent.parent
     return False
 

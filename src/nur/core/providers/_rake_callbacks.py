@@ -18,10 +18,10 @@ __all__ = [
     "constructor_exception",
     "declaration_exception",
     "dsl_receiver",
+    "executing_callbacks",
     "invalid_block_arguments",
     "invalid_namespace_lambda_parameters",
     "load_time_children",
-    "namespace_callbacks",
     "return_path",
 ]
 
@@ -181,15 +181,16 @@ def dsl_receiver(node: Node) -> bool:
     return receiver is None or is_self(receiver)
 
 
-def namespace_callbacks(node: Node, disabled: set[str]) -> set[int]:
+def executing_callbacks(node: Node, disabled: set[str]) -> set[int]:
     method = node.child_by_field_name("method")
-    if (
-        method is None
-        or node_text(method) != "namespace"
-        or "namespace" in disabled
-        or not main_scope(node)
-        or not dsl_receiver(node)
-    ):
+    if method is None:
+        return set()
+    name = node_text(method)
+    receiver = node.child_by_field_name("receiver")
+    key = name if dsl_receiver(node) else f"{receiver_name(receiver)}.{name}"
+    if key not in {"namespace", "catch", "Kernel.catch"} - disabled:
+        return set()
+    if name == "namespace" and not main_scope(node):
         return set()
     return {
         identity
