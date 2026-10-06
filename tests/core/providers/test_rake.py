@@ -4236,3 +4236,38 @@ def test_equivalent_immediate_float_tags_match(tag, equivalent):
 
 def test_distinct_unary_catch_tag_does_not_match_integer():
     assert parse_rakefile("catch(1) { throw !false }; task :after") == []
+
+
+@pytest.mark.parametrize(
+    "constant",
+    [
+        "RUBY_VERSION",
+        "RUBY_ENGINE",
+        "RUBY_PLATFORM",
+        "::RUBY_DESCRIPTION",
+        "ARGV",
+        "ENV",
+        "STDOUT",
+        "TOPLEVEL_BINDING",
+    ],
+)
+@pytest.mark.parametrize("method", ["exit", "exit!"])
+def test_invalid_core_value_exit_arguments_are_type_errors(constant, method):
+    source = f"begin; {method} {constant}; rescue TypeError; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+    invalid = f"begin; {method} {constant}; rescue SystemExit; end; task :bad"
+    assert parse_rakefile(invalid) == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "begin; exit RUBY_PATCHLEVEL; rescue SystemExit; end",
+        "begin; abort RUBY_VERSION; rescue SystemExit; end",
+        "begin; raise RUBY_VERSION; rescue RuntimeError; end",
+        "begin; raise ARGV; rescue TypeError; end",
+        "begin; abort RUBY_PATCHLEVEL; rescue TypeError; end",
+    ],
+)
+def test_core_value_constants_preserve_their_actual_argument_kinds(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]

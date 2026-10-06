@@ -15,6 +15,24 @@ if TYPE_CHECKING:
 
 __all__ = ["handled_error", "inactive_else", "load_raise_error", "record_catch"]
 
+_CORE_VALUES = {
+    "ARGV": "array",
+    "ENV": "object",
+    "RUBY_COPYRIGHT": "string",
+    "RUBY_DESCRIPTION": "string",
+    "RUBY_ENGINE": "string",
+    "RUBY_ENGINE_VERSION": "string",
+    "RUBY_PATCHLEVEL": "integer",
+    "RUBY_PLATFORM": "string",
+    "RUBY_RELEASE_DATE": "string",
+    "RUBY_REVISION": "string",
+    "RUBY_VERSION": "string",
+    "STDERR": "object",
+    "STDIN": "object",
+    "STDOUT": "object",
+    "TOPLEVEL_BINDING": "object",
+}
+
 _CORE_NONEXCEPTIONS = {
     "Array",
     "BasicObject",
@@ -363,8 +381,7 @@ def _raised_kind(node: Node) -> str:
         return "RuntimeError" if len(arguments) == 1 else "TypeError"
     first = arguments[0]
     if first.type in {"constant", "scope_resolution"}:
-        kind = receiver_name(first)
-        return "TypeError" if kind in _CORE_NONEXCEPTIONS else kind
+        return _constant_raise_kind(first, len(arguments))
     if (
         first.type == "call"
         and (method := first.child_by_field_name("method")) is not None
@@ -372,6 +389,17 @@ def _raised_kind(node: Node) -> str:
     ):
         return receiver_name(first.child_by_field_name("receiver"))
     return "TypeError" if first.type in _NON_EXCEPTION_LITERALS else "Exception"
+
+
+def _constant_raise_kind(node: Node, arity: int) -> str:
+    name = receiver_name(node)
+    if name in _CORE_VALUES:
+        return (
+            "RuntimeError"
+            if _CORE_VALUES[name] == "string" and arity == 1
+            else "TypeError"
+        )
+    return "TypeError" if name in _CORE_NONEXCEPTIONS else name
 
 
 def _active_exception(node: Node) -> str:
@@ -444,6 +472,7 @@ def _exit_kind(node: Node, name: str) -> str:
         "regex",
         "range",
         "lambda",
+        "object",
     }
     invalid.update(
         {"integer", "float", "true", "false"} if name == "abort" else {"string"}
@@ -454,7 +483,8 @@ def _exit_kind(node: Node, name: str) -> str:
     } and receiver_name(arguments[0]) in _CORE_NONEXCEPTIONS | _ERROR_PARENTS.keys() | {
         "Exception"
     }
-    return "TypeError" if arguments[0].type in invalid or known_class else "SystemExit"
+    value_kind = _CORE_VALUES.get(receiver_name(arguments[0]), arguments[0].type)
+    return "TypeError" if value_kind in invalid or known_class else "SystemExit"
 
 
 def _ancestors(kind: str) -> set[str]:
