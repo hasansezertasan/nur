@@ -4,10 +4,10 @@ from typing import TYPE_CHECKING
 
 from nur.core.providers._rake_overrides import RAKE_METHODS, main_scope
 from nur.core.providers._rake_raises import handled_load_error
-from nur.core.providers._rake_syntax import literal, node_text
+from nur.core.providers._rake_syntax import is_self, literal, node_text
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
     from tree_sitter import Node
 
@@ -280,9 +280,21 @@ def _scope_method_provider(node: Node, name: str) -> bool:
     method = node.child_by_field_name("method")
     if node.type != "call" or method is None:
         return False
-    if node_text(method) in {"extend", "include", "class_eval", "module_eval"}:
-        return True
+    receiver = node.child_by_field_name("receiver")
+    if receiver is not None and not is_self(receiver):
+        return False
     arguments = node.child_by_field_name("arguments")
+    if node_text(method) == "extend":
+        return arguments is not None and any(
+            node_text(argument) in {"Rake::DSL", "::Rake::DSL"}
+            for argument in arguments.named_children
+        )
+    if node_text(method) in {"class_eval", "module_eval", "class_exec", "module_exec"}:
+        block = node.child_by_field_name("block")
+        body = block.child_by_field_name("body") if block is not None else None
+        return body is not None and any(
+            _scope_method_provider(child, name) for child in body.named_children
+        )
     return (
         node_text(method) == "define_singleton_method"
         and arguments is not None
@@ -291,7 +303,9 @@ def _scope_method_provider(node: Node, name: str) -> bool:
     )
 
 
-def scope_dsl_error(node: Node, name: str) -> str | None:
+def scope_dsl_error(
+    node: Node, name: str, reachable_children: Callable[[Node], list[Node]]
+) -> str | None:
     scope = node.parent
     while scope is not None and scope.type not in {
         "class",
@@ -318,7 +332,7 @@ def scope_dsl_error(node: Node, name: str) -> str | None:
             "block",
             "do_block",
         }:
-            pending.extend(child.named_children)
+            pending.extend(reachable_children(child))
     return "missing Rake DSL method in non-main scope during loading"
 
 

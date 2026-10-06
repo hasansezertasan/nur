@@ -4050,6 +4050,8 @@ def test_inline_catch_callbacks_preserve_matching_handler(receiver, callback):
         "catch(&->(tag) { throw tag })",
         "catch(&proc { |tag| throw tag })",
         "catch(&Proc.new { |tag| throw tag })",
+        "catch(&(->(tag) { throw tag }))",
+        "catch { |tag| other = :other; throw tag }",
     ],
 )
 def test_generated_catch_tag_parameter_matches(body):
@@ -4067,6 +4069,7 @@ def test_generated_catch_tag_parameter_matches(body):
         "catch { throw missing }",
         "catch { |tag| [1].each { |tag| throw tag } }",
         "catch { |tag| begin; raise 'x'; rescue => tag; throw tag; end }",
+        "catch(:first, :second) { |tag| throw tag }",
     ],
 )
 def test_unknown_or_reassigned_catch_parameter_is_not_generated_tag(body):
@@ -4096,6 +4099,49 @@ def test_exception_global_write_in_active_rescue_is_not_short_circuited():
 
 def test_rescued_additional_global_type_error_keeps_tasks():
     source = "begin; $-i = 1; rescue TypeError; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'case; when true; nil; when false; raise "never"; end',
+        'case; when false, nil; raise "never"; when 0; nil; else; raise "never"; end',
+        'case; when false; raise "never"; else; nil; end',
+        'case; when (true); nil; else; raise "never"; end',
+    ],
+)
+def test_selectorless_case_visits_only_matching_literal_arm(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "provider",
+    [
+        "include Enumerable",
+        "extend Enumerable",
+        "include Rake::DSL",
+        "class_eval { nil }",
+        "module_eval { def helper; end }",
+        "Other.extend Rake::DSL",
+        "if false; extend Rake::DSL; end",
+    ],
+)
+def test_unrelated_scope_providers_do_not_supply_rake_dsl(provider):
+    source = f"task :before; class Helper; {provider}; task :inside; end; task :after"
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize(
+    "provider",
+    [
+        "self.extend ::Rake::DSL",
+        "class_eval { def self.task(*); end }",
+        "module_eval { define_singleton_method(:task) { |*| } }",
+    ],
+)
+def test_proven_scope_providers_keep_outer_tasks(provider):
+    source = f"class Helper; {provider}; task :inside; end; task :safe"
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
 
 

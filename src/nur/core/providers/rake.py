@@ -22,7 +22,12 @@ from nur.core.providers._rake_callbacks import (
     return_path,
 )
 from nur.core.providers._rake_control import case_children, endless_loop_error
-from nur.core.providers._rake_descriptions import pending_description, valid_description
+from nur.core.providers._rake_descriptions import (
+    description_summary,
+    description_text,
+    pending_description,
+    valid_description,
+)
 from nur.core.providers._rake_overrides import (
     DEFERRED_METHODS as _DEFERRED_METHODS,
     RAKE_METHODS as _RAKE_METHODS,
@@ -466,12 +471,7 @@ def _make_task(
         comment = description.strip()
         if comment and comment not in comments:
             comments.append(comment)
-    summary = " / ".join(
-        re.split(
-            r"(?<=\w)(\.|!)[ \t]|(\.$|!)|\n", comment, flags=re.ASCII | re.MULTILINE
-        )[0]
-        for comment in comments
-    )
+    summary = description_summary(comments)
     return Task(
         name=qualified,
         prefix="rake",
@@ -492,10 +492,6 @@ def _description(arguments: list[Node]) -> Node | None:
         children = [child for child in node.named_children if child.type != "comment"]
         node = children[0] if len(children) == 1 else None
     return node
-
-
-def _description_text(node: Node | None) -> str | None:
-    return literal(node) if node is not None and node.type == "string" else None
 
 
 def _escaping_control(root: Node, *, include_begin: bool = False) -> str | None:
@@ -652,7 +648,11 @@ def _load_declaration_error(
     if not _dsl_receiver(node) or (main_scope(node) and name in disabled):
         return None
     if not main_scope(node):
-        error = scope_dsl_error(node, name) if name in _RAKE_METHODS else None
+        error = (
+            scope_dsl_error(node, name, _reachable_children)
+            if name in _RAKE_METHODS
+            else None
+        )
         return handled_load_error(node, error, "NoMethodError", raised_scopes)
     arguments = _arguments(node)
     error = _declaration_error(node, name, arguments, None, disabled)
@@ -920,7 +920,7 @@ def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
             description = _description(arguments)
         elif method in {"task", "multitask", "file", "file_create", "directory"}:
             if method in {"task", "multitask"}:
-                yield node, namespace, _description_text(description)
+                yield node, namespace, description_text(description)
             description = None
         elif method == "namespace":
             nested = _namespace_body(node, arguments, namespace)

@@ -1,16 +1,35 @@
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from nur.core.providers._rake_overrides import RAKE_METHODS, scope_headers
-from nur.core.providers._rake_syntax import node_text
+from nur.core.providers._rake_syntax import literal, node_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from tree_sitter import Node
 
-__all__ = ["pending_description", "valid_description"]
+__all__ = [
+    "description_summary",
+    "description_text",
+    "pending_description",
+    "valid_description",
+]
+
+
+def description_summary(comments: list[str]) -> str:
+    return " / ".join(
+        re.split(
+            r"(?<=\w)(\.|!)[ \t]|(\.$|!)|\n", comment, flags=re.ASCII | re.MULTILINE
+        )[0]
+        for comment in comments
+    )
+
+
+def description_text(node: Node | None) -> str | None:
+    return literal(node) if node is not None and node.type == "string" else None
 
 
 def valid_description(

@@ -46,9 +46,9 @@ def case_children(node: Node) -> list[Node] | None:
         return None
     selector = node.child_by_field_name("value")
     value = _case_value(selector)
-    if value is None or selector is None:
+    if selector is not None and value is None:
         return None
-    children = [selector]
+    children = [selector] if selector is not None else []
     for arm in node.named_children:
         if arm.type == "else":
             return [*children, arm]
@@ -60,7 +60,12 @@ def case_children(node: Node) -> list[Node] | None:
             if candidate is None:
                 return None
             children.append(pattern)
-            if candidate == value:
+            matches = (
+                candidate[0] not in {"nil", "false"}
+                if selector is None
+                else candidate == value
+            )
+            if matches:
                 body = arm.child_by_field_name("body")
                 return [*children, body] if body is not None else children
     return children
