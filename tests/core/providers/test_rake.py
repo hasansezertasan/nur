@@ -94,8 +94,6 @@ def test_comments_and_strings_are_not_declarations():
         "unless enabled\n task :hidden\nend",
         "[1, 2].each do |n|\n task :hidden\nend",
         "def helper\n task :hidden\nend",
-        "class Helper\n task :hidden\nend",
-        "module Helper\n task :hidden\nend",
         "task :hidden if enabled",
         "file 'output' do\n task :hidden\nend",
         "rule '.o' do\n task :hidden\nend",
@@ -4495,3 +4493,34 @@ def test_truthy_literal_skips_unless_raise(value):
 
 def test_truthy_condition_still_validates_its_evaluation():
     assert parse_rakefile('raise "never" unless [raise "executed"]; task :safe') == []
+
+
+@pytest.mark.parametrize("scope", ["class Helper", "module Helper", "class << self"])
+@pytest.mark.parametrize("receiver", ["", "self."])
+def test_dsl_calls_in_executing_non_main_scopes_reject_loading(scope, receiver):
+    source = f"task :before; {scope}; {receiver}task :inside; end; task :after"
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize("scope", ["class Helper", "module Helper"])
+def test_rescued_missing_scope_dsl_keeps_outer_tasks(scope):
+    source = f"{scope}; begin; task :inside; rescue NoMethodError; end; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_scope_own_singleton_dsl_method_is_allowed():
+    source = "class Helper; def self.task(*); end; task :inside; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "provider", ["define_singleton_method(:task) { |*| }", "extend Rake::DSL"]
+)
+def test_scope_with_own_dsl_provider_keeps_outer_tasks(provider):
+    source = f"class Helper; {provider}; task :inside; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_later_scope_method_definition_does_not_cover_earlier_call():
+    source = "class Helper; task :inside; def self.task(*); end; end; task :safe"
+    assert parse_rakefile(source) == []

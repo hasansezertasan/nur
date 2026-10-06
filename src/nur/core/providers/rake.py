@@ -45,8 +45,10 @@ from nur.core.providers._rake_runtime import (
     empty_for,
     empty_rescue,
     load_assignment_error,
+    load_control_error,
     mutation_error,
     overridden_method_error,
+    scope_dsl_error,
 )
 from nur.core.providers._rake_source import decode_source
 from nur.core.providers._rake_syntax import (
@@ -635,19 +637,8 @@ def _deferred_call(owner: Node, method: Node, disabled: set[str]) -> bool:
 def _load_declaration_error(
     node: Node, disabled: set[str], raised_scopes: dict[int, str | None]
 ) -> str | None:
-    if (
-        node.type == "undef"
-        and main_scope(node)
-        and any(
-            (literal(child) or node_text(child)) in _RAKE_METHODS
-            for child in node.named_children
-        )
-    ):
-        return "undef of Rake DSL method"
-    if node.type == "super":
-        return handled_load_error(
-            node, "super outside method during loading", "NoMethodError", raised_scopes
-        )
+    if error := load_control_error(node, raised_scopes):
+        return error
     method = node.child_by_field_name("method")
     if node.type != "call" or method is None:
         return None
@@ -665,8 +656,11 @@ def _load_declaration_error(
             "NoMethodError" if f"undef:{key}" in disabled else "ArgumentError"
         )
         return handled_load_error(node, error, exception_kind, raised_scopes)
-    if not _dsl_receiver(node) or name in disabled or not main_scope(node):
+    if not _dsl_receiver(node) or (main_scope(node) and name in disabled):
         return None
+    if not main_scope(node):
+        error = scope_dsl_error(node, name) if name in _RAKE_METHODS else None
+        return handled_load_error(node, error, "NoMethodError", raised_scopes)
     arguments = _arguments(node)
     error = _declaration_error(node, name, arguments, None, disabled)
     kind = declaration_exception(

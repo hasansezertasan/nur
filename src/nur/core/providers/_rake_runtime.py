@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from nur.core.providers._rake_overrides import RAKE_METHODS, main_scope
 from nur.core.providers._rake_raises import handled_load_error
 from nur.core.providers._rake_syntax import literal, node_text
 
@@ -14,8 +15,10 @@ __all__ = [
     "empty_for",
     "empty_rescue",
     "load_assignment_error",
+    "load_control_error",
     "mutation_error",
     "overridden_method_error",
+    "scope_dsl_error",
 ]
 
 _READONLY_GLOBALS = {
@@ -245,4 +248,75 @@ def overridden_method_error(
         return "call to undefined constructor during loading"
     if f"reader:{key}" in disabled and arity not in {0, None}:
         return "invalid singleton attribute reader call during loading"
+    return None
+
+
+def _scope_method_provider(node: Node, name: str) -> bool:
+    if node.type == "singleton_method":
+        owner = node.child_by_field_name("object")
+        method = node.child_by_field_name("name")
+        return (
+            owner is not None
+            and node_text(owner) == "self"
+            and (method is not None and node_text(method) == name)
+        )
+    method = node.child_by_field_name("method")
+    if node.type != "call" or method is None:
+        return False
+    if node_text(method) in {"extend", "include", "class_eval", "module_eval"}:
+        return True
+    arguments = node.child_by_field_name("arguments")
+    return (
+        node_text(method) == "define_singleton_method"
+        and arguments is not None
+        and bool(arguments.named_children)
+        and literal(arguments.named_children[0]) == name
+    )
+
+
+def scope_dsl_error(node: Node, name: str) -> str | None:
+    scope = node.parent
+    while scope is not None and scope.type not in {
+        "class",
+        "module",
+        "singleton_class",
+    }:
+        scope = scope.parent
+    if scope is None:
+        return None
+    body = scope.child_by_field_name("body")
+    pending = list(body.named_children) if body is not None else []
+    while pending:
+        child = pending.pop()
+        if child.start_byte >= node.start_byte:
+            continue
+        if _scope_method_provider(child, name):
+            return None
+        if child.type not in {
+            "class",
+            "module",
+            "singleton_class",
+            "method",
+            "singleton_method",
+            "block",
+            "do_block",
+        }:
+            pending.extend(child.named_children)
+    return "missing Rake DSL method in non-main scope during loading"
+
+
+def load_control_error(node: Node, raised_scopes: dict[int, str | None]) -> str | None:
+    if node.type == "super":
+        return handled_load_error(
+            node, "super outside method during loading", "NoMethodError", raised_scopes
+        )
+    if (
+        node.type == "undef"
+        and main_scope(node)
+        and any(
+            (literal(child) or node_text(child)) in RAKE_METHODS
+            for child in node.named_children
+        )
+    ):
+        return "undef of Rake DSL method"
     return None
