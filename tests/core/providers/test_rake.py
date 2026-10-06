@@ -3890,3 +3890,79 @@ def test_bare_reraise_is_handled_by_the_active_exception_handler(body):
 )
 def test_reraise_uses_handler_bounds_when_original_error_is_unknown(body):
     assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    ("expression", "handler"),
+    [
+        ('raise "x", "bad"', "TypeError"),
+        ('raise RuntimeError, "x", 1', "TypeError"),
+        ('raise RuntimeError, "x", [1]', "TypeError"),
+        ('raise RuntimeError, "x", [], 4', "ArgumentError"),
+    ],
+)
+def test_raise_argument_errors_use_the_actual_handler(expression, handler):
+    assert (
+        parse_rakefile(f"begin; {expression}; rescue RuntimeError; end; task :bad")
+        == []
+    )
+    source = f"begin; {expression}; rescue {handler}; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("method", ["exit", "exit!", "abort"])
+def test_lambda_exit_arguments_are_rescuable_type_errors(method):
+    assert (
+        parse_rakefile(f"begin; {method} -> {{}}; rescue SystemExit; end; task :bad")
+        == []
+    )
+    source = f"begin; {method} -> {{}}; rescue TypeError; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("method", ["raise", "fail", "exit", "exit!", "abort", "throw"])
+def test_lexical_aliases_preserve_termination(method):
+    source = f"alias stop {method}; task :before; stop; task :after"
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'alias stop raise; begin; stop "x"; rescue RuntimeError; end',
+        "alias stop throw; catch(:stop) { stop :stop }",
+        'alias stop raise; alias halt stop; begin; halt "x"; rescue RuntimeError; end',
+        'alias stop raise; def stop(*); end; stop "x"',
+        'def raise(*); end; alias stop raise; stop "x"',
+        'alias stop raise; def self.stop(*); end; stop "x"',
+        'alias stop raise; if false; stop "x"; end',
+        'alias stop raise; task :safe do; stop "x"; end',
+        'alias stop raise; begin; stop("x") { /#{pattern}/ }; rescue; end',
+    ],
+)
+def test_handled_deferred_and_overridden_termination_aliases_keep_tasks(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+@pytest.mark.parametrize("trace", ["nil", "[]", "['line']", "'line'", "(nil)"])
+def test_valid_raise_backtraces_preserve_original_exception_type(trace):
+    source = (
+        f'begin; raise RuntimeError, "x", {trace}; rescue RuntimeError; end; task :safe'
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_alias_to_another_termination_method_replaces_its_behavior():
+    source = "alias raise exit; begin; raise 0; rescue RuntimeError; end; task :after"
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize("cause", ["nil", "RuntimeError.new('cause')"])
+def test_raise_with_valid_cause_preserves_the_exception_type(cause):
+    source = f'begin; raise "x", cause: {cause}; rescue RuntimeError; end; task :safe'
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_invalid_literal_raise_cause_is_a_type_error():
+    source = 'begin; raise "x", cause: 1; rescue TypeError; end; task :safe'
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]

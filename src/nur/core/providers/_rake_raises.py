@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from nur.core.providers._rake_overrides import TERMINATING_METHODS, receiver_name
+from nur.core.providers._rake_overrides import (
+    TERMINATING_METHODS,
+    receiver_name,
+    termination_method,
+)
 from nur.core.providers._rake_syntax import is_self, literal, node_text
 
 if TYPE_CHECKING:
@@ -192,12 +196,75 @@ def _arguments(node: Node) -> list[Node]:
     )
 
 
+_NON_EXCEPTION_LITERALS = {
+    "nil",
+    "true",
+    "false",
+    "integer",
+    "float",
+    "array",
+    "hash",
+    "simple_symbol",
+    "delimited_symbol",
+    "regex",
+    "range",
+    "lambda",
+}
+
+_RAISE_MAX_ARGS = 3
+
+
+def _raise_argument_error(arguments: list[Node]) -> str | None:
+    if len(arguments) > _RAISE_MAX_ARGS:
+        return "ArgumentError"
+    if len(arguments) != _RAISE_MAX_ARGS:
+        return None
+    trace = arguments[-1]
+    if trace.type == "array":
+        return (
+            "TypeError"
+            if any(
+                child.type in _NON_EXCEPTION_LITERALS for child in trace.named_children
+            )
+            else None
+        )
+    return (
+        "TypeError"
+        if trace.type in _NON_EXCEPTION_LITERALS - {"nil", "array"}
+        else None
+    )
+
+
+def _cause_argument(node: Node) -> bool:
+    key = node.child_by_field_name("key") if node.type == "pair" else None
+    return key is not None and literal(key) == "cause"
+
+
+def _invalid_literal_cause(arguments: list[Node]) -> bool:
+    return any(
+        _cause_argument(argument)
+        and (value := argument.child_by_field_name("value")) is not None
+        and value.type in (_NON_EXCEPTION_LITERALS - {"nil"}) | {"string"}
+        for argument in arguments
+    )
+
+
 def _raised_kind(node: Node) -> str:
-    arguments = _arguments(node)
+    raw_arguments = _arguments(node)
+    arguments = [
+        argument for argument in raw_arguments if not _cause_argument(argument)
+    ]
+    error = (
+        "TypeError"
+        if _invalid_literal_cause(raw_arguments)
+        else _raise_argument_error(arguments)
+    )
+    if error is not None:
+        return error
     if not arguments:
         return _active_exception(node)
     if arguments[0].type == "string":
-        return "RuntimeError"
+        return "RuntimeError" if len(arguments) == 1 else "TypeError"
     first = arguments[0]
     if first.type in {"constant", "scope_resolution"}:
         return receiver_name(first)
@@ -207,25 +274,7 @@ def _raised_kind(node: Node) -> str:
         and node_text(method) == "new"
     ):
         return receiver_name(first.child_by_field_name("receiver"))
-    return (
-        "TypeError"
-        if first.type
-        in {
-            "nil",
-            "true",
-            "false",
-            "integer",
-            "float",
-            "array",
-            "hash",
-            "simple_symbol",
-            "delimited_symbol",
-            "regex",
-            "range",
-            "lambda",
-        }
-        else "Exception"
-    )
+    return "TypeError" if first.type in _NON_EXCEPTION_LITERALS else "Exception"
 
 
 def _active_exception(node: Node) -> str:
@@ -297,6 +346,7 @@ def _exit_kind(node: Node, name: str) -> str:
         "delimited_symbol",
         "regex",
         "range",
+        "lambda",
     }
     invalid.update(
         {"integer", "float", "true", "false"} if name == "abort" else {"string"}
@@ -417,17 +467,16 @@ def load_raise_error(
         if node.id in bare_raises
         else ""
     )
-    if name not in TERMINATING_METHODS:
-        return None
     receiver = node.child_by_field_name("receiver")
     key = (
         name
         if receiver is None or is_self(receiver)
         else f"{receiver_name(receiver)}.{name}"
     )
-    known = TERMINATING_METHODS | {f"Kernel.{method}" for method in TERMINATING_METHODS}
-    if key not in known or key in disabled:
+    canonical = termination_method(key, disabled)
+    if canonical is None:
         return None
+    name = canonical
     exit_call = name in {"exit", "exit!", "abort"}
     kind = _termination_kind(node, name)
     if name == "throw" and _caught_throw(node, catch_calls):

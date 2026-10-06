@@ -25,6 +25,8 @@ __all__ = [
     "singleton_class_receiver",
     "singleton_eval_block",
     "singleton_eval_scope",
+    "terminating_names",
+    "termination_method",
 ]
 
 _METHODS = {
@@ -58,6 +60,45 @@ SINGLETON_MUTATORS = frozenset({
     "attr_reader",
     "attr_accessor",
 })
+
+
+def termination_method(
+    name: str, disabled: set[str], *, lexical: bool = False
+) -> str | None:
+    kind = next(
+        (
+            kind
+            for kind in TERMINATING_METHODS
+            if f"terminator:{name}:{kind}" in disabled
+        ),
+        None,
+    )
+    if (
+        not lexical
+        and name in disabled
+        and (kind is None or f"singleton:{name}" in disabled)
+    ):
+        return None
+    if kind is not None:
+        return kind
+    canonical = name.removeprefix("Kernel.")
+    if canonical in TERMINATING_METHODS and (
+        not lexical or f"inherited:{name}" not in disabled
+    ):
+        return canonical
+    return None
+
+
+def terminating_names(root: Node) -> set[str]:
+    names = set(TERMINATING_METHODS)
+    pending = [root]
+    while pending:
+        node = pending.pop()
+        name = node.child_by_field_name("name") if node.type == "alias" else None
+        if name is not None:
+            names.add(literal(name) or node_text(name))
+        pending.extend(node.named_children)
+    return names
 
 
 def receiver_name(node: Node | None) -> str:
@@ -144,6 +185,9 @@ def _instance_override(node: Node, name: str, disabled: set[str]) -> None:
     prefix, singleton_scope = _constructor_scope(node)
     if main_scope(node) or (prefix == "Kernel" and not singleton_scope):
         disabled.add(f"lexical:{name}")
+        disabled.difference_update({
+            f"terminator:{name}:{kind}" for kind in TERMINATING_METHODS
+        })
     if singleton_eval_scope(node, disabled):
         _set_singleton_override(name, disabled)
     elif prefix is not None and singleton_scope:
@@ -192,7 +236,11 @@ def _ordinary_override(node: Node, disabled: set[str]) -> None:
         return
     name = node.child_by_field_name("name")
     if name is not None:
-        _instance_override(node, literal(name) or node_text(name), disabled)
+        kind = termination_method(source_name, disabled, lexical=True)
+        target = literal(name) or node_text(name)
+        _instance_override(node, target, disabled)
+        if main_scope(node) and kind is not None:
+            disabled.add(f"terminator:{target}:{kind}")
 
 
 def _record_undef(node: Node, disabled: set[str]) -> None:

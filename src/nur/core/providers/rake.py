@@ -25,6 +25,8 @@ from nur.core.providers._rake_overrides import (
     singleton_class_receiver,
     singleton_eval_block,
     singleton_eval_scope,
+    terminating_names,
+    termination_method,
 )
 from nur.core.providers._rake_raises import load_raise_error, record_catch
 from nur.core.providers._rake_runtime import (
@@ -650,7 +652,10 @@ def _deferred_call(owner: Node, method: Node, disabled: set[str]) -> bool:
     if singleton_eval_scope(owner, disabled) and name in SINGLETON_MUTATORS:
         return True
     if _dsl_receiver(owner):
-        return name in (_DEFERRED_METHODS | TERMINATING_METHODS) - disabled
+        return (
+            name in _DEFERRED_METHODS - disabled
+            or termination_method(name, disabled) is not None
+        )
     receiver = owner.child_by_field_name("receiver")
     if name in SINGLETON_MUTATORS and singleton_class_receiver(receiver, disabled):
         return True
@@ -707,7 +712,7 @@ def _load_time_error(root: Node) -> str | None:
     disabled: set[str] = set()
     deferred_calls: set[int] = set()
     catch_calls: set[int] = set()
-    bare_raises = unbound_identifier_ids(root, set(TERMINATING_METHODS))
+    bare_raises = unbound_identifier_ids(root, terminating_names(root))
     bare_constructors = unbound_identifier_ids(
         root, {"proc", "lambda", "define_method", "define_singleton_method"}
     )
