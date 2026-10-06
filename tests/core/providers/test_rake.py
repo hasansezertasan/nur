@@ -4388,3 +4388,52 @@ def test_rescued_load_errors_skip_other_handlers_and_else(expression, kind):
         "task :safe"
     )
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        "# frozen_string_literal: true\n",
+        "#!/usr/bin/env ruby\n# frozen_string_literal: true\n",
+    ],
+)
+def test_identical_frozen_string_catch_tags_match(header):
+    source = header + 'catch("stop") { throw "stop" }; task :safe'
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("header", ["", "# frozen_string_literal: false\n"])
+def test_mutable_string_catch_tags_do_not_match(header):
+    assert parse_rakefile(header + 'catch("stop") { throw "stop" }; task :safe') == []
+
+
+def test_undefined_terminating_alias_is_rescued_as_missing_method():
+    source = (
+        'alias stop raise; undef stop; begin; stop "x"; '
+        "rescue NoMethodError; end; task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_unrescued_undefined_terminating_alias_rejects_loading():
+    assert parse_rakefile('alias stop raise; undef stop; stop "x"; task :safe') == []
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        '# frozen_string_literal: true\ncatch("stop") { throw "other" }; task :safe',
+        '# frozen_string_literal: true\ncatch("stop") { throw "#{value}" }; task :safe',
+        (
+            "# ordinary comment\n# frozen_string_literal: true\n"
+            'catch("stop") { throw "stop" }; task :safe'
+        ),
+        (
+            "alias stop raise; undef stop; begin; stop; "
+            "rescue NoMethodError; end; task :safe"
+        ),
+    ],
+)
+def test_frozen_tag_and_undefined_alias_boundaries(source):
+    expected = ["safe"] if "undef stop" in source else []
+    assert [task.name for task in parse_rakefile(source)] == expected

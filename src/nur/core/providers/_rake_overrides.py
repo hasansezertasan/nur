@@ -283,7 +283,7 @@ def _record_undef(node: Node, disabled: set[str]) -> None:
             name = f"{prefix}.{name}"
         elif not (main_scope(node) or prefix == "Kernel"):
             continue
-        if name in {
+        if termination_method(name, disabled, lexical=True) is not None or name in {
             "proc",
             "lambda",
             "define_singleton_method",
@@ -293,6 +293,9 @@ def _record_undef(node: Node, disabled: set[str]) -> None:
             "Proc.new",
         }:
             disabled.update({name, f"undef:{name}"})
+            disabled.difference_update({
+                f"terminator:{name}:{kind}" for kind in TERMINATING_METHODS
+            })
 
 
 def _self_override(node: Node, name: str, disabled: set[str]) -> None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import struct
 from typing import TYPE_CHECKING
 
@@ -584,11 +585,27 @@ def _numeric_tag(node: Node) -> tuple[str, int] | None:
     return _float_tag(node) if floating else _integer_tag(node)
 
 
+def _frozen_strings(node: Node) -> bool:
+    while (parent := node.parent) is not None:
+        node = parent
+    lines = node_text(node).splitlines()
+    if lines and lines[0].startswith("#!"):
+        lines = lines[1:]
+    return bool(
+        lines
+        and lines[0].lstrip().startswith("#")
+        and re.search(r"\bfrozen_string_literal\s*:\s*true\b", lines[0])
+    )
+
+
 def _tag_identity(node: Node) -> tuple[str, str | int | None] | None:
     while node.type == "parenthesized_statements" and len(node.named_children) == 1:
         node = node.named_children[0]
     if node.type in {"nil", "true", "false"}:
         return (node.type, None)
+    if node.type == "string" and _frozen_strings(node):
+        value = literal(node)
+        return ("string", value) if value is not None else None
     if node.type in {"simple_symbol", "delimited_symbol"}:
         value = literal(node)
         return ("symbol", value) if value is not None else None
@@ -719,6 +736,13 @@ def load_raise_error(
         if receiver is None or is_self(receiver)
         else f"{receiver_name(receiver)}.{name}"
     )
+    if name and f"undef:{key}" in disabled:
+        return handled_load_error(
+            node,
+            "undefined terminating method during loading",
+            "NoMethodError",
+            raised_scopes,
+        )
     canonical = termination_method(key, disabled)
     if canonical is None:
         return None

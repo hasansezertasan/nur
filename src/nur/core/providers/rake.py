@@ -668,7 +668,10 @@ def _load_declaration_error(
         else name
     )
     if error := overridden_method_error(key, _call_arity(_arguments(node)), disabled):
-        return error
+        exception_kind = (
+            "NoMethodError" if f"undef:{key}" in disabled else "ArgumentError"
+        )
+        return handled_load_error(node, error, exception_kind, raised_scopes)
     if not _dsl_receiver(node) or name in disabled or not main_scope(node):
         return None
     arguments = _arguments(node)
