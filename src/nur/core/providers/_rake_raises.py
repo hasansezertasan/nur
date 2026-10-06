@@ -194,7 +194,9 @@ def _arguments(node: Node) -> list[Node]:
 
 def _raised_kind(node: Node) -> str:
     arguments = _arguments(node)
-    if not arguments or arguments[0].type == "string":
+    if not arguments:
+        return _active_exception(node)
+    if arguments[0].type == "string":
         return "RuntimeError"
     first = arguments[0]
     if first.type in {"constant", "scope_resolution"}:
@@ -207,9 +209,72 @@ def _raised_kind(node: Node) -> str:
         return receiver_name(first.child_by_field_name("receiver"))
     return (
         "TypeError"
-        if first.type in {"nil", "true", "false", "integer", "float", "array", "hash"}
+        if first.type
+        in {
+            "nil",
+            "true",
+            "false",
+            "integer",
+            "float",
+            "array",
+            "hash",
+            "simple_symbol",
+            "delimited_symbol",
+            "regex",
+            "range",
+            "lambda",
+        }
         else "Exception"
     )
+
+
+def _active_exception(node: Node) -> str:
+    parent = node.parent
+    while parent is not None:
+        if parent.type == "rescue":
+            return _rescued_kind(parent)
+        parent = parent.parent
+    return "RuntimeError"
+
+
+def _protected_exception(handler: Node) -> str | None:
+    if handler.parent is None:
+        return None
+    for child in handler.parent.named_children:
+        if child.type == "rescue":
+            break
+        method = child.child_by_field_name("method")
+        receiver = child.child_by_field_name("receiver")
+        if (
+            method is not None
+            and node_text(method) in TERMINATING_METHODS
+            and (
+                receiver is None
+                or is_self(receiver)
+                or receiver_name(receiver) == "Kernel"
+            )
+        ):
+            return _termination_kind(child, node_text(method))
+        if (
+            child.type not in {"comment", "nil", "true", "false", "integer", "float"}
+            and literal(child) is None
+        ):
+            break
+    return None
+
+
+def _rescued_kind(handler: Node) -> str:
+    if (kind := _protected_exception(handler)) is not None:
+        return kind
+    exceptions = handler.child_by_field_name("exceptions")
+    if exceptions is None:
+        return "StandardError"
+    names = [
+        receiver_name(child)
+        for child in exceptions.named_children
+        if child.type in {"constant", "scope_resolution"}
+    ]
+    return names[0] if len(names) == 1 else "Exception"
 
 
 def _exit_kind(node: Node, name: str) -> str:

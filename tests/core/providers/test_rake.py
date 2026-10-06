@@ -3836,3 +3836,57 @@ def test_nonraising_body_still_executes_ensure():
 def test_unknown_protected_body_keeps_rescue_handler_validation():
     source = 'begin; operation; rescue; raise "stop"; end; task :after'
     assert parse_rakefile(source) == []
+
+
+def test_bare_reraise_preserves_active_system_exit():
+    source = (
+        "begin; raise SystemExit.new(7); rescue Exception; "
+        "begin; raise; rescue RuntimeError; end; end; task :safe"
+    )
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize("value", [":oops", "/a/", "1..2", "-> {}", ':"oops"'])
+def test_nonexception_raise_literals_are_rescuable_type_errors(value):
+    source = f"begin; raise {value}; rescue TypeError; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        (
+            "begin; raise SystemExit.new(7); rescue Exception; "
+            "begin; raise; rescue SystemExit; end; end"
+        ),
+        (
+            "begin; raise TypeError; rescue StandardError; "
+            "begin; raise; rescue TypeError; end; end"
+        ),
+        'begin; raise "stop"; rescue; begin; raise; rescue RuntimeError; end; end',
+        (
+            "begin; operation; rescue TypeError; "
+            "begin; raise; rescue TypeError; end; end"
+        ),
+    ],
+)
+def test_bare_reraise_is_handled_by_the_active_exception_handler(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "begin; operation; rescue; begin; raise; rescue StandardError; end; end",
+        (
+            "begin; operation; rescue RuntimeError, SystemExit; "
+            "begin; raise; rescue Exception; end; end"
+        ),
+        (
+            "begin; nil; raise TypeError; rescue; "
+            "begin; raise(); rescue TypeError; end; end"
+        ),
+    ],
+)
+def test_reraise_uses_handler_bounds_when_original_error_is_unknown(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
