@@ -4178,3 +4178,61 @@ def test_redefined_raise_in_handler_does_not_make_else_reachable():
 )
 def test_reachable_else_and_ensure_calls_still_reject_loading(body):
     assert parse_rakefile("task :before; " + body + "; task :after") == []
+
+
+@pytest.mark.parametrize(
+    "constant",
+    [
+        "String",
+        "Array",
+        "Hash",
+        "Integer",
+        "Object",
+        "Kernel",
+        "::String",
+        "Process::Status",
+    ],
+)
+def test_known_nonexception_core_constants_raise_type_error(constant):
+    assert (
+        parse_rakefile(f"begin; raise {constant}; rescue {constant}; end; task :bad")
+        == []
+    )
+    source = f"begin; raise {constant}; rescue TypeError; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("method", ["exit", "exit!", "abort"])
+@pytest.mark.parametrize(
+    "constant", ["String", "Array", "RuntimeError", "Exception", "::String"]
+)
+def test_known_class_exit_arguments_are_type_errors(method, constant):
+    source = f"begin; {method} {constant}; rescue TypeError; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+    assert (
+        parse_rakefile(f"begin; {method} {constant}; rescue SystemExit; end; task :bad")
+        == []
+    )
+
+
+@pytest.mark.parametrize("tag", ["1.5", "0.0", "-1.5", "1.5e0", "1_000.5"])
+def test_matching_immediate_float_tags_keep_tasks(tag):
+    source = f"catch({tag}) {{ throw({tag}) }}; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("tag", ["-0.0", "1e100", "1e-100"])
+def test_heap_allocated_float_tags_do_not_match(tag):
+    assert parse_rakefile(f"catch({tag}) {{ throw({tag}) }}; task :after") == []
+
+
+@pytest.mark.parametrize(
+    ("tag", "equivalent"), [("1.5", "(1.5)"), ("1.5", "1.50e0"), ("1.5", "+1.5")]
+)
+def test_equivalent_immediate_float_tags_match(tag, equivalent):
+    source = f"catch({tag}) {{ throw({equivalent}) }}; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_distinct_unary_catch_tag_does_not_match_integer():
+    assert parse_rakefile("catch(1) { throw !false }; task :after") == []

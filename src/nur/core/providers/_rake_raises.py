@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import struct
 from typing import TYPE_CHECKING
 
 from nur.core.providers._rake_overrides import (
@@ -13,6 +14,101 @@ if TYPE_CHECKING:
     from tree_sitter import Node
 
 __all__ = ["handled_error", "inactive_else", "load_raise_error", "record_catch"]
+
+_CORE_NONEXCEPTIONS = {
+    "Array",
+    "BasicObject",
+    "Binding",
+    "Class",
+    "Comparable",
+    "Complex",
+    "Data",
+    "DidYouMean",
+    "Dir",
+    "Encoding",
+    "Encoding::Converter",
+    "Enumerable",
+    "Enumerator",
+    "Enumerator::ArithmeticSequence",
+    "Enumerator::Chain",
+    "Enumerator::Generator",
+    "Enumerator::Lazy",
+    "Enumerator::Producer",
+    "Enumerator::Product",
+    "Enumerator::Yielder",
+    "Errno",
+    "ErrorHighlight",
+    "FalseClass",
+    "Fiber",
+    "File",
+    "File::Constants",
+    "File::Stat",
+    "FileTest",
+    "Float",
+    "GC",
+    "GC::Profiler",
+    "Gem",
+    "Hash",
+    "IO",
+    "IO::Buffer",
+    "IO::WaitReadable",
+    "IO::WaitWritable",
+    "Integer",
+    "Kernel",
+    "Marshal",
+    "MatchData",
+    "Math",
+    "Method",
+    "Module",
+    "NilClass",
+    "Numeric",
+    "Object",
+    "ObjectSpace",
+    "ObjectSpace::WeakKeyMap",
+    "ObjectSpace::WeakMap",
+    "Proc",
+    "Process",
+    "Process::GID",
+    "Process::Status",
+    "Process::Sys",
+    "Process::Tms",
+    "Process::UID",
+    "Process::Waiter",
+    "Ractor",
+    "Ractor::MovedObject",
+    "Random",
+    "Random::Base",
+    "Random::Formatter",
+    "Range",
+    "Rational",
+    "Refinement",
+    "Regexp",
+    "RubyVM",
+    "RubyVM::AbstractSyntaxTree",
+    "RubyVM::AbstractSyntaxTree::Location",
+    "RubyVM::AbstractSyntaxTree::Node",
+    "RubyVM::InstructionSequence",
+    "RubyVM::RJIT",
+    "Signal",
+    "String",
+    "Struct",
+    "Symbol",
+    "SyntaxSuggest",
+    "Thread",
+    "Thread::Backtrace",
+    "Thread::Backtrace::Location",
+    "Thread::ConditionVariable",
+    "Thread::Mutex",
+    "Thread::Queue",
+    "Thread::SizedQueue",
+    "ThreadGroup",
+    "Time",
+    "TracePoint",
+    "TrueClass",
+    "UnboundMethod",
+    "UnicodeNormalize",
+    "Warning",
+}
 
 _ERROR_PARENTS = {
     "ArgumentError": "StandardError",
@@ -267,7 +363,8 @@ def _raised_kind(node: Node) -> str:
         return "RuntimeError" if len(arguments) == 1 else "TypeError"
     first = arguments[0]
     if first.type in {"constant", "scope_resolution"}:
-        return receiver_name(first)
+        kind = receiver_name(first)
+        return "TypeError" if kind in _CORE_NONEXCEPTIONS else kind
     if (
         first.type == "call"
         and (method := first.child_by_field_name("method")) is not None
@@ -351,7 +448,13 @@ def _exit_kind(node: Node, name: str) -> str:
     invalid.update(
         {"integer", "float", "true", "false"} if name == "abort" else {"string"}
     )
-    return "TypeError" if arguments[0].type in invalid else "SystemExit"
+    known_class = arguments[0].type in {
+        "constant",
+        "scope_resolution",
+    } and receiver_name(arguments[0]) in _CORE_NONEXCEPTIONS | _ERROR_PARENTS.keys() | {
+        "Exception"
+    }
+    return "TypeError" if arguments[0].type in invalid or known_class else "SystemExit"
 
 
 def _ancestors(kind: str) -> set[str]:
@@ -426,6 +529,25 @@ def _integer_tag(node: Node) -> tuple[str, int] | None:
     return ("integer", value) if -_FIXNUM_LIMIT <= value < _FIXNUM_LIMIT else None
 
 
+_FLONUM_EXCLUDED_BITS = 0x3000000000000000
+
+
+def _float_tag(node: Node) -> tuple[str, int] | None:
+    raw = node_text(node).replace("_", "").replace(" ", "")
+    try:
+        bits = struct.unpack(">Q", struct.pack(">d", float(raw)))[0]
+    except ValueError:
+        return None
+    immediate = bits == 0 or ((bits >> 60) & 7) in {3, 4}
+    return ("float", bits) if immediate and bits != _FLONUM_EXCLUDED_BITS else None
+
+
+def _numeric_tag(node: Node) -> tuple[str, int] | None:
+    operand = node.child_by_field_name("operand")
+    floating = node.type == "float" or (operand is not None and operand.type == "float")
+    return _float_tag(node) if floating else _integer_tag(node)
+
+
 def _tag_identity(node: Node) -> tuple[str, str | int | None] | None:
     while node.type == "parenthesized_statements" and len(node.named_children) == 1:
         node = node.named_children[0]
@@ -434,18 +556,18 @@ def _tag_identity(node: Node) -> tuple[str, str | int | None] | None:
     if node.type in {"simple_symbol", "delimited_symbol"}:
         value = literal(node)
         return ("symbol", value) if value is not None else None
-    if node.type == "integer":
-        return _integer_tag(node)
+    if node.type in {"integer", "float"}:
+        return _numeric_tag(node)
     if node.type == "unary":
         operand = node.child_by_field_name("operand")
         operator = node.child_by_field_name("operator")
         if (
             operand is not None
-            and operand.type == "integer"
+            and operand.type in {"integer", "float"}
             and operator is not None
             and operator.type in {"+", "-"}
         ):
-            return _integer_tag(node)
+            return _numeric_tag(node)
     return None
 
 
