@@ -406,12 +406,55 @@ def handled_error(node: Node, kind: str) -> bool:
 _THROW_MAX_ARGS = 2
 
 
+_FIXNUM_LIMIT = 1 << 62
+
+
+def _integer_tag(node: Node) -> tuple[str, int] | None:
+    raw = node_text(node).replace("_", "").replace(" ", "")
+    sign = -1 if raw.startswith("-") else 1
+    raw = raw.removeprefix("-").removeprefix("+").lower()
+    bases = {"0x": 16, "0b": 2, "0o": 8, "0d": 10}
+    if raw[:2] in bases:
+        base = bases[raw[:2]]
+        raw = raw[2:]
+    else:
+        base = 8 if raw.startswith("0") else 10
+    try:
+        value = sign * int(raw, base)
+    except ValueError:
+        return None
+    return ("integer", value) if -_FIXNUM_LIMIT <= value < _FIXNUM_LIMIT else None
+
+
+def _tag_identity(node: Node) -> tuple[str, str | int | None] | None:
+    while node.type == "parenthesized_statements" and len(node.named_children) == 1:
+        node = node.named_children[0]
+    if node.type in {"nil", "true", "false"}:
+        return (node.type, None)
+    if node.type in {"simple_symbol", "delimited_symbol"}:
+        value = literal(node)
+        return ("symbol", value) if value is not None else None
+    if node.type == "integer":
+        return _integer_tag(node)
+    if node.type == "unary":
+        operand = node.child_by_field_name("operand")
+        operator = node.child_by_field_name("operator")
+        if (
+            operand is not None
+            and operand.type == "integer"
+            and operator is not None
+            and operator.type in {"+", "-"}
+        ):
+            return _integer_tag(node)
+    return None
+
+
 def _caught_throw(node: Node, catch_calls: set[int]) -> bool:
     arguments = _arguments(node)
     if not arguments or len(arguments) > _THROW_MAX_ARGS:
         return False
     tag = arguments[0]
-    if tag.type not in {"simple_symbol", "delimited_symbol"}:
+    if _tag_identity(tag) is None:
         return False
     parent = node.parent
     while parent is not None:
@@ -442,8 +485,7 @@ def _catch_matches(owner: Node, tag: Node, catch_calls: set[int]) -> bool:
     return (
         owner.id in catch_calls
         and len(tags) == 1
-        and tags[0].type in {"simple_symbol", "delimited_symbol"}
-        and literal(tags[0]) == literal(tag)
+        and _tag_identity(tags[0]) == _tag_identity(tag)
     )
 
 

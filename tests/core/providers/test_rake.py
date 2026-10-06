@@ -4100,3 +4100,50 @@ def test_valid_rescued_overridden_or_deferred_visibility_keeps_tasks(body):
 def test_visibility_checks_every_literal_target():
     source = "def helper; end; task :before; private :helper, :task; task :after"
     assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize(
+    "tag",
+    [
+        "1",
+        "0",
+        "nil",
+        "true",
+        "false",
+        "-1",
+        "4611686018427387903",
+        "-4611686018427387904",
+    ],
+)
+def test_matching_immediate_catch_tags_keep_task_discovery(tag):
+    source = f"catch({tag}) {{ throw({tag}) }}; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    ("tag", "equivalent"),
+    [
+        ("1", "0x1"),
+        ("10", "012"),
+        ("10", "0d10"),
+        ("2", "0b10"),
+        ("8", "0o10"),
+        ("1000", "1_000"),
+    ],
+)
+def test_equivalent_integer_tag_spellings_match(tag, equivalent):
+    source = f"catch({tag}) {{ throw({equivalent}) }}; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "catch(1) { throw 2 }",
+        "catch(true) { throw 1 }",
+        'catch("same") { throw "same" }',
+        "catch(4611686018427387904) { throw 4611686018427387904 }",
+    ],
+)
+def test_distinct_or_heap_allocated_literal_tags_do_not_match(body):
+    assert parse_rakefile("task :before; " + body + "; task :after") == []
