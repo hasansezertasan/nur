@@ -8,7 +8,7 @@ from nur.core.providers._rake_syntax import is_self, literal, node_text
 if TYPE_CHECKING:
     from tree_sitter import Node
 
-__all__ = ["handled_error", "load_raise_error"]
+__all__ = ["handled_error", "load_raise_error", "record_catch"]
 
 _ERROR_PARENTS = {
     "ArgumentError": "StandardError",
@@ -291,7 +291,7 @@ def handled_error(node: Node, kind: str) -> bool:
 _THROW_MAX_ARGS = 2
 
 
-def _caught_throw(node: Node, disabled: set[str]) -> bool:
+def _caught_throw(node: Node, catch_calls: set[int]) -> bool:
     arguments = _arguments(node)
     if not arguments or len(arguments) > _THROW_MAX_ARGS:
         return False
@@ -302,25 +302,30 @@ def _caught_throw(node: Node, disabled: set[str]) -> bool:
     while parent is not None:
         if parent.type in {"block", "do_block"} and parent.parent is not None:
             owner = parent.parent
-            if _catch_matches(owner, tag, disabled):
+            if _catch_matches(owner, tag, catch_calls):
                 return True
         parent = parent.parent
     return False
 
 
-def _catch_matches(owner: Node, tag: Node, disabled: set[str]) -> bool:
-    method = owner.child_by_field_name("method")
+def record_catch(node: Node, disabled: set[str], catch_calls: set[int]) -> None:
+    method = node.child_by_field_name("method")
     if method is None or node_text(method) != "catch":
-        return False
-    receiver = owner.child_by_field_name("receiver")
+        return
+    receiver = node.child_by_field_name("receiver")
     key = (
         "catch"
         if receiver is None or is_self(receiver)
         else f"{receiver_name(receiver)}.catch"
     )
+    if key in {"catch", "Kernel.catch"} - disabled:
+        catch_calls.add(node.id)
+
+
+def _catch_matches(owner: Node, tag: Node, catch_calls: set[int]) -> bool:
     tags = _arguments(owner)
     return (
-        key in {"catch", "Kernel.catch"} - disabled
+        owner.id in catch_calls
         and len(tags) == 1
         and tags[0].type in {"simple_symbol", "delimited_symbol"}
         and literal(tags[0]) == literal(tag)
@@ -337,7 +342,7 @@ def _termination_kind(node: Node, name: str) -> str:
 
 
 def load_raise_error(
-    node: Node, disabled: set[str], bare_raises: set[int]
+    node: Node, disabled: set[str], bare_raises: set[int], catch_calls: set[int]
 ) -> str | None:
     method = node.child_by_field_name("method")
     name = (
@@ -360,7 +365,7 @@ def load_raise_error(
         return None
     exit_call = name in {"exit", "exit!", "abort"}
     kind = _termination_kind(node, name)
-    if name == "throw" and _caught_throw(node, disabled):
+    if name == "throw" and _caught_throw(node, catch_calls):
         return None
     if (name != "exit!" or kind != "SystemExit") and handled_error(node, kind):
         return None

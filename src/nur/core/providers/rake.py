@@ -26,7 +26,7 @@ from nur.core.providers._rake_overrides import (
     singleton_eval_block,
     singleton_eval_scope,
 )
-from nur.core.providers._rake_raises import load_raise_error
+from nur.core.providers._rake_raises import load_raise_error, record_catch
 from nur.core.providers._rake_runtime import (
     empty_for,
     empty_rescue,
@@ -706,6 +706,7 @@ def _load_declaration_error(node: Node, disabled: set[str]) -> str | None:
 def _load_time_error(root: Node) -> str | None:
     disabled: set[str] = set()
     deferred_calls: set[int] = set()
+    catch_calls: set[int] = set()
     bare_raises = unbound_identifier_ids(root, set(TERMINATING_METHODS))
     bare_constructors = unbound_identifier_ids(
         root, {"proc", "lambda", "define_method", "define_singleton_method"}
@@ -742,12 +743,13 @@ def _load_time_error(root: Node) -> str | None:
             if error is not None:
                 return error
             deferred_calls.add(node.id)
+        record_catch(node, disabled, catch_calls)
         record_override(node, disabled)
         error = (
             mutation_error(node, disabled)
             or _load_declaration_error(node, disabled)
             or load_assignment_error(node)
-            or load_raise_error(node, disabled, bare_raises)
+            or load_raise_error(node, disabled, bare_raises, catch_calls)
         )
         if error is not None:
             return error

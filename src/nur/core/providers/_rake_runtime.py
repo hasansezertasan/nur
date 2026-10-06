@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from nur.core.providers._rake_raises import handled_error
-from nur.core.providers._rake_syntax import node_text
+from nur.core.providers._rake_syntax import literal, node_text
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -92,7 +92,12 @@ def empty_rescue(node: Node) -> bool:
     for child in node.parent.named_children:
         if child == node:
             return True
-        if child.type != "comment":
+        if child.type == "rescue":
+            return True
+        if (
+            child.type not in {"comment", "nil", "true", "false", "integer", "float"}
+            and literal(child) is None
+        ):
             return False
     return False
 

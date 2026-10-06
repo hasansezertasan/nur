@@ -3797,3 +3797,42 @@ def test_throw_arguments_and_qualified_catch_keep_valid_tasks(body):
 )
 def test_nonmatching_or_overridden_catch_cannot_handle_throw(body):
     assert parse_rakefile("task :before; " + body + "; task :after") == []
+
+
+@pytest.mark.parametrize(
+    "value", ["nil", "true", "false", "1", "1.0", ":safe", "'safe'"]
+)
+def test_nonraising_literal_body_skips_rescue_handler(value):
+    source = f'begin; {value}; rescue; raise "never"; end; task :safe'
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "catch(:stop) { def catch(*); end; throw :stop }; task :safe",
+        "Kernel.catch(:stop) { def Kernel.catch(*); end; throw :stop }; task :safe",
+        "catch(:stop) { def self.catch(*); end; Kernel.throw(:stop) }; task :safe",
+    ],
+)
+def test_catch_binding_survives_redefinition_inside_its_block(source):
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_nonraising_body_skips_each_rescue_handler():
+    source = (
+        'begin; nil; rescue NameError; raise "never"; '
+        "rescue StandardError; exit!; end; task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_nonraising_body_still_executes_ensure():
+    assert (
+        parse_rakefile("begin; nil; rescue; nil; ensure; exit!; end; task :after") == []
+    )
+
+
+def test_unknown_protected_body_keeps_rescue_handler_validation():
+    source = 'begin; operation; rescue; raise "stop"; end; task :after'
+    assert parse_rakefile(source) == []
