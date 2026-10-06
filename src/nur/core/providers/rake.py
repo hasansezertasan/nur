@@ -585,21 +585,14 @@ def _reachable_children(node: Node) -> list[Node]:
 
 def _conditional_children(node: Node) -> list[Node]:
     condition = node.child_by_field_name("condition")
-    while condition is not None and condition.type == "parenthesized_statements":
-        children = [
-            child for child in condition.named_children if child.type != "comment"
-        ]
-        if len(children) != 1:
-            break
-        condition = children[0]
-    if condition is None or condition.type not in {"true", "false", "nil"}:
+    truth = _literal_truth(condition)
+    if truth is None or condition is None:
         return node.named_children
-    truth = condition.type == "true"
     if node.type in {"unless", "unless_modifier", "until", "until_modifier"}:
         truth = not truth
     if node.type in {"if", "unless", "elsif", "conditional"}:
         branch = node.child_by_field_name("consequence" if truth else "alternative")
-        return [branch] if branch is not None else []
+        return [condition, branch] if branch is not None else [condition]
     if not truth and node.type in {
         "if_modifier",
         "unless_modifier",
@@ -616,7 +609,7 @@ def _conditional_children(node: Node) -> list[Node]:
             and body.type in {"begin_block", "begin"}
         ):
             return node.named_children
-        return []
+        return [condition]
     return node.named_children
 
 

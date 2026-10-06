@@ -394,8 +394,18 @@ def _raised_kind(node: Node) -> str:
         and (method := first.child_by_field_name("method")) is not None
         and node_text(method) == "new"
     ):
-        return receiver_name(first.child_by_field_name("receiver"))
+        return _constructed_raise_kind(first, len(arguments))
     return "TypeError" if first.type in _NON_EXCEPTION_LITERALS else "Exception"
+
+
+def _constructed_raise_kind(node: Node, arity: int) -> str:
+    name = receiver_name(node.child_by_field_name("receiver"))
+    values = _arguments(node)
+    if name == "String" and (
+        not values or (len(values) == 1 and values[0].type == "string")
+    ):
+        return "RuntimeError" if arity == 1 else "TypeError"
+    return name
 
 
 def _constant_raise_kind(node: Node, arity: int) -> str:

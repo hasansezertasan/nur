@@ -164,6 +164,7 @@ def _constrained_assignment_error(node: Node) -> str | None:
         (name in {"$0", "$PROGRAM_NAME"} and kind != "string")
         or name in {"$stdout", "$stderr", "$>"}
         or (name == "$~" and kind != "nil")
+        or (name == "$;" and kind not in {"nil", "string", "regex"})
         or (name in {"$/", "$-0", "$,", "$\\", "$-F"} and kind not in {"nil", "string"})
     )
     return (

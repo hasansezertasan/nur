@@ -4467,3 +4467,31 @@ def test_other_singleton_class_alias_does_not_terminate_main():
         'def stop(*); end; stop "boom"; task :safe'
     )
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("value", ["1", "false", "[]", "{}", ":invalid"])
+def test_invalid_field_separator_rejects_loading(value):
+    assert parse_rakefile(f"task :before; $; = {value}; task :after") == []
+
+
+@pytest.mark.parametrize("value", ["nil", '","', "/,/"])
+def test_valid_field_separator_keeps_tasks(value):
+    assert [task.name for task in parse_rakefile(f"$; = {value}; task :safe")] == [
+        "safe"
+    ]
+
+
+@pytest.mark.parametrize("value", ["String.new", 'String.new("message")'])
+def test_raised_constructed_string_is_rescued_as_runtime_error(value):
+    source = f"begin; raise {value}; rescue RuntimeError; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("value", ["0", "1.0", '""', ":symbol", "[]", "{}", "/x/"])
+def test_truthy_literal_skips_unless_raise(value):
+    source = f'raise "never" unless {value}; task :safe'
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_truthy_condition_still_validates_its_evaluation():
+    assert parse_rakefile('raise "never" unless [raise "executed"]; task :safe') == []
