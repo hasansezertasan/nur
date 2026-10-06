@@ -329,7 +329,28 @@ def record_override(node: Node, disabled: set[str]) -> None:
         _ordinary_override(node, disabled)
     if node.type == "undef":
         _record_undef(node, disabled)
+    _record_visibility(node, disabled)
     _dynamic_override(node, disabled)
+
+
+def _record_visibility(node: Node, disabled: set[str]) -> None:
+    method = node.child_by_field_name("method")
+    if (
+        method is None
+        or node_text(method) not in {"private", "public", "protected"} - disabled
+    ):
+        return
+    receiver = node.child_by_field_name("receiver")
+    if not main_scope(node) or (receiver is not None and not is_self(receiver)):
+        return
+    arguments = node.child_by_field_name("arguments")
+    if arguments is None:
+        return
+    for argument in arguments.named_children:
+        name = literal(argument)
+        if name in RAKE_METHODS and f"lexical:{name}" not in disabled:
+            disabled.add("invalid:visibility")
+            return
 
 
 def singleton_class_receiver(node: Node | None, disabled: set[str]) -> bool:

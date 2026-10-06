@@ -163,6 +163,9 @@ def _constrained_assignment_error(node: Node) -> str | None:
 
 def mutation_error(node: Node, disabled: set[str]) -> str | None:
     messages = {
+        "invalid:visibility": (
+            "visibility change to singleton-only Rake method during loading"
+        ),
         "invalid:remove_method": (
             "invalid removal of inherited Rake DSL method during loading"
         ),

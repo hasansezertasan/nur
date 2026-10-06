@@ -4071,3 +4071,32 @@ def test_overridden_deferred_or_handled_process_exit_keeps_tasks(body):
 def test_namespace_executes_qualified_and_parenthesized_inline_callbacks(callback):
     source = f"task :before; namespace(:db, &{callback}); task :after"
     assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize("visibility", ["private", "public", "protected"])
+@pytest.mark.parametrize("name", [":task", ':"namespace"', '"desc"'])
+def test_visibility_cannot_target_singleton_only_rake_dsl(visibility, name):
+    source = f"task :before; {visibility} {name}; task :after"
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "begin; private :task; rescue NameError; end",
+        "def task(*); end; private :task",
+        "def self.private(*); end; private :task",
+        "def self.public(*); end; public :task",
+        "private; public",
+        "if false; protected :task; end",
+        "task :safe do; private :task; end",
+        "def helper; end; private :helper",
+    ],
+)
+def test_valid_rescued_overridden_or_deferred_visibility_keeps_tasks(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+def test_visibility_checks_every_literal_target():
+    source = "def helper; end; task :before; private :helper, :task; task :after"
+    assert parse_rakefile(source) == []
