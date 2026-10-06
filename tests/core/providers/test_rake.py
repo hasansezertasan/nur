@@ -4332,3 +4332,35 @@ def test_known_constrained_global_error_skips_nonmatching_handler():
 def test_rescued_invalid_dsl_call_skips_else():
     source = "begin; desc(); rescue ArgumentError; nil; else; exit!; end; task :safe"
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("control", ["return", "begin; return; end", "return if true"])
+def test_load_validation_stops_after_file_return(control):
+    source = f'task :safe; {control}; raise "unreachable"'
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_file_return_still_validates_ensure():
+    source = 'task :safe; begin; return; ensure; raise "executed"; end'
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize("target", ["$stdout", "$stderr", "$>", "$0", "$PROGRAM_NAME"])
+def test_guaranteed_compound_constrained_global_write_rejects_loading(target):
+    assert parse_rakefile(f"task :before; {target} &&= nil; task :after") == []
+
+
+@pytest.mark.parametrize("target", ["$stdout", "$stderr", "$>", "$0", "$PROGRAM_NAME"])
+def test_skipped_compound_constrained_global_write_keeps_tasks(target):
+    source = f"{target} ||= nil; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_rescued_compound_constrained_global_write_keeps_tasks():
+    source = "begin; $stdout &&= nil; rescue TypeError; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_return_inside_ensure_does_not_reexecute_ensure():
+    source = 'task :safe; begin; nil; ensure; return; raise "unreachable"; end'
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]

@@ -17,6 +17,7 @@ from nur.core.providers._rake_callbacks import (
     invalid_namespace_lambda_parameters,
     load_time_children as _load_time_children,
     namespace_callbacks,
+    return_path,
 )
 from nur.core.providers._rake_overrides import (
     DEFERRED_METHODS as _DEFERRED_METHODS,
@@ -740,6 +741,9 @@ def _load_time_error(root: Node) -> str | None:
             child.type == "interpolation" for child in node.named_children
         ):
             return "unsupported interpolated regexp during loading"
+        if (children := return_path(node)) is not None:
+            pending = [iter(children)]
+            continue
         pending.append(
             iter(
                 _load_time_children(

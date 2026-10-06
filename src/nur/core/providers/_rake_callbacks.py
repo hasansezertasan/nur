@@ -20,6 +20,7 @@ __all__ = [
     "invalid_namespace_lambda_parameters",
     "load_time_children",
     "namespace_callbacks",
+    "return_path",
 ]
 
 _METHOD_BODY_ARITY = 2
@@ -302,3 +303,20 @@ def declaration_exception(
         if invalid_name or arity not in {0, 1, None} or block
         else "LocalJumpError"
     )
+
+
+def return_path(node: Node) -> list[Node] | None:
+    if node.type != "return":
+        return None
+    children = list(node.named_children)
+    child, parent = node, node.parent
+    while parent is not None:
+        if parent.type in {"lambda", "method", "singleton_method"}:
+            return None
+        children.extend(
+            handler
+            for handler in parent.named_children
+            if handler.type == "ensure" and handler != child
+        )
+        child, parent = parent, parent.parent
+    return children

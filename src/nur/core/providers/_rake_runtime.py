@@ -141,10 +141,22 @@ def _value_kind(node: Node | None) -> str | None:
 
 
 def _constrained_assignment_error(node: Node) -> str | None:
-    target = node.child_by_field_name("left") if node.type == "assignment" else None
+    target = (
+        node.child_by_field_name("left")
+        if node.type in {"assignment", "operator_assignment"}
+        else None
+    )
     if target is None or target.type != "global_variable":
         return None
     name = node_text(target)
+    if node.type == "operator_assignment":
+        operator = node.child_by_field_name("operator")
+        if (
+            operator is None
+            or node_text(operator) != "&&="
+            or name not in {"$stdout", "$stderr", "$>", "$0", "$PROGRAM_NAME"}
+        ):
+            return None
     kind = _value_kind(node.child_by_field_name("right"))
     if kind is None:
         return None
