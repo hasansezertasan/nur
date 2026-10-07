@@ -732,8 +732,37 @@ def inactive_handler(node: Node, raised_scopes: dict[int, str | None]) -> bool:
 def _record_scope_error(
     node: Node, kind: str | None, scopes: dict[int, str | None]
 ) -> None:
-    if node.parent is not None and node.parent.type in {"begin", "body_statement"}:
-        scopes.setdefault(node.parent.id, kind)
+    parent = node.parent
+    skipped_scope = None
+    while parent is not None:
+        condition = parent.child_by_field_name("condition")
+        if condition is not None and condition.type not in {
+            "true",
+            "false",
+            "nil",
+            "integer",
+            "float",
+            "string",
+            "simple_symbol",
+            "delimited_symbol",
+            "array",
+            "hash",
+            "regex",
+        }:
+            return
+        if parent.type in {"rescue", "else", "ensure"}:
+            skipped_scope = parent.parent
+        if parent.type in {"begin", "body_statement"} and parent != skipped_scope:
+            handlers = [
+                child for child in parent.named_children if child.type == "rescue"
+            ]
+            if handlers:
+                scopes.setdefault(parent.id, kind)
+                if kind is None or any(
+                    _rescue_matches(handler, kind) for handler in handlers
+                ):
+                    return
+        parent = parent.parent
 
 
 def handled_load_error(

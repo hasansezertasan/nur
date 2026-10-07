@@ -859,6 +859,16 @@ def _in_initializer(node: Node) -> bool:
     return parent is not None and parent.type == "begin_block"
 
 
+def _opaque_namespace(node: Node, namespace: str, disabled: set[str]) -> bool:
+    method = node.child_by_field_name("method")
+    if method is None or node_text(method) != "namespace" or not _dsl_receiver(node):
+        return False
+    return (
+        "namespace" not in disabled
+        and _namespace_body(node, _arguments(node), namespace) is None
+    )
+
+
 def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
     # Rake's pending description is global, including across namespaces.
     # An explicit stack avoids Python recursion on deeply nested namespaces.
@@ -875,6 +885,7 @@ def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
             _reachable_children,
             include_begin=_in_initializer(node),
             disabled=disabled,
+            include_namespace=_opaque_namespace(node, namespace, disabled),
         )
         if control in {"return", "redo"}:
             return

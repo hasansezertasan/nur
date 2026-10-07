@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from nur.core.providers._rake_callbacks import executing_catch_block
+from nur.core.providers._rake_callbacks import executing_scope_block
 from nur.core.providers._rake_syntax import defined_probe, literal, node_text
 
 if TYPE_CHECKING:
@@ -19,6 +19,7 @@ def escaping_control(
     *,
     include_begin: bool = False,
     disabled: set[str] | None = None,
+    include_namespace: bool = False,
 ) -> str | None:
     """Find controls evaluated in this scope, leaving deferred bodies opaque."""
     pending = [(root, False)]
@@ -35,9 +36,11 @@ def escaping_control(
             if node.type == "redo":
                 return "redo"
             local_control = node.type
-        catch_block = executing_catch_block(node, disabled_methods)
+        executing_block = executing_scope_block(
+            node, disabled_methods, include_namespace=include_namespace
+        )
         if node.type in {"method", "lambda", "end_block"} or (
-            node.type in {"block", "do_block"} and not catch_block
+            node.type in {"block", "do_block"} and not executing_block
         ):
             continue
         if node.type == "singleton_method":
@@ -52,7 +55,8 @@ def escaping_control(
                 or child != body
             ]
         pending.extend(
-            (child, in_loop or node.type in loops or catch_block) for child in children
+            (child, in_loop or node.type in loops or executing_block)
+            for child in children
         )
     return local_control
 

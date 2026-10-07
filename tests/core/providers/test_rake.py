@@ -4227,6 +4227,28 @@ def test_constructed_core_nonexceptions_raise_type_error(value):
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
 
 
+@pytest.mark.parametrize("wrapper", ["if true; {body}; end", "begin; {body}; end"])
+def test_nested_handled_exception_skips_enclosing_rescue_else(wrapper):
+    body = wrapper.format(body='raise "handled"')
+    source = (
+        f'begin; {body}; rescue RuntimeError; nil; else; raise "never"; end; task :safe'
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_inner_handled_exception_does_not_skip_outer_else():
+    source = (
+        'begin; begin; raise "handled"; rescue RuntimeError; end; '
+        'rescue; nil; else; raise "reachable"; end; task :after'
+    )
+    assert parse_rakefile(source) == []
+
+
+def test_opaque_namespace_return_stops_later_declarations():
+    source = "name = :x; task :before; namespace(name) { return }; task :after"
+    assert [task.name for task in parse_rakefile(source)] == ["before"]
+
+
 @pytest.mark.parametrize(
     "body",
     [

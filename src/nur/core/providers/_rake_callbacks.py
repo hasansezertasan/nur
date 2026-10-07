@@ -19,7 +19,7 @@ __all__ = [
     "declaration_exception",
     "dsl_receiver",
     "executing_callbacks",
-    "executing_catch_block",
+    "executing_scope_block",
     "invalid_block_arguments",
     "invalid_namespace_lambda_parameters",
     "load_time_children",
@@ -201,16 +201,25 @@ def executing_callbacks(node: Node, disabled: set[str]) -> set[int]:
     }
 
 
-def executing_catch_block(node: Node, disabled: set[str]) -> bool:
+def executing_scope_block(
+    node: Node, disabled: set[str], *, include_namespace: bool = False
+) -> bool:
     owner = node.parent
     if node.type not in {"block", "do_block"} or owner is None:
         return False
     method = owner.child_by_field_name("method")
-    if method is None or node_text(method) != "catch":
+    names = {"catch", "namespace"} if include_namespace else {"catch"}
+    if method is None or node_text(method) not in names:
         return False
     receiver = owner.child_by_field_name("receiver")
-    key = "catch" if dsl_receiver(owner) else f"{receiver_name(receiver)}.catch"
-    return key in {"catch", "Kernel.catch"} - disabled
+    name = node_text(method)
+    key = name if dsl_receiver(owner) else f"{receiver_name(receiver)}.{name}"
+    canonical = (
+        {"catch", "Kernel.catch", "namespace"}
+        if include_namespace
+        else {"catch", "Kernel.catch"}
+    )
+    return key in canonical - disabled
 
 
 def _inline_callback_ids(callback: Node, disabled: set[str]) -> set[int]:
