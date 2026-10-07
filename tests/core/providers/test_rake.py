@@ -4142,6 +4142,7 @@ def test_truthy_literal_begin_unless_guard_skips_initializer_tasks(guard):
         "def self.task; end",
         "def self.task(first, second); end",
         "define_singleton_method(:task) {}",
+        "define_singleton_method(:task) { _2 }",
         "begin; define_singleton_method(:task, 1); rescue TypeError; end",
         "begin; define_singleton_method(:task); rescue ArgumentError; end",
         (
@@ -4164,6 +4165,8 @@ def test_unrelated_scope_providers_do_not_supply_rake_dsl(provider):
         "def self.task(name); end",
         "def self.task(name = nil); end",
         "define_singleton_method(:task) { |name| }",
+        "define_singleton_method(:task) { _1 }",
+        "define_singleton_method(:task) { |name; local| }",
     ],
 )
 def test_proven_scope_providers_keep_outer_tasks(provider):

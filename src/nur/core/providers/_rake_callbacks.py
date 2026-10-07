@@ -20,6 +20,7 @@ __all__ = [
     "dsl_receiver",
     "executing_callbacks",
     "executing_scope_block",
+    "implicit_parameter_arity",
     "invalid_block_arguments",
     "invalid_namespace_lambda_parameters",
     "load_time_children",
@@ -52,17 +53,24 @@ def _callback_nodes(root: Node) -> Iterator[Node]:
             pending.extend(node.named_children)
 
 
+def implicit_parameter_arity(callback: Node) -> int:
+    return max(
+        (
+            int(name[1]) if name.startswith("_") else 1
+            for child in _callback_nodes(callback)
+            if child.type == "identifier"
+            and (name := node_text(child))
+            in {"it", "_1", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9"}
+        ),
+        default=0,
+    )
+
+
 def invalid_namespace_lambda_parameters(callback: Node) -> bool:
     parameters = callback.child_by_field_name("parameters")
     if parameters is None:
         # Implicit numbered/it parameters may establish an arity dynamically.
-        arities = [
-            int(name[1]) if name.startswith("_") else 1
-            for child in _callback_nodes(callback)
-            if (name := node_text(child))
-            in {"it", "_1", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9"}
-        ]
-        return not arities or max(arities) > 1
+        return implicit_parameter_arity(callback) != 1
     required = 0
     maximum = 0
     rest = False

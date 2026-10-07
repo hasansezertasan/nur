@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from nur.core.providers._rake_callbacks import implicit_parameter_arity
 from nur.core.providers._rake_syntax import literal, node_text
 
 if TYPE_CHECKING:
@@ -10,7 +11,7 @@ if TYPE_CHECKING:
 __all__ = ["provider_call_error"]
 
 
-def _provider_parameters(provider: Node) -> list[Node] | None:
+def _provider_parameters(provider: Node) -> tuple[list[Node], int] | None:
     definition = provider
     if provider.type == "call":
         method = provider.child_by_field_name("method")
@@ -21,13 +22,28 @@ def _provider_parameters(provider: Node) -> list[Node] | None:
             return None
         definition = block
     parameters = definition.child_by_field_name("parameters")
-    return parameters.named_children if parameters is not None else []
+    if parameters is None:
+        implicit = (
+            implicit_parameter_arity(definition)
+            if definition.type in {"block", "do_block"}
+            else 0
+        )
+        return [], implicit
+    return (
+        [
+            child
+            for index, child in enumerate(parameters.children)
+            if child.is_named and parameters.field_name_for_child(index) != "locals"
+        ],
+        0,
+    )
 
 
 def provider_call_error(provider: Node, call: Node) -> tuple[str, str] | None:
-    declared = _provider_parameters(provider)
-    if declared is None:
+    signature = _provider_parameters(provider)
+    if signature is None:
         return None
+    declared, implicit = signature
     arguments = call.child_by_field_name("arguments")
     supplied = arguments.named_children if arguments is not None else []
     if any(
@@ -35,15 +51,12 @@ def provider_call_error(provider: Node, call: Node) -> tuple[str, str] | None:
         for child in supplied
     ):
         return None
-    positional = [
-        child
-        for child in supplied
-        if child.type not in {"comment", "pair", "block_argument"}
-    ]
     pairs = [child for child in supplied if child.type == "pair"]
     keywords = [child for child in declared if child.type == "keyword_parameter"]
     keyword_rest = any(child.type == "hash_splat_parameter" for child in declared)
-    count = len(positional) + bool(pairs and not (keywords or keyword_rest))
+    count = sum(
+        child.type not in {"comment", "pair", "block_argument"} for child in supplied
+    ) + bool(pairs and not (keywords or keyword_rest))
     bindings = [
         child
         for child in declared
@@ -56,7 +69,9 @@ def provider_call_error(provider: Node, call: Node) -> tuple[str, str] | None:
             "splat_parameter",
         }
     ]
-    required = sum(child.type != "optional_parameter" for child in bindings)
+    required = max(
+        sum(child.type != "optional_parameter" for child in bindings), implicit
+    )
     rest = any(child.type == "splat_parameter" for child in declared)
     names = {
         literal(key)
@@ -69,7 +84,11 @@ def provider_call_error(provider: Node, call: Node) -> tuple[str, str] | None:
         and node_text(name) not in names
         for child in keywords
     )
-    if count < required or (not rest and count > len(bindings)) or missing_keyword:
+    if (
+        count < required
+        or (not rest and count > max(len(bindings), implicit))
+        or missing_keyword
+    ):
         return (
             "incompatible scoped Rake method arguments during loading",
             "ArgumentError",
