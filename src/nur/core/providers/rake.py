@@ -855,7 +855,7 @@ def _begin_statements(root: Node, disabled: set[str]) -> Iterator[Node]:
                     if child.type != "comment"
                 ]
                 condition = children[0] if len(children) == 1 else None
-            if condition is not None and condition.type in {"true", "false", "nil"}:
+            if _literal_truth(condition) is not None:
                 pending.extend(
                     (child, False) for child in reversed(_reachable_children(node))
                 )

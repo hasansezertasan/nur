@@ -4115,6 +4115,18 @@ def test_selectorless_case_visits_only_matching_literal_arm(body):
     assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
 
 
+@pytest.mark.parametrize("guard", ["1", "0", "1.5", '"yes"', ":yes", "[]", "{}", "/x/"])
+def test_truthy_literal_begin_guard_discovers_initializer_tasks(guard):
+    source = f"BEGIN {{ task :bootstrap }} if {guard}; task :ordinary"
+    assert [task.name for task in parse_rakefile(source)] == ["bootstrap", "ordinary"]
+
+
+@pytest.mark.parametrize("guard", ["1", "0", '"yes"', ":yes", "[]", "{}", "/x/"])
+def test_truthy_literal_begin_unless_guard_skips_initializer_tasks(guard):
+    source = f"BEGIN {{ task :bootstrap }} unless {guard}; task :ordinary"
+    assert [task.name for task in parse_rakefile(source)] == ["ordinary"]
+
+
 @pytest.mark.parametrize(
     "provider",
     [
