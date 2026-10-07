@@ -2,14 +2,59 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from nur.core.providers._rake_syntax import literal, node_text
+from nur.core.providers._rake_callbacks import executing_catch_block
+from nur.core.providers._rake_syntax import defined_probe, literal, node_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from tree_sitter import Node
 
-__all__ = ["case_children", "endless_loop_error"]
+__all__ = ["case_children", "endless_loop_error", "escaping_control"]
+
+
+def escaping_control(
+    root: Node,
+    reachable_children: Callable[[Node], list[Node]],
+    *,
+    include_begin: bool = False,
+    disabled: set[str] | None = None,
+) -> str | None:
+    """Find controls evaluated in this scope, leaving deferred bodies opaque."""
+    pending = [(root, False)]
+    loops = {"while", "until", "for", "while_modifier", "until_modifier"}
+    local_control = None
+    disabled_methods = disabled or set()
+    while pending:
+        node, in_loop = pending.pop()
+        if defined_probe(node) or (node.type == "begin_block" and not include_begin):
+            continue
+        if node.type == "return":
+            return "return"
+        if node.type in {"break", "next", "redo"} and not in_loop:
+            if node.type == "redo":
+                return "redo"
+            local_control = node.type
+        catch_block = executing_catch_block(node, disabled_methods)
+        if node.type in {"method", "lambda", "end_block"} or (
+            node.type in {"block", "do_block"} and not catch_block
+        ):
+            continue
+        if node.type == "singleton_method":
+            receiver = node.child_by_field_name("object")
+            children = [receiver] if receiver is not None else []
+        else:
+            body = node.child_by_field_name("body")
+            children = [
+                child
+                for child in reachable_children(node)
+                if node.type not in {"class", "module", "singleton_class"}
+                or child != body
+            ]
+        pending.extend(
+            (child, in_loop or node.type in loops or catch_block) for child in children
+        )
+    return local_control
 
 
 def _case_value(node: Node | None) -> tuple[str, object] | None:

@@ -426,6 +426,8 @@ def _constructed_raise_kind(node: Node, arity: int) -> str:
         not values or (len(values) == 1 and values[0].type == "string")
     ):
         return "RuntimeError" if arity == 1 else "TypeError"
+    if name in _CORE_NONEXCEPTIONS:
+        return "TypeError"
     return name
 
 

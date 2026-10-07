@@ -21,7 +21,11 @@ from nur.core.providers._rake_callbacks import (
     load_time_children as _load_time_children,
     return_path,
 )
-from nur.core.providers._rake_control import case_children, endless_loop_error
+from nur.core.providers._rake_control import (
+    case_children,
+    endless_loop_error,
+    escaping_control,
+)
 from nur.core.providers._rake_descriptions import (
     description_node,
     description_summary,
@@ -482,38 +486,6 @@ def _make_task(
     )
 
 
-def _escaping_control(root: Node, *, include_begin: bool = False) -> str | None:
-    """Find controls evaluated in this scope, leaving nested bodies opaque."""
-    pending = [(root, False)]
-    loops = {"while", "until", "for", "while_modifier", "until_modifier"}
-    local_control = None
-    while pending:
-        node, in_loop = pending.pop()
-        if defined_probe(node) or (node.type == "begin_block" and not include_begin):
-            continue
-        if node.type == "return":
-            return "return"
-        if node.type in {"break", "next", "redo"} and not in_loop:
-            if node.type == "redo":
-                return "redo"
-            local_control = node.type
-        if node.type in {"method", "block", "do_block", "lambda", "end_block"}:
-            continue
-        if node.type == "singleton_method":
-            receiver = node.child_by_field_name("object")
-            children = [receiver] if receiver is not None else []
-        else:
-            body = node.child_by_field_name("body")
-            children = [
-                child
-                for child in _reachable_children(node)
-                if node.type not in {"class", "module", "singleton_class"}
-                or child != body
-            ]
-        pending.extend((child, in_loop or node.type in loops) for child in children)
-    return local_control
-
-
 def _literal_truth(node: Node | None) -> bool | None:
     while node is not None and node.type == "parenthesized_statements":
         children = [child for child in node.named_children if child.type != "comment"]
@@ -804,7 +776,10 @@ def _begin_exits(root: Node) -> bool:
                 initializer.parent is not None and initializer.parent.type in modifiers
             ):
                 initializer = initializer.parent
-            if _escaping_control(initializer, include_begin=True) == "return":
+            if (
+                escaping_control(initializer, _reachable_children, include_begin=True)
+                == "return"
+            ):
                 return True
         pending.extend(_reachable_children(node))
     return False
@@ -895,7 +870,12 @@ def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
         node = next(statements, None)
         if node is None:
             continue
-        control = _escaping_control(node, include_begin=_in_initializer(node))
+        control = escaping_control(
+            node,
+            _reachable_children,
+            include_begin=_in_initializer(node),
+            disabled=disabled,
+        )
         if control in {"return", "redo"}:
             return
         if control in {"break", "next"}:

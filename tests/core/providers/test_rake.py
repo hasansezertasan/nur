@@ -4204,6 +4204,29 @@ def test_platform_errno_classes_preserve_system_call_error_parent(exception):
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
 
 
+@pytest.mark.parametrize("receiver", ["catch", "self.catch", "Kernel.catch"])
+def test_executing_catch_return_stops_later_declarations(receiver):
+    source = f"task :before; {receiver}(:x) {{ return }}; task :after"
+    assert [task.name for task in parse_rakefile(source)] == ["before"]
+
+
+@pytest.mark.parametrize("control", ["next", "break"])
+def test_catch_local_controls_preserve_later_declarations(control):
+    source = f"catch(:x) {{ {control} }}; task :after"
+    assert [task.name for task in parse_rakefile(source)] == ["after"]
+
+
+def test_overridden_catch_does_not_execute_stored_block_return():
+    source = "def self.catch(*); end; catch(:x) { return }; task :after"
+    assert [task.name for task in parse_rakefile(source)] == ["after"]
+
+
+@pytest.mark.parametrize("value", ["Array.new", "Hash.new", "Object.new"])
+def test_constructed_core_nonexceptions_raise_type_error(value):
+    source = f"begin; raise {value}; rescue TypeError; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
 @pytest.mark.parametrize(
     "body",
     [
