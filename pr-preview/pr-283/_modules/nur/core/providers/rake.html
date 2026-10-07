@@ -769,356 +769,357 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="642">                <span class="n">name</span><span class="p">,</span>
 </span><span data-line="643">                <span class="n">_reachable_children</span><span class="p">,</span>
 </span><span data-line="644">                <span class="k">lambda</span> <span class="n">candidate</span><span class="p">:</span> <span class="n">_constructor_error</span><span class="p">(</span><span class="n">candidate</span><span class="p">,</span> <span class="n">disabled</span><span class="p">),</span>
-</span><span data-line="645">            <span class="p">)</span>
-</span><span data-line="646">            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_RAKE_METHODS</span>
-</span><span data-line="647">            <span class="k">else</span> <span class="kc">None</span>
-</span><span data-line="648">        <span class="p">)</span>
-</span><span data-line="649">        <span class="k">return</span> <span class="n">handled_load_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span> <span class="s2">"NoMethodError"</span><span class="p">,</span> <span class="n">raised_scopes</span><span class="p">)</span>
-</span><span data-line="650">    <span class="n">arguments</span> <span class="o">=</span> <span class="n">_arguments</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
-</span><span data-line="651">    <span class="n">error</span> <span class="o">=</span> <span class="n">_declaration_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
-</span><span data-line="652">    <span class="n">kind</span> <span class="o">=</span> <span class="n">declaration_exception</span><span class="p">(</span>
-</span><span data-line="653">        <span class="n">node</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span> <span class="n">literal_kind</span><span class="o">=</span><span class="n">_literal_kind</span><span class="p">,</span> <span class="n">call_arity</span><span class="o">=</span><span class="n">_call_arity</span>
-</span><span data-line="654">    <span class="p">)</span>
-</span><span data-line="655">    <span class="k">return</span> <span class="n">handled_load_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">raised_scopes</span><span class="p">)</span>
-</span><span data-line="656">
+</span><span data-line="645">                <span class="n">_literal_truth</span><span class="p">,</span>
+</span><span data-line="646">            <span class="p">)</span>
+</span><span data-line="647">            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_RAKE_METHODS</span>
+</span><span data-line="648">            <span class="k">else</span> <span class="kc">None</span>
+</span><span data-line="649">        <span class="p">)</span>
+</span><span data-line="650">        <span class="k">return</span> <span class="n">handled_load_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span> <span class="s2">"NoMethodError"</span><span class="p">,</span> <span class="n">raised_scopes</span><span class="p">)</span>
+</span><span data-line="651">    <span class="n">arguments</span> <span class="o">=</span> <span class="n">_arguments</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+</span><span data-line="652">    <span class="n">error</span> <span class="o">=</span> <span class="n">_declaration_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
+</span><span data-line="653">    <span class="n">kind</span> <span class="o">=</span> <span class="n">declaration_exception</span><span class="p">(</span>
+</span><span data-line="654">        <span class="n">node</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span> <span class="n">literal_kind</span><span class="o">=</span><span class="n">_literal_kind</span><span class="p">,</span> <span class="n">call_arity</span><span class="o">=</span><span class="n">_call_arity</span>
+</span><span data-line="655">    <span class="p">)</span>
+</span><span data-line="656">    <span class="k">return</span> <span class="n">handled_load_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">raised_scopes</span><span class="p">)</span>
 </span><span data-line="657">
-</span><span data-line="658"><span class="k">def</span><span class="w"> </span><span class="nf">_constructor_error</span><span class="p">(</span><span class="n">node</span><span class="p">:</span> <span class="n">Node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="659">    <span class="n">method</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">child_by_field_name</span><span class="p">(</span><span class="s2">"method"</span><span class="p">)</span>
-</span><span data-line="660">    <span class="k">if</span> <span class="p">(</span>
-</span><span data-line="661">        <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="s2">"call"</span>
-</span><span data-line="662">        <span class="ow">or</span> <span class="n">method</span> <span class="ow">is</span> <span class="kc">None</span>
-</span><span data-line="663">        <span class="ow">or</span> <span class="ow">not</span> <span class="n">_deferred_call</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
-</span><span data-line="664">    <span class="p">):</span>
-</span><span data-line="665">        <span class="k">return</span> <span class="kc">None</span>
-</span><span data-line="666">    <span class="n">arguments</span> <span class="o">=</span> <span class="n">_arguments</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
-</span><span data-line="667">    <span class="n">has_block</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">child_by_field_name</span><span class="p">(</span><span class="s2">"block"</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span>
-</span><span data-line="668">        <span class="n">_literal_kind</span><span class="p">(</span><span class="n">child</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"nil"</span><span class="p">,</span> <span class="s2">"false"</span><span class="p">}</span>
-</span><span data-line="669">        <span class="k">for</span> <span class="n">callback</span> <span class="ow">in</span> <span class="n">_block_arguments</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
-</span><span data-line="670">        <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">callback</span><span class="o">.</span><span class="n">named_children</span>
-</span><span data-line="671">    <span class="p">)</span>
-</span><span data-line="672">    <span class="k">return</span> <span class="n">constructor_arguments_error</span><span class="p">(</span>
-</span><span data-line="673">        <span class="n">node_text</span><span class="p">(</span><span class="n">method</span><span class="p">),</span>
-</span><span data-line="674">        <span class="p">[</span><span class="n">_literal_kind</span><span class="p">(</span><span class="n">argument</span><span class="p">)</span> <span class="k">for</span> <span class="n">argument</span> <span class="ow">in</span> <span class="n">arguments</span><span class="p">],</span>
-</span><span data-line="675">        <span class="n">_call_arity</span><span class="p">(</span><span class="n">arguments</span><span class="p">),</span>
-</span><span data-line="676">        <span class="n">has_block</span><span class="o">=</span><span class="n">has_block</span><span class="p">,</span>
-</span><span data-line="677">        <span class="n">is_reader</span><span class="o">=</span><span class="n">reader_call</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">),</span>
-</span><span data-line="678">    <span class="p">)</span>
-</span><span data-line="679">
+</span><span data-line="658">
+</span><span data-line="659"><span class="k">def</span><span class="w"> </span><span class="nf">_constructor_error</span><span class="p">(</span><span class="n">node</span><span class="p">:</span> <span class="n">Node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="660">    <span class="n">method</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">child_by_field_name</span><span class="p">(</span><span class="s2">"method"</span><span class="p">)</span>
+</span><span data-line="661">    <span class="k">if</span> <span class="p">(</span>
+</span><span data-line="662">        <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="s2">"call"</span>
+</span><span data-line="663">        <span class="ow">or</span> <span class="n">method</span> <span class="ow">is</span> <span class="kc">None</span>
+</span><span data-line="664">        <span class="ow">or</span> <span class="ow">not</span> <span class="n">_deferred_call</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
+</span><span data-line="665">    <span class="p">):</span>
+</span><span data-line="666">        <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="667">    <span class="n">arguments</span> <span class="o">=</span> <span class="n">_arguments</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+</span><span data-line="668">    <span class="n">has_block</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">child_by_field_name</span><span class="p">(</span><span class="s2">"block"</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span>
+</span><span data-line="669">        <span class="n">_literal_kind</span><span class="p">(</span><span class="n">child</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"nil"</span><span class="p">,</span> <span class="s2">"false"</span><span class="p">}</span>
+</span><span data-line="670">        <span class="k">for</span> <span class="n">callback</span> <span class="ow">in</span> <span class="n">_block_arguments</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+</span><span data-line="671">        <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">callback</span><span class="o">.</span><span class="n">named_children</span>
+</span><span data-line="672">    <span class="p">)</span>
+</span><span data-line="673">    <span class="k">return</span> <span class="n">constructor_arguments_error</span><span class="p">(</span>
+</span><span data-line="674">        <span class="n">node_text</span><span class="p">(</span><span class="n">method</span><span class="p">),</span>
+</span><span data-line="675">        <span class="p">[</span><span class="n">_literal_kind</span><span class="p">(</span><span class="n">argument</span><span class="p">)</span> <span class="k">for</span> <span class="n">argument</span> <span class="ow">in</span> <span class="n">arguments</span><span class="p">],</span>
+</span><span data-line="676">        <span class="n">_call_arity</span><span class="p">(</span><span class="n">arguments</span><span class="p">),</span>
+</span><span data-line="677">        <span class="n">has_block</span><span class="o">=</span><span class="n">has_block</span><span class="p">,</span>
+</span><span data-line="678">        <span class="n">is_reader</span><span class="o">=</span><span class="n">reader_call</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">),</span>
+</span><span data-line="679">    <span class="p">)</span>
 </span><span data-line="680">
-</span><span data-line="681"><span class="k">def</span><span class="w"> </span><span class="nf">_record_valid_override</span><span class="p">(</span><span class="n">node</span><span class="p">:</span> <span class="n">Node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="682">    <span class="c1"># Invalid constructor arguments fail before changing Ruby's method table.</span>
-</span><span data-line="683">    <span class="k">if</span> <span class="n">_constructor_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="684">        <span class="n">record_override</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
-</span><span data-line="685">
+</span><span data-line="681">
+</span><span data-line="682"><span class="k">def</span><span class="w"> </span><span class="nf">_record_valid_override</span><span class="p">(</span><span class="n">node</span><span class="p">:</span> <span class="n">Node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="683">    <span class="c1"># Invalid constructor arguments fail before changing Ruby's method table.</span>
+</span><span data-line="684">    <span class="k">if</span> <span class="n">_constructor_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="685">        <span class="n">record_override</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
 </span><span data-line="686">
-</span><span data-line="687"><span class="k">def</span><span class="w"> </span><span class="nf">_load_time_error</span><span class="p">(</span><span class="n">root</span><span class="p">:</span> <span class="n">Node</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="688">    <span class="n">disabled</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-</span><span data-line="689">    <span class="n">deferred_calls</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-</span><span data-line="690">    <span class="n">catch_calls</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-</span><span data-line="691">    <span class="n">callbacks</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-</span><span data-line="692">    <span class="n">raised_scopes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="693">    <span class="n">bare_raises</span> <span class="o">=</span> <span class="n">unbound_identifier_ids</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">terminating_names</span><span class="p">(</span><span class="n">root</span><span class="p">))</span>
-</span><span data-line="694">    <span class="n">bare_constructors</span> <span class="o">=</span> <span class="n">unbound_identifier_ids</span><span class="p">(</span>
-</span><span data-line="695">        <span class="n">root</span><span class="p">,</span> <span class="p">{</span><span class="s2">"proc"</span><span class="p">,</span> <span class="s2">"lambda"</span><span class="p">,</span> <span class="s2">"define_method"</span><span class="p">,</span> <span class="s2">"define_singleton_method"</span><span class="p">}</span>
-</span><span data-line="696">    <span class="p">)</span>
-</span><span data-line="697">    <span class="n">pending</span> <span class="o">=</span> <span class="p">[</span><span class="n">_load_statements</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)]</span>
-</span><span data-line="698">    <span class="k">while</span> <span class="n">pending</span><span class="p">:</span>
-</span><span data-line="699">        <span class="n">node</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">pending</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="kc">None</span><span class="p">)</span>
-</span><span data-line="700">        <span class="k">if</span> <span class="n">node</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="701">            <span class="n">pending</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
-</span><span data-line="702">            <span class="k">continue</span>
-</span><span data-line="703">        <span class="k">if</span> <span class="n">error</span> <span class="o">:=</span> <span class="n">bare_constructor_error</span><span class="p">(</span>
-</span><span data-line="704">            <span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">,</span> <span class="n">bare_constructors</span><span class="p">,</span> <span class="n">raised_scopes</span>
-</span><span data-line="705">        <span class="p">):</span>
-</span><span data-line="706">            <span class="k">return</span> <span class="n">error</span>
-</span><span data-line="707">        <span class="n">method</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">child_by_field_name</span><span class="p">(</span><span class="s2">"method"</span><span class="p">)</span>
-</span><span data-line="708">        <span class="k">if</span> <span class="p">(</span>
-</span><span data-line="709">            <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"call"</span>
-</span><span data-line="710">            <span class="ow">and</span> <span class="n">method</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span data-line="711">            <span class="ow">and</span> <span class="n">_deferred_call</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
-</span><span data-line="712">        <span class="p">):</span>
-</span><span data-line="713">            <span class="n">error</span> <span class="o">=</span> <span class="n">_constructor_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
-</span><span data-line="714">            <span class="n">kind</span> <span class="o">=</span> <span class="n">constructor_exception</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
-</span><span data-line="715">            <span class="k">if</span> <span class="n">error</span> <span class="o">:=</span> <span class="n">handled_load_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">raised_scopes</span><span class="p">):</span>
-</span><span data-line="716">                <span class="k">return</span> <span class="n">error</span>
-</span><span data-line="717">            <span class="n">deferred_calls</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
-</span><span data-line="718">        <span class="n">callbacks</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">executing_callbacks</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">))</span>
-</span><span data-line="719">        <span class="n">record_catch</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">,</span> <span class="n">catch_calls</span><span class="p">)</span>
-</span><span data-line="720">        <span class="n">_record_valid_override</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
-</span><span data-line="721">        <span class="n">error</span> <span class="o">=</span> <span class="p">(</span>
-</span><span data-line="722">            <span class="n">endless_loop_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_literal_truth</span><span class="p">,</span> <span class="n">_reachable_children</span><span class="p">)</span>
-</span><span data-line="723">            <span class="ow">or</span> <span class="n">mutation_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">,</span> <span class="n">raised_scopes</span><span class="p">)</span>
-</span><span data-line="724">            <span class="ow">or</span> <span class="n">_load_declaration_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">,</span> <span class="n">raised_scopes</span><span class="p">)</span>
-</span><span data-line="725">            <span class="ow">or</span> <span class="n">load_assignment_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">raised_scopes</span><span class="p">)</span>
-</span><span data-line="726">            <span class="ow">or</span> <span class="n">load_raise_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">,</span> <span class="n">bare_raises</span><span class="p">,</span> <span class="n">catch_calls</span><span class="p">,</span> <span class="n">raised_scopes</span><span class="p">)</span>
-</span><span data-line="727">        <span class="p">)</span>
-</span><span data-line="728">        <span class="k">if</span> <span class="n">error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="729">            <span class="k">return</span> <span class="n">error</span>
-</span><span data-line="730">        <span class="k">if</span> <span class="n">_invalid_block_arguments</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_literal_kind</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span>
-</span><span data-line="731">            <span class="n">error</span> <span class="o">:=</span> <span class="n">handled_load_error</span><span class="p">(</span>
-</span><span data-line="732">                <span class="n">node</span><span class="p">,</span>
-</span><span data-line="733">                <span class="s2">"invalid block argument during loading"</span><span class="p">,</span>
-</span><span data-line="734">                <span class="s2">"TypeError"</span><span class="p">,</span>
-</span><span data-line="735">                <span class="n">raised_scopes</span><span class="p">,</span>
-</span><span data-line="736">            <span class="p">)</span>
-</span><span data-line="737">        <span class="p">):</span>
-</span><span data-line="738">            <span class="k">return</span> <span class="n">error</span>
-</span><span data-line="739">        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"regex"</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span>
-</span><span data-line="740">            <span class="n">child</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"interpolation"</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">named_children</span>
-</span><span data-line="741">        <span class="p">):</span>
-</span><span data-line="742">            <span class="k">return</span> <span class="s2">"unsupported interpolated regexp during loading"</span>
-</span><span data-line="743">        <span class="k">if</span> <span class="p">(</span><span class="n">children</span> <span class="o">:=</span> <span class="n">return_path</span><span class="p">(</span><span class="n">node</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="744">            <span class="n">pending</span> <span class="o">=</span> <span class="p">[</span><span class="nb">iter</span><span class="p">(</span><span class="n">children</span><span class="p">)]</span>
-</span><span data-line="745">            <span class="k">continue</span>
-</span><span data-line="746">        <span class="n">pending</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-</span><span data-line="747">            <span class="nb">iter</span><span class="p">(</span>
-</span><span data-line="748">                <span class="n">_load_time_children</span><span class="p">(</span>
-</span><span data-line="749">                    <span class="n">node</span><span class="p">,</span> <span class="n">deferred_calls</span><span class="p">,</span> <span class="n">callbacks</span><span class="p">,</span> <span class="n">raised_scopes</span><span class="p">,</span> <span class="n">_reachable_children</span>
-</span><span data-line="750">                <span class="p">)</span>
-</span><span data-line="751">            <span class="p">)</span>
-</span><span data-line="752">        <span class="p">)</span>
-</span><span data-line="753">    <span class="k">return</span> <span class="kc">None</span>
-</span><span data-line="754">
+</span><span data-line="687">
+</span><span data-line="688"><span class="k">def</span><span class="w"> </span><span class="nf">_load_time_error</span><span class="p">(</span><span class="n">root</span><span class="p">:</span> <span class="n">Node</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="689">    <span class="n">disabled</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+</span><span data-line="690">    <span class="n">deferred_calls</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+</span><span data-line="691">    <span class="n">catch_calls</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+</span><span data-line="692">    <span class="n">callbacks</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+</span><span data-line="693">    <span class="n">raised_scopes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="694">    <span class="n">bare_raises</span> <span class="o">=</span> <span class="n">unbound_identifier_ids</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">terminating_names</span><span class="p">(</span><span class="n">root</span><span class="p">))</span>
+</span><span data-line="695">    <span class="n">bare_constructors</span> <span class="o">=</span> <span class="n">unbound_identifier_ids</span><span class="p">(</span>
+</span><span data-line="696">        <span class="n">root</span><span class="p">,</span> <span class="p">{</span><span class="s2">"proc"</span><span class="p">,</span> <span class="s2">"lambda"</span><span class="p">,</span> <span class="s2">"define_method"</span><span class="p">,</span> <span class="s2">"define_singleton_method"</span><span class="p">}</span>
+</span><span data-line="697">    <span class="p">)</span>
+</span><span data-line="698">    <span class="n">pending</span> <span class="o">=</span> <span class="p">[</span><span class="n">_load_statements</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)]</span>
+</span><span data-line="699">    <span class="k">while</span> <span class="n">pending</span><span class="p">:</span>
+</span><span data-line="700">        <span class="n">node</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">pending</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="701">        <span class="k">if</span> <span class="n">node</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="702">            <span class="n">pending</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+</span><span data-line="703">            <span class="k">continue</span>
+</span><span data-line="704">        <span class="k">if</span> <span class="n">error</span> <span class="o">:=</span> <span class="n">bare_constructor_error</span><span class="p">(</span>
+</span><span data-line="705">            <span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">,</span> <span class="n">bare_constructors</span><span class="p">,</span> <span class="n">raised_scopes</span>
+</span><span data-line="706">        <span class="p">):</span>
+</span><span data-line="707">            <span class="k">return</span> <span class="n">error</span>
+</span><span data-line="708">        <span class="n">method</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">child_by_field_name</span><span class="p">(</span><span class="s2">"method"</span><span class="p">)</span>
+</span><span data-line="709">        <span class="k">if</span> <span class="p">(</span>
+</span><span data-line="710">            <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"call"</span>
+</span><span data-line="711">            <span class="ow">and</span> <span class="n">method</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="712">            <span class="ow">and</span> <span class="n">_deferred_call</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
+</span><span data-line="713">        <span class="p">):</span>
+</span><span data-line="714">            <span class="n">error</span> <span class="o">=</span> <span class="n">_constructor_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
+</span><span data-line="715">            <span class="n">kind</span> <span class="o">=</span> <span class="n">constructor_exception</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+</span><span data-line="716">            <span class="k">if</span> <span class="n">error</span> <span class="o">:=</span> <span class="n">handled_load_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">raised_scopes</span><span class="p">):</span>
+</span><span data-line="717">                <span class="k">return</span> <span class="n">error</span>
+</span><span data-line="718">            <span class="n">deferred_calls</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+</span><span data-line="719">        <span class="n">callbacks</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">executing_callbacks</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">))</span>
+</span><span data-line="720">        <span class="n">record_catch</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">,</span> <span class="n">catch_calls</span><span class="p">)</span>
+</span><span data-line="721">        <span class="n">_record_valid_override</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
+</span><span data-line="722">        <span class="n">error</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="723">            <span class="n">endless_loop_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_literal_truth</span><span class="p">,</span> <span class="n">_reachable_children</span><span class="p">)</span>
+</span><span data-line="724">            <span class="ow">or</span> <span class="n">mutation_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">,</span> <span class="n">raised_scopes</span><span class="p">)</span>
+</span><span data-line="725">            <span class="ow">or</span> <span class="n">_load_declaration_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">,</span> <span class="n">raised_scopes</span><span class="p">)</span>
+</span><span data-line="726">            <span class="ow">or</span> <span class="n">load_assignment_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">raised_scopes</span><span class="p">)</span>
+</span><span data-line="727">            <span class="ow">or</span> <span class="n">load_raise_error</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">,</span> <span class="n">bare_raises</span><span class="p">,</span> <span class="n">catch_calls</span><span class="p">,</span> <span class="n">raised_scopes</span><span class="p">)</span>
+</span><span data-line="728">        <span class="p">)</span>
+</span><span data-line="729">        <span class="k">if</span> <span class="n">error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="730">            <span class="k">return</span> <span class="n">error</span>
+</span><span data-line="731">        <span class="k">if</span> <span class="n">_invalid_block_arguments</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_literal_kind</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span>
+</span><span data-line="732">            <span class="n">error</span> <span class="o">:=</span> <span class="n">handled_load_error</span><span class="p">(</span>
+</span><span data-line="733">                <span class="n">node</span><span class="p">,</span>
+</span><span data-line="734">                <span class="s2">"invalid block argument during loading"</span><span class="p">,</span>
+</span><span data-line="735">                <span class="s2">"TypeError"</span><span class="p">,</span>
+</span><span data-line="736">                <span class="n">raised_scopes</span><span class="p">,</span>
+</span><span data-line="737">            <span class="p">)</span>
+</span><span data-line="738">        <span class="p">):</span>
+</span><span data-line="739">            <span class="k">return</span> <span class="n">error</span>
+</span><span data-line="740">        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"regex"</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span>
+</span><span data-line="741">            <span class="n">child</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"interpolation"</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">named_children</span>
+</span><span data-line="742">        <span class="p">):</span>
+</span><span data-line="743">            <span class="k">return</span> <span class="s2">"unsupported interpolated regexp during loading"</span>
+</span><span data-line="744">        <span class="k">if</span> <span class="p">(</span><span class="n">children</span> <span class="o">:=</span> <span class="n">return_path</span><span class="p">(</span><span class="n">node</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="745">            <span class="n">pending</span> <span class="o">=</span> <span class="p">[</span><span class="nb">iter</span><span class="p">(</span><span class="n">children</span><span class="p">)]</span>
+</span><span data-line="746">            <span class="k">continue</span>
+</span><span data-line="747">        <span class="n">pending</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+</span><span data-line="748">            <span class="nb">iter</span><span class="p">(</span>
+</span><span data-line="749">                <span class="n">_load_time_children</span><span class="p">(</span>
+</span><span data-line="750">                    <span class="n">node</span><span class="p">,</span> <span class="n">deferred_calls</span><span class="p">,</span> <span class="n">callbacks</span><span class="p">,</span> <span class="n">raised_scopes</span><span class="p">,</span> <span class="n">_reachable_children</span>
+</span><span data-line="751">                <span class="p">)</span>
+</span><span data-line="752">            <span class="p">)</span>
+</span><span data-line="753">        <span class="p">)</span>
+</span><span data-line="754">    <span class="k">return</span> <span class="kc">None</span>
 </span><span data-line="755">
-</span><span data-line="756"><span class="k">def</span><span class="w"> </span><span class="nf">_dsl_overrides</span><span class="p">(</span>
-</span><span data-line="757">    <span class="n">root</span><span class="p">:</span> <span class="n">Node</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">in_scope</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">existing</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="758"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-</span><span data-line="759">    <span class="c1"># Ruby executes BEGIN bodies before ordinary statements, even when the</span>
-</span><span data-line="760">    <span class="c1"># BEGIN appears later in the file or has an active postfix condition.</span>
-</span><span data-line="761">    <span class="n">disabled</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">existing</span> <span class="ow">or</span> <span class="p">())</span>
-</span><span data-line="762">    <span class="n">pending</span> <span class="o">=</span> <span class="p">[(</span><span class="n">root</span><span class="p">,</span> <span class="n">in_scope</span><span class="p">)]</span>
-</span><span data-line="763">    <span class="n">opaque</span> <span class="o">=</span> <span class="p">{</span>
-</span><span data-line="764">        <span class="s2">"method"</span><span class="p">,</span>
-</span><span data-line="765">        <span class="s2">"singleton_method"</span><span class="p">,</span>
-</span><span data-line="766">        <span class="s2">"class"</span><span class="p">,</span>
-</span><span data-line="767">        <span class="s2">"module"</span><span class="p">,</span>
-</span><span data-line="768">        <span class="s2">"singleton_class"</span><span class="p">,</span>
-</span><span data-line="769">        <span class="s2">"block"</span><span class="p">,</span>
-</span><span data-line="770">        <span class="s2">"do_block"</span><span class="p">,</span>
-</span><span data-line="771">        <span class="s2">"lambda"</span><span class="p">,</span>
-</span><span data-line="772">        <span class="s2">"end_block"</span><span class="p">,</span>
-</span><span data-line="773">    <span class="p">}</span>
-</span><span data-line="774">    <span class="k">while</span> <span class="n">pending</span><span class="p">:</span>
-</span><span data-line="775">        <span class="n">node</span><span class="p">,</span> <span class="n">in_begin</span> <span class="o">=</span> <span class="n">pending</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
-</span><span data-line="776">        <span class="n">in_begin</span> <span class="o">=</span> <span class="n">in_begin</span> <span class="ow">or</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"begin_block"</span>
-</span><span data-line="777">        <span class="k">if</span> <span class="n">in_begin</span><span class="p">:</span>
-</span><span data-line="778">            <span class="n">_record_valid_override</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
-</span><span data-line="779">        <span class="n">children</span> <span class="o">=</span> <span class="p">(</span>
-</span><span data-line="780">            <span class="n">scope_headers</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
-</span><span data-line="781">            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="n">opaque</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">singleton_eval_block</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
-</span><span data-line="782">            <span class="k">else</span> <span class="n">_reachable_children</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
-</span><span data-line="783">        <span class="p">)</span>
-</span><span data-line="784">        <span class="n">pending</span><span class="o">.</span><span class="n">extend</span><span class="p">((</span><span class="n">child</span><span class="p">,</span> <span class="n">in_begin</span><span class="p">)</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">children</span><span class="p">)</span>
-</span><span data-line="785">    <span class="k">return</span> <span class="n">disabled</span>
-</span><span data-line="786">
+</span><span data-line="756">
+</span><span data-line="757"><span class="k">def</span><span class="w"> </span><span class="nf">_dsl_overrides</span><span class="p">(</span>
+</span><span data-line="758">    <span class="n">root</span><span class="p">:</span> <span class="n">Node</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">in_scope</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">existing</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="759"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+</span><span data-line="760">    <span class="c1"># Ruby executes BEGIN bodies before ordinary statements, even when the</span>
+</span><span data-line="761">    <span class="c1"># BEGIN appears later in the file or has an active postfix condition.</span>
+</span><span data-line="762">    <span class="n">disabled</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">existing</span> <span class="ow">or</span> <span class="p">())</span>
+</span><span data-line="763">    <span class="n">pending</span> <span class="o">=</span> <span class="p">[(</span><span class="n">root</span><span class="p">,</span> <span class="n">in_scope</span><span class="p">)]</span>
+</span><span data-line="764">    <span class="n">opaque</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="765">        <span class="s2">"method"</span><span class="p">,</span>
+</span><span data-line="766">        <span class="s2">"singleton_method"</span><span class="p">,</span>
+</span><span data-line="767">        <span class="s2">"class"</span><span class="p">,</span>
+</span><span data-line="768">        <span class="s2">"module"</span><span class="p">,</span>
+</span><span data-line="769">        <span class="s2">"singleton_class"</span><span class="p">,</span>
+</span><span data-line="770">        <span class="s2">"block"</span><span class="p">,</span>
+</span><span data-line="771">        <span class="s2">"do_block"</span><span class="p">,</span>
+</span><span data-line="772">        <span class="s2">"lambda"</span><span class="p">,</span>
+</span><span data-line="773">        <span class="s2">"end_block"</span><span class="p">,</span>
+</span><span data-line="774">    <span class="p">}</span>
+</span><span data-line="775">    <span class="k">while</span> <span class="n">pending</span><span class="p">:</span>
+</span><span data-line="776">        <span class="n">node</span><span class="p">,</span> <span class="n">in_begin</span> <span class="o">=</span> <span class="n">pending</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+</span><span data-line="777">        <span class="n">in_begin</span> <span class="o">=</span> <span class="n">in_begin</span> <span class="ow">or</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"begin_block"</span>
+</span><span data-line="778">        <span class="k">if</span> <span class="n">in_begin</span><span class="p">:</span>
+</span><span data-line="779">            <span class="n">_record_valid_override</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
+</span><span data-line="780">        <span class="n">children</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="781">            <span class="n">scope_headers</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+</span><span data-line="782">            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="n">opaque</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">singleton_eval_block</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
+</span><span data-line="783">            <span class="k">else</span> <span class="n">_reachable_children</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+</span><span data-line="784">        <span class="p">)</span>
+</span><span data-line="785">        <span class="n">pending</span><span class="o">.</span><span class="n">extend</span><span class="p">((</span><span class="n">child</span><span class="p">,</span> <span class="n">in_begin</span><span class="p">)</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">children</span><span class="p">)</span>
+</span><span data-line="786">    <span class="k">return</span> <span class="n">disabled</span>
 </span><span data-line="787">
-</span><span data-line="788"><span class="k">def</span><span class="w"> </span><span class="nf">_begin_exits</span><span class="p">(</span><span class="n">root</span><span class="p">:</span> <span class="n">Node</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span data-line="789">    <span class="n">pending</span> <span class="o">=</span> <span class="p">[</span><span class="n">root</span><span class="p">]</span>
-</span><span data-line="790">    <span class="n">modifiers</span> <span class="o">=</span> <span class="p">{</span>
-</span><span data-line="791">        <span class="s2">"if_modifier"</span><span class="p">,</span>
-</span><span data-line="792">        <span class="s2">"unless_modifier"</span><span class="p">,</span>
-</span><span data-line="793">        <span class="s2">"while_modifier"</span><span class="p">,</span>
-</span><span data-line="794">        <span class="s2">"until_modifier"</span><span class="p">,</span>
-</span><span data-line="795">        <span class="s2">"rescue_modifier"</span><span class="p">,</span>
-</span><span data-line="796">    <span class="p">}</span>
-</span><span data-line="797">    <span class="k">while</span> <span class="n">pending</span><span class="p">:</span>
-</span><span data-line="798">        <span class="n">node</span> <span class="o">=</span> <span class="n">pending</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
-</span><span data-line="799">        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"begin_block"</span><span class="p">:</span>
-</span><span data-line="800">            <span class="n">initializer</span> <span class="o">=</span> <span class="n">node</span>
-</span><span data-line="801">            <span class="k">while</span> <span class="p">(</span>
-</span><span data-line="802">                <span class="n">initializer</span><span class="o">.</span><span class="n">parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">initializer</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="n">modifiers</span>
-</span><span data-line="803">            <span class="p">):</span>
-</span><span data-line="804">                <span class="n">initializer</span> <span class="o">=</span> <span class="n">initializer</span><span class="o">.</span><span class="n">parent</span>
-</span><span data-line="805">            <span class="k">if</span> <span class="n">_escaping_control</span><span class="p">(</span><span class="n">initializer</span><span class="p">,</span> <span class="n">include_begin</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"return"</span><span class="p">:</span>
-</span><span data-line="806">                <span class="k">return</span> <span class="kc">True</span>
-</span><span data-line="807">        <span class="n">pending</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">_reachable_children</span><span class="p">(</span><span class="n">node</span><span class="p">))</span>
-</span><span data-line="808">    <span class="k">return</span> <span class="kc">False</span>
-</span><span data-line="809">
+</span><span data-line="788">
+</span><span data-line="789"><span class="k">def</span><span class="w"> </span><span class="nf">_begin_exits</span><span class="p">(</span><span class="n">root</span><span class="p">:</span> <span class="n">Node</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="790">    <span class="n">pending</span> <span class="o">=</span> <span class="p">[</span><span class="n">root</span><span class="p">]</span>
+</span><span data-line="791">    <span class="n">modifiers</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="792">        <span class="s2">"if_modifier"</span><span class="p">,</span>
+</span><span data-line="793">        <span class="s2">"unless_modifier"</span><span class="p">,</span>
+</span><span data-line="794">        <span class="s2">"while_modifier"</span><span class="p">,</span>
+</span><span data-line="795">        <span class="s2">"until_modifier"</span><span class="p">,</span>
+</span><span data-line="796">        <span class="s2">"rescue_modifier"</span><span class="p">,</span>
+</span><span data-line="797">    <span class="p">}</span>
+</span><span data-line="798">    <span class="k">while</span> <span class="n">pending</span><span class="p">:</span>
+</span><span data-line="799">        <span class="n">node</span> <span class="o">=</span> <span class="n">pending</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+</span><span data-line="800">        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"begin_block"</span><span class="p">:</span>
+</span><span data-line="801">            <span class="n">initializer</span> <span class="o">=</span> <span class="n">node</span>
+</span><span data-line="802">            <span class="k">while</span> <span class="p">(</span>
+</span><span data-line="803">                <span class="n">initializer</span><span class="o">.</span><span class="n">parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">initializer</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="n">modifiers</span>
+</span><span data-line="804">            <span class="p">):</span>
+</span><span data-line="805">                <span class="n">initializer</span> <span class="o">=</span> <span class="n">initializer</span><span class="o">.</span><span class="n">parent</span>
+</span><span data-line="806">            <span class="k">if</span> <span class="n">_escaping_control</span><span class="p">(</span><span class="n">initializer</span><span class="p">,</span> <span class="n">include_begin</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"return"</span><span class="p">:</span>
+</span><span data-line="807">                <span class="k">return</span> <span class="kc">True</span>
+</span><span data-line="808">        <span class="n">pending</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">_reachable_children</span><span class="p">(</span><span class="n">node</span><span class="p">))</span>
+</span><span data-line="809">    <span class="k">return</span> <span class="kc">False</span>
 </span><span data-line="810">
-</span><span data-line="811"><span class="k">def</span><span class="w"> </span><span class="nf">_scope_statements</span><span class="p">(</span><span class="n">root</span><span class="p">:</span> <span class="n">Node</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Node</span><span class="p">]:</span>
-</span><span data-line="812">    <span class="c1"># A rescue-free begin/end wrapper shares the surrounding lexical scope,</span>
-</span><span data-line="813">    <span class="c1"># pending description, and execution order. Keep exception handlers opaque.</span>
-</span><span data-line="814">    <span class="n">pending</span> <span class="o">=</span> <span class="p">[</span><span class="nb">iter</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">named_children</span><span class="p">)]</span>
-</span><span data-line="815">    <span class="k">while</span> <span class="n">pending</span><span class="p">:</span>
-</span><span data-line="816">        <span class="n">node</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">pending</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="kc">None</span><span class="p">)</span>
-</span><span data-line="817">        <span class="k">if</span> <span class="n">node</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="818">            <span class="n">pending</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
-</span><span data-line="819">        <span class="k">elif</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"begin_block"</span> <span class="ow">or</span> <span class="p">(</span>
-</span><span data-line="820">            <span class="p">(</span><span class="n">body</span> <span class="o">:=</span> <span class="n">node</span><span class="o">.</span><span class="n">child_by_field_name</span><span class="p">(</span><span class="s2">"body"</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span data-line="821">            <span class="ow">and</span> <span class="n">body</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"begin_block"</span>
-</span><span data-line="822">        <span class="p">):</span>
-</span><span data-line="823">            <span class="k">continue</span>
-</span><span data-line="824">        <span class="k">elif</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"parenthesized_statements"</span> <span class="ow">or</span> <span class="p">(</span>
-</span><span data-line="825">            <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"begin"</span>
-</span><span data-line="826">            <span class="ow">and</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span>
-</span><span data-line="827">                <span class="n">child</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"rescue"</span><span class="p">,</span> <span class="s2">"else"</span><span class="p">,</span> <span class="s2">"ensure"</span><span class="p">}</span>
-</span><span data-line="828">                <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">named_children</span>
-</span><span data-line="829">            <span class="p">)</span>
-</span><span data-line="830">        <span class="p">):</span>
-</span><span data-line="831">            <span class="n">pending</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">named_children</span><span class="p">))</span>
-</span><span data-line="832">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="833">            <span class="k">yield</span> <span class="n">node</span>
-</span><span data-line="834">
+</span><span data-line="811">
+</span><span data-line="812"><span class="k">def</span><span class="w"> </span><span class="nf">_scope_statements</span><span class="p">(</span><span class="n">root</span><span class="p">:</span> <span class="n">Node</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Node</span><span class="p">]:</span>
+</span><span data-line="813">    <span class="c1"># A rescue-free begin/end wrapper shares the surrounding lexical scope,</span>
+</span><span data-line="814">    <span class="c1"># pending description, and execution order. Keep exception handlers opaque.</span>
+</span><span data-line="815">    <span class="n">pending</span> <span class="o">=</span> <span class="p">[</span><span class="nb">iter</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">named_children</span><span class="p">)]</span>
+</span><span data-line="816">    <span class="k">while</span> <span class="n">pending</span><span class="p">:</span>
+</span><span data-line="817">        <span class="n">node</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">pending</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="818">        <span class="k">if</span> <span class="n">node</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="819">            <span class="n">pending</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+</span><span data-line="820">        <span class="k">elif</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"begin_block"</span> <span class="ow">or</span> <span class="p">(</span>
+</span><span data-line="821">            <span class="p">(</span><span class="n">body</span> <span class="o">:=</span> <span class="n">node</span><span class="o">.</span><span class="n">child_by_field_name</span><span class="p">(</span><span class="s2">"body"</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="822">            <span class="ow">and</span> <span class="n">body</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"begin_block"</span>
+</span><span data-line="823">        <span class="p">):</span>
+</span><span data-line="824">            <span class="k">continue</span>
+</span><span data-line="825">        <span class="k">elif</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"parenthesized_statements"</span> <span class="ow">or</span> <span class="p">(</span>
+</span><span data-line="826">            <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"begin"</span>
+</span><span data-line="827">            <span class="ow">and</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span>
+</span><span data-line="828">                <span class="n">child</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"rescue"</span><span class="p">,</span> <span class="s2">"else"</span><span class="p">,</span> <span class="s2">"ensure"</span><span class="p">}</span>
+</span><span data-line="829">                <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">named_children</span>
+</span><span data-line="830">            <span class="p">)</span>
+</span><span data-line="831">        <span class="p">):</span>
+</span><span data-line="832">            <span class="n">pending</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">named_children</span><span class="p">))</span>
+</span><span data-line="833">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="834">            <span class="k">yield</span> <span class="n">node</span>
 </span><span data-line="835">
-</span><span data-line="836"><span class="k">def</span><span class="w"> </span><span class="nf">_begin_statements</span><span class="p">(</span><span class="n">root</span><span class="p">:</span> <span class="n">Node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Node</span><span class="p">]:</span>
-</span><span data-line="837">    <span class="c1"># MRI hoists each nested initializer before its enclosing BEGIN body.</span>
-</span><span data-line="838">    <span class="n">pending</span> <span class="o">=</span> <span class="p">[(</span><span class="n">root</span><span class="p">,</span> <span class="kc">False</span><span class="p">)]</span>
-</span><span data-line="839">    <span class="k">while</span> <span class="n">pending</span><span class="p">:</span>
-</span><span data-line="840">        <span class="n">node</span><span class="p">,</span> <span class="n">completed</span> <span class="o">=</span> <span class="n">pending</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
-</span><span data-line="841">        <span class="k">if</span> <span class="n">completed</span><span class="p">:</span>
-</span><span data-line="842">            <span class="k">yield from</span> <span class="n">_scope_statements</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
-</span><span data-line="843">        <span class="k">elif</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"program"</span><span class="p">,</span> <span class="s2">"begin_block"</span><span class="p">}:</span>
-</span><span data-line="844">            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"begin_block"</span><span class="p">:</span>
-</span><span data-line="845">                <span class="n">pending</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">node</span><span class="p">,</span> <span class="kc">True</span><span class="p">))</span>
-</span><span data-line="846">            <span class="n">pending</span><span class="o">.</span><span class="n">extend</span><span class="p">((</span><span class="n">child</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">named_children</span><span class="p">))</span>
-</span><span data-line="847">        <span class="k">elif</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"if_modifier"</span><span class="p">,</span> <span class="s2">"unless_modifier"</span><span class="p">}:</span>
-</span><span data-line="848">            <span class="n">condition</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">child_by_field_name</span><span class="p">(</span><span class="s2">"condition"</span><span class="p">)</span>
-</span><span data-line="849">            <span class="k">while</span> <span class="p">(</span>
-</span><span data-line="850">                <span class="n">condition</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">condition</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"parenthesized_statements"</span>
-</span><span data-line="851">            <span class="p">):</span>
-</span><span data-line="852">                <span class="n">children</span> <span class="o">=</span> <span class="p">[</span>
-</span><span data-line="853">                    <span class="n">child</span>
-</span><span data-line="854">                    <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">condition</span><span class="o">.</span><span class="n">named_children</span>
-</span><span data-line="855">                    <span class="k">if</span> <span class="n">child</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="s2">"comment"</span>
-</span><span data-line="856">                <span class="p">]</span>
-</span><span data-line="857">                <span class="n">condition</span> <span class="o">=</span> <span class="n">children</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">children</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="kc">None</span>
-</span><span data-line="858">            <span class="k">if</span> <span class="n">_literal_truth</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="859">                <span class="n">pending</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
-</span><span data-line="860">                    <span class="p">(</span><span class="n">child</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">_reachable_children</span><span class="p">(</span><span class="n">node</span><span class="p">))</span>
-</span><span data-line="861">                <span class="p">)</span>
-</span><span data-line="862">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="863">                <span class="n">disabled</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_dsl_overrides</span><span class="p">(</span><span class="n">node</span><span class="p">))</span>
-</span><span data-line="864">        <span class="k">elif</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"while_modifier"</span><span class="p">,</span> <span class="s2">"until_modifier"</span><span class="p">,</span> <span class="s2">"rescue_modifier"</span><span class="p">}:</span>
-</span><span data-line="865">            <span class="n">body</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">child_by_field_name</span><span class="p">(</span><span class="s2">"body"</span><span class="p">)</span>
-</span><span data-line="866">            <span class="k">if</span> <span class="n">body</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">body</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"begin_block"</span><span class="p">:</span>
-</span><span data-line="867">                <span class="n">pending</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">body</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
-</span><span data-line="868">
+</span><span data-line="836">
+</span><span data-line="837"><span class="k">def</span><span class="w"> </span><span class="nf">_begin_statements</span><span class="p">(</span><span class="n">root</span><span class="p">:</span> <span class="n">Node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Node</span><span class="p">]:</span>
+</span><span data-line="838">    <span class="c1"># MRI hoists each nested initializer before its enclosing BEGIN body.</span>
+</span><span data-line="839">    <span class="n">pending</span> <span class="o">=</span> <span class="p">[(</span><span class="n">root</span><span class="p">,</span> <span class="kc">False</span><span class="p">)]</span>
+</span><span data-line="840">    <span class="k">while</span> <span class="n">pending</span><span class="p">:</span>
+</span><span data-line="841">        <span class="n">node</span><span class="p">,</span> <span class="n">completed</span> <span class="o">=</span> <span class="n">pending</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+</span><span data-line="842">        <span class="k">if</span> <span class="n">completed</span><span class="p">:</span>
+</span><span data-line="843">            <span class="k">yield from</span> <span class="n">_scope_statements</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+</span><span data-line="844">        <span class="k">elif</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"program"</span><span class="p">,</span> <span class="s2">"begin_block"</span><span class="p">}:</span>
+</span><span data-line="845">            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"begin_block"</span><span class="p">:</span>
+</span><span data-line="846">                <span class="n">pending</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">node</span><span class="p">,</span> <span class="kc">True</span><span class="p">))</span>
+</span><span data-line="847">            <span class="n">pending</span><span class="o">.</span><span class="n">extend</span><span class="p">((</span><span class="n">child</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">named_children</span><span class="p">))</span>
+</span><span data-line="848">        <span class="k">elif</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"if_modifier"</span><span class="p">,</span> <span class="s2">"unless_modifier"</span><span class="p">}:</span>
+</span><span data-line="849">            <span class="n">condition</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">child_by_field_name</span><span class="p">(</span><span class="s2">"condition"</span><span class="p">)</span>
+</span><span data-line="850">            <span class="k">while</span> <span class="p">(</span>
+</span><span data-line="851">                <span class="n">condition</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">condition</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"parenthesized_statements"</span>
+</span><span data-line="852">            <span class="p">):</span>
+</span><span data-line="853">                <span class="n">children</span> <span class="o">=</span> <span class="p">[</span>
+</span><span data-line="854">                    <span class="n">child</span>
+</span><span data-line="855">                    <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">condition</span><span class="o">.</span><span class="n">named_children</span>
+</span><span data-line="856">                    <span class="k">if</span> <span class="n">child</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="s2">"comment"</span>
+</span><span data-line="857">                <span class="p">]</span>
+</span><span data-line="858">                <span class="n">condition</span> <span class="o">=</span> <span class="n">children</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">children</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="kc">None</span>
+</span><span data-line="859">            <span class="k">if</span> <span class="n">_literal_truth</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="860">                <span class="n">pending</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+</span><span data-line="861">                    <span class="p">(</span><span class="n">child</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">_reachable_children</span><span class="p">(</span><span class="n">node</span><span class="p">))</span>
+</span><span data-line="862">                <span class="p">)</span>
+</span><span data-line="863">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="864">                <span class="n">disabled</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_dsl_overrides</span><span class="p">(</span><span class="n">node</span><span class="p">))</span>
+</span><span data-line="865">        <span class="k">elif</span> <span class="n">node</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"while_modifier"</span><span class="p">,</span> <span class="s2">"until_modifier"</span><span class="p">,</span> <span class="s2">"rescue_modifier"</span><span class="p">}:</span>
+</span><span data-line="866">            <span class="n">body</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">child_by_field_name</span><span class="p">(</span><span class="s2">"body"</span><span class="p">)</span>
+</span><span data-line="867">            <span class="k">if</span> <span class="n">body</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">body</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"begin_block"</span><span class="p">:</span>
+</span><span data-line="868">                <span class="n">pending</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">body</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
 </span><span data-line="869">
-</span><span data-line="870"><span class="k">def</span><span class="w"> </span><span class="nf">_load_statements</span><span class="p">(</span><span class="n">root</span><span class="p">:</span> <span class="n">Node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Node</span><span class="p">]:</span>
-</span><span data-line="871">    <span class="k">yield from</span> <span class="n">_begin_statements</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
-</span><span data-line="872">    <span class="c1"># Unknown initializer conditions remain opaque, but their possible overrides</span>
-</span><span data-line="873">    <span class="c1"># still prevent ordinary calls from being mistaken for the Rake DSL.</span>
-</span><span data-line="874">    <span class="n">disabled</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_dsl_overrides</span><span class="p">(</span><span class="n">root</span><span class="p">))</span>
-</span><span data-line="875">    <span class="k">yield from</span> <span class="n">_scope_statements</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
-</span><span data-line="876">
+</span><span data-line="870">
+</span><span data-line="871"><span class="k">def</span><span class="w"> </span><span class="nf">_load_statements</span><span class="p">(</span><span class="n">root</span><span class="p">:</span> <span class="n">Node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Node</span><span class="p">]:</span>
+</span><span data-line="872">    <span class="k">yield from</span> <span class="n">_begin_statements</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
+</span><span data-line="873">    <span class="c1"># Unknown initializer conditions remain opaque, but their possible overrides</span>
+</span><span data-line="874">    <span class="c1"># still prevent ordinary calls from being mistaken for the Rake DSL.</span>
+</span><span data-line="875">    <span class="n">disabled</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_dsl_overrides</span><span class="p">(</span><span class="n">root</span><span class="p">))</span>
+</span><span data-line="876">    <span class="k">yield from</span> <span class="n">_scope_statements</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
 </span><span data-line="877">
-</span><span data-line="878"><span class="k">def</span><span class="w"> </span><span class="nf">_in_initializer</span><span class="p">(</span><span class="n">node</span><span class="p">:</span> <span class="n">Node</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span data-line="879">    <span class="n">parent</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">parent</span>
-</span><span data-line="880">    <span class="k">while</span> <span class="n">parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">parent</span><span class="o">.</span><span class="n">type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"begin_block"</span><span class="p">,</span> <span class="s2">"program"</span><span class="p">}:</span>
-</span><span data-line="881">        <span class="n">parent</span> <span class="o">=</span> <span class="n">parent</span><span class="o">.</span><span class="n">parent</span>
-</span><span data-line="882">    <span class="k">return</span> <span class="n">parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">parent</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"begin_block"</span>
-</span><span data-line="883">
+</span><span data-line="878">
+</span><span data-line="879"><span class="k">def</span><span class="w"> </span><span class="nf">_in_initializer</span><span class="p">(</span><span class="n">node</span><span class="p">:</span> <span class="n">Node</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="880">    <span class="n">parent</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">parent</span>
+</span><span data-line="881">    <span class="k">while</span> <span class="n">parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">parent</span><span class="o">.</span><span class="n">type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"begin_block"</span><span class="p">,</span> <span class="s2">"program"</span><span class="p">}:</span>
+</span><span data-line="882">        <span class="n">parent</span> <span class="o">=</span> <span class="n">parent</span><span class="o">.</span><span class="n">parent</span>
+</span><span data-line="883">    <span class="k">return</span> <span class="n">parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">parent</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"begin_block"</span>
 </span><span data-line="884">
-</span><span data-line="885"><span class="k">def</span><span class="w"> </span><span class="nf">_declarations</span><span class="p">(</span><span class="n">root</span><span class="p">:</span> <span class="n">Node</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Node</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]]:</span>
-</span><span data-line="886">    <span class="c1"># Rake's pending description is global, including across namespaces.</span>
-</span><span data-line="887">    <span class="c1"># An explicit stack avoids Python recursion on deeply nested namespaces.</span>
-</span><span data-line="888">    <span class="n">disabled</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-</span><span data-line="889">    <span class="n">scopes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Iterator</span><span class="p">[</span><span class="n">Node</span><span class="p">],</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[(</span><span class="n">_load_statements</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">disabled</span><span class="p">),</span> <span class="s2">""</span><span class="p">)]</span>
-</span><span data-line="890">    <span class="n">description</span><span class="p">:</span> <span class="n">Node</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="891">    <span class="k">while</span> <span class="n">scopes</span><span class="p">:</span>
-</span><span data-line="892">        <span class="n">statements</span><span class="p">,</span> <span class="n">namespace</span> <span class="o">=</span> <span class="n">scopes</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
-</span><span data-line="893">        <span class="n">node</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">statements</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-</span><span data-line="894">        <span class="k">if</span> <span class="n">node</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="895">            <span class="k">continue</span>
-</span><span data-line="896">        <span class="n">control</span> <span class="o">=</span> <span class="n">_escaping_control</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">include_begin</span><span class="o">=</span><span class="n">_in_initializer</span><span class="p">(</span><span class="n">node</span><span class="p">))</span>
-</span><span data-line="897">        <span class="k">if</span> <span class="n">control</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"return"</span><span class="p">,</span> <span class="s2">"redo"</span><span class="p">}:</span>
-</span><span data-line="898">            <span class="k">return</span>
-</span><span data-line="899">        <span class="k">if</span> <span class="n">control</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"break"</span><span class="p">,</span> <span class="s2">"next"</span><span class="p">}:</span>
-</span><span data-line="900">            <span class="k">continue</span>
-</span><span data-line="901">        <span class="n">scopes</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">statements</span><span class="p">,</span> <span class="n">namespace</span><span class="p">))</span>
-</span><span data-line="902">        <span class="n">method</span> <span class="o">=</span> <span class="n">_method</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
-</span><span data-line="903">        <span class="n">arguments</span> <span class="o">=</span> <span class="n">_arguments</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
-</span><span data-line="904">        <span class="n">_validate_declaration</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
-</span><span data-line="905">        <span class="n">description</span> <span class="o">=</span> <span class="n">pending_description</span><span class="p">(</span>
-</span><span data-line="906">            <span class="n">node</span><span class="p">,</span>
-</span><span data-line="907">            <span class="n">method</span><span class="p">,</span>
-</span><span data-line="908">            <span class="n">description</span><span class="p">,</span>
-</span><span data-line="909">            <span class="n">_reachable_children</span><span class="p">,</span>
-</span><span data-line="910">            <span class="k">lambda</span> <span class="n">owner</span><span class="p">,</span> <span class="n">method_node</span><span class="p">:</span> <span class="n">_deferred_call</span><span class="p">(</span><span class="n">owner</span><span class="p">,</span> <span class="n">method_node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">),</span>
-</span><span data-line="911">        <span class="p">)</span>
-</span><span data-line="912">        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">"desc"</span><span class="p">:</span>
-</span><span data-line="913">            <span class="n">description</span> <span class="o">=</span> <span class="n">description_node</span><span class="p">(</span><span class="n">arguments</span><span class="p">,</span> <span class="n">_task_arguments</span><span class="p">)</span>
-</span><span data-line="914">        <span class="k">elif</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"task"</span><span class="p">,</span> <span class="s2">"multitask"</span><span class="p">,</span> <span class="s2">"file"</span><span class="p">,</span> <span class="s2">"file_create"</span><span class="p">,</span> <span class="s2">"directory"</span><span class="p">}:</span>
-</span><span data-line="915">            <span class="k">if</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"task"</span><span class="p">,</span> <span class="s2">"multitask"</span><span class="p">}:</span>
-</span><span data-line="916">                <span class="k">yield</span> <span class="n">node</span><span class="p">,</span> <span class="n">namespace</span><span class="p">,</span> <span class="n">description_text</span><span class="p">(</span><span class="n">description</span><span class="p">)</span>
-</span><span data-line="917">            <span class="n">description</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="918">        <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">"namespace"</span><span class="p">:</span>
-</span><span data-line="919">            <span class="n">nested</span> <span class="o">=</span> <span class="n">_namespace_body</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span> <span class="n">namespace</span><span class="p">)</span>
-</span><span data-line="920">            <span class="k">if</span> <span class="n">nested</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="921">                <span class="n">qualified</span><span class="p">,</span> <span class="n">body</span> <span class="o">=</span> <span class="n">nested</span>
-</span><span data-line="922">                <span class="n">scopes</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">_scope_statements</span><span class="p">(</span><span class="n">body</span><span class="p">),</span> <span class="n">qualified</span><span class="p">))</span>
-</span><span data-line="923">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="924">                <span class="c1"># An opaque namespace may consume or replace the global comment.</span>
-</span><span data-line="925">                <span class="n">description</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="926">
+</span><span data-line="885">
+</span><span data-line="886"><span class="k">def</span><span class="w"> </span><span class="nf">_declarations</span><span class="p">(</span><span class="n">root</span><span class="p">:</span> <span class="n">Node</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Node</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]]:</span>
+</span><span data-line="887">    <span class="c1"># Rake's pending description is global, including across namespaces.</span>
+</span><span data-line="888">    <span class="c1"># An explicit stack avoids Python recursion on deeply nested namespaces.</span>
+</span><span data-line="889">    <span class="n">disabled</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+</span><span data-line="890">    <span class="n">scopes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Iterator</span><span class="p">[</span><span class="n">Node</span><span class="p">],</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[(</span><span class="n">_load_statements</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">disabled</span><span class="p">),</span> <span class="s2">""</span><span class="p">)]</span>
+</span><span data-line="891">    <span class="n">description</span><span class="p">:</span> <span class="n">Node</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="892">    <span class="k">while</span> <span class="n">scopes</span><span class="p">:</span>
+</span><span data-line="893">        <span class="n">statements</span><span class="p">,</span> <span class="n">namespace</span> <span class="o">=</span> <span class="n">scopes</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+</span><span data-line="894">        <span class="n">node</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">statements</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="895">        <span class="k">if</span> <span class="n">node</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="896">            <span class="k">continue</span>
+</span><span data-line="897">        <span class="n">control</span> <span class="o">=</span> <span class="n">_escaping_control</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">include_begin</span><span class="o">=</span><span class="n">_in_initializer</span><span class="p">(</span><span class="n">node</span><span class="p">))</span>
+</span><span data-line="898">        <span class="k">if</span> <span class="n">control</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"return"</span><span class="p">,</span> <span class="s2">"redo"</span><span class="p">}:</span>
+</span><span data-line="899">            <span class="k">return</span>
+</span><span data-line="900">        <span class="k">if</span> <span class="n">control</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"break"</span><span class="p">,</span> <span class="s2">"next"</span><span class="p">}:</span>
+</span><span data-line="901">            <span class="k">continue</span>
+</span><span data-line="902">        <span class="n">scopes</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">statements</span><span class="p">,</span> <span class="n">namespace</span><span class="p">))</span>
+</span><span data-line="903">        <span class="n">method</span> <span class="o">=</span> <span class="n">_method</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
+</span><span data-line="904">        <span class="n">arguments</span> <span class="o">=</span> <span class="n">_arguments</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+</span><span data-line="905">        <span class="n">_validate_declaration</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">disabled</span><span class="p">)</span>
+</span><span data-line="906">        <span class="n">description</span> <span class="o">=</span> <span class="n">pending_description</span><span class="p">(</span>
+</span><span data-line="907">            <span class="n">node</span><span class="p">,</span>
+</span><span data-line="908">            <span class="n">method</span><span class="p">,</span>
+</span><span data-line="909">            <span class="n">description</span><span class="p">,</span>
+</span><span data-line="910">            <span class="n">_reachable_children</span><span class="p">,</span>
+</span><span data-line="911">            <span class="k">lambda</span> <span class="n">owner</span><span class="p">,</span> <span class="n">method_node</span><span class="p">:</span> <span class="n">_deferred_call</span><span class="p">(</span><span class="n">owner</span><span class="p">,</span> <span class="n">method_node</span><span class="p">,</span> <span class="n">disabled</span><span class="p">),</span>
+</span><span data-line="912">        <span class="p">)</span>
+</span><span data-line="913">        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">"desc"</span><span class="p">:</span>
+</span><span data-line="914">            <span class="n">description</span> <span class="o">=</span> <span class="n">description_node</span><span class="p">(</span><span class="n">arguments</span><span class="p">,</span> <span class="n">_task_arguments</span><span class="p">)</span>
+</span><span data-line="915">        <span class="k">elif</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"task"</span><span class="p">,</span> <span class="s2">"multitask"</span><span class="p">,</span> <span class="s2">"file"</span><span class="p">,</span> <span class="s2">"file_create"</span><span class="p">,</span> <span class="s2">"directory"</span><span class="p">}:</span>
+</span><span data-line="916">            <span class="k">if</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"task"</span><span class="p">,</span> <span class="s2">"multitask"</span><span class="p">}:</span>
+</span><span data-line="917">                <span class="k">yield</span> <span class="n">node</span><span class="p">,</span> <span class="n">namespace</span><span class="p">,</span> <span class="n">description_text</span><span class="p">(</span><span class="n">description</span><span class="p">)</span>
+</span><span data-line="918">            <span class="n">description</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="919">        <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">"namespace"</span><span class="p">:</span>
+</span><span data-line="920">            <span class="n">nested</span> <span class="o">=</span> <span class="n">_namespace_body</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span> <span class="n">namespace</span><span class="p">)</span>
+</span><span data-line="921">            <span class="k">if</span> <span class="n">nested</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="922">                <span class="n">qualified</span><span class="p">,</span> <span class="n">body</span> <span class="o">=</span> <span class="n">nested</span>
+</span><span data-line="923">                <span class="n">scopes</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">_scope_statements</span><span class="p">(</span><span class="n">body</span><span class="p">),</span> <span class="n">qualified</span><span class="p">))</span>
+</span><span data-line="924">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="925">                <span class="c1"># An opaque namespace may consume or replace the global comment.</span>
+</span><span data-line="926">                <span class="n">description</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span data-line="927">
+</span><span data-line="928">
 <div class="viewcode-block" id="parse_rakefile">
 <a class="viewcode-back" href="../../../../modules.html#nur.core.providers.rake.parse_rakefile">[docs]</a>
-</span><span data-line="928"><span class="k">def</span><span class="w"> </span><span class="nf">parse_rakefile</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">source_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">_SOURCE_FILE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
-</span><span data-line="929"><span class="w">    </span><span class="sd">"""Discover literal Rake tasks at file scope or inside literal namespaces.</span>
-</span><span data-line="930">
-</span><span data-line="931"><span class="sd">    Only direct ``task``/``multitask`` calls and pending literal ``desc`` calls</span>
-</span><span data-line="932"><span class="sd">    are read. Task bodies, conditional/generated declarations, file tasks,</span>
-</span><span data-line="933"><span class="sd">    rules and imported files are opaque. Parentheses and plain begin/end</span>
-</span><span data-line="934"><span class="sd">    wrappers without exception handlers are transparent. Active literal BEGIN</span>
-</span><span data-line="935"><span class="sd">    initializers are read before ordinary statements. No Ruby code or</span>
-</span><span data-line="936"><span class="sd">    runner is executed. Regexp literals outside the validated ASCII syntax</span>
-</span><span data-line="937"><span class="sd">    subset cause the file to be skipped.</span>
-</span><span data-line="938"><span class="sd">    """</span>
-</span><span data-line="939">    <span class="n">root</span> <span class="o">=</span> <span class="n">Parser</span><span class="p">(</span><span class="n">_LANGUAGE</span><span class="p">)</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">text</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">))</span><span class="o">.</span><span class="n">root_node</span>
-</span><span data-line="940">    <span class="k">if</span> <span class="n">root</span><span class="o">.</span><span class="n">has_error</span><span class="p">:</span>
-</span><span data-line="941">        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (invalid Ruby syntax)"</span><span class="p">,</span> <span class="n">source_file</span><span class="p">)</span>
-</span><span data-line="942">        <span class="k">return</span> <span class="p">[]</span>
-</span><span data-line="943">    <span class="n">control_error</span> <span class="o">=</span> <span class="n">syntax_error</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
-</span><span data-line="944">    <span class="k">if</span> <span class="n">control_error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="945">        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span> <span class="n">source_file</span><span class="p">,</span> <span class="n">control_error</span><span class="p">)</span>
-</span><span data-line="946">        <span class="k">return</span> <span class="p">[]</span>
-</span><span data-line="947">    <span class="k">if</span> <span class="n">_begin_exits</span><span class="p">(</span><span class="n">root</span><span class="p">):</span>
-</span><span data-line="948">        <span class="k">return</span> <span class="p">[]</span>
-</span><span data-line="949">    <span class="n">load_error</span> <span class="o">=</span> <span class="n">_load_time_error</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
-</span><span data-line="950">    <span class="k">if</span> <span class="n">load_error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="951">        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span> <span class="n">source_file</span><span class="p">,</span> <span class="n">load_error</span><span class="p">)</span>
-</span><span data-line="952">        <span class="k">return</span> <span class="p">[]</span>
-</span><span data-line="953">    <span class="n">tasks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Task</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="954">    <span class="n">descriptions</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="955">    <span class="k">try</span><span class="p">:</span>
-</span><span data-line="956">        <span class="k">for</span> <span class="n">node</span><span class="p">,</span> <span class="n">namespace</span><span class="p">,</span> <span class="n">description</span> <span class="ow">in</span> <span class="n">_declarations</span><span class="p">(</span><span class="n">root</span><span class="p">):</span>
-</span><span data-line="957">            <span class="n">task</span> <span class="o">=</span> <span class="n">_make_task</span><span class="p">(</span>
-</span><span data-line="958">                <span class="n">descriptions</span><span class="p">,</span> <span class="n">_arguments</span><span class="p">(</span><span class="n">node</span><span class="p">),</span> <span class="n">namespace</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">source_file</span>
-</span><span data-line="959">            <span class="p">)</span>
-</span><span data-line="960">            <span class="k">if</span> <span class="n">task</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="961">                <span class="n">tasks</span><span class="p">[</span><span class="n">task</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">task</span>
-</span><span data-line="962">    <span class="k">except</span> <span class="n">_InvalidDeclarationError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-</span><span data-line="963">        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span> <span class="n">source_file</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span>
-</span><span data-line="964">        <span class="k">return</span> <span class="p">[]</span>
-</span><span data-line="965">    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">tasks</span><span class="o">.</span><span class="n">values</span><span class="p">())</span></div>
+</span><span data-line="929"><span class="k">def</span><span class="w"> </span><span class="nf">parse_rakefile</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">source_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">_SOURCE_FILE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="930"><span class="w">    </span><span class="sd">"""Discover literal Rake tasks at file scope or inside literal namespaces.</span>
+</span><span data-line="931">
+</span><span data-line="932"><span class="sd">    Only direct ``task``/``multitask`` calls and pending literal ``desc`` calls</span>
+</span><span data-line="933"><span class="sd">    are read. Task bodies, conditional/generated declarations, file tasks,</span>
+</span><span data-line="934"><span class="sd">    rules and imported files are opaque. Parentheses and plain begin/end</span>
+</span><span data-line="935"><span class="sd">    wrappers without exception handlers are transparent. Active literal BEGIN</span>
+</span><span data-line="936"><span class="sd">    initializers are read before ordinary statements. No Ruby code or</span>
+</span><span data-line="937"><span class="sd">    runner is executed. Regexp literals outside the validated ASCII syntax</span>
+</span><span data-line="938"><span class="sd">    subset cause the file to be skipped.</span>
+</span><span data-line="939"><span class="sd">    """</span>
+</span><span data-line="940">    <span class="n">root</span> <span class="o">=</span> <span class="n">Parser</span><span class="p">(</span><span class="n">_LANGUAGE</span><span class="p">)</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">text</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">))</span><span class="o">.</span><span class="n">root_node</span>
+</span><span data-line="941">    <span class="k">if</span> <span class="n">root</span><span class="o">.</span><span class="n">has_error</span><span class="p">:</span>
+</span><span data-line="942">        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (invalid Ruby syntax)"</span><span class="p">,</span> <span class="n">source_file</span><span class="p">)</span>
+</span><span data-line="943">        <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="944">    <span class="n">control_error</span> <span class="o">=</span> <span class="n">syntax_error</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
+</span><span data-line="945">    <span class="k">if</span> <span class="n">control_error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="946">        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span> <span class="n">source_file</span><span class="p">,</span> <span class="n">control_error</span><span class="p">)</span>
+</span><span data-line="947">        <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="948">    <span class="k">if</span> <span class="n">_begin_exits</span><span class="p">(</span><span class="n">root</span><span class="p">):</span>
+</span><span data-line="949">        <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="950">    <span class="n">load_error</span> <span class="o">=</span> <span class="n">_load_time_error</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
+</span><span data-line="951">    <span class="k">if</span> <span class="n">load_error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="952">        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span> <span class="n">source_file</span><span class="p">,</span> <span class="n">load_error</span><span class="p">)</span>
+</span><span data-line="953">        <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="954">    <span class="n">tasks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Task</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="955">    <span class="n">descriptions</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="956">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="957">        <span class="k">for</span> <span class="n">node</span><span class="p">,</span> <span class="n">namespace</span><span class="p">,</span> <span class="n">description</span> <span class="ow">in</span> <span class="n">_declarations</span><span class="p">(</span><span class="n">root</span><span class="p">):</span>
+</span><span data-line="958">            <span class="n">task</span> <span class="o">=</span> <span class="n">_make_task</span><span class="p">(</span>
+</span><span data-line="959">                <span class="n">descriptions</span><span class="p">,</span> <span class="n">_arguments</span><span class="p">(</span><span class="n">node</span><span class="p">),</span> <span class="n">namespace</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">source_file</span>
+</span><span data-line="960">            <span class="p">)</span>
+</span><span data-line="961">            <span class="k">if</span> <span class="n">task</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="962">                <span class="n">tasks</span><span class="p">[</span><span class="n">task</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">task</span>
+</span><span data-line="963">    <span class="k">except</span> <span class="n">_InvalidDeclarationError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+</span><span data-line="964">        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span> <span class="n">source_file</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span>
+</span><span data-line="965">        <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="966">    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">tasks</span><span class="o">.</span><span class="n">values</span><span class="p">())</span></div>
 
-</span><span data-line="966">
 </span><span data-line="967">
-</span><span data-line="968"><span class="k">class</span><span class="w"> </span><span class="nc">RakeProvider</span><span class="p">:</span>
-</span><span data-line="969">    <span class="n">prefix</span> <span class="o">=</span> <span class="s2">"rake"</span>
-</span><span data-line="970">
-</span><span data-line="971">    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span data-line="972">        <span class="k">return</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">_SOURCE_FILE</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span>
-</span><span data-line="973">
-</span><span data-line="974">    <span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
-</span><span data-line="975">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="976">            <span class="n">text</span><span class="p">,</span> <span class="n">encoding</span> <span class="o">=</span> <span class="n">decode_source</span><span class="p">((</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">_SOURCE_FILE</span><span class="p">)</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">())</span>
-</span><span data-line="977">        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">UnicodeError</span><span class="p">,</span> <span class="ne">LookupError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span data-line="978">            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span> <span class="n">_SOURCE_FILE</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
-</span><span data-line="979">            <span class="k">return</span> <span class="p">[]</span>
-</span><span data-line="980">        <span class="n">tasks</span> <span class="o">=</span> <span class="n">parse_rakefile</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
-</span><span data-line="981">        <span class="k">if</span> <span class="n">encoding</span> <span class="o">!=</span> <span class="s2">"utf-8"</span><span class="p">:</span>
-</span><span data-line="982">            <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">:</span>
-</span><span data-line="983">                <span class="k">if</span> <span class="ow">not</span> <span class="n">task</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">isascii</span><span class="p">():</span>
-</span><span data-line="984">                    <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-</span><span data-line="985">                        <span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> "</span>
-</span><span data-line="986">                        <span class="s2">"(task name cannot be reproduced safely from </span><span class="si">%s</span><span class="s2"> source)"</span><span class="p">,</span>
-</span><span data-line="987">                        <span class="n">task</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-</span><span data-line="988">                        <span class="n">encoding</span><span class="p">,</span>
-</span><span data-line="989">                    <span class="p">)</span>
-</span><span data-line="990">            <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">task</span> <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span> <span class="k">if</span> <span class="n">task</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">isascii</span><span class="p">()]</span>
-</span><span data-line="991">        <span class="k">return</span> <span class="n">tasks</span>
+</span><span data-line="968">
+</span><span data-line="969"><span class="k">class</span><span class="w"> </span><span class="nc">RakeProvider</span><span class="p">:</span>
+</span><span data-line="970">    <span class="n">prefix</span> <span class="o">=</span> <span class="s2">"rake"</span>
+</span><span data-line="971">
+</span><span data-line="972">    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="973">        <span class="k">return</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">_SOURCE_FILE</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span>
+</span><span data-line="974">
+</span><span data-line="975">    <span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="976">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="977">            <span class="n">text</span><span class="p">,</span> <span class="n">encoding</span> <span class="o">=</span> <span class="n">decode_source</span><span class="p">((</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">_SOURCE_FILE</span><span class="p">)</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">())</span>
+</span><span data-line="978">        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">UnicodeError</span><span class="p">,</span> <span class="ne">LookupError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="979">            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span> <span class="n">_SOURCE_FILE</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+</span><span data-line="980">            <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="981">        <span class="n">tasks</span> <span class="o">=</span> <span class="n">parse_rakefile</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+</span><span data-line="982">        <span class="k">if</span> <span class="n">encoding</span> <span class="o">!=</span> <span class="s2">"utf-8"</span><span class="p">:</span>
+</span><span data-line="983">            <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">:</span>
+</span><span data-line="984">                <span class="k">if</span> <span class="ow">not</span> <span class="n">task</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">isascii</span><span class="p">():</span>
+</span><span data-line="985">                    <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+</span><span data-line="986">                        <span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> "</span>
+</span><span data-line="987">                        <span class="s2">"(task name cannot be reproduced safely from </span><span class="si">%s</span><span class="s2"> source)"</span><span class="p">,</span>
+</span><span data-line="988">                        <span class="n">task</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+</span><span data-line="989">                        <span class="n">encoding</span><span class="p">,</span>
+</span><span data-line="990">                    <span class="p">)</span>
+</span><span data-line="991">            <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">task</span> <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span> <span class="k">if</span> <span class="n">task</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">isascii</span><span class="p">()]</span>
+</span><span data-line="992">        <span class="k">return</span> <span class="n">tasks</span>
 </span></pre></div>
         </article><button class="back-to-top" type="button">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
