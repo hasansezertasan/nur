@@ -402,6 +402,26 @@ def _raised_kind(node: Node) -> str:
 def _constructed_raise_kind(node: Node, arity: int) -> str:
     name = receiver_name(node.child_by_field_name("receiver"))
     values = _arguments(node)
+    positional = [value for value in values if value.type != "pair"]
+    specialized = {
+        "NameError",
+        "NoMethodError",
+        "SystemExit",
+        "SignalException",
+        "Interrupt",
+        "SystemCallError",
+    }
+    known_exception = name in _ERROR_PARENTS or name == "Exception"
+    if (
+        known_exception
+        and name not in specialized
+        and not name.startswith("Errno::")
+        and len(positional) > 1
+        and not any(
+            value.type in {"splat_argument", "hash_splat_argument"} for value in values
+        )
+    ):
+        return "ArgumentError"
     if name == "String" and (
         not values or (len(values) == 1 and values[0].type == "string")
     ):
@@ -507,6 +527,9 @@ def _exit_kind(node: Node, name: str) -> str:
 
 def _ancestors(kind: str) -> set[str]:
     result = {kind, "Exception"}
+    if kind.startswith("Errno::"):
+        kind = "SystemCallError"
+        result.add(kind)
     while kind in _ERROR_PARENTS:
         kind = _ERROR_PARENTS[kind]
         result.add(kind)

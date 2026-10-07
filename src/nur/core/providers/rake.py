@@ -642,6 +642,7 @@ def _load_declaration_error(
                 name,
                 _reachable_children,
                 lambda candidate: _constructor_error(candidate, disabled),
+                _literal_truth,
             )
             if name in _RAKE_METHODS
             else None

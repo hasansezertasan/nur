@@ -4137,6 +4137,8 @@ def test_truthy_literal_begin_unless_guard_skips_initializer_tasks(guard):
         "module_eval { def helper; end }",
         "Other.extend Rake::DSL",
         "if false; extend Rake::DSL; end",
+        'if ENV["ENABLE_HELPER_TASK"]; def self.task(*); end; end',
+        'ENV["ENABLE_HELPER_TASK"] && (def self.task(*); end)',
         "begin; define_singleton_method(:task, 1); rescue TypeError; end",
         "begin; define_singleton_method(:task); rescue ArgumentError; end",
         (
@@ -4160,6 +4162,31 @@ def test_unrelated_scope_providers_do_not_supply_rake_dsl(provider):
 )
 def test_proven_scope_providers_keep_outer_tasks(provider):
     source = f"class Helper; {provider}; task :inside; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("exception", ["RuntimeError", "TypeError", "ArgumentError"])
+def test_invalid_exception_constructor_arity_is_not_original_exception(exception):
+    source = (
+        f'begin; raise {exception}.new("x", "y"); rescue {exception}; end; task :safe'
+    )
+    tasks = parse_rakefile(source)
+    expected = ["safe"] if exception == "ArgumentError" else []
+    assert [task.name for task in tasks] == expected
+
+
+def test_rescued_exception_constructor_error_keeps_tasks():
+    source = (
+        'begin; raise RuntimeError.new("x", "y"); rescue ArgumentError; end; task :safe'
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "exception", ["Errno::EADV", "Errno::EREMCHG", "Errno::EHWPOISON"]
+)
+def test_platform_errno_classes_preserve_system_call_error_parent(exception):
+    source = f"begin; raise {exception}; rescue SystemCallError; end; task :safe"
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
 
 

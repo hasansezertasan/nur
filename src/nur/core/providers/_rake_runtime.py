@@ -311,6 +311,7 @@ def scope_dsl_error(
     name: str,
     reachable_children: Callable[[Node], list[Node]],
     constructor_error: Callable[[Node], str | None],
+    literal_truth: Callable[[Node | None], bool | None],
 ) -> str | None:
     scope = node.parent
     while scope is not None and scope.type not in {
@@ -338,8 +339,29 @@ def scope_dsl_error(
             "block",
             "do_block",
         }:
-            pending.extend(reachable_children(child))
+            pending.extend(_provider_children(child, reachable_children, literal_truth))
     return "missing Rake DSL method in non-main scope during loading"
+
+
+def _provider_children(
+    node: Node,
+    reachable_children: Callable[[Node], list[Node]],
+    literal_truth: Callable[[Node | None], bool | None],
+) -> list[Node]:
+    condition = node.child_by_field_name("condition")
+    if condition is not None and literal_truth(condition) is None:
+        return [condition]
+    if node.type == "binary":
+        operator = node.child_by_field_name("operator")
+        left = node.child_by_field_name("left")
+        if (
+            operator is not None
+            and operator.type in {"&&", "||", "and", "or"}
+            and left is not None
+            and literal_truth(left) is None
+        ):
+            return [left]
+    return reachable_children(node)
 
 
 def load_control_error(node: Node, raised_scopes: dict[int, str | None]) -> str | None:
