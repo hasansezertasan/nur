@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from nur.core.providers._rake_overrides import RAKE_METHODS, main_scope
+from nur.core.providers._rake_parameters import provider_call_error
 from nur.core.providers._rake_raises import handled_load_error
 from nur.core.providers._rake_syntax import is_self, literal, node_text
 
@@ -270,40 +271,48 @@ def overridden_method_error(
 
 def _scope_method_provider(
     node: Node, name: str, constructor_error: Callable[[Node], str | None]
-) -> bool:
+) -> Node | None:
     if node.type == "singleton_method":
         owner = node.child_by_field_name("object")
         method = node.child_by_field_name("name")
-        return (
+        matches = (
             owner is not None
             and node_text(owner) == "self"
             and (method is not None and node_text(method) == name)
         )
+        return node if matches else None
     method = node.child_by_field_name("method")
-    if node.type != "call" or method is None or constructor_error(node) is not None:
-        return False
     receiver = node.child_by_field_name("receiver")
-    if receiver is not None and not is_self(receiver):
-        return False
+    valid_receiver = receiver is None or is_self(receiver)
+    if (
+        node.type != "call"
+        or method is None
+        or constructor_error(node) is not None
+        or not valid_receiver
+    ):
+        return None
     arguments = node.child_by_field_name("arguments")
     if node_text(method) == "extend":
-        return arguments is not None and any(
+        matches = arguments is not None and any(
             node_text(argument) in {"Rake::DSL", "::Rake::DSL"}
             for argument in arguments.named_children
         )
+        return node if matches else None
     if node_text(method) in {"class_eval", "module_eval", "class_exec", "module_exec"}:
         block = node.child_by_field_name("block")
         body = block.child_by_field_name("body") if block is not None else None
-        return body is not None and any(
-            _scope_method_provider(child, name, constructor_error)
-            for child in body.named_children
-        )
-    return (
+        for child in body.named_children if body is not None else []:
+            provider = _scope_method_provider(child, name, constructor_error)
+            if provider is not None:
+                return provider
+        return None
+    matches = (
         node_text(method) == "define_singleton_method"
         and arguments is not None
         and bool(arguments.named_children)
         and literal(arguments.named_children[0]) == name
     )
+    return node if matches else None
 
 
 def scope_dsl_error(
@@ -312,7 +321,7 @@ def scope_dsl_error(
     reachable_children: Callable[[Node], list[Node]],
     constructor_error: Callable[[Node], str | None],
     literal_truth: Callable[[Node | None], bool | None],
-) -> str | None:
+) -> tuple[str, str] | None:
     scope = node.parent
     while scope is not None and scope.type not in {
         "class",
@@ -328,8 +337,9 @@ def scope_dsl_error(
         child = pending.pop()
         if child.start_byte >= node.start_byte:
             continue
-        if _scope_method_provider(child, name, constructor_error):
-            return None
+        provider = _scope_method_provider(child, name, constructor_error)
+        if provider is not None:
+            return provider_call_error(provider, node)
         if child.type not in {
             "class",
             "module",
@@ -340,7 +350,7 @@ def scope_dsl_error(
             "do_block",
         }:
             pending.extend(_provider_children(child, reachable_children, literal_truth))
-    return "missing Rake DSL method in non-main scope during loading"
+    return "missing Rake DSL method in non-main scope during loading", "NoMethodError"
 
 
 def _provider_children(

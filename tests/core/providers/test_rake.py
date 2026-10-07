@@ -4139,6 +4139,9 @@ def test_truthy_literal_begin_unless_guard_skips_initializer_tasks(guard):
         "if false; extend Rake::DSL; end",
         'if ENV["ENABLE_HELPER_TASK"]; def self.task(*); end; end',
         'ENV["ENABLE_HELPER_TASK"] && (def self.task(*); end)',
+        "def self.task; end",
+        "def self.task(first, second); end",
+        "define_singleton_method(:task) {}",
         "begin; define_singleton_method(:task, 1); rescue TypeError; end",
         "begin; define_singleton_method(:task); rescue ArgumentError; end",
         (
@@ -4158,10 +4161,21 @@ def test_unrelated_scope_providers_do_not_supply_rake_dsl(provider):
         "self.extend ::Rake::DSL",
         "class_eval { def self.task(*); end }",
         "module_eval { define_singleton_method(:task) { |*| } }",
+        "def self.task(name); end",
+        "def self.task(name = nil); end",
+        "define_singleton_method(:task) { |name| }",
     ],
 )
 def test_proven_scope_providers_keep_outer_tasks(provider):
     source = f"class Helper; {provider}; task :inside; end; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_rescued_scoped_method_arity_error_keeps_outer_tasks():
+    source = (
+        "class Helper; def self.task; end; "
+        "begin; task :inside; rescue ArgumentError; end; end; task :safe"
+    )
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
 
 

@@ -636,7 +636,7 @@ def _load_declaration_error(
     if not _dsl_receiver(node) or (main_scope(node) and name in disabled):
         return None
     if not main_scope(node):
-        error = (
+        failure = (
             scope_dsl_error(
                 node,
                 name,
@@ -647,7 +647,8 @@ def _load_declaration_error(
             if name in _RAKE_METHODS
             else None
         )
-        return handled_load_error(node, error, "NoMethodError", raised_scopes)
+        error, scope_kind = failure or (None, "NoMethodError")
+        return handled_load_error(node, error, scope_kind, raised_scopes)
     arguments = _arguments(node)
     error = _declaration_error(node, name, arguments, None, disabled)
     kind = declaration_exception(
