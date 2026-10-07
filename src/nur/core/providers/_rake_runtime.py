@@ -268,7 +268,9 @@ def overridden_method_error(
     return None
 
 
-def _scope_method_provider(node: Node, name: str) -> bool:
+def _scope_method_provider(
+    node: Node, name: str, constructor_error: Callable[[Node], str | None]
+) -> bool:
     if node.type == "singleton_method":
         owner = node.child_by_field_name("object")
         method = node.child_by_field_name("name")
@@ -278,7 +280,7 @@ def _scope_method_provider(node: Node, name: str) -> bool:
             and (method is not None and node_text(method) == name)
         )
     method = node.child_by_field_name("method")
-    if node.type != "call" or method is None:
+    if node.type != "call" or method is None or constructor_error(node) is not None:
         return False
     receiver = node.child_by_field_name("receiver")
     if receiver is not None and not is_self(receiver):
@@ -293,7 +295,8 @@ def _scope_method_provider(node: Node, name: str) -> bool:
         block = node.child_by_field_name("block")
         body = block.child_by_field_name("body") if block is not None else None
         return body is not None and any(
-            _scope_method_provider(child, name) for child in body.named_children
+            _scope_method_provider(child, name, constructor_error)
+            for child in body.named_children
         )
     return (
         node_text(method) == "define_singleton_method"
@@ -304,7 +307,10 @@ def _scope_method_provider(node: Node, name: str) -> bool:
 
 
 def scope_dsl_error(
-    node: Node, name: str, reachable_children: Callable[[Node], list[Node]]
+    node: Node,
+    name: str,
+    reachable_children: Callable[[Node], list[Node]],
+    constructor_error: Callable[[Node], str | None],
 ) -> str | None:
     scope = node.parent
     while scope is not None and scope.type not in {
@@ -321,7 +327,7 @@ def scope_dsl_error(
         child = pending.pop()
         if child.start_byte >= node.start_byte:
             continue
-        if _scope_method_provider(child, name):
+        if _scope_method_provider(child, name, constructor_error):
             return None
         if child.type not in {
             "class",

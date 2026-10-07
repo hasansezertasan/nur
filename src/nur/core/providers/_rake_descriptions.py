@@ -12,11 +12,28 @@ if TYPE_CHECKING:
     from tree_sitter import Node
 
 __all__ = [
+    "description_node",
     "description_summary",
     "description_text",
     "pending_description",
     "valid_description",
 ]
+
+
+def description_node(
+    arguments: list[Node],
+    task_arguments: Callable[[list[Node]], tuple[list[Node], list[Node] | None]],
+) -> Node | None:
+    positional, pairs = task_arguments(arguments)
+    node = (
+        arguments[0]
+        if (len(arguments) == 1 or (pairs is not None and not positional))
+        else None
+    )
+    while node is not None and node.type == "parenthesized_statements":
+        children = [child for child in node.named_children if child.type != "comment"]
+        node = children[0] if len(children) == 1 else None
+    return node
 
 
 def description_summary(comments: list[str]) -> str:

@@ -4125,6 +4125,12 @@ def test_selectorless_case_visits_only_matching_literal_arm(body):
         "module_eval { def helper; end }",
         "Other.extend Rake::DSL",
         "if false; extend Rake::DSL; end",
+        "begin; define_singleton_method(:task, 1); rescue TypeError; end",
+        "begin; define_singleton_method(:task); rescue ArgumentError; end",
+        (
+            "class_eval { begin; define_singleton_method(:task, 1); "
+            "rescue TypeError; end }"
+        ),
     ],
 )
 def test_unrelated_scope_providers_do_not_supply_rake_dsl(provider):

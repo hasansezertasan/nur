@@ -23,6 +23,7 @@ from nur.core.providers._rake_callbacks import (
 )
 from nur.core.providers._rake_control import case_children, endless_loop_error
 from nur.core.providers._rake_descriptions import (
+    description_node,
     description_summary,
     description_text,
     pending_description,
@@ -481,19 +482,6 @@ def _make_task(
     )
 
 
-def _description(arguments: list[Node]) -> Node | None:
-    positional, pairs = _task_arguments(arguments)
-    node = (
-        arguments[0]
-        if (len(arguments) == 1 or (pairs is not None and not positional))
-        else None
-    )
-    while node is not None and node.type == "parenthesized_statements":
-        children = [child for child in node.named_children if child.type != "comment"]
-        node = children[0] if len(children) == 1 else None
-    return node
-
-
 def _escaping_control(root: Node, *, include_begin: bool = False) -> str | None:
     """Find controls evaluated in this scope, leaving nested bodies opaque."""
     pending = [(root, False)]
@@ -649,7 +637,12 @@ def _load_declaration_error(
         return None
     if not main_scope(node):
         error = (
-            scope_dsl_error(node, name, _reachable_children)
+            scope_dsl_error(
+                node,
+                name,
+                _reachable_children,
+                lambda candidate: _constructor_error(candidate, disabled),
+            )
             if name in _RAKE_METHODS
             else None
         )
@@ -917,7 +910,7 @@ def _declarations(root: Node) -> Iterator[tuple[Node, str, str | None]]:
             lambda owner, method_node: _deferred_call(owner, method_node, disabled),
         )
         if method == "desc":
-            description = _description(arguments)
+            description = description_node(arguments, _task_arguments)
         elif method in {"task", "multitask", "file", "file_create", "directory"}:
             if method in {"task", "multitask"}:
                 yield node, namespace, description_text(description)
