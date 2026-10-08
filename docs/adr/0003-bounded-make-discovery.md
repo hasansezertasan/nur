@@ -42,8 +42,12 @@ using `tree-sitter-make`, with this contract:
 ## Consequences
 
 Structural accuracy improves without weakening the safety rule.
-Wheels for `tree-sitter-make` (MIT, `abi3`) exist for Linux (glibc and musl,
-x86_64 and aarch64), macOS (x86_64 and arm64) and Windows (x64 and arm64),
-matching the CI matrix.
+Wheels for `tree-sitter-make` (MIT, `abi3`) exist for glibc Linux (x86_64 and
+aarch64), musl Linux (x86_64 only), macOS (x86_64 and arm64) and Windows
+(x64 and arm64), which covers the CI matrix. Other platforms build from the
+sdist and need a C compiler.
+Known grammar limits also omit some valid constructs (target-specific variable
+assignments, `export`/`override` rule prefixes, nested `define` blocks,
+`.RECIPEPREFIX`) and can hide rules that follow an unparsable region.
 Tasks following an unparsable region may occasionally be omitted; results remain
 candidates, not a promise that Make will accept the file.

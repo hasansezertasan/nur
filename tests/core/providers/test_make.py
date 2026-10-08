@@ -159,3 +159,25 @@ def test_discover_reads_bytes_with_non_utf8_content(tmp_path) -> None:
     (tmp_path / "Makefile").write_bytes(b"# \xff\xfe\nreal: ## Run it\n\ttrue\n")
     tasks = MakeProvider().discover(tmp_path)
     assert [(t.name, t.description) for t in tasks] == [("real", "Run it")]
+
+
+def test_parse_targets_rejects_non_ascii_name_fragments() -> None:
+    assert parse_targets("ok:\n\techo\nüber: x\nlast:\n") == ["ok", "last"]
+
+
+def test_parse_targets_accepts_files_without_trailing_newline(caplog) -> None:
+    with caplog.at_level("WARNING", logger="nur"):
+        assert parse_targets("all: b\nb:") == ["all", "b"]
+    assert "syntax errors" not in caplog.text
+
+
+def test_parse_descriptions_ignore_bare_carriage_returns() -> None:
+    text = "x = 1\ry = 2\nfoo: ## d1\nbar:\n"
+    assert parse_descriptions(text) == {"foo": "d1"}
+
+
+def test_parse_targets_handles_deeply_nested_conditionals() -> None:
+    depth = 3000
+    text = "ifdef A\n" * depth + "deep:\n" + "endif\n" * depth
+    assert parse_targets(text) == []
+    assert parse_targets("ifdef A\nok:\nendif\n" + text) == ["ok"]

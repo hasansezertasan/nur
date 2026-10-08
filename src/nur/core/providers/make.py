@@ -29,20 +29,43 @@ _DESC_RE = re.compile(r"##\s*(.*?)\s*$")
 # Subtrees that never contain rule headers: define bodies are raw text and
 # recipe lines are shell commands.
 _OPAQUE = {"define_directive", "recipe_line", "ERROR"}
+# Real Makefiles nest conditionals a few levels; deeper input is hostile.
+_MAX_DEPTH = 100
+# Bytes that may directly surround a target name ('' is start/end of input).
+_BOUNDARY = {b"", b" ", b"\t", b"\r", b"\n", b":", b"\\"}
 
 
-def _rules(node: Node) -> Iterator[Node]:
-    """Walk *node* for rules, skipping opaque and erroneous subtrees.
+def _rules(root: Node) -> Iterator[Node]:
+    """Walk *root* for rules, skipping opaque and erroneous subtrees.
+
+    The walk is iterative and depth-bounded: tree-sitter's node accessors
+    crash the interpreter on pathologically nested trees (hundreds of levels).
 
     Yields:
         Rule nodes in source order.
     """
-    for child in node.children:
-        if child.type in _OPAQUE:
+    stack = [(child, 1) for child in reversed(root.children)]
+    while stack:
+        node, depth = stack.pop()
+        if node.type in _OPAQUE:
             continue
-        if child.type == "rule":
-            yield child
-        yield from _rules(child)
+        if depth > _MAX_DEPTH:
+            log.warning("nur: %s nesting too deep; skipping the rest", _SOURCE_FILE)
+            continue
+        if node.type == "rule":
+            yield node
+        stack.extend((child, depth + 1) for child in reversed(node.children))
+
+
+def _delimited(source: bytes, word: Node) -> bool:
+    """Return whether *word* is a whole token, not the tail of an unparsed one.
+
+    The grammar splits names at characters it rejects (``über`` becomes an
+    error plus the word ``ber``), so a word glued to other text is a fragment.
+    """
+    before = source[word.start_byte - 1 : word.start_byte]
+    after = source[word.end_byte : word.end_byte + 1]
+    return before in _BOUNDARY and after in _BOUNDARY
 
 
 def _header_line(rule: Node, lines: list[bytes]) -> str:
@@ -60,12 +83,14 @@ def _header_line(rule: Node, lines: list[bytes]) -> str:
 
 def _scan(source: bytes) -> list[tuple[str, str | None]]:
     """Return ``(name, description)`` per literal target, in rule order."""
+    if not source.endswith(b"\n"):
+        source += b"\n"
     tree = _PARSER.parse(source)
     if tree.root_node.has_error:
         log.warning(
             "nur: %s has syntax errors; unparsable parts are skipped", _SOURCE_FILE
         )
-    lines = source.splitlines()
+    lines = source.split(b"\n")
     found: list[tuple[str, str | None]] = []
     for rule in _rules(tree.root_node):
         targets = next((c for c in rule.named_children if c.type == "targets"), None)
@@ -75,7 +100,12 @@ def _scan(source: bytes) -> list[tuple[str, str | None]]:
         desc = match.group(1) if match else None
         for child in targets.named_children:
             name = (child.text or b"").decode("utf-8", errors="replace")
-            if child.type == "word" and _NAME_RE.match(name) and name != _SOURCE_FILE:
+            if (
+                child.type == "word"
+                and _NAME_RE.match(name)
+                and name != _SOURCE_FILE
+                and _delimited(source, child)
+            ):
                 found.append((name, desc))
     return found
 
