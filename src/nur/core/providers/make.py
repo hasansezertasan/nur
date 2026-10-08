@@ -3,7 +3,7 @@ from __future__ import annotations
 import codecs
 import logging
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeAlias
 
 import tree_sitter_make
 from tree_sitter import Language, Parser
@@ -33,13 +33,13 @@ _NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 _DESC_RE = re.compile(r"##\s*(.*?)\s*$")
 # Subtrees that never contain rule headers: define bodies are raw text and
 # recipe lines are shell commands.
-_OPAQUE = {"define_directive", "recipe_line"}
+_OPAQUE = {"define_directive", "recipe_line", "include_directive"}
 # A newline that is not escaped by a trailing backslash.
 _BARE_NEWLINE = re.compile(rb"(?<!\\)(?<!\\\r)\n")
 # Bytes that may directly surround a target name ('' is start/end of input).
 _BOUNDARY = {b"", b" ", b"\t", b"\r", b"\n", b"\f", b":", b"\\"}
 
-_Found = tuple[(str, str | None)]
+_Found: TypeAlias = tuple[str, str | None]  # noqa: UP040 -- AST hooks run Python 3.10.
 
 
 def _line_targets(line: str) -> list[_Found]:
@@ -59,7 +59,11 @@ def _line_targets(line: str) -> list[_Found]:
 def _fallback(source: bytes, node: Node) -> list[_Found]:
     """Line-scan the full lines spanned by *node*."""
     start = source.rfind(b"\n", 0, node.start_byte) + 1
-    text = source[start : node.end_byte].decode("utf-8", errors="replace")
+    end = source.find(b"\n", max(start, node.end_byte - 1))
+    if end == -1:
+        end = len(source)
+    text = source[start:end].decode("utf-8", errors="replace")
+    text = text.replace("\\\n", " ")
     return [found for line in text.splitlines() for found in _line_targets(line)]
 
 
@@ -90,7 +94,7 @@ def _rule_targets(source: bytes, rule: Node, targets: Node) -> list[_Found]:
     for child in rule.named_children:
         if child.type == "comment":
             gap = source[header_end : child.start_byte]
-            match = _DESC_RE.match((child.text or b"").decode("utf-8", "replace"))
+            match = _DESC_RE.search((child.text or b"").decode("utf-8", "replace"))
             if match and b"\n" not in gap:
                 desc = match.group(1)
             break
@@ -144,6 +148,7 @@ def _walk(source: bytes, root: Node) -> Iterator[_Found]:
 def _scan(source: bytes) -> list[_Found]:
     """Return ``(name, description)`` per literal target, in source order."""
     source = source.removeprefix(codecs.BOM_UTF8)
+    source = source.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
     if not source.endswith(b"\n"):
         source += b"\n"
     tree = _PARSER.parse(source)

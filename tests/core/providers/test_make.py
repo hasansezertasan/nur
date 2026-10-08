@@ -1,3 +1,5 @@
+import pytest
+
 from nur.core.providers.make import MakeProvider, parse_descriptions, parse_targets
 
 MAKEFILE_TEXT = """\
@@ -235,3 +237,55 @@ def test_discover_dedupes_and_keeps_first_description(tmp_path) -> None:
     )
     tasks = MakeProvider().discover(tmp_path)
     assert [(t.name, t.description) for t in tasks] == [("clean", "First")]
+
+
+@pytest.mark.parametrize("prefix", ["export", "override", "private", "unexport"])
+def test_fallback_preserves_descriptions_in_sibling_comments(prefix: str) -> None:
+    text = f"{prefix} a b: ## Build both\nlast: ## Last\n"
+    assert parse_descriptions(text) == {
+        prefix: "Build both",
+        "a": "Build both",
+        "b": "Build both",
+        "last": "Last",
+    }
+
+
+def test_fallback_preserves_description_after_malformed_expression() -> None:
+    text = "a: ## First\n$(\nb: ## Second\nc: ## Third\n"
+    assert parse_descriptions(text) == {"a": "First", "b": "Second", "c": "Third"}
+
+
+def test_fallback_does_not_take_description_from_the_next_line() -> None:
+    text = "export a:\n## Unrelated\nb: ## Second\n"
+    assert parse_descriptions(text) == {"b": "Second"}
+
+
+def test_fallback_ignores_continued_assignment_values() -> None:
+    text = "X = \\\nfake: dep\nreal: ## Real\n"
+    assert parse_targets(text) == ["real"]
+
+
+def test_fallback_supports_continued_target_specific_assignments() -> None:
+    text = "a \\\n b: FLAGS=-x ## Build both\nreal:\n"
+    assert parse_targets(text) == ["a", "b", "real"]
+    assert parse_descriptions(text) == {"a": "Build both", "b": "Build both"}
+
+
+@pytest.mark.parametrize("directive", ["include", "-include", "sinclude"])
+def test_include_paths_with_colons_do_not_produce_targets(directive: str) -> None:
+    assert parse_targets(f"{directive} x:y\nreal:\n") == ["real"]
+
+
+def test_descriptions_allow_metadata_after_a_plain_comment() -> None:
+    assert parse_descriptions("a: dep # explanation ## Build\n") == {"a": "Build"}
+
+
+@pytest.mark.parametrize("newline", ["\r", "\r\n", "\n"])
+def test_discover_preserves_targets_and_descriptions_for_line_endings(
+    tmp_path, newline: str
+) -> None:
+    (tmp_path / "Makefile").write_bytes(
+        f"a: ## First{newline}b: ## Second{newline}".encode()
+    )
+    tasks = MakeProvider().discover(tmp_path)
+    assert [(t.name, t.description) for t in tasks] == [("a", "First"), ("b", "Second")]

@@ -32,9 +32,10 @@ using `tree-sitter-make`, with this contract:
   Continued headers are supported.
 - An inline `## description` on the line where the header ends supplies optional
   metadata; the first nonempty description for a name wins.
+  Metadata can follow a plain `#` comment; `##` inside an inline recipe is omitted.
 - Source order, deduplication and the `make <target>` command are unchanged.
 - **Parse errors are local, and the line scan is the safety net.**
-  Real Makefiles often contain constructs the grammar rejects or mis-parses
+  Real Makefiles often contain constructs the grammar rejects or parses incorrectly
   (parentheses in comments, shell quoting inside `$(shell ...)`, `>&`,
   target-specific variables, non-ASCII names), and the parser can fuse such text
   with the next rule.
@@ -42,6 +43,8 @@ using `tree-sitter-make`, with this contract:
   previous line-based scan: error nodes, target-specific variable lines, rules
   whose header is fused with preceding text and rules not starting a line.
   Clean rules still come from tree-sitter nodes.
+  Fallback joins continued lines before scanning, so assignment values stay opaque
+  and continued target-specific variable headers retain their literal targets.
   Skipping the whole file, or only the erroneous nodes, would silently drop
   tasks that the previous implementation listed.
 
