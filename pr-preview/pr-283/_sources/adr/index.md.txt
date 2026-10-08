@@ -8,4 +8,5 @@ once accepted; supersede a decision with a new record rather than rewriting it.
 :maxdepth: 1
 
 0001-provider-selection-criteria
+0002-bounded-rake-discovery
 ```

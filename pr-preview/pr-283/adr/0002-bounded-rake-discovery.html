@@ -2,7 +2,7 @@
 <html lang="en" data-accent-color="amber" data-content_root="../">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Overview: module code - nur</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Bounded Rake discovery: extract literal declarations without simulating Ruby - nur</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Repository setup" href="../maintaining/setup.html" /><link rel="prev" title="Provider selection criteria: static discovery, never execution" href="0001-provider-selection-criteria.html" /><script>
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=e1a1ceaf" />
@@ -22,7 +22,7 @@
 }
 </style>
     
-  <meta property="og:type" content="website"/><meta property="og:title" content="Overview: module code"/>
+  <meta property="og:type" content="website"/><meta property="og:title" content="Bounded Rake discovery: extract literal declarations without simulating Ruby"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -63,14 +63,14 @@ data-aria-dark="Switch to auto color mode">
     <div class="sy-lside-inner md:sticky">
       <div class="sy-scrollbar p-6">
         <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Contents</span></p>
-<ul>
+<ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../cli-reference.html">CLI reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../modules.html">Modules</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../adr/index.html">Architecture Decision Records</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../adr/0001-provider-selection-criteria.html">Provider selection criteria: static discovery, never execution</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../adr/0002-bounded-rake-discovery.html">Bounded Rake discovery: extract literal declarations without simulating Ruby</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Architecture Decision Records</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="0001-provider-selection-criteria.html">Provider selection criteria: static discovery, never execution</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Bounded Rake discovery: extract literal declarations without simulating Ruby</a></li>
 </ul>
 </li>
 </ul>
@@ -92,7 +92,12 @@ data-aria-dark="Switch to auto color mode">
     <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
       <i class="i-lucide close"></i>
     </button>
-    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#context">Context</a></li>
+<li><a class="reference internal" href="#decision">Decision</a></li>
+<li><a class="reference internal" href="#consequences">Consequences</a></li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
   </aside>
   <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
   <main class="sy-main w-full max-sm:max-w-full print:pt-6">
@@ -108,8 +113,12 @@ data-aria-dark="Switch to auto color mode">
         <span>/</span>
         <meta itemprop="position" content="1" />
       </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <strong itemprop="name">Overview: module code</strong>
+        <a itemprop="item" href="index.html"><span itemprop="name">Architecture Decision Records</span></a>
+        <span>/</span>
         <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Bounded Rake discovery: extract literal declarations without simulating Ruby</strong>
+        <meta itemprop="position" content="3" />
       </li></ol>
     <div class="xl:hidden ml-1">
       <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
@@ -121,33 +130,81 @@ data-aria-dark="Switch to auto color mode">
 </div><div class="flex flex-col break-words justify-between">
       <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
   <article class="yue" role="main">
-          <h1>All modules for which code is available</h1>
-<ul><li><a href="nur/cli/app.html">nur.cli.app</a></li>
-<li><a href="nur/core/execution.html">nur.core.execution</a></li>
-<li><a href="nur/core/models.html">nur.core.models</a></li>
-<li><a href="nur/core/providers/invoke.html">nur.core.providers.invoke</a></li>
-<li><a href="nur/core/providers/just.html">nur.core.providers.just</a></li>
-<li><a href="nur/core/providers/make.html">nur.core.providers.make</a></li>
-<li><a href="nur/core/providers/mask.html">nur.core.providers.mask</a></li>
-<li><a href="nur/core/providers/moon.html">nur.core.providers.moon</a></li>
-<li><a href="nur/core/providers/nox.html">nur.core.providers.nox</a></li>
-<li><a href="nur/core/providers/pre_commit.html">nur.core.providers.pre_commit</a></li>
-<li><a href="nur/core/providers/rake.html">nur.core.providers.rake</a></li>
-<li><a href="nur/core/providers/task.html">nur.core.providers.task</a></li>
-<li><a href="nur/core/providers/tox.html">nur.core.providers.tox</a></li>
-<li><a href="nur/core/providers/vscode.html">nur.core.providers.vscode</a></li>
-<li><a href="nur/core/providers/xc.html">nur.core.providers.xc</a></li>
-<li><a href="nur/core/registry.html">nur.core.registry</a></li>
-<li><a href="nur/core/shell.html">nur.core.shell</a></li>
-<li><a href="nur/tui/app.html">nur.tui.app</a></li>
-<li><a href="shlex.html">shlex</a></li>
+          <section id="bounded-rake-discovery-extract-literal-declarations-without-simulating-ruby">
+<h1>Bounded Rake discovery: extract literal declarations without simulating Ruby<a class="headerlink" href="#bounded-rake-discovery-extract-literal-declarations-without-simulating-ruby" title="Link to this heading">#</a></h1>
+<section id="context">
+<h2>Context<a class="headerlink" href="#context" title="Link to this heading">#</a></h2>
+<p><a class="reference internal" href="0001-provider-selection-criteria.html"><span class="std std-doc">ADR 0001</span></a> permits useful static subsets
+and requires discovery to avoid executing project code.
+Rakefiles are Ruby programs, so their declarations can be read statically
+without proving what happens when Ruby loads them.</p>
+<p>The Rake provider’s initial implementation grew into a partial interpreter:
+exception matching, method overrides, callback execution, global-variable
+constraints and control-flow reachability needed increasingly coupled checks.
+Repeated reviews exposed parallel cases after each local fix.
+That approach has no useful completeness boundary for arbitrary Ruby programs.</p>
+</section>
+<section id="decision">
+<h2>Decision<a class="headerlink" href="#decision" title="Link to this heading">#</a></h2>
+<p>Discover <strong>syntactic task candidates</strong>, with the following bounded contract:</p>
+<ul class="simple">
+<li><p>Read only the current directory’s <code class="docutils literal notranslate"><span class="pre">Rakefile</span></code>, without Ruby, Rake, subprocesses
+or imported project files.</p></li>
+<li><p>Parse with Tree-sitter and skip a file if parsing reports an error.
+This is a grammar check, not Ruby compilation or semantic validation.</p></li>
+<li><p>Recognize direct <code class="docutils literal notranslate"><span class="pre">task</span></code> and <code class="docutils literal notranslate"><span class="pre">multitask</span></code> calls, bare or received by literal
+<code class="docutils literal notranslate"><span class="pre">self</span></code>, at file scope and inside literal namespace blocks.</p></li>
+<li><p>Extract a literal symbol or ordinary quoted string from the leading argument
+or a single-entry task-name dependency hash.
+Other arguments and dependency expressions are opaque.</p></li>
+<li><p>Traverse parentheses and plain <code class="docutils literal notranslate"><span class="pre">begin</span></code> wrappers without exception handlers.
+Namespace block parameters, handlers, dynamic namespaces, conditionals,
+loops, classes, methods, other callbacks and <code class="docutils literal notranslate"><span class="pre">BEGIN</span></code> initializers are opaque.</p></li>
+<li><p>Use the first line of an adjacent literal <code class="docutils literal notranslate"><span class="pre">desc</span></code> string as optional metadata.
+Comments preserve adjacency; unsupported statements and namespace boundaries
+clear it. Deduplicate names and retain the latest nonempty literal description.</p></li>
+<li><p>Preserve bounded source decoding and command-name checks.
+Execution delegates to <code class="docutils literal notranslate"><span class="pre">rake</span> <span class="pre">&lt;qualified-name&gt;</span></code> through an argument vector.</p></li>
 </ul>
+<p>Discovery does <strong>not</strong> determine whether Ruby will compile or load the file,
+whether an override changes a DSL call, whether a declaration is reached,
+whether a task is registered, or whether invoking it succeeds or terminates.
+Those behaviors belong to Rake when the user runs the command.</p>
+</section>
+<section id="consequences">
+<h2>Consequences<a class="headerlink" href="#consequences" title="Link to this heading">#</a></h2>
+<p>The provider remains useful without requiring a Ruby installation for listing.
+Its implementation and review criteria have a finite structural boundary.
+Names from unsupported scopes are omitted, while recognized declarations can
+still be listed from a file whose loading or execution fails.
+Descriptions are best-effort literal metadata, not a reproduction of <code class="docutils literal notranslate"><span class="pre">rake</span> <span class="pre">-T</span></code>.</p>
+<p>Tests cover extraction, namespace qualification, metadata boundaries, parser
+failures, argument construction, source decoding and absence of execution.
+Runtime-semantics tests are retired rather than retained as misleading promises.
+Future support expansions require an explicit update to this contract.</p>
+</section>
+</section>
+
         </article><button class="back-to-top" type="button">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
     <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
   </svg>
   <span>Back to top</span>
-</button><div class="navigation flex print:hidden"></div></div>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="0001-provider-selection-criteria.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Provider selection criteria: static discovery, never execution</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="../maintaining/setup.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">Repository setup</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
     </div>
   </main>
 </div>

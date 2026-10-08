@@ -70,6 +70,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Modules</a></li>
 <li class="toctree-l1"><a class="reference internal" href="adr/index.html">Architecture Decision Records</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="adr/0001-provider-selection-criteria.html">Provider selection criteria: static discovery, never execution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adr/0002-bounded-rake-discovery.html">Bounded Rake discovery: extract literal declarations without simulating Ruby</a></li>
 </ul>
 </li>
 </ul>
@@ -646,14 +647,11 @@ are not resolved. Task bodies and pre/post hooks remain Invoke’s concern.</p>
 <dl class="py function" id="module-nur.core.providers.rake">
 <dt class="sig sig-object py" id="nur.core.providers.rake.parse_rakefile">
 <span class="sig-prename descclassname"><span class="pre">nur.core.providers.rake.</span></span><span class="sig-name descname"><span class="pre">parse_rakefile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Rakefile'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/core/providers/rake.html#parse_rakefile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.core.providers.rake.parse_rakefile" title="Link to this definition">#</a></dt>
-<dd><p>Discover literal Rake tasks at file scope or inside literal namespaces.</p>
-<p>Only direct <code class="docutils literal notranslate"><span class="pre">task</span></code>/<code class="docutils literal notranslate"><span class="pre">multitask</span></code> calls and pending literal <code class="docutils literal notranslate"><span class="pre">desc</span></code> calls
-are read. Task bodies, conditional/generated declarations, file tasks,
-rules and imported files are opaque. Parentheses and plain begin/end
-wrappers without exception handlers are transparent. Active literal BEGIN
-initializers are read before ordinary statements. No Ruby code or
-runner is executed. Regexp literals outside the validated ASCII syntax
-subset cause the file to be skipped.</p>
+<dd><p>Extract literal task candidates without evaluating Ruby behavior.</p>
+<p>Direct task/multitask declarations and literal namespaces are supported.
+Parentheses and handler-free begin wrappers are transparent. Other scopes
+are opaque. Parser errors skip the file; Ruby semantic validity, execution
+order, method overrides and successful task registration are not inferred.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
