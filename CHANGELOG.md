@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/hasansezertasan/nur/compare/v0.5.0...v0.6.0) (2026-10-08)
+
+
+### 🚀 Features
+
+* **invoke:** discover tasks.py tasks without executing code ([#277](https://github.com/hasansezertasan/nur/issues/277)) ([cc076c4](https://github.com/hasansezertasan/nur/commit/cc076c4591b1f2c6f6cebf7f9657d4dcd18a7fbe))
+
 ## [0.5.0](https://github.com/hasansezertasan/nur/compare/v0.4.0...v0.5.0) (2026-10-02)
 
 
