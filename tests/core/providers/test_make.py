@@ -84,3 +84,78 @@ def test_discovery_does_not_execute_makefile(tmp_path) -> None:
     tasks = MakeProvider().discover(tmp_path)
     assert not sentinel.exists()  # the $(shell ...) must NOT have run
     assert [t.name for t in tasks] == ["all"]
+
+
+def test_parse_targets_ignores_define_blocks() -> None:
+    text = "define TEMPLATE\nfake: dep\nendef\n\nreal:\n\techo hi\n"
+    assert parse_targets(text) == ["real"]
+
+
+def test_parse_targets_supports_continued_headers() -> None:
+    text = "build \\\n  test: dep \\\n  other ## Build and test\n\techo hi\n"
+    assert parse_targets(text) == ["build", "test"]
+    assert parse_descriptions(text) == {
+        "build": "Build and test",
+        "test": "Build and test",
+    }
+
+
+def test_parse_targets_ignores_recipe_bodies_and_assignments() -> None:
+    text = (
+        "FLAGS = a:b\n"
+        "OUT != echo x:y\n"
+        "run:\n"
+        "\techo phantom: nope\n"
+        "\tcurl http://host:80/\n"
+    )
+    assert parse_targets(text) == ["run"]
+
+
+def test_parse_targets_skips_computed_and_pattern_targets() -> None:
+    text = "$(NAME): dep\nx$(Y): dep\n%.o: %.c\n.PHONY: all\nall:\n"
+    assert parse_targets(text) == ["all"]
+
+
+def test_parse_targets_supports_double_colon_and_static_pattern_rules() -> None:
+    text = "all:: ; @true\na.o b.o: %.o: %.c\n\tcc -c $<\n"
+    assert parse_targets(text) == ["all", "a.o", "b.o"]
+
+
+def test_parse_targets_finds_rules_in_conditionals() -> None:
+    text = "ifdef FOO\ncond:\n\techo hi\nendif\nlast:\n"
+    assert parse_targets(text) == ["cond", "last"]
+
+
+def test_parse_targets_excludes_makefile_target() -> None:
+    assert parse_targets("Makefile:\nreal:\n") == ["real"]
+
+
+def test_parse_targets_tolerates_malformed_input(caplog) -> None:
+    text = 'good:\n\techo ok\n\nbroken = $(shell python -c "if x(\nlater:\n'
+    with caplog.at_level("WARNING", logger="nur"):
+        names = parse_targets(text)
+    assert "good" in names
+    assert "broken" not in names
+    assert "syntax errors" in caplog.text
+
+
+def test_parse_targets_handles_empty_and_non_utf8_content() -> None:
+    assert parse_targets("") == []
+    assert parse_targets("# only a comment\n") == []
+    assert parse_targets("café: x\n") == []  # no phantom "caf" target
+
+
+def test_discover_does_not_execute_shell_expressions(tmp_path) -> None:
+    marker = tmp_path / "marker"
+    (tmp_path / "Makefile").write_text(
+        f"X := $(shell touch {marker})\nY != touch {marker}\nreal:\n\ttrue\n"
+    )
+    tasks = MakeProvider().discover(tmp_path)
+    assert [t.name for t in tasks] == ["real"]
+    assert not marker.exists()
+
+
+def test_discover_reads_bytes_with_non_utf8_content(tmp_path) -> None:
+    (tmp_path / "Makefile").write_bytes(b"# \xff\xfe\nreal: ## Run it\n\ttrue\n")
+    tasks = MakeProvider().discover(tmp_path)
+    assert [(t.name, t.description) for t in tasks] == [("real", "Run it")]
