@@ -32,7 +32,7 @@ __all__ = ["main"]
 # environment that has not been re-synced would otherwise fail here with a bare
 # ``ModuleNotFoundError`` before any launcher code executes.
 _ROOT_DEPENDENCIES = ("typer",)
-_MISSING_ROOT_DEPENDENCY = "Error: The nur command requires the '{missing}' package, which is not installed. It ships with 'nur', so this usually means your environment is out of sync -- run `uv sync` (or reinstall the package) and try again."  # noqa: E501
+_MISSING_ROOT_DEPENDENCY = "Error: The nur command requires the '{missing}' package, which could not be imported. It ships with 'nur', so this usually means your environment is out of sync -- run `uv sync` (or reinstall the package) and try again."  # noqa: E501
 
 
 def _preflight(module: str) -> None:

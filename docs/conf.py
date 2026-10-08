@@ -97,8 +97,11 @@ html_theme_options = {
 # ``_switcher_base = "/"`` instead.
 _switcher_base = "/nur/"
 _versions_file = Path(__file__).parent / "_static" / "versions.json"
+<<<<<<< before updating
 # Bound unconditionally (Sphinx's own default is ``{}``) so the name Sphinx reads
 # from this namespace always exists, and is only filled when versions.json does.
+=======
+>>>>>>> after updating
 html_context: dict[str, object] = {}
 if _versions_file.exists():
     _versions = json.loads(_versions_file.read_text(encoding="utf-8"))
