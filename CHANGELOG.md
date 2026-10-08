@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/hasansezertasan/nur/compare/v0.6.0...v0.7.0) (2026-10-08)
+
+
+### 🚀 Features
+
+* **rake:** discover Rakefile tasks without executing Ruby ([#283](https://github.com/hasansezertasan/nur/issues/283)) ([dbd6cd6](https://github.com/hasansezertasan/nur/commit/dbd6cd6441b20d98e7158b3cfd2f86107f1e11fa))
+
 ## [0.6.0](https://github.com/hasansezertasan/nur/compare/v0.5.0...v0.6.0) (2026-10-08)
 
 
