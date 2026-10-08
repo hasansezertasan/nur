@@ -10,7 +10,7 @@ from nur.core.providers._rake_overrides import (
     receiver_name,
     termination_method,
 )
-from nur.core.providers._rake_syntax import is_self, literal, node_text
+from nur.core.providers._rake_syntax import is_self, literal, literal_truth, node_text
 
 if TYPE_CHECKING:
     from tree_sitter import Node
@@ -736,19 +736,7 @@ def _record_scope_error(
     skipped_scope = None
     while parent is not None:
         condition = parent.child_by_field_name("condition")
-        if condition is not None and condition.type not in {
-            "true",
-            "false",
-            "nil",
-            "integer",
-            "float",
-            "string",
-            "simple_symbol",
-            "delimited_symbol",
-            "array",
-            "hash",
-            "regex",
-        }:
+        if condition is not None and literal_truth(condition) is None:
             return
         if parent.type in {"rescue", "else", "ensure"}:
             skipped_scope = parent.parent

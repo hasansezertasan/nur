@@ -2,8 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from nur.core.providers._rake_callbacks import executing_scope_block
-from nur.core.providers._rake_syntax import defined_probe, literal, node_text
+from nur.core.providers._rake_callbacks import dsl_receiver, executing_scope_block
+from nur.core.providers._rake_overrides import main_scope
+from nur.core.providers._rake_syntax import (
+    defined_probe,
+    literal,
+    literal_truth as static_truth,
+    node_text,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -90,6 +96,15 @@ def _numeric_case_value(node: Node) -> tuple[str, object] | None:
     return None
 
 
+def _case_match(
+    selector: Node | None, value: tuple[str, object] | None, pattern: Node
+) -> bool | None:
+    if selector is None:
+        return static_truth(pattern)
+    candidate = _case_value(pattern)
+    return candidate == value if candidate is not None else None
+
+
 def case_children(node: Node) -> list[Node] | None:
     if node.type != "case":
         return None
@@ -105,25 +120,40 @@ def case_children(node: Node) -> list[Node] | None:
             continue
         patterns = arm.children_by_field_name("pattern")
         for pattern in patterns:
-            candidate = _case_value(pattern)
-            if candidate is None:
+            matches = _case_match(selector, value, pattern)
+            if matches is None:
                 return None
             children.append(pattern)
-            matches = (
-                candidate[0] not in {"nil", "false"}
-                if selector is None
-                else candidate == value
-            )
             if matches:
                 body = arm.child_by_field_name("body")
                 return [*children, body] if body is not None else children
     return children
 
 
+def _literal_task_call(node: Node, disabled: set[str]) -> bool:
+    method = node.child_by_field_name("method")
+    arguments = node.child_by_field_name("arguments")
+    if (
+        node.type != "call"
+        or method is None
+        or node_text(method) not in {"task", "multitask"} - disabled
+        or not main_scope(node)
+        or not dsl_receiver(node)
+    ):
+        return False
+    values = (
+        [child for child in arguments.named_children if child.type != "comment"]
+        if arguments is not None
+        else []
+    )
+    return len(values) == 1 and literal(values[0]) is not None
+
+
 def _endless_loop(
     node: Node,
     literal_truth: Callable[[Node | None], bool | None],
     reachable_children: Callable[[Node], list[Node]],
+    disabled: set[str],
 ) -> bool:
     if node.type not in {"while", "until", "while_modifier", "until_modifier"}:
         return False
@@ -157,6 +187,8 @@ def _endless_loop(
     }
     while pending:
         child = pending.pop()
+        if _literal_task_call(child, disabled):
+            continue
         if child.type not in harmless:
             return False
         pending.extend(reachable_children(child))
@@ -167,9 +199,10 @@ def endless_loop_error(
     node: Node,
     literal_truth: Callable[[Node | None], bool | None],
     reachable_children: Callable[[Node], list[Node]],
+    disabled: set[str],
 ) -> str | None:
     return (
         "statically endless loop during loading"
-        if _endless_loop(node, literal_truth, reachable_children)
+        if _endless_loop(node, literal_truth, reachable_children, disabled)
         else None
     )

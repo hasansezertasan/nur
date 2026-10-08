@@ -14,6 +14,7 @@ __all__ = [
     "defined_probe",
     "is_self",
     "literal",
+    "literal_truth",
     "node_text",
     "syntax_error",
     "unbound_identifier_ids",
@@ -521,6 +522,29 @@ def _regexp_pattern(pattern: str, *, extended: bool) -> str | None:
     return "".join(converted)
 
 
+def literal_truth(node: Node | None) -> bool | None:
+    while node is not None and node.type in {"parenthesized_statements", "pattern"}:
+        children = [child for child in node.named_children if child.type != "comment"]
+        node = children[0] if len(children) == 1 else None
+    if node is None:
+        return None
+    if node.type in {"false", "nil"}:
+        return False
+    if node.type in {
+        "true",
+        "integer",
+        "float",
+        "string",
+        "simple_symbol",
+        "delimited_symbol",
+        "array",
+        "hash",
+        "regex",
+    }:
+        return True
+    return None
+
+
 def _discarded_constant_branch(node: Node) -> bool:
     child = node
     parent = node.parent
@@ -534,18 +558,8 @@ def _discarded_constant_branch(node: Node) -> bool:
             "unless_modifier",
         }:
             condition = parent.child_by_field_name("condition")
-            value = condition
-            while value is not None and value.type == "parenthesized_statements":
-                values = [
-                    item for item in value.named_children if item.type != "comment"
-                ]
-                value = values[0] if len(values) == 1 else None
-            if (
-                value is not None
-                and value.type in {"true", "false", "nil"}
-                and child != condition
-            ):
-                truth = value.type == "true"
+            truth = literal_truth(condition)
+            if truth is not None and child != condition:
                 if parent.type in {"unless", "unless_modifier"}:
                     truth = not truth
                 branch = parent.child_by_field_name(

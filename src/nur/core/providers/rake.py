@@ -15,7 +15,7 @@ from nur.core.providers._rake_callbacks import (
     constructor_exception,
     declaration_exception,
     dsl_receiver as _dsl_receiver,
-    executing_callbacks,
+    enroll_callbacks,
     invalid_block_arguments as _invalid_block_arguments,
     invalid_namespace_lambda_parameters,
     load_time_children as _load_time_children,
@@ -67,6 +67,7 @@ from nur.core.providers._rake_syntax import (
     binding_names,
     defined_probe,
     literal,
+    literal_truth as _literal_truth,
     node_text,
     syntax_error,
     unbound_identifier_ids,
@@ -486,29 +487,6 @@ def _make_task(
     )
 
 
-def _literal_truth(node: Node | None) -> bool | None:
-    while node is not None and node.type == "parenthesized_statements":
-        children = [child for child in node.named_children if child.type != "comment"]
-        node = children[0] if len(children) == 1 else None
-    if node is None:
-        return None
-    if node.type in {"false", "nil"}:
-        return False
-    if node.type in {
-        "true",
-        "integer",
-        "float",
-        "string",
-        "simple_symbol",
-        "delimited_symbol",
-        "array",
-        "hash",
-        "regex",
-    }:
-        return True
-    return None
-
-
 def _binary_children(node: Node) -> list[Node]:
     left = node.child_by_field_name("left")
     operator = node.child_by_field_name("operator")
@@ -629,6 +607,45 @@ def _load_declaration_error(
     return handled_load_error(node, error, kind, raised_scopes)
 
 
+def _has_block(node: Node) -> bool:
+    return node.child_by_field_name("block") is not None or any(
+        _literal_kind(child) not in {"nil", "false"}
+        for callback in _block_arguments(node)
+        for child in callback.named_children
+    )
+
+
+def _catch_exception(
+    node: Node, disabled: set[str], bare_catches: set[int]
+) -> tuple[str, str] | None:
+    method = node.child_by_field_name("method")
+    receiver = node.child_by_field_name("receiver")
+    key = "catch" if _dsl_receiver(node) else f"{receiver_name(receiver)}.catch"
+    unknown_call = node.id not in bare_catches and (
+        node.type != "call" or method is None or node_text(method) != "catch"
+    )
+    known_scope = main_scope(node) or key == "Kernel.catch"
+    if (
+        unknown_call
+        or not known_scope
+        or key not in {"catch", "Kernel.catch"} - disabled
+    ):
+        return None
+    if _invalid_block_arguments(node, _literal_kind):
+        return "invalid catch block argument during loading", "TypeError"
+    if _call_arity(_arguments(node)) not in {0, 1, None}:
+        return "invalid catch arguments during loading", "ArgumentError"
+    if not _has_block(node):
+        return "catch requires a block during loading", "LocalJumpError"
+    if any(
+        _namespace_lambda_error(child, disabled)
+        for callback in _block_arguments(node)
+        for child in callback.named_children
+    ):
+        return "invalid catch callback arity during loading", "ArgumentError"
+    return None
+
+
 def _constructor_error(node: Node, disabled: set[str]) -> str | None:
     method = node.child_by_field_name("method")
     if (
@@ -638,16 +655,11 @@ def _constructor_error(node: Node, disabled: set[str]) -> str | None:
     ):
         return None
     arguments = _arguments(node)
-    has_block = node.child_by_field_name("block") is not None or any(
-        _literal_kind(child) not in {"nil", "false"}
-        for callback in _block_arguments(node)
-        for child in callback.named_children
-    )
     return constructor_arguments_error(
         node_text(method),
         [_literal_kind(argument) for argument in arguments],
         _call_arity(arguments),
-        has_block=has_block,
+        has_block=_has_block(node),
         is_reader=reader_call(node, disabled),
     )
 
@@ -668,6 +680,7 @@ def _load_time_error(root: Node) -> str | None:
     bare_constructors = unbound_identifier_ids(
         root, {"proc", "lambda", "define_method", "define_singleton_method"}
     )
+    bare_catches = unbound_identifier_ids(root, {"catch"})
     pending = [_load_statements(root, disabled)]
     while pending:
         node = next(pending[-1], None)
@@ -689,11 +702,14 @@ def _load_time_error(root: Node) -> str | None:
             if error := handled_load_error(node, error, kind, raised_scopes):
                 return error
             deferred_calls.add(node.id)
-        callbacks.update(executing_callbacks(node, disabled))
+        catch_exception = _catch_exception(node, disabled, bare_catches)
+        catch_message, catch_kind = catch_exception or (None, None)
+        enroll_callbacks(node, disabled, deferred_calls, callbacks, catch_exception)
         record_catch(node, disabled, catch_calls)
         _record_valid_override(node, disabled)
         error = (
-            endless_loop_error(node, _literal_truth, _reachable_children)
+            handled_load_error(node, catch_message, catch_kind, raised_scopes)
+            or endless_loop_error(node, _literal_truth, _reachable_children, disabled)
             or mutation_error(node, disabled, raised_scopes)
             or _load_declaration_error(node, disabled, raised_scopes)
             or load_assignment_error(node, raised_scopes)

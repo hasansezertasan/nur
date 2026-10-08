@@ -4109,6 +4109,9 @@ def test_rescued_additional_global_type_error_keeps_tasks():
         'case; when false, nil; raise "never"; when 0; nil; else; raise "never"; end',
         'case; when false; raise "never"; else; nil; end',
         'case; when (true); nil; else; raise "never"; end',
+        'case; when []; nil; else; raise "never"; end',
+        'case; when {}; nil; else; raise "never"; end',
+        'case; when /x/; nil; else; raise "never"; end',
     ],
 )
 def test_selectorless_case_visits_only_matching_literal_arm(body):
@@ -4230,7 +4233,15 @@ def test_constructed_core_nonexceptions_raise_type_error(value):
     assert [task.name for task in parse_rakefile(source)] == ["safe"]
 
 
-@pytest.mark.parametrize("wrapper", ["if true; {body}; end", "begin; {body}; end"])
+@pytest.mark.parametrize(
+    "wrapper",
+    [
+        "if true; {body}; end",
+        "if (true); {body}; end",
+        "if 1; {body}; end",
+        "begin; {body}; end",
+    ],
+)
 def test_nested_handled_exception_skips_enclosing_rescue_else(wrapper):
     body = wrapper.format(body='raise "handled"')
     source = (
@@ -4276,6 +4287,120 @@ def test_nonempty_container_loops_keep_body_validation(container):
 def test_effectful_container_bodies_keep_rescue_validation(container):
     source = f'begin; {container}; rescue; raise "reachable"; end; task :after'
     assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize("receiver", ["catch", "self.catch", "Kernel.catch"])
+@pytest.mark.parametrize(
+    "invocation",
+    [
+        "(:x)",
+        "(:x, :extra) {}",
+        "(:x, &nil)",
+        "(:x, &false)",
+        "(:x, :extra, &1)",
+        "(:x, &-> {})",
+        "(:x, &-> { it() })",
+        "(:x, &-> { it = 1; it })",
+    ],
+)
+def test_invalid_canonical_catch_calls_reject_loading(receiver, invocation):
+    assert parse_rakefile(f"task :before; {receiver}{invocation}; task :after") == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "begin; catch(:x); rescue LocalJumpError; end",
+        "begin; catch; rescue LocalJumpError; end",
+        "begin; catch(:x, &false); rescue TypeError; end",
+        "begin; catch(:x, :extra, &1); rescue TypeError; end",
+        "catch = 1; catch",
+        'begin; catch(:x, :extra) { raise "never" }; rescue ArgumentError; end',
+        'begin; catch(:x, :extra, &->(_) { raise "never" }); rescue ArgumentError; end',
+        "begin; catch(:x, &-> {}); rescue ArgumentError; end",
+        "def self.catch(*); end; catch(:x)",
+        "class Helper; def self.catch; end; catch; end",
+        "class Helper; def self.catch; end; self.catch; end",
+    ],
+)
+def test_rescued_or_overridden_invalid_catch_keeps_tasks(body):
+    assert [task.name for task in parse_rakefile(body + "; task :safe")] == ["safe"]
+
+
+@pytest.mark.parametrize("guard", ["0", "1", "1.5", '"yes"', ":yes", "[]", "{}", "/x/"])
+def test_unreachable_folded_regexp_uses_ruby_literal_truthiness(guard):
+    source = '/#{"*"}/ unless ' + guard + "; task :safe"
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_unconditional_invalid_regexp_still_rejects_loading():
+    assert parse_rakefile('/#{"*"}/ if 0; task :after') == []
+    assert parse_rakefile("/(/ unless 0; task :after") == []
+
+
+def test_bare_catch_without_callback_rejects_loading():
+    assert parse_rakefile("task :before; catch; task :after") == []
+
+
+@pytest.mark.parametrize("method", ["task", "multitask", "self.task"])
+@pytest.mark.parametrize("loop", ["while true", "until false"])
+def test_endless_loops_with_literal_declarations_reject_loading(method, loop):
+    assert parse_rakefile(f"{loop}; {method} :inside; end; task :after") == []
+
+
+def test_literal_declaration_loop_with_break_keeps_later_tasks():
+    source = "while true; task :inside; break; end; task :after"
+    assert [task.name for task in parse_rakefile(source)] == ["after"]
+
+
+def test_overridden_task_can_escape_literal_loop_through_catch():
+    source = (
+        "def self.task(name); throw :stop; end; "
+        "catch(:stop) { while true; task :inside; end }; "
+        "singleton_class.remove_method(:task); task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "definition",
+    [
+        "def self.task(name, known:); end",
+        "def self.task(name, known: nil); end",
+        "def self.task(name, **nil); end",
+    ],
+)
+def test_scoped_providers_reject_unknown_keywords(definition):
+    source = (
+        f"class Helper; {definition}; "
+        "task :bad, known: true, extra: true; end; task :after"
+    )
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize(
+    "definition",
+    [
+        "def self.task(name, known:, **extra); end",
+        "def self.task(name, **extra); end",
+        "def self.task(name, *extra); end",
+    ],
+)
+def test_scoped_providers_accept_keyword_rest_or_positional_hash(definition):
+    source = (
+        f"class Helper; {definition}; "
+        "task :inside, known: true, extra: true; end; task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_rescued_unknown_keyword_error_keeps_tasks():
+    source = (
+        "class Helper; def self.task(name, known:); end; "
+        "begin; task :inside, known: true, extra: true; rescue ArgumentError; end; "
+        "end; task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
 
 
 @pytest.mark.parametrize(

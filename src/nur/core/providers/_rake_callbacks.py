@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from nur.core.providers._rake_overrides import main_scope, receiver_name, scope_headers
 from nur.core.providers._rake_raises import handled_load_error, inactive_handler
-from nur.core.providers._rake_syntax import is_self, node_text
+from nur.core.providers._rake_syntax import is_self, node_text, unbound_identifier_ids
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -18,6 +18,7 @@ __all__ = [
     "constructor_exception",
     "declaration_exception",
     "dsl_receiver",
+    "enroll_callbacks",
     "executing_callbacks",
     "executing_scope_block",
     "implicit_parameter_arity",
@@ -54,11 +55,14 @@ def _callback_nodes(root: Node) -> Iterator[Node]:
 
 
 def implicit_parameter_arity(callback: Node) -> int:
+    references = unbound_identifier_ids(
+        callback, {"it", *(f"_{index}" for index in range(1, 10))}
+    )
     return max(
         (
             int(name[1]) if name.startswith("_") else 1
             for child in _callback_nodes(callback)
-            if child.type == "identifier"
+            if child.id in references
             and (name := node_text(child))
             in {"it", "_1", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9"}
         ),
@@ -207,6 +211,19 @@ def executing_callbacks(node: Node, disabled: set[str]) -> set[int]:
         for callback in argument.named_children
         for identity in _inline_callback_ids(callback, disabled)
     }
+
+
+def enroll_callbacks(
+    node: Node,
+    disabled: set[str],
+    deferred_calls: set[int],
+    callbacks: set[int],
+    exception: tuple[str, str] | None,
+) -> None:
+    if exception is None:
+        callbacks.update(executing_callbacks(node, disabled))
+    else:
+        deferred_calls.add(node.id)
 
 
 def executing_scope_block(
