@@ -34,6 +34,11 @@ using `tree-sitter-make`, with this contract:
   metadata; the first nonempty description for a name wins.
   Metadata can follow a plain `#` comment; `##` inside an inline recipe is omitted.
 - Source order, deduplication and the `make <target>` command are unchanged.
+- `MakeProvider.discover(cwd)` is the supported entry point for discovery.
+  The previously exported `parse_targets(text)` and `parse_descriptions(text)`
+  helpers are removed: callers must read names and descriptions from the returned
+  `Task` objects. This is a breaking change for imports of those helpers.
+  It supersedes ADR 0001's historical reference to `parse_targets()`.
 - **Parse errors are local, and the line scan is the safety net.**
   Real Makefiles often contain constructs the grammar rejects or parses incorrectly
   (parentheses in comments, shell quoting inside `$(shell ...)`, `>&`,

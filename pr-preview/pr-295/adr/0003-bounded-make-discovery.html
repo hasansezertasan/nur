@@ -161,6 +161,11 @@ Continued headers are supported.</p></li>
 metadata; the first nonempty description for a name wins.
 Metadata can follow a plain <code class="docutils literal notranslate"><span class="pre">#</span></code> comment; <code class="docutils literal notranslate"><span class="pre">##</span></code> inside an inline recipe is omitted.</p></li>
 <li><p>Source order, deduplication and the <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">&lt;target&gt;</span></code> command are unchanged.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">MakeProvider.discover(cwd)</span></code> is the supported entry point for discovery.
+The previously exported <code class="docutils literal notranslate"><span class="pre">parse_targets(text)</span></code> and <code class="docutils literal notranslate"><span class="pre">parse_descriptions(text)</span></code>
+helpers are removed: callers must read names and descriptions from the returned
+<code class="docutils literal notranslate"><span class="pre">Task</span></code> objects. This is a breaking change for imports of those helpers.
+It supersedes ADR 0001’s historical reference to <code class="docutils literal notranslate"><span class="pre">parse_targets()</span></code>.</p></li>
 <li><p><strong>Parse errors are local, and the line scan is the safety net.</strong>
 Real Makefiles often contain constructs the grammar rejects or parses incorrectly
 (parentheses in comments, shell quoting inside <code class="docutils literal notranslate"><span class="pre">$(shell</span> <span class="pre">...)</span></code>, <code class="docutils literal notranslate"><span class="pre">&gt;&amp;</span></code>,
