@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/hasansezertasan/nur/compare/v0.7.0...v0.8.0) (2026-10-08)
+
+
+### 🚀 Features
+
+* **make:** adopt tree-sitter for structural target discovery ([#295](https://github.com/hasansezertasan/nur/issues/295)) ([c7c5a1e](https://github.com/hasansezertasan/nur/commit/c7c5a1ecf4644423961101806672c915cba3b27e))
+
 ## [0.7.0](https://github.com/hasansezertasan/nur/compare/v0.6.0...v0.7.0) (2026-10-08)
 
 
