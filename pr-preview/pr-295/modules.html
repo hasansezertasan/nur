@@ -123,7 +123,6 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#providers-nur-core-providers">Providers (<code class="docutils literal notranslate"><span class="pre">nur.core.providers</span></code>)</a><ul>
-<li><a class="reference internal" href="#nur.core.providers.make.parse_targets"><code class="docutils literal notranslate"><span class="pre">parse_targets()</span></code></a></li>
 <li><a class="reference internal" href="#nur.core.providers.just.parse_justfile"><code class="docutils literal notranslate"><span class="pre">parse_justfile()</span></code></a></li>
 <li><a class="reference internal" href="#nur.core.providers.task.parse_taskfile"><code class="docutils literal notranslate"><span class="pre">parse_taskfile()</span></code></a></li>
 <li><a class="reference internal" href="#nur.core.providers.pre_commit.parse_pre_commit_config"><code class="docutils literal notranslate"><span class="pre">parse_pre_commit_config()</span></code></a></li>
@@ -400,29 +399,8 @@ characters around it stop the text from naming a real variable.</p>
 <h2>Providers (<code class="docutils literal notranslate"><span class="pre">nur.core.providers</span></code>)<a class="headerlink" href="#providers-nur-core-providers" title="Link to this heading">#</a></h2>
 <p>One module per supported task source (make, npm, deno, composer, just, taskfile,
 pre-commit, pdm, poe, tox, mise, cargo-make, moon, xc, VS Code tasks, nox, mask, invoke, rake).</p>
-<dl class="py function" id="module-nur.core.providers.make">
-<dt class="sig sig-object py" id="nur.core.providers.make.parse_targets">
-<span class="sig-prename descclassname"><span class="pre">nur.core.providers.make.</span></span><span class="sig-name descname"><span class="pre">parse_targets</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/core/providers/make.html#parse_targets"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.core.providers.make.parse_targets" title="Link to this definition">#</a></dt>
-<dd><p>Extract literal target names from Makefile <em>text</em> without executing anything.</p>
-<p>Deliberately does NOT shell out to <code class="docutils literal notranslate"><span class="pre">make</span></code>: the database dump
-(<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">-pRrq</span></code>) still evaluates <code class="docutils literal notranslate"><span class="pre">$(shell</span> <span class="pre">...)</span></code> / <code class="docutils literal notranslate"><span class="pre">!=</span></code> assignments while
-reading the file, so a repository’s Makefile could run arbitrary commands
-merely by discovering/listing tasks. Tree-sitter reads rule headers
-structurally, at the cost of not resolving <code class="docutils literal notranslate"><span class="pre">include</span></code> directives, variable
-expansion or computed targets. Names inside <code class="docutils literal notranslate"><span class="pre">define</span></code> blocks, recipes and
-assignments are never reported; text the grammar rejects is read line by line.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>text</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p>
-</dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.14)">list</a>[<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)">str</a>]</p>
-</dd>
-</dl>
-</dd></dl>
-
 <dl class="py function" id="module-nur.core.providers.just">
-<span id="module-nur.core.providers.composer"></span><span id="module-nur.core.providers.deno"></span><span id="module-nur.core.providers.npm"></span><dt class="sig sig-object py" id="nur.core.providers.just.parse_justfile">
+<span id="module-nur.core.providers.composer"></span><span id="module-nur.core.providers.deno"></span><span id="module-nur.core.providers.npm"></span><span id="module-nur.core.providers.make"></span><dt class="sig sig-object py" id="nur.core.providers.just.parse_justfile">
 <span class="sig-prename descclassname"><span class="pre">nur.core.providers.just.</span></span><span class="sig-name descname"><span class="pre">parse_justfile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'justfile'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/core/providers/just.html#parse_justfile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.core.providers.just.parse_justfile" title="Link to this definition">#</a></dt>
 <dd><p>Extract recipes from <code class="docutils literal notranslate"><span class="pre">justfile</span></code> <em>text</em> without executing anything.</p>
 <p>Deliberately does NOT shell out to <code class="docutils literal notranslate"><span class="pre">just</span> <span class="pre">--dump</span></code>: a pure text parse needs no

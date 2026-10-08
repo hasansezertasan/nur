@@ -185,7 +185,7 @@ aarch64), musl Linux (x86_64 only), macOS (x86_64 and arm64) and Windows
 sdist and need a C compiler.
 Known grammar limits remain: nested <code class="docutils literal notranslate"><span class="pre">define</span></code> blocks leak their inner text, and
 targets named like directive keywords (<code class="docutils literal notranslate"><span class="pre">export:</span></code>, <code class="docutils literal notranslate"><span class="pre">include:</span></code>) can be misread.
-Inside fallback regions <code class="docutils literal notranslate"><span class="pre">define</span></code> bodies are not recognised, as before.
+Fallback regions skip <code class="docutils literal notranslate"><span class="pre">define</span></code> bodies, including nested and unterminated blocks.
 Results remain syntactic task candidates, not a promise that Make will accept the file.</p>
 </section>
 </section>
