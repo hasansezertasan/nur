@@ -76,18 +76,19 @@ def _class_variable_scope(node: Node) -> bool:
     return False
 
 
-def empty_for(node: Node) -> bool:
-    if node.type != "for":
-        return False
-    value = node.child_by_field_name("value")
+def _empty_container(value: Node | None) -> bool:
     while value is not None and value.type in {"in", "parenthesized_statements"}:
         children = [child for child in value.named_children if child.type != "comment"]
         value = children[0] if len(children) == 1 else None
     return (
         value is not None
-        and value.type == "array"
+        and value.type in {"array", "hash"}
         and not any(child.type != "comment" for child in value.named_children)
     )
+
+
+def empty_for(node: Node) -> bool:
+    return node.type == "for" and _empty_container(node.child_by_field_name("value"))
 
 
 def empty_rescue(node: Node) -> bool:
@@ -101,6 +102,7 @@ def empty_rescue(node: Node) -> bool:
         if (
             child.type not in {"comment", "nil", "true", "false", "integer", "float"}
             and literal(child) is None
+            and not _empty_container(child)
         ):
             return False
     return False

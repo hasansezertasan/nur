@@ -4252,6 +4252,32 @@ def test_opaque_namespace_return_stops_later_declarations():
     assert [task.name for task in parse_rakefile(source)] == ["before"]
 
 
+@pytest.mark.parametrize("container", ["[]", "{}", "([])", "({})", "{\n# empty\n}"])
+def test_empty_container_loops_skip_unreachable_body(container):
+    source = f'for entry in {container}; raise "never"; end; task :safe'
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize("container", ["[]", "{}", "([])", "({})", "{\n# empty\n}"])
+def test_empty_container_bodies_skip_unreachable_rescue(container):
+    source = f'begin; {container}; rescue; raise "never"; end; task :safe'
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
+    "container", ["[1]", "{key: 1}", "[unknown()]", "{key: unknown()}"]
+)
+def test_nonempty_container_loops_keep_body_validation(container):
+    source = f'for entry in {container}; raise "reachable"; end; task :after'
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize("container", ["[unknown()]", "{key: unknown()}"])
+def test_effectful_container_bodies_keep_rescue_validation(container):
+    source = f'begin; {container}; rescue; raise "reachable"; end; task :after'
+    assert parse_rakefile(source) == []
+
+
 @pytest.mark.parametrize(
     "body",
     [
