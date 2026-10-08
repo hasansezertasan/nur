@@ -57,5 +57,5 @@ aarch64), musl Linux (x86_64 only), macOS (x86_64 and arm64) and Windows
 sdist and need a C compiler.
 Known grammar limits remain: nested `define` blocks leak their inner text, and
 targets named like directive keywords (`export:`, `include:`) can be misread.
-Inside fallback regions `define` bodies are not recognised, as before.
+Fallback regions skip `define` bodies, including nested and unterminated blocks.
 Results remain syntactic task candidates, not a promise that Make will accept the file.

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     from tree_sitter import Node
 
-__all__ = ["MakeProvider", "parse_descriptions", "parse_targets"]
+__all__ = ["MakeProvider"]
 
 
 log = logging.getLogger("nur")
@@ -64,7 +64,16 @@ def _fallback(source: bytes, node: Node) -> list[_Found]:
         end = len(source)
     text = source[start:end].decode("utf-8", errors="replace")
     text = text.replace("\\\n", " ")
-    return [found for line in text.splitlines() for found in _line_targets(line)]
+    depth = 0
+    found: list[_Found] = []
+    for line in text.splitlines():
+        if re.match(r"^ *(?:(?:override|export)[ \t]+)*define(?:[ \t]|$)", line):
+            depth += 1
+        elif re.match(r"^ *endef(?:[ \t]|$)", line):
+            depth = max(0, depth - 1)
+        elif depth == 0:
+            found.extend(_line_targets(line))
+    return found
 
 
 def _delimited(source: bytes, word: Node) -> bool:
@@ -166,28 +175,6 @@ def _descriptions(found: list[_Found]) -> dict[str, str]:
         if desc:
             out.setdefault(name, desc)
     return out
-
-
-def _encode(text: str) -> bytes:
-    return text.encode("utf-8", errors="replace")
-
-
-def parse_targets(text: str) -> list[str]:
-    """Extract literal target names from Makefile *text* without executing anything.
-
-    Deliberately does NOT shell out to ``make``: the database dump
-    (``make -pRrq``) still evaluates ``$(shell ...)`` / ``!=`` assignments while
-    reading the file, so a repository's Makefile could run arbitrary commands
-    merely by discovering/listing tasks. Tree-sitter reads rule headers
-    structurally, at the cost of not resolving ``include`` directives, variable
-    expansion or computed targets. Names inside ``define`` blocks, recipes and
-    assignments are never reported; text the grammar rejects is read line by line.
-    """
-    return list(dict.fromkeys(name for name, _ in _scan(_encode(text))))
-
-
-def parse_descriptions(text: str) -> dict[str, str]:
-    return _descriptions(_scan(_encode(text)))
 
 
 class MakeProvider:
