@@ -140,6 +140,8 @@ def test_unsupported_scopes_are_opaque(wrapper):
         'task "build[argument]"',
         'task "two words"',
         'task "bad\\nname"',
+        'task "build\\x31"',
+        'task :"build\\x31"',
         "task %q{build}",
         "task <<~NAME\nbuild\nNAME\n",
         'task "build:"',

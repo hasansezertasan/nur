@@ -38,6 +38,7 @@ def _unwrapped(node: Node | None) -> Node | None:
 
 
 def _literal(node: Node | None) -> str | None:
+    """Read the supported unescaped literal subset without Ruby evaluation."""
     node = _unwrapped(node)
     if node is None:
         return None
