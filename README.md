@@ -24,7 +24,7 @@
 
 Run `nur` in a project and it discovers the tasks your project already defines —
 from npm, Make, deno, composer, just, Taskfile, pre-commit, PDM/poe, tox, mise,
-cargo-make, moon, xc, VS Code tasks, nox, mask, and Invoke — then lets you run them from a TUI picker or directly from the command line.
+cargo-make, moon, xc, VS Code tasks, nox, mask, Invoke, and Rake — then lets you run them from a TUI picker or directly from the command line.
 Discovery is limited to the current directory. See [Features](#features) for the
 full list of source files.
 
@@ -134,7 +134,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 
 ## Features
 
-- **Zero-config discovery** across eighteen providers, each parsed from a single
+- **Zero-config discovery** across nineteen providers, each parsed from a single
   source file in the current directory:
 
   | Provider | Prefix | Source file |
@@ -157,6 +157,43 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   | Invoke | `invoke` | `tasks.py` (see below) |
   | nox | `nox` | `noxfile.py` (see below) |
   | mask | `mask` | `maskfile.md` (see below) |
+  | Rake | `rake` | `Rakefile` (see below) |
+
+  `rake` parses `Rakefile` with Tree-sitter without running Ruby or `rake -T`.
+  UTF-8 and common ASCII-compatible Ruby source encoding declarations are supported;
+  unsupported encodings are skipped with a warning.
+  Non-ASCII task names in non-UTF-8 sources are omitted because their command arguments
+  cannot be reproduced safely.
+  Descriptions are decoded using the declared source encoding.
+  It discovers direct literal `task` and `multitask` declarations, including
+  dependency-only tasks, and tracks nested literal `namespace` blocks.
+  Calls may use an explicit `self` receiver.
+  The first line of an adjacent ordinary quoted `desc` supplies optional
+  description metadata. Comments preserve adjacency; other statements and
+  namespace boundaries clear it. For example,
+  `task :migrate` inside `namespace :db` runs as `rake db:migrate` and is
+  available as `nur rake:db:migrate`.
+  Task bodies stay opaque, so `definition` is empty. Conditional declarations,
+  loops, classes, helper methods, callbacks, `BEGIN` initializers, dynamic
+  names/namespaces, namespace block parameters and exception handlers, file
+  tasks, rules, imported files and `rakelib/*.rake` are skipped.
+  Parentheses and plain `begin` wrappers are transparent.
+  Escaped/interpolated names, percent literals and heredocs are omitted.
+  Task names must contain only letters,
+  digits, underscores, colons, dots, slashes and hyphens, starting with a letter,
+  digit or underscore. Names beginning with the reserved `rake:` lookup prefix
+  and task names ending in a colon are skipped. Files with Ruby syntax errors
+  reported by the parser are skipped
+  with a warning.
+  Single-entry task-name dependency hashes, including explicit braces,
+  are supported; dependency expressions are not evaluated.
+  Duplicate names are deduplicated, retaining the latest nonempty literal
+  description. Multi-entry task-name hashes are omitted.
+  These are **syntactic task candidates**, not a guarantee that Ruby can load
+  the file or that Rake will register or successfully execute each task.
+  Discovery does not simulate exceptions, control flow, method redefinitions
+  or other Ruby behavior. Rake reports runtime failures when a task is invoked.
+  See [ADR 0002](docs/adr/0002-bounded-rake-discovery.md) for the support boundary.
 
   `tox` reads the first applicable config file present, in priority order:
   `tox.ini`, `setup.cfg` (`[tox:tox]`), `pyproject.toml` (`[tool.tox]`), then

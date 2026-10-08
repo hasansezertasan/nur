@@ -89,7 +89,7 @@ consistent with the completeness-yields-to-safety trade-off above.
 
 Note the deliberate consequence: **adoption alone never qualifies a format.**
 High-popularity tools whose tasks live in imperative code or run remotely
-(Gradle, Maven, GitHub Actions, Rake, cargo-xtask) are declined despite
+(Gradle, Maven, GitHub Actions, cargo-xtask) are declined despite
 their reach, because enumerating their tasks would mean executing project code or
 resolving remote state — a breach of the hard rule.
 
@@ -100,6 +100,12 @@ decorators (`@nox.session`, `@task`), so an AST parse of `noxfile.py` /
 run command delegates to the runner (`nox -s <name>`). They are therefore
 candidates, not declined; their native listing commands (`nox -l`,
 `invoke --list`) import the file and must not be used. See #142 and #140.
+
+Rake likewise supports a safe subset (#143): Tree-sitter parses literal `task`
+and `multitask` declarations from `Rakefile`, including nested literal
+namespaces and adjacent `desc` strings. Discovery never runs Ruby or `rake -T`;
+execution delegates to `rake <name>`. Dynamic/conditional declarations, task
+bodies, file tasks, rules and imported `.rake` files remain opaque.
 
 ### Current provider landscape
 

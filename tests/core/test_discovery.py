@@ -36,6 +36,7 @@ def test_providers_registry_order() -> None:
         "nox",
         "mask",
         "invoke",
+        "rake",
     ]
 
 
@@ -105,3 +106,16 @@ def test_discover_backstop_on_provider_raise(tmp_path, caplog) -> None:
     reg = discover(tmp_path, providers=[Boom()])
     assert reg.is_empty()
     assert any("boom" in r.message for r in caplog.records)
+
+
+def test_discover_includes_rake_tasks(tmp_path) -> None:
+    (tmp_path / "Rakefile").write_text(
+        "task :build\nnamespace :db do\n task :migrate\nend\n", encoding="utf-8"
+    )
+    (tmp_path / "package.json").write_text(json.dumps({"scripts": {"build": "vite"}}))
+    registry = discover(tmp_path)
+    assert {"rake:build", "rake:db:migrate", "npm:build"} <= {
+        task.qualified_name for task in registry.all()
+    }
+    assert registry.resolve("rake:build").argv_base == ("rake", "build")
+    assert registry.resolve("rake:db:migrate").argv_base == ("rake", "db:migrate")
