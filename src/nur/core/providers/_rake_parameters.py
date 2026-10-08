@@ -39,6 +39,18 @@ def _provider_parameters(provider: Node) -> tuple[list[Node], int] | None:
     )
 
 
+def _keyword_pairs(pairs: list[Node]) -> list[Node]:
+    for pair in pairs:
+        key = pair.child_by_field_name("key")
+        label = any(child.type == ":" for child in pair.children)
+        if not label and (
+            key is None
+            or key.type not in {"simple_symbol", "delimited_symbol", "hash_key_symbol"}
+        ):
+            return []
+    return pairs
+
+
 def _keyword_incompatible(declared: list[Node], pairs: list[Node]) -> bool:
     if pairs and any(node_text(child) == "**nil" for child in declared):
         return True
@@ -82,11 +94,12 @@ def provider_call_error(provider: Node, call: Node) -> tuple[str, str] | None:
     ):
         return None
     pairs = [child for child in supplied if child.type == "pair"]
+    keyword_pairs = _keyword_pairs(pairs)
     keywords = [child for child in declared if child.type == "keyword_parameter"]
     keyword_rest = any(child.type == "hash_splat_parameter" for child in declared)
     count = sum(
         child.type not in {"comment", "pair", "block_argument"} for child in supplied
-    ) + bool(pairs and not (keywords or keyword_rest))
+    ) + bool(pairs and (not keyword_pairs or not (keywords or keyword_rest)))
     bindings = [
         child
         for child in declared
@@ -106,7 +119,7 @@ def provider_call_error(provider: Node, call: Node) -> tuple[str, str] | None:
     if (
         count < required
         or (not rest and count > max(len(bindings), implicit))
-        or _keyword_incompatible(declared, pairs)
+        or _keyword_incompatible(declared, keyword_pairs)
     ):
         return (
             "incompatible scoped Rake method arguments during loading",

@@ -4404,6 +4404,34 @@ def test_rescued_unknown_keyword_error_keeps_tasks():
 
 
 @pytest.mark.parametrize(
+    "arguments", ['"known" => true', ":known => true, :extra => true"]
+)
+def test_scoped_keywords_reject_string_hash_or_extra_symbols(arguments):
+    source = (
+        "class Helper; def self.task(name, known: nil); end; "
+        f"task :inside, {arguments}; end; task :after"
+    )
+    assert parse_rakefile(source) == []
+
+
+@pytest.mark.parametrize("arguments", ['"known": true', ":known => true"])
+def test_scoped_keyword_providers_accept_symbol_keyword_forms(arguments):
+    source = (
+        "class Helper; def self.task(name, known:); end; "
+        f"task :inside, {arguments}; end; task :safe"
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+def test_scoped_positional_rest_preserves_string_hash_arguments():
+    source = (
+        "class Helper; def self.task(name, *extra, known: nil); end; "
+        'task :inside, "extra" => true; end; task :safe'
+    )
+    assert [task.name for task in parse_rakefile(source)] == ["safe"]
+
+
+@pytest.mark.parametrize(
     "body",
     [
         'def self.catch(*); end; catch(:stop, &->(_) { raise "never" })',
