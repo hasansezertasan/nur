@@ -159,6 +159,15 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   | mask | `mask` | `maskfile.md` (see below) |
   | Rake | `rake` | `Rakefile` (see below) |
 
+  `make` parses `Makefile` with Tree-sitter without running Make. It lists literal
+  targets from rule headers (including continued, multi-target, `::` and
+  static-pattern rules) and an inline `## description`. Text in `define` blocks,
+  recipes and assignments is ignored; computed (`$(VAR)`), pattern and
+  `.`-prefixed targets are skipped, and `include`, `$(shell ...)` and `!=` are
+  never evaluated. Regions the parser rejects are read line by line with a
+  warning, so the rest of the file is still listed.
+  See [ADR 0003](docs/adr/0003-bounded-make-discovery.md).
+
   `rake` parses `Rakefile` with Tree-sitter without running Ruby or `rake -T`.
   UTF-8 and common ASCII-compatible Ruby source encoding declarations are supported;
   unsupported encodings are skipped with a warning.
