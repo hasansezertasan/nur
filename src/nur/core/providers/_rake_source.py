@@ -6,12 +6,12 @@ import re
 __all__ = ["decode_source"]
 
 _MAGIC_ENCODING = re.compile(
-    rb"^[ \t]*#.*?(?:\b(?:coding|encoding)[ \t]*(?::|=(?=[ \t]))"
-    rb"|\bfileencoding[ \t]*=(?=[ \t]))[ \t]*[\"']?([A-Za-z0-9_-]+)",
+    rb"^[ \t]*#.*?\b(?:coding|encoding)[ \t]*[:=][ \t]*[\"']?([A-Za-z0-9_-]+)",
     re.IGNORECASE,
 )
 _ENCODINGS = {
     "utf-8": "utf-8",
+    "utf8": "utf-8",
     "utf-8-mac": "utf-8",
     "ascii": "ascii",
     "us-ascii": "ascii",
@@ -54,4 +54,4 @@ def decode_source(source: bytes) -> tuple[str, str]:
         codec = encoding
     if codec is None:
         raise _UnsupportedEncodingError(encoding)
-    return source.decode(codec), codec
+    return source.decode(codec), encoding if encoding == "utf-8-mac" else codec

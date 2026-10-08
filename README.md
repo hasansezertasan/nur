@@ -168,33 +168,32 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   It discovers direct literal `task` and `multitask` declarations, including
   dependency-only tasks, and tracks nested literal `namespace` blocks.
   Calls may use an explicit `self` receiver.
-  A pending ordinary quoted `desc` supplies the next task description,
-  including across unrelated statements and namespaces. For example,
+  The first line of an adjacent ordinary quoted `desc` supplies optional
+  description metadata. Comments preserve adjacency; other statements and
+  namespace boundaries clear it. For example,
   `task :migrate` inside `namespace :db` runs as `rake db:migrate` and is
   available as `nur rake:db:migrate`.
   Task bodies stay opaque, so `definition` is empty. Conditional declarations,
-  loops, helper methods, dynamic names/namespaces, file tasks, rules, imported
-  files and `rakelib/*.rake` are skipped. Escaped/interpolated names, percent
-  literals and heredocs are omitted; direct singleton redefinitions disable
-  the affected DSL methods. Task names must contain only letters,
+  loops, classes, helper methods, callbacks, `BEGIN` initializers, dynamic
+  names/namespaces, namespace block parameters and exception handlers, file
+  tasks, rules, imported files and `rakelib/*.rake` are skipped.
+  Parentheses and plain `begin` wrappers are transparent.
+  Escaped/interpolated names, percent literals and heredocs are omitted.
+  Task names must contain only letters,
   digits, underscores, colons, dots, slashes and hyphens, starting with a letter,
   digit or underscore. Names beginning with the reserved `rake:` lookup prefix
   and task names ending in a colon are skipped. Files with Ruby syntax errors
   reported by the parser are skipped
   with a warning.
-  Explicit task-name dependency hashes are supported.
-  Files that directly undefine a Rake DSL method are skipped with a warning.
-  Statically invalid task or namespace calls and descriptions of a known
-  invalid type (such as symbols or numbers) cause the file to be skipped.
-  Direct declarations in active literal `BEGIN` initializers are read
-  before ordinary statements, matching Ruby initialization order.
-  Regexp literal checks support ASCII patterns with ordinary groups,
-  character classes, anchors and quantifiers.
-  Files with complex or encoding-sensitive regexp literals
-  (such as named groups, lookbehinds or Unicode property escapes)
-  are skipped with a warning.
-  Interpolated regexps evaluated during loading also cause a file to be skipped;
-  interpolated regexps in deferred task or method bodies stay opaque.
+  Single-entry task-name dependency hashes, including explicit braces,
+  are supported; dependency expressions are not evaluated.
+  Duplicate names are deduplicated, retaining the latest nonempty literal
+  description. Multi-entry task-name hashes are omitted.
+  These are **syntactic task candidates**, not a guarantee that Ruby can load
+  the file or that Rake will register or successfully execute each task.
+  Discovery does not simulate exceptions, control flow, method redefinitions
+  or other Ruby behavior. Rake reports runtime failures when a task is invoked.
+  See [ADR 0002](docs/adr/0002-bounded-rake-discovery.md) for the support boundary.
 
   `tox` reads the first applicable config file present, in priority order:
   `tox.ini`, `setup.cfg` (`[tox:tox]`), `pyproject.toml` (`[tool.tox]`), then
