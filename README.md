@@ -164,8 +164,8 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   static-pattern rules) and an inline `## description`. Text in `define` blocks,
   recipes and assignments is ignored; computed (`$(VAR)`), pattern and
   `.`-prefixed targets are skipped, and `include`, `$(shell ...)` and `!=` are
-  never evaluated. Unparsable regions are skipped with a warning while the rest
-  of the file is still listed.
+  never evaluated. Regions the parser rejects are read line by line with a
+  warning, so the rest of the file is still listed.
   See [ADR 0003](docs/adr/0003-bounded-make-discovery.md).
 
   `rake` parses `Rakefile` with Tree-sitter without running Ruby or `rake -T`.

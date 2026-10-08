@@ -69,7 +69,7 @@ def test_discover_combines_targets_and_descriptions(tmp_path) -> None:
 
 
 def test_discover_unreadable_makefile_returns_empty(tmp_path, caplog) -> None:
-    # A directory named "Makefile" makes read_text raise OSError.
+    # A directory named "Makefile" makes read_bytes raise OSError.
     (tmp_path / "Makefile").mkdir()
     assert MakeProvider().discover(tmp_path) == []
     assert any("Makefile" in r.message for r in caplog.records)
@@ -136,13 +136,14 @@ def test_parse_targets_tolerates_malformed_input(caplog) -> None:
         names = parse_targets(text)
     assert "good" in names
     assert "broken" not in names
-    assert "syntax errors" in caplog.text
+    assert "later" in names
+    assert "parser rejects" in caplog.text
 
 
 def test_parse_targets_handles_empty_and_non_utf8_content() -> None:
     assert parse_targets("") == []
     assert parse_targets("# only a comment\n") == []
-    assert parse_targets("café: x\n") == []  # no phantom "caf" target
+    assert parse_targets("café: x\n") == []  # no truncated name
 
 
 def test_discover_does_not_execute_shell_expressions(tmp_path) -> None:
@@ -168,7 +169,7 @@ def test_parse_targets_rejects_non_ascii_name_fragments() -> None:
 def test_parse_targets_accepts_files_without_trailing_newline(caplog) -> None:
     with caplog.at_level("WARNING", logger="nur"):
         assert parse_targets("all: b\nb:") == ["all", "b"]
-    assert "syntax errors" not in caplog.text
+    assert "parser rejects" not in caplog.text
 
 
 def test_parse_descriptions_ignore_bare_carriage_returns() -> None:
@@ -179,5 +180,58 @@ def test_parse_descriptions_ignore_bare_carriage_returns() -> None:
 def test_parse_targets_handles_deeply_nested_conditionals() -> None:
     depth = 3000
     text = "ifdef A\n" * depth + "deep:\n" + "endif\n" * depth
-    assert parse_targets(text) == []
-    assert parse_targets("ifdef A\nok:\nendif\n" + text) == ["ok"]
+    assert parse_targets(text) == ["deep"]
+
+
+def test_parse_targets_handles_long_files() -> None:
+    text = "\n" * 300 + "".join(f"t{i}:\n\ttrue\n" for i in range(300))
+    assert parse_targets(text) == [f"t{i}" for i in range(300)]
+
+
+def test_parse_targets_survives_parenthesised_comments_and_values() -> None:
+    text = "PORT = 8080  # default port (see docs)\nbuild:\n\ttrue\ntest:\n\ttrue\n"
+    assert parse_targets(text) == ["build", "test"]
+    assert parse_targets("X = foo(bar)\nbuild:\n") == ["build"]
+
+
+def test_parse_targets_survives_headers_fused_with_preceding_lines() -> None:
+    assert parse_targets("$(EXTRA)\nbuild:\n\ttrue\n") == ["build"]
+
+
+def test_parse_targets_lists_target_specific_variable_targets() -> None:
+    text = "a b: FLAGS=-x\nclean:\n\trm -f a b\n"
+    assert parse_targets(text) == ["a", "b", "clean"]
+    assert parse_targets("VERSION := 1\nX = a:b\n") == []
+
+
+def test_parse_targets_ignores_space_indented_recipe_lines() -> None:
+    text = "bun:\n  curl -fsSL https://bun.sh/install | bash\nnext:\n"
+    assert parse_targets(text) == ["bun", "next"]
+
+
+def test_parse_targets_recovers_rules_nested_in_error_nodes() -> None:
+    text = "ifeq ($(A),b)\nifdef X\nfmt: dep\n\ttrue\nendif \nendif \ntest: dep\n"
+    assert parse_targets(text) == ["fmt", "test"]
+
+
+def test_parse_targets_strips_bom_and_accepts_form_feed() -> None:
+    text = "\ufeffall: ## Build everything\n\t@echo all\ntest: ## Run tests\n"
+    assert parse_targets(text) == ["all", "test"]
+    assert parse_descriptions(text) == {"all": "Build everything", "test": "Run tests"}
+
+
+def test_descriptions_come_from_the_header_comment_only() -> None:
+    text = "a: $(subst ##,,x) ## real\nb: ; @echo '## nope'\nc:\n## note\nd:\n"
+    assert parse_descriptions(text) == {"a": "real"}
+
+
+def test_parse_functions_tolerate_unencodable_text() -> None:
+    assert parse_targets("all:\n# \udcff\n") == ["all"]
+
+
+def test_discover_dedupes_and_keeps_first_description(tmp_path) -> None:
+    (tmp_path / "Makefile").write_text(
+        "ifdef A\nclean: ## First\nelse\nclean: ## Second\nendif\n"
+    )
+    tasks = MakeProvider().discover(tmp_path)
+    assert [(t.name, t.description) for t in tasks] == [("clean", "First")]

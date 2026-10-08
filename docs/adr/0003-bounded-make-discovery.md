@@ -33,11 +33,17 @@ using `tree-sitter-make`, with this contract:
 - An inline `## description` on the line where the header ends supplies optional
   metadata; the first nonempty description for a name wins.
 - Source order, deduplication and the `make <target>` command are unchanged.
-- **Parse errors are local.** Real Makefiles often contain constructs the grammar
-  rejects (shell quoting inside `$(shell ...)`, `>&`, non-ASCII names).
-  Discovery logs a warning, skips only the erroneous subtrees and any rule whose
-  target list is erroneous, and lists the remaining rules.
-  Skipping the whole file would silently drop every task from such files.
+- **Parse errors are local, and the line scan is the safety net.**
+  Real Makefiles often contain constructs the grammar rejects or mis-parses
+  (parentheses in comments, shell quoting inside `$(shell ...)`, `>&`,
+  target-specific variables, non-ASCII names), and the parser can fuse such text
+  with the next rule.
+  Discovery logs a warning and re-reads only the affected statements with the
+  previous line-based scan: error nodes, target-specific variable lines, rules
+  whose header is fused with preceding text and rules not starting a line.
+  Clean rules still come from tree-sitter nodes.
+  Skipping the whole file, or only the erroneous nodes, would silently drop
+  tasks that the previous implementation listed.
 
 ## Consequences
 
@@ -46,8 +52,7 @@ Wheels for `tree-sitter-make` (MIT, `abi3`) exist for glibc Linux (x86_64 and
 aarch64), musl Linux (x86_64 only), macOS (x86_64 and arm64) and Windows
 (x64 and arm64), which covers the CI matrix. Other platforms build from the
 sdist and need a C compiler.
-Known grammar limits also omit some valid constructs (target-specific variable
-assignments, `export`/`override` rule prefixes, nested `define` blocks,
-`.RECIPEPREFIX`) and can hide rules that follow an unparsable region.
-Tasks following an unparsable region may occasionally be omitted; results remain
-candidates, not a promise that Make will accept the file.
+Known grammar limits remain: nested `define` blocks leak their inner text, and
+targets named like directive keywords (`export:`, `include:`) can be misread.
+Inside fallback regions `define` bodies are not recognised, as before.
+Results remain syntactic task candidates, not a promise that Make will accept the file.
