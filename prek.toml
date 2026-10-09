@@ -172,11 +172,6 @@ hooks = [{ id = "validate-pyproject", name = "Validate pyproject.toml" }]
 repo = "https://github.com/python-jsonschema/check-jsonschema"
 rev = "0.38.2"
 hooks = [
-<<<<<<< before updating
-  { id = "check-github-actions", name = "Validate GitHub Actions", args = [
-    "--verbose",
-  ] },
-=======
   # Action metadata and workflow schemas are distinct. The latter complements
   # actionlint's expression/shell checks and zizmor's security analysis.
   { id = "check-github-actions", args = ["--verbose"] },
@@ -186,7 +181,6 @@ hooks = [
   # pyjson5 enables the upstream matcher's .json5 Renovate configurations.
   { id = "check-renovate", additional_dependencies = ["pyjson5"] },
   { id = "check-dependabot" },
->>>>>>> after updating
 ]
 
 [[repos]]
