@@ -41,23 +41,30 @@ def parse_turbo(text: str, source_file: str = _SOURCE_FILE) -> list[Task]:
     tasks_table = _task_names(loads_jsonc(text, source_file))
     if not tasks_table:
         return []
-    tasks: list[Task] = []
+    plain: list[str] = []
+    root: list[str] = []
     for key, value in tasks_table.items():
         if not isinstance(value, dict):
             continue
-        # Root tasks (`//#lint:root`) run root scripts via `turbo run <name>`.
-        name = str(key).removeprefix(_ROOT_PREFIX)
-        if not name:
+        (root if str(key).startswith(_ROOT_PREFIX) else plain).append(str(key))
+    # Root tasks (`//#lint:root`) run root scripts via `turbo run <name>`.
+    # A root task whose stripped name is taken keeps its `//#` identity so
+    # both stay selectable (`turbo run //#<name>` works from anywhere).
+    names = list(plain)
+    for key in root:
+        stripped = key.removeprefix(_ROOT_PREFIX)
+        if not stripped:
             continue
-        tasks.append(
-            Task(
-                name=name,
-                prefix="turbo",
-                argv_base=("turbo", "run", name),
-                source_file=source_file,
-            )
+        names.append(key if stripped in names else stripped)
+    return [
+        Task(
+            name=name,
+            prefix="turbo",
+            argv_base=("turbo", "run", name),
+            source_file=source_file,
         )
-    return tasks
+        for name in names
+    ]
 
 
 class TurboProvider:

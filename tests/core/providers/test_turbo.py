@@ -53,6 +53,16 @@ def test_discover_strips_root_task_prefix(tmp_path) -> None:
     assert tasks["lint:root"].argv_base == ("turbo", "run", "lint:root")
 
 
+def test_discover_root_task_collision_keeps_identity(tmp_path) -> None:
+    (tmp_path / "turbo.json").write_text(
+        json.dumps({"tasks": {"lint": {}, "//#lint": {}}})
+    )
+    tasks = {t.name: t for t in TurboProvider().discover(tmp_path)}
+    assert set(tasks) == {"lint", "//#lint"}
+    assert tasks["lint"].argv_base == ("turbo", "run", "lint")
+    assert tasks["//#lint"].argv_base == ("turbo", "run", "//#lint")
+
+
 def test_discover_tolerates_jsonc(tmp_path) -> None:
     (tmp_path / "turbo.json").write_text(
         '// workspace pipeline\n{\n"tasks": {\n"build": {}, // cached\n},\n}\n'
