@@ -37,6 +37,11 @@ def test_providers_registry_order() -> None:
         "mask",
         "invoke",
         "rake",
+        "turbo",
+        "nx",
+        "grunt",
+        "gulp",
+        "workspace",
     ]
 
 
