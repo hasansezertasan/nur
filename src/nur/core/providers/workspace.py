@@ -100,12 +100,49 @@ def _rel_posix(cwd: Path, path: Path) -> str | None:
     return rel.as_posix()
 
 
+def _consider(cwd: Path, candidate: Path, found: dict[str, Path]) -> None:
+    """Record ``candidate`` as a member unless it is disqualified."""
+    rel = _rel_posix(cwd, candidate)
+    if (
+        rel is None
+        or rel == "."
+        or not candidate.is_dir()
+        or not (candidate / "package.json").is_file()
+        or _SKIPPED_PARTS & set(PurePosixPath(rel).parts)
+    ):
+        return
+    found.setdefault(rel, candidate)
+
+
+def _recursive_match(cwd: Path, expanded: str) -> dict[str, Path]:
+    """Match a ``**`` pattern without descending into skipped directories.
+
+    ``Path.glob`` cannot prune: a recursive pattern walks every installed
+    dependency tree under each member before filtering, slowing every
+    invocation in large monorepos. Walking manually and dropping
+    ``node_modules``/``.git`` from ``dirnames`` avoids the descent entirely.
+    Matching is case-sensitive (unlike glob on case-insensitive filesystems).
+    """
+    found: dict[str, Path] = {}
+    for root, dirnames, _ in cwd.walk():
+        dirnames[:] = [d for d in dirnames if d not in _SKIPPED_PARTS]
+        rel = _rel_posix(cwd, root)
+        if rel is None or rel == ".":
+            continue
+        if PurePosixPath(rel).full_match(expanded):
+            _consider(cwd, root, found)
+    return found
+
+
 def _match(cwd: Path, pattern: str) -> dict[str, Path]:
     """Map member rel-posix paths to directories for one include pattern."""
     found: dict[str, Path] = {}
     if PurePosixPath(pattern).is_absolute():
         return found
     for expanded in _expand_braces(pattern):
+        if "**" in expanded:
+            found.update(_recursive_match(cwd, expanded))
+            continue
         try:
             candidates = list(cwd.glob(expanded))
         except OSError:
@@ -113,16 +150,7 @@ def _match(cwd: Path, pattern: str) -> dict[str, Path]:
         except ValueError:
             continue
         for candidate in candidates:
-            rel = _rel_posix(cwd, candidate)
-            if (
-                rel is None
-                or rel == "."
-                or not candidate.is_dir()
-                or not (candidate / "package.json").is_file()
-                or _SKIPPED_PARTS & set(PurePosixPath(rel).parts)
-            ):
-                continue
-            found.setdefault(rel, candidate)
+            _consider(cwd, candidate, found)
     return found
 
 

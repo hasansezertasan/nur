@@ -176,6 +176,27 @@ def test_discover_confines_traversal_to_cwd(tmp_path) -> None:
     assert tasks == {"web:build"}
 
 
+def test_discover_recursive_glob_finds_nested_members(tmp_path) -> None:
+    (tmp_path / "pnpm-workspace.yaml").write_text("packages:\n  - 'packages/**'\n")
+    (tmp_path / "pnpm-lock.yaml").write_text("")
+    _pkg(tmp_path, "packages/a", {"build": "x"}, name="a")
+    _pkg(tmp_path, "packages/a/b", {"test": "y"}, name="b")
+    tasks = {t.name for t in WorkspaceProvider().discover(tmp_path)}
+    assert tasks == {"a:build", "b:test"}
+
+
+def test_discover_recursive_glob_prunes_skipped_dirs(tmp_path) -> None:
+    (tmp_path / "pnpm-workspace.yaml").write_text("packages:\n  - '**'\n")
+    _pkg(tmp_path, "apps/web", {"build": "x"}, name="web")
+    hooks = tmp_path / ".git" / "hooks"
+    hooks.mkdir(parents=True)
+    (hooks / "package.json").write_text(
+        json.dumps({"name": "hooks", "scripts": {"evil": "x"}})
+    )
+    tasks = {t.name for t in WorkspaceProvider().discover(tmp_path)}
+    assert tasks == {"web:build"}
+
+
 def test_brace_edge_cases_match_nothing(tmp_path) -> None:
     (tmp_path / "pnpm-workspace.yaml").write_text(
         "packages:\n  - 'apps/{unclosed'\n  - 'apps/{a/{b,c}}'\n"
