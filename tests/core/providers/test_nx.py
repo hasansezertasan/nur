@@ -45,6 +45,35 @@ def test_discover_skips_non_object_entries() -> None:
     assert parse_nx(json.dumps({"targetDefaults": ["build"]})) == []
 
 
+def test_discover_accepts_array_form_defaults() -> None:
+    # Filtered entries for one target carry the same runnable name.
+    tasks = parse_nx(
+        json.dumps({
+            "targetDefaults": {
+                "test": [{"cache": True}, {"filter": {"plugin": "@nx/vitest"}}]
+            }
+        })
+    )
+    assert [t.name for t in tasks] == ["test"]
+    assert tasks[0].argv_base == ("nx", "run-many", "-t", "test")
+
+
+def test_discover_skips_executor_and_glob_keys() -> None:
+    tasks = parse_nx(
+        json.dumps({
+            "targetDefaults": {
+                "@nx/js:tsc": {"cache": True},
+                "e2e-ci--**/**": {"cache": True},
+                "e2e-ci-*": {"cache": True},
+                "build": {"cache": True},
+                "e2e-ci--test/my/test.spec.ts": {"cache": True},
+            }
+        })
+    )
+    # Literal names surface (slashes are fine); executor keys and globs do not.
+    assert [t.name for t in tasks] == ["build", "e2e-ci--test/my/test.spec.ts"]
+
+
 def test_discover_empty_or_missing_targets_returns_empty(tmp_path) -> None:
     assert parse_nx("{}") == []
     assert parse_nx("[]") == []
