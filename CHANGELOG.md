@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/hasansezertasan/nur/compare/v0.8.0...v0.9.0) (2026-10-11)
+
+
+### 🚀 Features
+
+* **providers:** add Grunt, Gulp, Turborepo, Nx, and workspace discovery ([#304](https://github.com/hasansezertasan/nur/issues/304)) ([c3e8d64](https://github.com/hasansezertasan/nur/commit/c3e8d64b1f6bc2d49d83629962cb694f7488b4eb))
+
 ## [0.8.0](https://github.com/hasansezertasan/nur/compare/v0.7.0...v0.8.0) (2026-10-08)
 
 
