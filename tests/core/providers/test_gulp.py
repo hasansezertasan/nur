@@ -109,15 +109,18 @@ def test_guarded_declarations_are_listed() -> None:
     assert [t.name for t in parse_gulpfile(source)] == ["ci"]
 
 
-def test_duplicates_keep_first_with_latest_description() -> None:
+def test_duplicates_keep_first() -> None:
+    source = "exports.a = one;\ngulp.task('a', two);\n"
+    assert [t.name for t in parse_gulpfile(source)] == ["a"]
+
+
+def test_duplicates_keep_latest_description() -> None:
     tasks = {
         t.name: t
         for t in parse_gulpfile(
             "exports.a = one;\ngulp.task('a', two);\na.description = 'Kept.';\n"
         )
     }
-    source = "exports.a = one;\ngulp.task('a', two);\n"
-    assert [t.name for t in parse_gulpfile(source)] == ["a"]
     assert tasks["a"].description == "Kept."
 
 
