@@ -41,10 +41,10 @@
 </form><div class="nav-versions">
     <button type="button" aria-label="Versions">
       <span class="md:hidden">Versions</span>
-      <span class="hidden md:inline">0.8</span>
+      <span class="hidden md:inline">0.9</span>
       <i class="i-lucide chevron-down"></i>
     </button>
-    <div class="nav-versions-choices"><ul><li><a href="/nur/latest/">latest</a></li><li><a href="/nur/0.8/">0.8</a></li><li><a href="/nur/0.7/">0.7</a></li><li><a href="/nur/0.6/">0.6</a></li><li><a href="/nur/0.5/">0.5</a></li></ul></div>
+    <div class="nav-versions-choices"><ul><li><a href="/nur/latest/">latest</a></li><li><a href="/nur/0.9/">0.9</a></li><li><a href="/nur/0.8/">0.8</a></li><li><a href="/nur/0.7/">0.7</a></li><li><a href="/nur/0.6/">0.6</a></li><li><a href="/nur/0.5/">0.5</a></li></ul></div>
   </div><div class="sy-head-socials">
   <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
     <iconify-icon icon="simple-icons:github"></iconify-icon>
@@ -79,6 +79,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../adr/0001-provider-selection-criteria.html">Provider selection criteria: static discovery, never execution</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../adr/0002-bounded-rake-discovery.html">Bounded Rake discovery: extract literal declarations without simulating Ruby</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../adr/0003-bounded-make-discovery.html">Bounded Make discovery: read rule headers with Tree-sitter, never run Make</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0004-js-adjacent-task-runners.html">JS-adjacent runners: accept Grunt, Gulp, Turborepo, Nx, and workspace members</a></li>
 </ul>
 </li>
 </ul>
@@ -133,16 +134,22 @@ data-aria-dark="Switch to auto color mode">
 <ul><li><a href="nur/cli/app.html">nur.cli.app</a></li>
 <li><a href="nur/core/execution.html">nur.core.execution</a></li>
 <li><a href="nur/core/models.html">nur.core.models</a></li>
+<li><a href="nur/core/providers/_package_manager.html">nur.core.providers._package_manager</a></li>
+<li><a href="nur/core/providers/grunt.html">nur.core.providers.grunt</a></li>
+<li><a href="nur/core/providers/gulp.html">nur.core.providers.gulp</a></li>
 <li><a href="nur/core/providers/invoke.html">nur.core.providers.invoke</a></li>
 <li><a href="nur/core/providers/just.html">nur.core.providers.just</a></li>
 <li><a href="nur/core/providers/mask.html">nur.core.providers.mask</a></li>
 <li><a href="nur/core/providers/moon.html">nur.core.providers.moon</a></li>
 <li><a href="nur/core/providers/nox.html">nur.core.providers.nox</a></li>
+<li><a href="nur/core/providers/nx.html">nur.core.providers.nx</a></li>
 <li><a href="nur/core/providers/pre_commit.html">nur.core.providers.pre_commit</a></li>
 <li><a href="nur/core/providers/rake.html">nur.core.providers.rake</a></li>
 <li><a href="nur/core/providers/task.html">nur.core.providers.task</a></li>
 <li><a href="nur/core/providers/tox.html">nur.core.providers.tox</a></li>
+<li><a href="nur/core/providers/turbo.html">nur.core.providers.turbo</a></li>
 <li><a href="nur/core/providers/vscode.html">nur.core.providers.vscode</a></li>
+<li><a href="nur/core/providers/workspace.html">nur.core.providers.workspace</a></li>
 <li><a href="nur/core/providers/xc.html">nur.core.providers.xc</a></li>
 <li><a href="nur/core/registry.html">nur.core.registry</a></li>
 <li><a href="nur/core/shell.html">nur.core.shell</a></li>

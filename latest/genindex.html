@@ -38,10 +38,10 @@
 </form><div class="nav-versions">
     <button type="button" aria-label="Versions">
       <span class="md:hidden">Versions</span>
-      <span class="hidden md:inline">0.8</span>
+      <span class="hidden md:inline">0.9</span>
       <i class="i-lucide chevron-down"></i>
     </button>
-    <div class="nav-versions-choices"><ul><li><a href="/nur/latest/">latest</a></li><li><a href="/nur/0.8/">0.8</a></li><li><a href="/nur/0.7/">0.7</a></li><li><a href="/nur/0.6/">0.6</a></li><li><a href="/nur/0.5/">0.5</a></li></ul></div>
+    <div class="nav-versions-choices"><ul><li><a href="/nur/latest/">latest</a></li><li><a href="/nur/0.9/">0.9</a></li><li><a href="/nur/0.8/">0.8</a></li><li><a href="/nur/0.7/">0.7</a></li><li><a href="/nur/0.6/">0.6</a></li><li><a href="/nur/0.5/">0.5</a></li></ul></div>
   </div><div class="sy-head-socials">
   <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
     <iconify-icon icon="simple-icons:github"></iconify-icon>
@@ -222,6 +222,8 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="modules.html#nur.tui.app.TaskItem.params.markup">(nur.tui.app.TaskItem parameter)</a>
 </li>
       </ul></li>
+      <li><a href="modules.html#nur.core.providers.workspace.member_scripts">member_scripts() (in module nur.core.providers.workspace)</a>
+</li>
       <li>
     module
 
@@ -240,6 +242,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
         <li><a href="modules.html#module-nur.core.providers.deno">nur.core.providers.deno</a>
 </li>
+        <li><a href="modules.html#module-nur.core.providers.grunt">nur.core.providers.grunt</a>
+</li>
+        <li><a href="modules.html#module-nur.core.providers.gulp">nur.core.providers.gulp</a>
+</li>
         <li><a href="modules.html#module-nur.core.providers.invoke">nur.core.providers.invoke</a>
 </li>
         <li><a href="modules.html#module-nur.core.providers.just">nur.core.providers.just</a>
@@ -256,6 +262,8 @@ data-aria-dark="Switch to auto color mode">
 </li>
         <li><a href="modules.html#module-nur.core.providers.npm">nur.core.providers.npm</a>
 </li>
+        <li><a href="modules.html#module-nur.core.providers.nx">nur.core.providers.nx</a>
+</li>
         <li><a href="modules.html#module-nur.core.providers.pdm">nur.core.providers.pdm</a>
 </li>
         <li><a href="modules.html#module-nur.core.providers.poe">nur.core.providers.poe</a>
@@ -268,7 +276,11 @@ data-aria-dark="Switch to auto color mode">
 </li>
         <li><a href="modules.html#module-nur.core.providers.tox">nur.core.providers.tox</a>
 </li>
+        <li><a href="modules.html#module-nur.core.providers.turbo">nur.core.providers.turbo</a>
+</li>
         <li><a href="modules.html#module-nur.core.providers.vscode">nur.core.providers.vscode</a>
+</li>
+        <li><a href="modules.html#module-nur.core.providers.workspace">nur.core.providers.workspace</a>
 </li>
         <li><a href="modules.html#module-nur.core.providers.xc">nur.core.providers.xc</a>
 </li>
@@ -341,6 +353,20 @@ data-aria-dark="Switch to auto color mode">
 </li>
       </ul></li>
       <li>
+    nur.core.providers.grunt
+
+      <ul>
+        <li><a href="modules.html#module-nur.core.providers.grunt">module</a>
+</li>
+      </ul></li>
+      <li>
+    nur.core.providers.gulp
+
+      <ul>
+        <li><a href="modules.html#module-nur.core.providers.gulp">module</a>
+</li>
+      </ul></li>
+      <li>
     nur.core.providers.invoke
 
       <ul>
@@ -399,6 +425,13 @@ data-aria-dark="Switch to auto color mode">
 </li>
       </ul></li>
       <li>
+    nur.core.providers.nx
+
+      <ul>
+        <li><a href="modules.html#module-nur.core.providers.nx">module</a>
+</li>
+      </ul></li>
+      <li>
     nur.core.providers.pdm
 
       <ul>
@@ -441,10 +474,24 @@ data-aria-dark="Switch to auto color mode">
 </li>
       </ul></li>
       <li>
+    nur.core.providers.turbo
+
+      <ul>
+        <li><a href="modules.html#module-nur.core.providers.turbo">module</a>
+</li>
+      </ul></li>
+      <li>
     nur.core.providers.vscode
 
       <ul>
         <li><a href="modules.html#module-nur.core.providers.vscode">module</a>
+</li>
+      </ul></li>
+      <li>
+    nur.core.providers.workspace
+
+      <ul>
+        <li><a href="modules.html#module-nur.core.providers.workspace">module</a>
 </li>
       </ul></li>
       <li>
@@ -483,6 +530,10 @@ data-aria-dark="Switch to auto color mode">
 <h2 id="P">P</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules.html#nur.core.providers.grunt.parse_gruntfile">parse_gruntfile() (in module nur.core.providers.grunt)</a>
+</li>
+      <li><a href="modules.html#nur.core.providers.gulp.parse_gulpfile">parse_gulpfile() (in module nur.core.providers.gulp)</a>
+</li>
       <li><a href="modules.html#nur.core.providers.just.parse_justfile">parse_justfile() (in module nur.core.providers.just)</a>
 </li>
       <li><a href="modules.html#nur.core.providers.mask.parse_mask">parse_mask() (in module nur.core.providers.mask)</a>
@@ -491,15 +542,19 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="modules.html#nur.core.providers.nox.parse_noxfile">parse_noxfile() (in module nur.core.providers.nox)</a>
 </li>
-      <li><a href="modules.html#nur.core.providers.pre_commit.parse_pre_commit_config">parse_pre_commit_config() (in module nur.core.providers.pre_commit)</a>
+      <li><a href="modules.html#nur.core.providers.nx.parse_nx">parse_nx() (in module nur.core.providers.nx)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules.html#nur.core.providers.pre_commit.parse_pre_commit_config">parse_pre_commit_config() (in module nur.core.providers.pre_commit)</a>
+</li>
       <li><a href="modules.html#nur.core.providers.rake.parse_rakefile">parse_rakefile() (in module nur.core.providers.rake)</a>
 </li>
       <li><a href="modules.html#nur.core.providers.task.parse_taskfile">parse_taskfile() (in module nur.core.providers.task)</a>
 </li>
       <li><a href="modules.html#nur.core.providers.invoke.parse_tasks">parse_tasks() (in module nur.core.providers.invoke)</a>
+</li>
+      <li><a href="modules.html#nur.core.providers.turbo.parse_turbo">parse_turbo() (in module nur.core.providers.turbo)</a>
 </li>
       <li><a href="modules.html#nur.core.providers.xc.parse_xc">parse_xc() (in module nur.core.providers.xc)</a>
 </li>
@@ -529,6 +584,8 @@ data-aria-dark="Switch to auto color mode">
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="modules.html#nur.core.providers.npm.resolve_pm">resolve_pm() (in module nur.core.providers.npm)</a>
+</li>
       <li><a href="modules.html#nur.core.execution.run_direct">run_direct() (in module nur.core.execution)</a>
 </li>
   </ul></td>

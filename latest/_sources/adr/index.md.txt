@@ -10,4 +10,5 @@ once accepted; supersede a decision with a new record rather than rewriting it.
 0001-provider-selection-criteria
 0002-bounded-rake-discovery
 0003-bounded-make-discovery
+0004-js-adjacent-task-runners
 ```
