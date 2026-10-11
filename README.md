@@ -24,8 +24,9 @@
 
 Run `nur` in a project and it discovers the tasks your project already defines —
 from npm, Make, deno, composer, just, Taskfile, pre-commit, PDM/poe, tox, mise,
-cargo-make, moon, xc, VS Code tasks, nox, mask, Invoke, and Rake — then lets you run them from a TUI picker or directly from the command line.
-Discovery is limited to the current directory. See [Features](#features) for the
+cargo-make, moon, xc, VS Code tasks, nox, mask, Invoke, Rake, Grunt, Gulp,
+Turborepo, Nx, and npm/pnpm/yarn/bun workspaces — then lets you run them from a TUI picker or directly from the command line.
+Discovery is rooted at the current directory. See [Features](#features) for the
 full list of source files.
 
 ## Table of Contents
@@ -134,8 +135,8 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
 
 ## Features
 
-- **Zero-config discovery** across nineteen providers, each parsed from a single
-  source file in the current directory:
+- **Zero-config discovery** across twenty-four providers, each parsed from a
+  source file rooted at the current directory:
 
   | Provider | Prefix | Source file |
   | --- | --- | --- |
@@ -158,6 +159,11 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   | nox | `nox` | `noxfile.py` (see below) |
   | mask | `mask` | `maskfile.md` (see below) |
   | Rake | `rake` | `Rakefile` (see below) |
+  | Grunt | `grunt` | `Gruntfile.js` (see below) |
+  | Gulp | `gulp` | `gulpfile.js` (see below) |
+  | Turborepo | `turbo` | `turbo.json` (see below) |
+  | Nx | `nx` | `nx.json` (see below) |
+  | workspaces | `workspace` | member `package.json` files (see below) |
 
   `make` parses `Makefile` with Tree-sitter without running Make. It lists literal
   targets from rule headers (including continued, multi-target, `::` and
@@ -203,6 +209,62 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   Discovery does not simulate exceptions, control flow, method redefinitions
   or other Ruby behavior. Rake reports runtime failures when a task is invoked.
   See [ADR 0002](docs/adr/0002-bounded-rake-discovery.md) for the support boundary.
+
+  `grunt` parses `Gruntfile.js` with Tree-sitter without running Grunt or
+  `grunt --help`. It discovers literal `grunt.registerTask` /
+  `grunt.registerMultiTask` names (and their `grunt.task.*` aliases),
+  including the default task, running each as `grunt <name>` and available as
+  `nur grunt:<name>`. The optional description argument supplies description
+  metadata. Task bodies and alias lists stay opaque, so `definition` is empty.
+  Plugin-loaded tasks (`loadNpmTasks`), renamed tasks, external task files,
+  computed names, and `task:target` spellings are skipped. These are
+  **syntactic task candidates**, not a guarantee that Grunt will register or
+  successfully execute each task.
+
+  `gulp` parses `gulpfile.js` (or `Gulpfile.js`, `gulpfile.mjs`,
+  `gulpfile.cjs` — the first present wins) with Tree-sitter without running
+  Gulp or `gulp --tasks`. It discovers literal `gulp.task('name', ...)` /
+  `task('name', ...)` names, CommonJS `exports.name` / `module.exports.name` /
+  `exports['name']` assignments, and ESM `export function` / `export const` /
+  `export default` / `export {a as b}` forms, running each as `gulp <name>`.
+  `<task>.description` string assignments supply description metadata. Task
+  bodies, function references (`task(build)`), `series()`/`parallel()`
+  composition, computed keys, object-literal `module.exports = {...}`, and
+  re-exports are skipped. These are **syntactic task candidates**, not a
+  guarantee that Gulp will register or successfully execute each task.
+
+  `turbo` reads the root `turbo.json` (JSONC) `tasks` table (falling back to
+  the legacy v1 `pipeline` key) and runs each key as `turbo run <name>`,
+  orchestrating the matching `package.json` scripts across workspace members.
+  Root tasks (`//#<name>`) are listed under their stripped name, keeping the
+  full `//#` form (run as `turbo run //#<name>`) only when the stripped name
+  collides with another task. The file
+  holds orchestration config rather than commands, so `definition` is empty.
+  Package-level `turbo.json` files stay opaque.
+
+  `nx` reads the root `nx.json` (JSONC) `targetDefaults` keys — the tasks
+  shared across projects — and runs each as `nx run-many -t <name>`.
+  Only literal target names surface: executor keys (`@nx/js:tsc`) and globs
+  (`e2e-ci--**/**`) cannot run via `run-many -t` and are skipped, while
+  array-form filtered defaults are accepted like plain objects.
+  Per-project-only targets (in `project.json` files or inferred by plugins)
+  stay opaque. These are **syntactic task candidates**, not a promise that
+  every project implements each target.
+
+  `workspace` discovers member `package.json` scripts in monorepos: globs come
+  from `pnpm-workspace.yaml` (`packages`), `package.json` (`workspaces`), and
+  `lerna.json` (`packages`, defaulting to `packages/*` unless `useWorkspaces`
+  defers to `package.json`). Matching stays confined to the current directory
+  (absolute patterns, escapes, and `node_modules` are never members), and only
+  directories with their own `package.json` qualify. Recursive (`**`) globs
+  prune `node_modules` and `.git` during traversal instead of walking them. Each script is named
+  `<package>:<script>` (the package `name`, or its path) and runs through the
+  lockfile-resolved package manager scoped to the member — `pnpm --filter`,
+  `yarn workspace`, `npm --workspace`, `bun run --filter`, or, for lockfile-less
+  Lerna projects, `lerna run --scope`.
+
+  See [ADR 0004](docs/adr/0004-js-adjacent-task-runners.md) for the evaluation
+  behind the JS-adjacent providers.
 
   `tox` reads the first applicable config file present, in priority order:
   `tox.ini`, `setup.cfg` (`[tox:tox]`), `pyproject.toml` (`[tool.tox]`), then

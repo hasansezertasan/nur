@@ -5,6 +5,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from nur.core.models import Task
+from nur.core.providers._package_manager import resolve_pm
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -13,24 +14,6 @@ __all__ = ["NpmProvider", "resolve_pm"]
 
 
 log = logging.getLogger("nur")
-
-# (lockfile, package manager) in precedence order. Bun writes a text `bun.lock`
-# by default since 1.2 and the legacy binary `bun.lockb` with `--save-text-lockfile`
-# disabled; recognize both.
-_LOCKFILES: tuple[tuple[str, str], ...] = (
-    ("bun.lock", "bun"),
-    ("bun.lockb", "bun"),
-    ("pnpm-lock.yaml", "pnpm"),
-    ("yarn.lock", "yarn"),
-    ("package-lock.json", "npm"),
-)
-
-
-def resolve_pm(cwd: Path) -> str:
-    for lockfile, pm in _LOCKFILES:
-        if (cwd / lockfile).exists():
-            return pm
-    return "npm"
 
 
 class NpmProvider:
