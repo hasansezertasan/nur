@@ -230,145 +230,173 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="100">    <span class="k">return</span> <span class="n">rel</span><span class="o">.</span><span class="n">as_posix</span><span class="p">()</span>
 </span><span data-line="101">
 </span><span data-line="102">
-</span><span data-line="103"><span class="k">def</span><span class="w"> </span><span class="nf">_match</span><span class="p">(</span><span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]:</span>
-</span><span data-line="104"><span class="w">    </span><span class="sd">"""Map member rel-posix paths to directories for one include pattern."""</span>
-</span><span data-line="105">    <span class="n">found</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="106">    <span class="k">if</span> <span class="n">PurePosixPath</span><span class="p">(</span><span class="n">pattern</span><span class="p">)</span><span class="o">.</span><span class="n">is_absolute</span><span class="p">():</span>
-</span><span data-line="107">        <span class="k">return</span> <span class="n">found</span>
-</span><span data-line="108">    <span class="k">for</span> <span class="n">expanded</span> <span class="ow">in</span> <span class="n">_expand_braces</span><span class="p">(</span><span class="n">pattern</span><span class="p">):</span>
-</span><span data-line="109">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="110">            <span class="n">candidates</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">cwd</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">expanded</span><span class="p">))</span>
-</span><span data-line="111">        <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
-</span><span data-line="112">            <span class="k">continue</span>
-</span><span data-line="113">        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-</span><span data-line="114">            <span class="k">continue</span>
-</span><span data-line="115">        <span class="k">for</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="n">candidates</span><span class="p">:</span>
-</span><span data-line="116">            <span class="n">rel</span> <span class="o">=</span> <span class="n">_rel_posix</span><span class="p">(</span><span class="n">cwd</span><span class="p">,</span> <span class="n">candidate</span><span class="p">)</span>
-</span><span data-line="117">            <span class="k">if</span> <span class="p">(</span>
-</span><span data-line="118">                <span class="n">rel</span> <span class="ow">is</span> <span class="kc">None</span>
-</span><span data-line="119">                <span class="ow">or</span> <span class="n">rel</span> <span class="o">==</span> <span class="s2">"."</span>
-</span><span data-line="120">                <span class="ow">or</span> <span class="ow">not</span> <span class="n">candidate</span><span class="o">.</span><span class="n">is_dir</span><span class="p">()</span>
-</span><span data-line="121">                <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span><span class="n">candidate</span> <span class="o">/</span> <span class="s2">"package.json"</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span>
-</span><span data-line="122">                <span class="ow">or</span> <span class="n">_SKIPPED_PARTS</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">PurePosixPath</span><span class="p">(</span><span class="n">rel</span><span class="p">)</span><span class="o">.</span><span class="n">parts</span><span class="p">)</span>
-</span><span data-line="123">            <span class="p">):</span>
-</span><span data-line="124">                <span class="k">continue</span>
-</span><span data-line="125">            <span class="n">found</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">rel</span><span class="p">,</span> <span class="n">candidate</span><span class="p">)</span>
-</span><span data-line="126">    <span class="k">return</span> <span class="n">found</span>
-</span><span data-line="127">
-</span><span data-line="128">
-</span><span data-line="129"><span class="k">def</span><span class="w"> </span><span class="nf">_members</span><span class="p">(</span><span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">patterns</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]]:</span>
-</span><span data-line="130"><span class="w">    </span><span class="sd">"""Resolve member ``(rel-posix, path)`` pairs, sorted, minus `!` excludes."""</span>
-</span><span data-line="131">    <span class="n">included</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="132">    <span class="n">excluded</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-</span><span data-line="133">    <span class="k">for</span> <span class="n">pattern</span> <span class="ow">in</span> <span class="n">patterns</span><span class="p">:</span>
-</span><span data-line="134">        <span class="k">if</span> <span class="n">pattern</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"!"</span><span class="p">):</span>
-</span><span data-line="135">            <span class="n">excluded</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_match</span><span class="p">(</span><span class="n">cwd</span><span class="p">,</span> <span class="n">pattern</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
-</span><span data-line="136">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="137">            <span class="n">included</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_match</span><span class="p">(</span><span class="n">cwd</span><span class="p">,</span> <span class="n">pattern</span><span class="p">))</span>
-</span><span data-line="138">    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span>
-</span><span data-line="139">        <span class="p">((</span><span class="n">rel</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span> <span class="k">for</span> <span class="n">rel</span><span class="p">,</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">included</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">rel</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">excluded</span><span class="p">),</span>
-</span><span data-line="140">        <span class="n">key</span><span class="o">=</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
-</span><span data-line="141">    <span class="p">)</span>
-</span><span data-line="142">
-</span><span data-line="143">
-</span><span data-line="144"><span class="k">def</span><span class="w"> </span><span class="nf">_selector</span><span class="p">(</span><span class="n">member</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">rel</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="145"><span class="w">    </span><span class="sd">"""Return the `--filter`-style selector: package `name`, else its path."""</span>
-</span><span data-line="146">    <span class="n">data</span> <span class="o">=</span> <span class="n">_read_json</span><span class="p">(</span><span class="n">member</span> <span class="o">/</span> <span class="s2">"package.json"</span><span class="p">)</span>
-</span><span data-line="147">    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-</span><span data-line="148">        <span class="k">return</span> <span class="kc">None</span>
-</span><span data-line="149">    <span class="n">name</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">)</span>
-</span><span data-line="150">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">name</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
-</span><span data-line="151">        <span class="k">return</span> <span class="n">name</span>
-</span><span data-line="152">    <span class="k">return</span> <span class="n">rel</span>
-</span><span data-line="153">
-</span><span data-line="154">
-</span><span data-line="155"><span class="k">def</span><span class="w"> </span><span class="nf">_argv</span><span class="p">(</span><span class="n">pm</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">selector</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">script</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
-</span><span data-line="156">    <span class="k">if</span> <span class="n">pm</span> <span class="o">==</span> <span class="s2">"pnpm"</span><span class="p">:</span>
-</span><span data-line="157">        <span class="k">return</span> <span class="p">(</span><span class="s2">"pnpm"</span><span class="p">,</span> <span class="s2">"--filter"</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="s2">"run"</span><span class="p">,</span> <span class="n">script</span><span class="p">)</span>
-</span><span data-line="158">    <span class="k">if</span> <span class="n">pm</span> <span class="o">==</span> <span class="s2">"yarn"</span><span class="p">:</span>
-</span><span data-line="159">        <span class="k">return</span> <span class="p">(</span><span class="s2">"yarn"</span><span class="p">,</span> <span class="s2">"workspace"</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="s2">"run"</span><span class="p">,</span> <span class="n">script</span><span class="p">)</span>
-</span><span data-line="160">    <span class="k">if</span> <span class="n">pm</span> <span class="o">==</span> <span class="s2">"bun"</span><span class="p">:</span>
-</span><span data-line="161">        <span class="k">return</span> <span class="p">(</span><span class="s2">"bun"</span><span class="p">,</span> <span class="s2">"run"</span><span class="p">,</span> <span class="s2">"--filter"</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="n">script</span><span class="p">)</span>
-</span><span data-line="162">    <span class="k">if</span> <span class="n">pm</span> <span class="o">==</span> <span class="s2">"lerna"</span><span class="p">:</span>
-</span><span data-line="163">        <span class="k">return</span> <span class="p">(</span><span class="s2">"lerna"</span><span class="p">,</span> <span class="s2">"run"</span><span class="p">,</span> <span class="n">script</span><span class="p">,</span> <span class="s2">"--scope"</span><span class="p">,</span> <span class="n">selector</span><span class="p">)</span>
-</span><span data-line="164">    <span class="k">return</span> <span class="p">(</span><span class="s2">"npm"</span><span class="p">,</span> <span class="s2">"run"</span><span class="p">,</span> <span class="n">script</span><span class="p">,</span> <span class="s2">"--workspace"</span><span class="p">,</span> <span class="n">selector</span><span class="p">)</span>
-</span><span data-line="165">
-</span><span data-line="166">
-</span><span data-line="167"><span class="k">def</span><span class="w"> </span><span class="nf">_runner</span><span class="p">(</span><span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span data-line="168">    <span class="c1"># Lockfiles decide the runner; a bare lerna.json (no lockfile) means the</span>
-</span><span data-line="169">    <span class="c1"># project delegates through lerna rather than npm workspaces.</span>
-</span><span data-line="170">    <span class="k">for</span> <span class="n">lockfile</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">LOCKFILES</span><span class="p">:</span>
-</span><span data-line="171">        <span class="k">if</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">lockfile</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-</span><span data-line="172">            <span class="k">return</span> <span class="n">resolve_pm</span><span class="p">(</span><span class="n">cwd</span><span class="p">)</span>
-</span><span data-line="173">    <span class="k">if</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="s2">"lerna.json"</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
-</span><span data-line="174">        <span class="k">return</span> <span class="s2">"lerna"</span>
-</span><span data-line="175">    <span class="k">return</span> <span class="s2">"npm"</span>
-</span><span data-line="176">
-</span><span data-line="177">
+</span><span data-line="103"><span class="k">def</span><span class="w"> </span><span class="nf">_consider</span><span class="p">(</span><span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">candidate</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">found</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="104"><span class="w">    </span><span class="sd">"""Record ``candidate`` as a member unless it is disqualified."""</span>
+</span><span data-line="105">    <span class="n">rel</span> <span class="o">=</span> <span class="n">_rel_posix</span><span class="p">(</span><span class="n">cwd</span><span class="p">,</span> <span class="n">candidate</span><span class="p">)</span>
+</span><span data-line="106">    <span class="k">if</span> <span class="p">(</span>
+</span><span data-line="107">        <span class="n">rel</span> <span class="ow">is</span> <span class="kc">None</span>
+</span><span data-line="108">        <span class="ow">or</span> <span class="n">rel</span> <span class="o">==</span> <span class="s2">"."</span>
+</span><span data-line="109">        <span class="ow">or</span> <span class="ow">not</span> <span class="n">candidate</span><span class="o">.</span><span class="n">is_dir</span><span class="p">()</span>
+</span><span data-line="110">        <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span><span class="n">candidate</span> <span class="o">/</span> <span class="s2">"package.json"</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span>
+</span><span data-line="111">        <span class="ow">or</span> <span class="n">_SKIPPED_PARTS</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">PurePosixPath</span><span class="p">(</span><span class="n">rel</span><span class="p">)</span><span class="o">.</span><span class="n">parts</span><span class="p">)</span>
+</span><span data-line="112">    <span class="p">):</span>
+</span><span data-line="113">        <span class="k">return</span>
+</span><span data-line="114">    <span class="n">found</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">rel</span><span class="p">,</span> <span class="n">candidate</span><span class="p">)</span>
+</span><span data-line="115">
+</span><span data-line="116">
+</span><span data-line="117"><span class="k">def</span><span class="w"> </span><span class="nf">_recursive_match</span><span class="p">(</span><span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">expanded</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]:</span>
+</span><span data-line="118"><span class="w">    </span><span class="sd">"""Match a ``**`` pattern without descending into skipped directories.</span>
+</span><span data-line="119">
+</span><span data-line="120"><span class="sd">    ``Path.glob`` cannot prune: a recursive pattern walks every installed</span>
+</span><span data-line="121"><span class="sd">    dependency tree under each member before filtering, slowing every</span>
+</span><span data-line="122"><span class="sd">    invocation in large monorepos. Walking manually and dropping</span>
+</span><span data-line="123"><span class="sd">    ``node_modules``/``.git`` from ``dirnames`` avoids the descent entirely.</span>
+</span><span data-line="124"><span class="sd">    Matching is case-sensitive (unlike glob on case-insensitive filesystems).</span>
+</span><span data-line="125"><span class="sd">    """</span>
+</span><span data-line="126">    <span class="n">found</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="127">    <span class="k">for</span> <span class="n">root</span><span class="p">,</span> <span class="n">dirnames</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">cwd</span><span class="o">.</span><span class="n">walk</span><span class="p">():</span>
+</span><span data-line="128">        <span class="n">dirnames</span><span class="p">[:]</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dirnames</span> <span class="k">if</span> <span class="n">d</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_SKIPPED_PARTS</span><span class="p">]</span>
+</span><span data-line="129">        <span class="n">rel</span> <span class="o">=</span> <span class="n">_rel_posix</span><span class="p">(</span><span class="n">cwd</span><span class="p">,</span> <span class="n">root</span><span class="p">)</span>
+</span><span data-line="130">        <span class="k">if</span> <span class="n">rel</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">rel</span> <span class="o">==</span> <span class="s2">"."</span><span class="p">:</span>
+</span><span data-line="131">            <span class="k">continue</span>
+</span><span data-line="132">        <span class="k">if</span> <span class="n">PurePosixPath</span><span class="p">(</span><span class="n">rel</span><span class="p">)</span><span class="o">.</span><span class="n">full_match</span><span class="p">(</span><span class="n">expanded</span><span class="p">):</span>
+</span><span data-line="133">            <span class="n">_consider</span><span class="p">(</span><span class="n">cwd</span><span class="p">,</span> <span class="n">root</span><span class="p">,</span> <span class="n">found</span><span class="p">)</span>
+</span><span data-line="134">    <span class="k">return</span> <span class="n">found</span>
+</span><span data-line="135">
+</span><span data-line="136">
+</span><span data-line="137"><span class="k">def</span><span class="w"> </span><span class="nf">_match</span><span class="p">(</span><span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]:</span>
+</span><span data-line="138"><span class="w">    </span><span class="sd">"""Map member rel-posix paths to directories for one include pattern."""</span>
+</span><span data-line="139">    <span class="n">found</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="140">    <span class="k">if</span> <span class="n">PurePosixPath</span><span class="p">(</span><span class="n">pattern</span><span class="p">)</span><span class="o">.</span><span class="n">is_absolute</span><span class="p">():</span>
+</span><span data-line="141">        <span class="k">return</span> <span class="n">found</span>
+</span><span data-line="142">    <span class="k">for</span> <span class="n">expanded</span> <span class="ow">in</span> <span class="n">_expand_braces</span><span class="p">(</span><span class="n">pattern</span><span class="p">):</span>
+</span><span data-line="143">        <span class="k">if</span> <span class="s2">"**"</span> <span class="ow">in</span> <span class="n">expanded</span><span class="p">:</span>
+</span><span data-line="144">            <span class="n">found</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_recursive_match</span><span class="p">(</span><span class="n">cwd</span><span class="p">,</span> <span class="n">expanded</span><span class="p">))</span>
+</span><span data-line="145">            <span class="k">continue</span>
+</span><span data-line="146">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="147">            <span class="n">candidates</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">cwd</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">expanded</span><span class="p">))</span>
+</span><span data-line="148">        <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+</span><span data-line="149">            <span class="k">continue</span>
+</span><span data-line="150">        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+</span><span data-line="151">            <span class="k">continue</span>
+</span><span data-line="152">        <span class="k">for</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="n">candidates</span><span class="p">:</span>
+</span><span data-line="153">            <span class="n">_consider</span><span class="p">(</span><span class="n">cwd</span><span class="p">,</span> <span class="n">candidate</span><span class="p">,</span> <span class="n">found</span><span class="p">)</span>
+</span><span data-line="154">    <span class="k">return</span> <span class="n">found</span>
+</span><span data-line="155">
+</span><span data-line="156">
+</span><span data-line="157"><span class="k">def</span><span class="w"> </span><span class="nf">_members</span><span class="p">(</span><span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">patterns</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]]:</span>
+</span><span data-line="158"><span class="w">    </span><span class="sd">"""Resolve member ``(rel-posix, path)`` pairs, sorted, minus `!` excludes."""</span>
+</span><span data-line="159">    <span class="n">included</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="160">    <span class="n">excluded</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+</span><span data-line="161">    <span class="k">for</span> <span class="n">pattern</span> <span class="ow">in</span> <span class="n">patterns</span><span class="p">:</span>
+</span><span data-line="162">        <span class="k">if</span> <span class="n">pattern</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"!"</span><span class="p">):</span>
+</span><span data-line="163">            <span class="n">excluded</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_match</span><span class="p">(</span><span class="n">cwd</span><span class="p">,</span> <span class="n">pattern</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
+</span><span data-line="164">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="165">            <span class="n">included</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_match</span><span class="p">(</span><span class="n">cwd</span><span class="p">,</span> <span class="n">pattern</span><span class="p">))</span>
+</span><span data-line="166">    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span>
+</span><span data-line="167">        <span class="p">((</span><span class="n">rel</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span> <span class="k">for</span> <span class="n">rel</span><span class="p">,</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">included</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">rel</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">excluded</span><span class="p">),</span>
+</span><span data-line="168">        <span class="n">key</span><span class="o">=</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+</span><span data-line="169">    <span class="p">)</span>
+</span><span data-line="170">
+</span><span data-line="171">
+</span><span data-line="172"><span class="k">def</span><span class="w"> </span><span class="nf">_selector</span><span class="p">(</span><span class="n">member</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">rel</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="173"><span class="w">    </span><span class="sd">"""Return the `--filter`-style selector: package `name`, else its path."""</span>
+</span><span data-line="174">    <span class="n">data</span> <span class="o">=</span> <span class="n">_read_json</span><span class="p">(</span><span class="n">member</span> <span class="o">/</span> <span class="s2">"package.json"</span><span class="p">)</span>
+</span><span data-line="175">    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+</span><span data-line="176">        <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="177">    <span class="n">name</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">)</span>
+</span><span data-line="178">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">name</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+</span><span data-line="179">        <span class="k">return</span> <span class="n">name</span>
+</span><span data-line="180">    <span class="k">return</span> <span class="n">rel</span>
+</span><span data-line="181">
+</span><span data-line="182">
+</span><span data-line="183"><span class="k">def</span><span class="w"> </span><span class="nf">_argv</span><span class="p">(</span><span class="n">pm</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">selector</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">script</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+</span><span data-line="184">    <span class="k">if</span> <span class="n">pm</span> <span class="o">==</span> <span class="s2">"pnpm"</span><span class="p">:</span>
+</span><span data-line="185">        <span class="k">return</span> <span class="p">(</span><span class="s2">"pnpm"</span><span class="p">,</span> <span class="s2">"--filter"</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="s2">"run"</span><span class="p">,</span> <span class="n">script</span><span class="p">)</span>
+</span><span data-line="186">    <span class="k">if</span> <span class="n">pm</span> <span class="o">==</span> <span class="s2">"yarn"</span><span class="p">:</span>
+</span><span data-line="187">        <span class="k">return</span> <span class="p">(</span><span class="s2">"yarn"</span><span class="p">,</span> <span class="s2">"workspace"</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="s2">"run"</span><span class="p">,</span> <span class="n">script</span><span class="p">)</span>
+</span><span data-line="188">    <span class="k">if</span> <span class="n">pm</span> <span class="o">==</span> <span class="s2">"bun"</span><span class="p">:</span>
+</span><span data-line="189">        <span class="k">return</span> <span class="p">(</span><span class="s2">"bun"</span><span class="p">,</span> <span class="s2">"run"</span><span class="p">,</span> <span class="s2">"--filter"</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="n">script</span><span class="p">)</span>
+</span><span data-line="190">    <span class="k">if</span> <span class="n">pm</span> <span class="o">==</span> <span class="s2">"lerna"</span><span class="p">:</span>
+</span><span data-line="191">        <span class="k">return</span> <span class="p">(</span><span class="s2">"lerna"</span><span class="p">,</span> <span class="s2">"run"</span><span class="p">,</span> <span class="n">script</span><span class="p">,</span> <span class="s2">"--scope"</span><span class="p">,</span> <span class="n">selector</span><span class="p">)</span>
+</span><span data-line="192">    <span class="k">return</span> <span class="p">(</span><span class="s2">"npm"</span><span class="p">,</span> <span class="s2">"run"</span><span class="p">,</span> <span class="n">script</span><span class="p">,</span> <span class="s2">"--workspace"</span><span class="p">,</span> <span class="n">selector</span><span class="p">)</span>
+</span><span data-line="193">
+</span><span data-line="194">
+</span><span data-line="195"><span class="k">def</span><span class="w"> </span><span class="nf">_runner</span><span class="p">(</span><span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span data-line="196">    <span class="c1"># Lockfiles decide the runner; a bare lerna.json (no lockfile) means the</span>
+</span><span data-line="197">    <span class="c1"># project delegates through lerna rather than npm workspaces.</span>
+</span><span data-line="198">    <span class="k">for</span> <span class="n">lockfile</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">LOCKFILES</span><span class="p">:</span>
+</span><span data-line="199">        <span class="k">if</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">lockfile</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+</span><span data-line="200">            <span class="k">return</span> <span class="n">resolve_pm</span><span class="p">(</span><span class="n">cwd</span><span class="p">)</span>
+</span><span data-line="201">    <span class="k">if</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="s2">"lerna.json"</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+</span><span data-line="202">        <span class="k">return</span> <span class="s2">"lerna"</span>
+</span><span data-line="203">    <span class="k">return</span> <span class="s2">"npm"</span>
+</span><span data-line="204">
+</span><span data-line="205">
 <div class="viewcode-block" id="member_scripts">
 <a class="viewcode-back" href="../../../../modules.html#nur.core.providers.workspace.member_scripts">[docs]</a>
-</span><span data-line="178"><span class="k">def</span><span class="w"> </span><span class="nf">member_scripts</span><span class="p">(</span><span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
-</span><span data-line="179"><span class="w">    </span><span class="sd">"""Discover workspace member scripts without executing anything.</span>
-</span><span data-line="180">
-</span><span data-line="181"><span class="sd">    Globs come from ``pnpm-workspace.yaml`` (``packages``), ``package.json``</span>
-</span><span data-line="182"><span class="sd">    (``workspaces``), and ``lerna.json`` (``packages``, defaulting to</span>
-</span><span data-line="183"><span class="sd">    ``packages/*`` unless ``useWorkspaces`` defers to ``package.json``).</span>
-</span><span data-line="184"><span class="sd">    Matching stays confined to ``cwd``: absolute patterns, escapes, and</span>
-</span><span data-line="185"><span class="sd">    ``node_modules``/``.git`` never become members, and only directories with</span>
-</span><span data-line="186"><span class="sd">    their own ``package.json`` qualify. Member scripts are the same static</span>
-</span><span data-line="187"><span class="sd">    JSON the ``npm`` provider reads; running delegates to the</span>
-</span><span data-line="188"><span class="sd">    lockfile-resolved package manager scoped to the member.</span>
-</span><span data-line="189"><span class="sd">    """</span>
-</span><span data-line="190">    <span class="n">members</span> <span class="o">=</span> <span class="n">_members</span><span class="p">(</span><span class="n">cwd</span><span class="p">,</span> <span class="n">_package_globs</span><span class="p">(</span><span class="n">cwd</span><span class="p">))</span>
-</span><span data-line="191">    <span class="k">if</span> <span class="ow">not</span> <span class="n">members</span><span class="p">:</span>
-</span><span data-line="192">        <span class="k">return</span> <span class="p">[]</span>
-</span><span data-line="193">    <span class="n">pm</span> <span class="o">=</span> <span class="n">_runner</span><span class="p">(</span><span class="n">cwd</span><span class="p">)</span>
-</span><span data-line="194">    <span class="n">tasks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="195">    <span class="k">for</span> <span class="n">rel</span><span class="p">,</span> <span class="n">member</span> <span class="ow">in</span> <span class="n">members</span><span class="p">:</span>
-</span><span data-line="196">        <span class="n">selector</span> <span class="o">=</span> <span class="n">_selector</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="n">rel</span><span class="p">)</span>
-</span><span data-line="197">        <span class="k">if</span> <span class="n">selector</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="198">            <span class="k">continue</span>
-</span><span data-line="199">        <span class="n">data</span> <span class="o">=</span> <span class="n">_read_json</span><span class="p">(</span><span class="n">member</span> <span class="o">/</span> <span class="s2">"package.json"</span><span class="p">)</span>
-</span><span data-line="200">        <span class="n">scripts</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"scripts"</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
-</span><span data-line="201">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scripts</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-</span><span data-line="202">            <span class="k">continue</span>
-</span><span data-line="203">        <span class="c1"># Members are deduplicated by path and scripts by key, so names here</span>
-</span><span data-line="204">        <span class="c1"># are unique by construction.</span>
-</span><span data-line="205">        <span class="k">for</span> <span class="n">script</span><span class="p">,</span> <span class="n">command</span> <span class="ow">in</span> <span class="n">scripts</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span data-line="206">            <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-</span><span data-line="207">                <span class="n">Task</span><span class="p">(</span>
-</span><span data-line="208">                    <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">selector</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">script</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
-</span><span data-line="209">                    <span class="n">prefix</span><span class="o">=</span><span class="s2">"workspace"</span><span class="p">,</span>
-</span><span data-line="210">                    <span class="n">argv_base</span><span class="o">=</span><span class="n">_argv</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="n">script</span><span class="p">),</span>
-</span><span data-line="211">                    <span class="n">definition</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">command</span><span class="p">),</span>
-</span><span data-line="212">                    <span class="n">source_file</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">rel</span><span class="si">}</span><span class="s2">/package.json"</span><span class="p">,</span>
-</span><span data-line="213">                    <span class="c1"># All five runners accept `--` to forward args to the script.</span>
-</span><span data-line="214">                    <span class="n">passthrough_prefix</span><span class="o">=</span><span class="p">(</span><span class="s2">"--"</span><span class="p">,),</span>
-</span><span data-line="215">                <span class="p">)</span>
-</span><span data-line="216">            <span class="p">)</span>
-</span><span data-line="217">    <span class="k">return</span> <span class="n">tasks</span></div>
+</span><span data-line="206"><span class="k">def</span><span class="w"> </span><span class="nf">member_scripts</span><span class="p">(</span><span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="207"><span class="w">    </span><span class="sd">"""Discover workspace member scripts without executing anything.</span>
+</span><span data-line="208">
+</span><span data-line="209"><span class="sd">    Globs come from ``pnpm-workspace.yaml`` (``packages``), ``package.json``</span>
+</span><span data-line="210"><span class="sd">    (``workspaces``), and ``lerna.json`` (``packages``, defaulting to</span>
+</span><span data-line="211"><span class="sd">    ``packages/*`` unless ``useWorkspaces`` defers to ``package.json``).</span>
+</span><span data-line="212"><span class="sd">    Matching stays confined to ``cwd``: absolute patterns, escapes, and</span>
+</span><span data-line="213"><span class="sd">    ``node_modules``/``.git`` never become members, and only directories with</span>
+</span><span data-line="214"><span class="sd">    their own ``package.json`` qualify. Member scripts are the same static</span>
+</span><span data-line="215"><span class="sd">    JSON the ``npm`` provider reads; running delegates to the</span>
+</span><span data-line="216"><span class="sd">    lockfile-resolved package manager scoped to the member.</span>
+</span><span data-line="217"><span class="sd">    """</span>
+</span><span data-line="218">    <span class="n">members</span> <span class="o">=</span> <span class="n">_members</span><span class="p">(</span><span class="n">cwd</span><span class="p">,</span> <span class="n">_package_globs</span><span class="p">(</span><span class="n">cwd</span><span class="p">))</span>
+</span><span data-line="219">    <span class="k">if</span> <span class="ow">not</span> <span class="n">members</span><span class="p">:</span>
+</span><span data-line="220">        <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="221">    <span class="n">pm</span> <span class="o">=</span> <span class="n">_runner</span><span class="p">(</span><span class="n">cwd</span><span class="p">)</span>
+</span><span data-line="222">    <span class="n">tasks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="223">    <span class="k">for</span> <span class="n">rel</span><span class="p">,</span> <span class="n">member</span> <span class="ow">in</span> <span class="n">members</span><span class="p">:</span>
+</span><span data-line="224">        <span class="n">selector</span> <span class="o">=</span> <span class="n">_selector</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="n">rel</span><span class="p">)</span>
+</span><span data-line="225">        <span class="k">if</span> <span class="n">selector</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="226">            <span class="k">continue</span>
+</span><span data-line="227">        <span class="n">data</span> <span class="o">=</span> <span class="n">_read_json</span><span class="p">(</span><span class="n">member</span> <span class="o">/</span> <span class="s2">"package.json"</span><span class="p">)</span>
+</span><span data-line="228">        <span class="n">scripts</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"scripts"</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+</span><span data-line="229">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scripts</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+</span><span data-line="230">            <span class="k">continue</span>
+</span><span data-line="231">        <span class="c1"># Members are deduplicated by path and scripts by key, so names here</span>
+</span><span data-line="232">        <span class="c1"># are unique by construction.</span>
+</span><span data-line="233">        <span class="k">for</span> <span class="n">script</span><span class="p">,</span> <span class="n">command</span> <span class="ow">in</span> <span class="n">scripts</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span data-line="234">            <span class="n">tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+</span><span data-line="235">                <span class="n">Task</span><span class="p">(</span>
+</span><span data-line="236">                    <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">selector</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">script</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+</span><span data-line="237">                    <span class="n">prefix</span><span class="o">=</span><span class="s2">"workspace"</span><span class="p">,</span>
+</span><span data-line="238">                    <span class="n">argv_base</span><span class="o">=</span><span class="n">_argv</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="n">script</span><span class="p">),</span>
+</span><span data-line="239">                    <span class="n">definition</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">command</span><span class="p">),</span>
+</span><span data-line="240">                    <span class="n">source_file</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">rel</span><span class="si">}</span><span class="s2">/package.json"</span><span class="p">,</span>
+</span><span data-line="241">                    <span class="c1"># All five runners accept `--` to forward args to the script.</span>
+</span><span data-line="242">                    <span class="n">passthrough_prefix</span><span class="o">=</span><span class="p">(</span><span class="s2">"--"</span><span class="p">,),</span>
+</span><span data-line="243">                <span class="p">)</span>
+</span><span data-line="244">            <span class="p">)</span>
+</span><span data-line="245">    <span class="k">return</span> <span class="n">tasks</span></div>
 
-</span><span data-line="218">
-</span><span data-line="219">
-</span><span data-line="220"><span class="k">class</span><span class="w"> </span><span class="nc">WorkspaceProvider</span><span class="p">:</span>
-</span><span data-line="221">    <span class="n">prefix</span> <span class="o">=</span> <span class="s2">"workspace"</span>
-</span><span data-line="222">
-</span><span data-line="223">    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span data-line="224">        <span class="k">if</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="s2">"pnpm-workspace.yaml"</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="ow">or</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="s2">"lerna.json"</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
-</span><span data-line="225">            <span class="k">return</span> <span class="kc">True</span>
-</span><span data-line="226">        <span class="c1"># Silent on absent/malformed files: detect runs on every project, so</span>
-</span><span data-line="227">        <span class="c1"># (unlike discover) it must never warn. UnicodeError and</span>
-</span><span data-line="228">        <span class="c1"># JSONDecodeError subclass ValueError.</span>
-</span><span data-line="229">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="230">            <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">((</span><span class="n">cwd</span> <span class="o">/</span> <span class="s2">"package.json"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">))</span>
-</span><span data-line="231">        <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
-</span><span data-line="232">            <span class="k">return</span> <span class="kc">False</span>
-</span><span data-line="233">        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-</span><span data-line="234">            <span class="k">return</span> <span class="kc">False</span>
-</span><span data-line="235">        <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">"workspaces"</span> <span class="ow">in</span> <span class="n">data</span>
-</span><span data-line="236">
-</span><span data-line="237">    <span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
-</span><span data-line="238">        <span class="k">return</span> <span class="n">member_scripts</span><span class="p">(</span><span class="n">cwd</span><span class="p">)</span>
+</span><span data-line="246">
+</span><span data-line="247">
+</span><span data-line="248"><span class="k">class</span><span class="w"> </span><span class="nc">WorkspaceProvider</span><span class="p">:</span>
+</span><span data-line="249">    <span class="n">prefix</span> <span class="o">=</span> <span class="s2">"workspace"</span>
+</span><span data-line="250">
+</span><span data-line="251">    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="252">        <span class="k">if</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="s2">"pnpm-workspace.yaml"</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="ow">or</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="s2">"lerna.json"</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+</span><span data-line="253">            <span class="k">return</span> <span class="kc">True</span>
+</span><span data-line="254">        <span class="c1"># Silent on absent/malformed files: detect runs on every project, so</span>
+</span><span data-line="255">        <span class="c1"># (unlike discover) it must never warn. UnicodeError and</span>
+</span><span data-line="256">        <span class="c1"># JSONDecodeError subclass ValueError.</span>
+</span><span data-line="257">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="258">            <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">((</span><span class="n">cwd</span> <span class="o">/</span> <span class="s2">"package.json"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">))</span>
+</span><span data-line="259">        <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+</span><span data-line="260">            <span class="k">return</span> <span class="kc">False</span>
+</span><span data-line="261">        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+</span><span data-line="262">            <span class="k">return</span> <span class="kc">False</span>
+</span><span data-line="263">        <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">"workspaces"</span> <span class="ow">in</span> <span class="n">data</span>
+</span><span data-line="264">
+</span><span data-line="265">    <span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="266">        <span class="k">return</span> <span class="n">member_scripts</span><span class="p">(</span><span class="n">cwd</span><span class="p">)</span>
 </span></pre></div>
         </article><button class="back-to-top" type="button">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">

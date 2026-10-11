@@ -61,8 +61,8 @@ providers).
 | Gulp | `gulpfile.js` (+ `Gulpfile.js`, `.mjs`/`.cjs` variants) | Literal `gulp.task(name, ...)` names and CommonJS `exports.name` assignments read via Tree-sitter without running JS; run delegates to `gulp <name>`. ESM `export` forms beyond plain function/const exports and `series()`/`parallel()` composition stay opaque. | Accepted (new `gulp` provider) |
 | npm-run-all / run-p / run-s | none | No config file of its own; composes existing `package.json` scripts — every runnable unit is already surfaced by the `npm` provider. | No provider (already covered, not declined) |
 | pnpm / yarn / bun workspaces, Lerna | `pnpm-workspace.yaml`, `package.json` (`workspaces`), `lerna.json` + member `package.json` files | Globs locate members; member `scripts` are real tasks. Run delegates per package manager (`pnpm --filter`, `yarn workspace`, `npm --workspace`, `bun --filter`, `lerna run --scope`). | Accepted (new `workspace` provider, rooted traversal) |
-| Turborepo | `turbo.json` | Declarative JSON: each key of `tasks` (v2; legacy `pipeline` in v1) is runnable via `turbo run <task>`, resolved against member `package.json` scripts. | Accepted (new `turbo` provider) |
-| Nx | `nx.json` | Root `targetDefaults` keys name the shared tasks; run delegates to `nx run-many -t <name>` across projects. Per-project files stay opaque. | Accepted (new `nx` provider) |
+| Turborepo | `turbo.json` | Declarative JSON: each key of `tasks` (v2; legacy `pipeline` in v1) is runnable via `turbo run <task>`, resolved against member `package.json` scripts. Root tasks list under their stripped name, keeping `//#` identity on collision. | Accepted (new `turbo` provider) |
+| Nx | `nx.json` | Root `targetDefaults` literal keys name the shared tasks (executor keys and globs skipped, array-form defaults accepted); run delegates to `nx run-many -t <name>` across projects. Per-project files stay opaque. | Accepted (new `nx` provider) |
 
 ## Decision Outcome
 

@@ -218,12 +218,12 @@ precedent.</p></li>
 </tr>
 <tr class="row-even"><td><p>Turborepo</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">turbo.json</span></code></p></td>
-<td><p>Declarative JSON: each key of <code class="docutils literal notranslate"><span class="pre">tasks</span></code> (v2; legacy <code class="docutils literal notranslate"><span class="pre">pipeline</span></code> in v1) is runnable via <code class="docutils literal notranslate"><span class="pre">turbo</span> <span class="pre">run</span> <span class="pre">&lt;task&gt;</span></code>, resolved against member <code class="docutils literal notranslate"><span class="pre">package.json</span></code> scripts.</p></td>
+<td><p>Declarative JSON: each key of <code class="docutils literal notranslate"><span class="pre">tasks</span></code> (v2; legacy <code class="docutils literal notranslate"><span class="pre">pipeline</span></code> in v1) is runnable via <code class="docutils literal notranslate"><span class="pre">turbo</span> <span class="pre">run</span> <span class="pre">&lt;task&gt;</span></code>, resolved against member <code class="docutils literal notranslate"><span class="pre">package.json</span></code> scripts. Root tasks list under their stripped name, keeping <code class="docutils literal notranslate"><span class="pre">//#</span></code> identity on collision.</p></td>
 <td><p>Accepted (new <code class="docutils literal notranslate"><span class="pre">turbo</span></code> provider)</p></td>
 </tr>
 <tr class="row-odd"><td><p>Nx</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">nx.json</span></code></p></td>
-<td><p>Root <code class="docutils literal notranslate"><span class="pre">targetDefaults</span></code> keys name the shared tasks; run delegates to <code class="docutils literal notranslate"><span class="pre">nx</span> <span class="pre">run-many</span> <span class="pre">-t</span> <span class="pre">&lt;name&gt;</span></code> across projects. Per-project files stay opaque.</p></td>
+<td><p>Root <code class="docutils literal notranslate"><span class="pre">targetDefaults</span></code> literal keys name the shared tasks (executor keys and globs skipped, array-form defaults accepted); run delegates to <code class="docutils literal notranslate"><span class="pre">nx</span> <span class="pre">run-many</span> <span class="pre">-t</span> <span class="pre">&lt;name&gt;</span></code> across projects. Per-project files stay opaque.</p></td>
 <td><p>Accepted (new <code class="docutils literal notranslate"><span class="pre">nx</span></code> provider)</p></td>
 </tr>
 </tbody>

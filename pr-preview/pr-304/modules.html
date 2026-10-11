@@ -701,8 +701,12 @@ not the command itself.</p>
 <p>Deliberately does NOT run <code class="docutils literal notranslate"><span class="pre">nx</span> <span class="pre">show</span> <span class="pre">projects</span></code> to enumerate tasks: that
 loads Nx plugins and infers targets, which can run repository-controlled
 code during discovery. Reading the <code class="docutils literal notranslate"><span class="pre">targetDefaults</span></code> keys directly is
-safe, at the cost of missing per-project-only targets. Results are
-syntactic candidates, not a promise that every project implements them.</p>
+safe, at the cost of missing per-project-only targets. Only literal target
+names become tasks: executor keys (<code class="docutils literal notranslate"><span class="pre">&#64;nx/js:tsc</span></code>) and globs
+(<code class="docutils literal notranslate"><span class="pre">e2e-ci--**/**</span></code>) cannot be run via <code class="docutils literal notranslate"><span class="pre">nx</span> <span class="pre">run-many</span> <span class="pre">-t</span></code> and are skipped,
+while array-form defaults (filtered entries for one target) are accepted
+like plain objects. Results are syntactic candidates, not a promise that
+every project implements them.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
