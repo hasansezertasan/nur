@@ -197,6 +197,27 @@ def test_discover_recursive_glob_prunes_skipped_dirs(tmp_path) -> None:
     assert tasks == {"web:build"}
 
 
+def _symlink_dir(link, target) -> None:
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except OSError:  # pragma: no cover - e.g. Windows without symlink rights
+        pytest.skip("directory symlinks unsupported here")
+
+
+def test_discover_recursive_glob_follows_in_root_symlinks(tmp_path) -> None:
+    (tmp_path / "pnpm-workspace.yaml").write_text("packages:\n  - 'packages/**'\n")
+    (tmp_path / "pnpm-lock.yaml").write_text("")
+    _pkg(tmp_path, "real/a", {"build": "x"}, name="a")
+    _symlink_dir(tmp_path / "packages", tmp_path / "real")
+    # A cycle back to the root and a link leaving it must both be pruned.
+    _symlink_dir(tmp_path / "real" / "a" / "loop", tmp_path)
+    outside = tmp_path.parent / f"{tmp_path.name}-outside"
+    _pkg(outside, "ext", {"evil": "x"}, name="ext")
+    _symlink_dir(tmp_path / "real" / "ext", outside / "ext")
+    tasks = {t.name for t in WorkspaceProvider().discover(tmp_path)}
+    assert tasks == {"a:build"}
+
+
 def test_brace_edge_cases_match_nothing(tmp_path) -> None:
     (tmp_path / "pnpm-workspace.yaml").write_text(
         "packages:\n  - 'apps/{unclosed'\n  - 'apps/{a/{b,c}}'\n"
@@ -220,6 +241,31 @@ def test_rel_posix_unresolvable_returns_none(tmp_path, monkeypatch) -> None:
 
     monkeypatch.setattr("pathlib.Path.resolve", boom)
     assert _rel_posix(tmp_path, tmp_path / "x") is None
+
+
+def test_recursive_match_unresolvable_paths_are_skipped(tmp_path, monkeypatch) -> None:
+    from pathlib import Path
+
+    from nur.core.providers.workspace import _recursive_match
+
+    _pkg(tmp_path, "packages/a", {"build": "x"}, name="a")
+    real_resolve = Path.resolve
+
+    def resolve_root_only(self, *args, **kwargs):
+        if self != tmp_path:
+            msg = "nope"
+            raise OSError(msg)
+        return real_resolve(self, *args, **kwargs)
+
+    monkeypatch.setattr("pathlib.Path.resolve", resolve_root_only)
+    assert _recursive_match(tmp_path, "packages/**") == {}
+
+    def boom(self, *args, **kwargs):
+        msg = "nope"
+        raise OSError(msg)
+
+    monkeypatch.setattr("pathlib.Path.resolve", boom)
+    assert _recursive_match(tmp_path, "packages/**") == {}
 
 
 def test_match_glob_errors_are_skipped(tmp_path, monkeypatch) -> None:

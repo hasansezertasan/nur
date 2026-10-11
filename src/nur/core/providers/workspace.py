@@ -122,14 +122,32 @@ def _recursive_match(cwd: Path, expanded: str) -> dict[str, Path]:
     invocation in large monorepos. Walking manually and dropping
     ``node_modules``/``.git`` from ``dirnames`` avoids the descent entirely.
     Matching is case-sensitive (unlike glob on case-insensitive filesystems).
+
+    Symlinked directories are followed, as glob does, so ``packages/**``
+    still matches when ``packages`` is a link. A link is not entered when it
+    resolves outside ``cwd`` or back onto one of its own ancestors (a cycle).
     """
     found: dict[str, Path] = {}
-    for root, dirnames, _ in cwd.walk():
-        dirnames[:] = [d for d in dirnames if d not in _SKIPPED_PARTS]
-        rel = _rel_posix(cwd, root)
-        if rel is None or rel == ".":
+    real_of: dict[Path, Path] = {}
+    try:
+        real_cwd = cwd.resolve()
+    except OSError:
+        return found
+    for root, dirnames, _ in cwd.walk(follow_symlinks=True):
+        try:
+            real = root.resolve()
+        except OSError:
+            dirnames.clear()
             continue
-        if PurePosixPath(rel).full_match(expanded):
+        if not real.is_relative_to(real_cwd) or any(
+            real_of.get(parent) == real for parent in root.parents
+        ):
+            dirnames.clear()
+            continue
+        real_of[root] = real
+        dirnames[:] = [d for d in dirnames if d not in _SKIPPED_PARTS]
+        rel = root.relative_to(cwd)
+        if rel.parts and PurePosixPath(rel.as_posix()).full_match(expanded):
             _consider(cwd, root, found)
     return found
 
