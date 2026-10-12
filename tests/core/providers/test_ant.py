@@ -417,3 +417,17 @@ def test_parse_build_xml_accepts_core_namespaced_root() -> None:
         '<ant:target name="x"/></ant:project>'
     )
     assert [t.name for t in tasks] == ["x"]
+
+
+def test_parse_build_xml_reads_core_namespaced_attributes() -> None:
+    tasks = {
+        t.name: t
+        for t in parse_build_xml(
+            '<project xmlns:ant="antlib:org.apache.tools.ant">'
+            '<ant:target ant:name="build" ant:description="Build"/>'
+            "</project>"
+        )
+    }
+    assert list(tasks) == ["build"]
+    assert tasks["build"].description == "Build"
+    assert tasks["build"].argv_base == ("ant", "build")

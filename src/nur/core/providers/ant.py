@@ -75,8 +75,22 @@ def _is_project_root(tag: str) -> bool:
     return tag == "project"
 
 
+def _attr(element: ET.Element, local: str) -> str | None:
+    """Return the attribute with local name *local*, Ant-style.
+
+    Ant interprets attributes by local name whether unqualified or qualified
+    with the element's own namespace (other namespaces are ignored), while
+    ElementTree keys a namespaced attribute as ``{uri}local``. Check the
+    unqualified form first, then the core-namespace form.
+    """
+    value = element.get(local)
+    if value is None:
+        value = element.get(f"{{{_ANT_CORE_URI}}}{local}")
+    return value
+
+
 def _description(element: ET.Element) -> str | None:
-    value = element.get("description")
+    value = _attr(element, "description")
     if value is None:
         return None
     # XML attribute normalization already folds literal newlines to spaces, so
@@ -140,7 +154,7 @@ def parse_build_xml(text: str | bytes, source_file: str = _SOURCE_FILE) -> list[
     for element in root:
         if not _runnable(element.tag):
             continue
-        raw = element.get("name")
+        raw = _attr(element, "name")
         if raw is None or not raw.strip():
             continue
         if raw.startswith("-"):
