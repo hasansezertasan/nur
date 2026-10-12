@@ -205,117 +205,131 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="75">    <span class="k">return</span> <span class="n">tag</span> <span class="o">==</span> <span class="s2">"project"</span>
 </span><span data-line="76">
 </span><span data-line="77">
-</span><span data-line="78"><span class="k">def</span><span class="w"> </span><span class="nf">_description</span><span class="p">(</span><span class="n">element</span><span class="p">:</span> <span class="n">ET</span><span class="o">.</span><span class="n">Element</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="79">    <span class="n">value</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"description"</span><span class="p">)</span>
-</span><span data-line="80">    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="81">        <span class="k">return</span> <span class="kc">None</span>
-</span><span data-line="82">    <span class="c1"># XML attribute normalization already folds literal newlines to spaces, so</span>
-</span><span data-line="83">    <span class="c1"># only `&amp;#10;` character references still split lines; strip the first one.</span>
-</span><span data-line="84">    <span class="n">lines</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
-</span><span data-line="85">    <span class="n">first</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">if</span> <span class="n">lines</span> <span class="k">else</span> <span class="s2">""</span>
-</span><span data-line="86">    <span class="k">return</span> <span class="n">first</span> <span class="ow">or</span> <span class="kc">None</span>
-</span><span data-line="87">
-</span><span data-line="88">
+</span><span data-line="78"><span class="k">def</span><span class="w"> </span><span class="nf">_attr</span><span class="p">(</span><span class="n">element</span><span class="p">:</span> <span class="n">ET</span><span class="o">.</span><span class="n">Element</span><span class="p">,</span> <span class="n">local</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="79"><span class="w">    </span><span class="sd">"""Return the attribute with local name *local*, Ant-style.</span>
+</span><span data-line="80">
+</span><span data-line="81"><span class="sd">    Ant interprets attributes by local name whether unqualified or qualified</span>
+</span><span data-line="82"><span class="sd">    with the element's own namespace (other namespaces are ignored), while</span>
+</span><span data-line="83"><span class="sd">    ElementTree keys a namespaced attribute as ``{uri}local``. Check the</span>
+</span><span data-line="84"><span class="sd">    unqualified form first, then the core-namespace form.</span>
+</span><span data-line="85"><span class="sd">    """</span>
+</span><span data-line="86">    <span class="n">value</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">local</span><span class="p">)</span>
+</span><span data-line="87">    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="88">        <span class="n">value</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">{{</span><span class="si">{</span><span class="n">_ANT_CORE_URI</span><span class="si">}</span><span class="se">}}</span><span class="si">{</span><span class="n">local</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="89">    <span class="k">return</span> <span class="n">value</span>
+</span><span data-line="90">
+</span><span data-line="91">
+</span><span data-line="92"><span class="k">def</span><span class="w"> </span><span class="nf">_description</span><span class="p">(</span><span class="n">element</span><span class="p">:</span> <span class="n">ET</span><span class="o">.</span><span class="n">Element</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="93">    <span class="n">value</span> <span class="o">=</span> <span class="n">_attr</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="s2">"description"</span><span class="p">)</span>
+</span><span data-line="94">    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="95">        <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="96">    <span class="c1"># XML attribute normalization already folds literal newlines to spaces, so</span>
+</span><span data-line="97">    <span class="c1"># only `&amp;#10;` character references still split lines; strip the first one.</span>
+</span><span data-line="98">    <span class="n">lines</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
+</span><span data-line="99">    <span class="n">first</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">if</span> <span class="n">lines</span> <span class="k">else</span> <span class="s2">""</span>
+</span><span data-line="100">    <span class="k">return</span> <span class="n">first</span> <span class="ow">or</span> <span class="kc">None</span>
+</span><span data-line="101">
+</span><span data-line="102">
 <div class="viewcode-block" id="parse_build_xml">
 <a class="viewcode-back" href="../../../../modules.html#nur.core.providers.ant.parse_build_xml">[docs]</a>
-</span><span data-line="89"><span class="k">def</span><span class="w"> </span><span class="nf">parse_build_xml</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">source_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">_SOURCE_FILE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
-</span><span data-line="90"><span class="w">    </span><span class="sd">"""Extract runnable entry names from ``build.xml`` without executing anything.</span>
-</span><span data-line="91">
-</span><span data-line="92"><span class="sd">    Deliberately does NOT shell out to ``ant -p``: the file is declarative XML,</span>
-</span><span data-line="93"><span class="sd">    so ``&lt;target name=...&gt;`` attributes can be read directly and a task body</span>
-</span><span data-line="94"><span class="sd">    (a sequence of XML tasks, not shell commands) never runs during discovery.</span>
-</span><span data-line="95"><span class="sd">    ``&lt;extension-point name=...&gt;`` entries are listed the same way: they are</span>
-</span><span data-line="96"><span class="sd">    target-like states with a name and an optional description, each running</span>
-</span><span data-line="97"><span class="sd">    as ``ant &lt;name&gt;``. Descriptions come from the ``description``</span>
-</span><span data-line="98"><span class="sd">    attribute; every entry is listed, including ones without a description</span>
-</span><span data-line="99"><span class="sd">    (which ``ant -p`` hides as internal). Names are kept verbatim — Ant permits</span>
-</span><span data-line="100"><span class="sd">    spaces in target names and ``argv_base`` passes the name as a single token,</span>
-</span><span data-line="101"><span class="sd">    so normalizing would change the target's identity. Names beginning with a</span>
-</span><span data-line="102"><span class="sd">    hyphen are skipped: Ant parses such arguments as options, so they cannot</span>
-</span><span data-line="103"><span class="sd">    run via ``ant &lt;name&gt;`` (the conventional internal-target form); the check</span>
-</span><span data-line="104"><span class="sd">    mirrors Ant's own ``startsWith("-")`` on the same verbatim token, so</span>
-</span><span data-line="105"><span class="sd">    padded variants (``  -init ``) stay listed. Only core-namespace</span>
-</span><span data-line="106"><span class="sd">    ``&lt;target&gt;``/``&lt;extension-point&gt;`` elements count: other namespaces are</span>
-</span><span data-line="107"><span class="sd">    ordinary task/type uses, not entry points. Documents whose root is not an</span>
-</span><span data-line="108"><span class="sd">    Ant ``&lt;project&gt;`` element are skipped: Ant rejects them before installing</span>
-</span><span data-line="109"><span class="sd">    any target. Task bodies stay</span>
-</span><span data-line="110"><span class="sd">    opaque, so ``definition`` is empty. Imported/included build files,</span>
-</span><span data-line="111"><span class="sd">    ``macrodef``-defined</span>
-</span><span data-line="112"><span class="sd">    behaviour, ``if``/``unless`` conditions, ``depends`` ordering, and</span>
-</span><span data-line="113"><span class="sd">    ``${property}`` interpolation are not resolved; names are left literal.</span>
-</span><span data-line="114"><span class="sd">    Parser errors skip the file. Files with a ``&lt;!DOCTYPE&gt;`` declaration are</span>
-</span><span data-line="115"><span class="sd">    skipped as well: it is the only carrier of ``&lt;!ENTITY&gt;`` definitions,</span>
-</span><span data-line="116"><span class="sd">    whose expansion is unbounded, and genuine Ant build files never need one.</span>
-</span><span data-line="117"><span class="sd">    Results are syntactic task candidates, not a</span>
-</span><span data-line="118"><span class="sd">    promise that Ant will accept or successfully execute each target.</span>
-</span><span data-line="119">
-</span><span data-line="120"><span class="sd">    Byte input is preferred: ElementTree honours the XML encoding declaration</span>
-</span><span data-line="121"><span class="sd">    only for bytes; a `str` carrying one is skipped as unparsable.</span>
-</span><span data-line="122"><span class="sd">    """</span>
-</span><span data-line="123">    <span class="k">if</span> <span class="n">_has_doctype</span><span class="p">(</span><span class="n">text</span><span class="p">):</span>
-</span><span data-line="124">        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-</span><span data-line="125">            <span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (document type declaration not allowed)"</span><span class="p">,</span> <span class="n">source_file</span>
-</span><span data-line="126">        <span class="p">)</span>
-</span><span data-line="127">        <span class="k">return</span> <span class="p">[]</span>
-</span><span data-line="128">    <span class="k">try</span><span class="p">:</span>
-</span><span data-line="129">        <span class="n">root</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">fromstring</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
-</span><span data-line="130">    <span class="k">except</span> <span class="p">(</span><span class="n">ET</span><span class="o">.</span><span class="n">ParseError</span><span class="p">,</span> <span class="ne">LookupError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">UnicodeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span data-line="131">        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span> <span class="n">source_file</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
-</span><span data-line="132">        <span class="k">return</span> <span class="p">[]</span>
-</span><span data-line="133">    <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_project_root</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">tag</span><span class="p">):</span>
-</span><span data-line="134">        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (not an Ant project file)"</span><span class="p">,</span> <span class="n">source_file</span><span class="p">)</span>
-</span><span data-line="135">        <span class="k">return</span> <span class="p">[]</span>
-</span><span data-line="136">    <span class="n">tasks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Task</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="137">    <span class="c1"># Only direct children of the project root: Ant only accepts &lt;target&gt; and</span>
-</span><span data-line="138">    <span class="c1"># &lt;extension-point&gt; there, so nested elements of the same name (e.g. inside</span>
-</span><span data-line="139">    <span class="c1"># &lt;macrodef&gt;) are not runnable entry points.</span>
-</span><span data-line="140">    <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">root</span><span class="p">:</span>
-</span><span data-line="141">        <span class="k">if</span> <span class="ow">not</span> <span class="n">_runnable</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">tag</span><span class="p">):</span>
-</span><span data-line="142">            <span class="k">continue</span>
-</span><span data-line="143">        <span class="n">raw</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">)</span>
-</span><span data-line="144">        <span class="k">if</span> <span class="n">raw</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">raw</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
-</span><span data-line="145">            <span class="k">continue</span>
-</span><span data-line="146">        <span class="k">if</span> <span class="n">raw</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"-"</span><span class="p">):</span>
-</span><span data-line="147">            <span class="c1"># Ant checks the original command-line token with startsWith("-"),</span>
-</span><span data-line="148">            <span class="c1"># so only position-zero hyphens read as options; padded variants</span>
-</span><span data-line="149">            <span class="c1"># (`  -init `) stay runnable as single-token target names, exactly</span>
-</span><span data-line="150">            <span class="c1"># as Ant itself treats them. Make skips `.`-prefixed names for the</span>
-</span><span data-line="151">            <span class="c1"># same reason.</span>
-</span><span data-line="152">            <span class="k">continue</span>
-</span><span data-line="153">        <span class="n">name</span> <span class="o">=</span> <span class="n">raw</span>
-</span><span data-line="154">        <span class="n">declared</span> <span class="o">=</span> <span class="n">Task</span><span class="p">(</span>
-</span><span data-line="155">            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
-</span><span data-line="156">            <span class="n">prefix</span><span class="o">=</span><span class="s2">"ant"</span><span class="p">,</span>
-</span><span data-line="157">            <span class="n">argv_base</span><span class="o">=</span><span class="p">(</span><span class="s2">"ant"</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
-</span><span data-line="158">            <span class="n">description</span><span class="o">=</span><span class="n">_description</span><span class="p">(</span><span class="n">element</span><span class="p">),</span>
-</span><span data-line="159">            <span class="n">source_file</span><span class="o">=</span><span class="n">source_file</span><span class="p">,</span>
-</span><span data-line="160">        <span class="p">)</span>
-</span><span data-line="161">        <span class="n">existing</span> <span class="o">=</span> <span class="n">tasks</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-</span><span data-line="162">        <span class="k">if</span> <span class="n">existing</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="163">            <span class="k">if</span> <span class="n">existing</span><span class="o">.</span><span class="n">description</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">declared</span><span class="o">.</span><span class="n">description</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="164">                <span class="n">tasks</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span><span class="n">existing</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="n">declared</span><span class="o">.</span><span class="n">description</span><span class="p">)</span>
-</span><span data-line="165">            <span class="k">continue</span>
-</span><span data-line="166">        <span class="n">tasks</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">declared</span>
-</span><span data-line="167">    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">tasks</span><span class="o">.</span><span class="n">values</span><span class="p">())</span></div>
+</span><span data-line="103"><span class="k">def</span><span class="w"> </span><span class="nf">parse_build_xml</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">source_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">_SOURCE_FILE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="104"><span class="w">    </span><span class="sd">"""Extract runnable entry names from ``build.xml`` without executing anything.</span>
+</span><span data-line="105">
+</span><span data-line="106"><span class="sd">    Deliberately does NOT shell out to ``ant -p``: the file is declarative XML,</span>
+</span><span data-line="107"><span class="sd">    so ``&lt;target name=...&gt;`` attributes can be read directly and a task body</span>
+</span><span data-line="108"><span class="sd">    (a sequence of XML tasks, not shell commands) never runs during discovery.</span>
+</span><span data-line="109"><span class="sd">    ``&lt;extension-point name=...&gt;`` entries are listed the same way: they are</span>
+</span><span data-line="110"><span class="sd">    target-like states with a name and an optional description, each running</span>
+</span><span data-line="111"><span class="sd">    as ``ant &lt;name&gt;``. Descriptions come from the ``description``</span>
+</span><span data-line="112"><span class="sd">    attribute; every entry is listed, including ones without a description</span>
+</span><span data-line="113"><span class="sd">    (which ``ant -p`` hides as internal). Names are kept verbatim — Ant permits</span>
+</span><span data-line="114"><span class="sd">    spaces in target names and ``argv_base`` passes the name as a single token,</span>
+</span><span data-line="115"><span class="sd">    so normalizing would change the target's identity. Names beginning with a</span>
+</span><span data-line="116"><span class="sd">    hyphen are skipped: Ant parses such arguments as options, so they cannot</span>
+</span><span data-line="117"><span class="sd">    run via ``ant &lt;name&gt;`` (the conventional internal-target form); the check</span>
+</span><span data-line="118"><span class="sd">    mirrors Ant's own ``startsWith("-")`` on the same verbatim token, so</span>
+</span><span data-line="119"><span class="sd">    padded variants (``  -init ``) stay listed. Only core-namespace</span>
+</span><span data-line="120"><span class="sd">    ``&lt;target&gt;``/``&lt;extension-point&gt;`` elements count: other namespaces are</span>
+</span><span data-line="121"><span class="sd">    ordinary task/type uses, not entry points. Documents whose root is not an</span>
+</span><span data-line="122"><span class="sd">    Ant ``&lt;project&gt;`` element are skipped: Ant rejects them before installing</span>
+</span><span data-line="123"><span class="sd">    any target. Task bodies stay</span>
+</span><span data-line="124"><span class="sd">    opaque, so ``definition`` is empty. Imported/included build files,</span>
+</span><span data-line="125"><span class="sd">    ``macrodef``-defined</span>
+</span><span data-line="126"><span class="sd">    behaviour, ``if``/``unless`` conditions, ``depends`` ordering, and</span>
+</span><span data-line="127"><span class="sd">    ``${property}`` interpolation are not resolved; names are left literal.</span>
+</span><span data-line="128"><span class="sd">    Parser errors skip the file. Files with a ``&lt;!DOCTYPE&gt;`` declaration are</span>
+</span><span data-line="129"><span class="sd">    skipped as well: it is the only carrier of ``&lt;!ENTITY&gt;`` definitions,</span>
+</span><span data-line="130"><span class="sd">    whose expansion is unbounded, and genuine Ant build files never need one.</span>
+</span><span data-line="131"><span class="sd">    Results are syntactic task candidates, not a</span>
+</span><span data-line="132"><span class="sd">    promise that Ant will accept or successfully execute each target.</span>
+</span><span data-line="133">
+</span><span data-line="134"><span class="sd">    Byte input is preferred: ElementTree honours the XML encoding declaration</span>
+</span><span data-line="135"><span class="sd">    only for bytes; a `str` carrying one is skipped as unparsable.</span>
+</span><span data-line="136"><span class="sd">    """</span>
+</span><span data-line="137">    <span class="k">if</span> <span class="n">_has_doctype</span><span class="p">(</span><span class="n">text</span><span class="p">):</span>
+</span><span data-line="138">        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+</span><span data-line="139">            <span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (document type declaration not allowed)"</span><span class="p">,</span> <span class="n">source_file</span>
+</span><span data-line="140">        <span class="p">)</span>
+</span><span data-line="141">        <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="142">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="143">        <span class="n">root</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">fromstring</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+</span><span data-line="144">    <span class="k">except</span> <span class="p">(</span><span class="n">ET</span><span class="o">.</span><span class="n">ParseError</span><span class="p">,</span> <span class="ne">LookupError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">UnicodeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="145">        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span> <span class="n">source_file</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+</span><span data-line="146">        <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="147">    <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_project_root</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">tag</span><span class="p">):</span>
+</span><span data-line="148">        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (not an Ant project file)"</span><span class="p">,</span> <span class="n">source_file</span><span class="p">)</span>
+</span><span data-line="149">        <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="150">    <span class="n">tasks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Task</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="151">    <span class="c1"># Only direct children of the project root: Ant only accepts &lt;target&gt; and</span>
+</span><span data-line="152">    <span class="c1"># &lt;extension-point&gt; there, so nested elements of the same name (e.g. inside</span>
+</span><span data-line="153">    <span class="c1"># &lt;macrodef&gt;) are not runnable entry points.</span>
+</span><span data-line="154">    <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">root</span><span class="p">:</span>
+</span><span data-line="155">        <span class="k">if</span> <span class="ow">not</span> <span class="n">_runnable</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">tag</span><span class="p">):</span>
+</span><span data-line="156">            <span class="k">continue</span>
+</span><span data-line="157">        <span class="n">raw</span> <span class="o">=</span> <span class="n">_attr</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">)</span>
+</span><span data-line="158">        <span class="k">if</span> <span class="n">raw</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">raw</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+</span><span data-line="159">            <span class="k">continue</span>
+</span><span data-line="160">        <span class="k">if</span> <span class="n">raw</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"-"</span><span class="p">):</span>
+</span><span data-line="161">            <span class="c1"># Ant checks the original command-line token with startsWith("-"),</span>
+</span><span data-line="162">            <span class="c1"># so only position-zero hyphens read as options; padded variants</span>
+</span><span data-line="163">            <span class="c1"># (`  -init `) stay runnable as single-token target names, exactly</span>
+</span><span data-line="164">            <span class="c1"># as Ant itself treats them. Make skips `.`-prefixed names for the</span>
+</span><span data-line="165">            <span class="c1"># same reason.</span>
+</span><span data-line="166">            <span class="k">continue</span>
+</span><span data-line="167">        <span class="n">name</span> <span class="o">=</span> <span class="n">raw</span>
+</span><span data-line="168">        <span class="n">declared</span> <span class="o">=</span> <span class="n">Task</span><span class="p">(</span>
+</span><span data-line="169">            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+</span><span data-line="170">            <span class="n">prefix</span><span class="o">=</span><span class="s2">"ant"</span><span class="p">,</span>
+</span><span data-line="171">            <span class="n">argv_base</span><span class="o">=</span><span class="p">(</span><span class="s2">"ant"</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
+</span><span data-line="172">            <span class="n">description</span><span class="o">=</span><span class="n">_description</span><span class="p">(</span><span class="n">element</span><span class="p">),</span>
+</span><span data-line="173">            <span class="n">source_file</span><span class="o">=</span><span class="n">source_file</span><span class="p">,</span>
+</span><span data-line="174">        <span class="p">)</span>
+</span><span data-line="175">        <span class="n">existing</span> <span class="o">=</span> <span class="n">tasks</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="176">        <span class="k">if</span> <span class="n">existing</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="177">            <span class="k">if</span> <span class="n">existing</span><span class="o">.</span><span class="n">description</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">declared</span><span class="o">.</span><span class="n">description</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="178">                <span class="n">tasks</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span><span class="n">existing</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="n">declared</span><span class="o">.</span><span class="n">description</span><span class="p">)</span>
+</span><span data-line="179">            <span class="k">continue</span>
+</span><span data-line="180">        <span class="n">tasks</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">declared</span>
+</span><span data-line="181">    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">tasks</span><span class="o">.</span><span class="n">values</span><span class="p">())</span></div>
 
-</span><span data-line="168">
-</span><span data-line="169">
-</span><span data-line="170"><span class="k">class</span><span class="w"> </span><span class="nc">AntProvider</span><span class="p">:</span>
-</span><span data-line="171">    <span class="n">prefix</span> <span class="o">=</span> <span class="s2">"ant"</span>
-</span><span data-line="172">
-</span><span data-line="173">    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span data-line="174">        <span class="k">return</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">_SOURCE_FILE</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span>
-</span><span data-line="175">
-</span><span data-line="176">    <span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
-</span><span data-line="177">        <span class="c1"># Bytes (not text): ElementTree honours the XML encoding declaration</span>
-</span><span data-line="178">        <span class="c1"># only for byte input; decoding first would misread non-UTF-8 files</span>
-</span><span data-line="179">        <span class="c1"># and reject declarations outright.</span>
-</span><span data-line="180">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="181">            <span class="n">source</span> <span class="o">=</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">_SOURCE_FILE</span><span class="p">)</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">()</span>
-</span><span data-line="182">        <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span data-line="183">            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span> <span class="n">_SOURCE_FILE</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
-</span><span data-line="184">            <span class="k">return</span> <span class="p">[]</span>
-</span><span data-line="185">        <span class="k">return</span> <span class="n">parse_build_xml</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+</span><span data-line="182">
+</span><span data-line="183">
+</span><span data-line="184"><span class="k">class</span><span class="w"> </span><span class="nc">AntProvider</span><span class="p">:</span>
+</span><span data-line="185">    <span class="n">prefix</span> <span class="o">=</span> <span class="s2">"ant"</span>
+</span><span data-line="186">
+</span><span data-line="187">    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="188">        <span class="k">return</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">_SOURCE_FILE</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span>
+</span><span data-line="189">
+</span><span data-line="190">    <span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="191">        <span class="c1"># Bytes (not text): ElementTree honours the XML encoding declaration</span>
+</span><span data-line="192">        <span class="c1"># only for byte input; decoding first would misread non-UTF-8 files</span>
+</span><span data-line="193">        <span class="c1"># and reject declarations outright.</span>
+</span><span data-line="194">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="195">            <span class="n">source</span> <span class="o">=</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">_SOURCE_FILE</span><span class="p">)</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">()</span>
+</span><span data-line="196">        <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="197">            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span> <span class="n">_SOURCE_FILE</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+</span><span data-line="198">            <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="199">        <span class="k">return</span> <span class="n">parse_build_xml</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
 </span></pre></div>
         </article><button class="back-to-top" type="button">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
