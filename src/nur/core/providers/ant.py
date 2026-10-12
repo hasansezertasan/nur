@@ -25,9 +25,13 @@ def _local(tag: str) -> str:
 
 def _description(element: ET.Element) -> str | None:
     value = element.get("description")
-    if value is None or not value.strip():
+    if value is None:
         return None
-    return value.strip().splitlines()[0]
+    # XML attribute normalization already folds literal newlines to spaces, so
+    # only `&#10;` character references still split lines; strip the first one.
+    lines = value.splitlines()
+    first = lines[0].strip() if lines else ""
+    return first or None
 
 
 def parse_build_xml(text: str | bytes, source_file: str = _SOURCE_FILE) -> list[Task]:
@@ -44,18 +48,24 @@ def parse_build_xml(text: str | bytes, source_file: str = _SOURCE_FILE) -> list[
     ``${property}`` interpolation are not resolved; names are left literal.
     Parser errors skip the file. Results are syntactic task candidates, not a
     promise that Ant will accept or successfully execute each target.
+
+    Byte input is preferred: ElementTree honours the XML encoding declaration
+    only for bytes; a `str` carrying one is skipped as unparsable.
     """
     try:
         root = ET.fromstring(text)
-    except (ET.ParseError, ValueError, UnicodeError) as exc:
+    except (ET.ParseError, LookupError, ValueError, UnicodeError) as exc:
         log.warning("nur: skipping %s (%s)", source_file, exc)
         return []
     tasks: dict[str, Task] = {}
     for element in root.iter():
         if _local(element.tag) != "target":
             continue
-        name = element.get("name")
-        if name is None or not name.strip():
+        raw = element.get("name")
+        # Ant accepts most characters in a name and `argv_base` passes it as a
+        # single token, so only surrounding padding is stripped, never rejected.
+        name = raw.strip() if raw is not None else ""
+        if not name:
             continue
         declared = Task(
             name=name,

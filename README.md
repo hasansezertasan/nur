@@ -228,11 +228,11 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   `task('name', ...)` names, CommonJS `exports.name` / `module.exports.name` /
   `exports['name']` assignments, and ESM `export function` / `export const` /
   `export default` / `export {a as b}` forms, running each as `gulp <name>`.
-  `<task>.description` string assignments supply description metadata. Task
-   bodies, function references (`task(build)`), `series()`/`parallel()`
-   composition, computed keys, object-literal `module.exports = {...}`, and
-   re-exports are skipped. These are **syntactic task candidates**, not a
-   guarantee that Gulp will register or successfully execute each task.
+   `<task>.description` string assignments supply description metadata. Task
+  bodies, function references (`task(build)`), `series()`/`parallel()`
+  composition, computed keys, object-literal `module.exports = {...}`, and
+  re-exports are skipped. These are **syntactic task candidates**, not a
+  guarantee that Gulp will register or successfully execute each task.
 
    `ant` parses the declarative `build.xml` without running Ant or `ant -p`.
    It discovers every `<target name="...">` (including ones without a

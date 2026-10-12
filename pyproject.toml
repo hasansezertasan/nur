@@ -537,9 +537,11 @@ convention = "pep257"
   "hardcoded-password-string",
 ]
 # The Ant provider parses the project's own repo-local build.xml with the
-# stdlib XML parser: external entities are never fetched, and a hostile file
-# could only come from a checkout the user already trusts (the same trust
-# given to every other parsed task file), so defusedxml is not warranted.
+# stdlib XML parser. External entities are never fetched (a reference aborts
+# parsing and the file is skipped); internal `<!ENTITY>` expansion is
+# unbounded, but a hostile file could only come from a checkout the user
+# already trusts — the same trust given to far more powerful parsed files
+# like tasks.py and noxfile.py — so defusedxml is not warranted.
 "src/nur/core/providers/ant.py" = [
   "suspicious-xml-etree-import",
   "suspicious-xml-element-tree-usage",

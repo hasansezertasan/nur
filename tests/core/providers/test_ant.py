@@ -108,6 +108,25 @@ def test_parse_build_xml_skips_targets_without_usable_name() -> None:
     )
 
 
+def test_parse_build_xml_strips_padded_names() -> None:
+    tasks = {
+        t.name: t
+        for t in parse_build_xml("<project><target name='  clean  '/></project>")
+    }
+    assert list(tasks) == ["clean"]
+    assert tasks["clean"].argv_base == ("ant", "clean")
+
+
+def test_parse_build_xml_deduplicates_padded_variants() -> None:
+    tasks = {
+        t.name: t
+        for t in parse_build_xml(
+            "<project><target name='a'/><target name=' a '/></project>"
+        )
+    }
+    assert list(tasks) == ["a"]
+
+
 def test_parse_build_xml_deduplicates_keeping_first_description() -> None:
     tasks = {
         t.name: t
@@ -135,6 +154,16 @@ def test_parse_build_xml_ignores_commented_out_targets() -> None:
         "<project><!-- <target name='hidden'/> --><target name='real'/></project>"
     )
     assert [t.name for t in tasks] == ["real"]
+
+
+def test_parse_build_xml_character_reference_newline_in_description() -> None:
+    tasks = {
+        t.name: t
+        for t in parse_build_xml(
+            "<project><target name='a' description='First   &#10;Second'/></project>"
+        )
+    }
+    assert tasks["a"].description == "First"
 
 
 def test_parse_build_xml_unescapes_entities() -> None:
@@ -184,6 +213,15 @@ def test_parse_build_xml_malformed_returns_empty(caplog) -> None:
     assert any("build.xml" in r.message for r in caplog.records)
 
 
+def test_parse_build_xml_unknown_encoding_returns_empty(caplog) -> None:
+    source = (
+        b'<?xml version="1.0" encoding="unknown-enc"?>'
+        b"<project><target name='a'/></project>"
+    )
+    assert parse_build_xml(source) == []
+    assert any("build.xml" in r.message for r in caplog.records)
+
+
 def test_parse_build_xml_empty_returns_empty() -> None:
     assert parse_build_xml("") == []
 
@@ -197,6 +235,9 @@ def test_detect(tmp_path) -> None:
     (tmp_path / "build.xml").write_text(_BUILD_XML)
     assert AntProvider().detect(tmp_path)
     assert not AntProvider().detect(tmp_path / "nope")
+    (tmp_path / "dir").mkdir()
+    (tmp_path / "dir" / "build.xml").mkdir()
+    assert not AntProvider().detect(tmp_path / "dir")
 
 
 def test_discover_parses_file(tmp_path) -> None:
