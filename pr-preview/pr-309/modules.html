@@ -814,8 +814,9 @@ Results are syntactic task candidates, not a
 promise that Ant will accept or successfully execute each target.</p>
 <p>Byte input is preferred: ElementTree honours the XML encoding declaration
 only for bytes; a <cite>str</cite> carrying one is skipped as unparsable. Byte input
-in a declared multibyte encoding (e.g. Shift_JIS, which pyexpat rejects
-but Ant accepts) is transcoded to UTF-8 first.</p>
+in an encoding outside the stdlib’s native set (multibyte ones like
+Shift_JIS, UTF-32, or EBCDIC variants, which Ant accepts) is transcoded to
+UTF-8 first.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
