@@ -21,6 +21,20 @@ _SOURCE_FILE = "build.xml"
 _RUNNABLE = frozenset({"target", "extension-point"})
 
 
+def _has_doctype(text: str | bytes) -> bool:
+    """Return whether *text* contains a ``<!DOCTYPE`` declaration.
+
+    The declaration is the only carrier of inline ``<!ENTITY>`` definitions,
+    whose expansion ElementTree performs without bounds (billion laughs), and
+    of external entity references (which abort parsing and skip the file).
+    Genuine Ant build files never need a DOCTYPE, so reject it up front and
+    keep the stdlib parser without adding defusedxml.
+    """
+    if isinstance(text, bytes):
+        return b"<!doctype" in text.lower()
+    return "<!doctype" in text.lower()
+
+
 def _local(tag: str) -> str:
     """Return the namespace-free element name (``{ns}target`` -> ``target``)."""
     return tag.rsplit("}", 1)[-1]
@@ -56,28 +70,41 @@ def parse_build_xml(text: str | bytes, source_file: str = _SOURCE_FILE) -> list[
     ``macrodef``-defined
     behaviour, ``if``/``unless`` conditions, ``depends`` ordering, and
     ``${property}`` interpolation are not resolved; names are left literal.
-    Parser errors skip the file. Results are syntactic task candidates, not a
+    Parser errors skip the file. Files with a ``<!DOCTYPE>`` declaration are
+    skipped as well: it is the only carrier of ``<!ENTITY>`` definitions,
+    whose expansion is unbounded, and genuine Ant build files never need one.
+    Results are syntactic task candidates, not a
     promise that Ant will accept or successfully execute each target.
 
     Byte input is preferred: ElementTree honours the XML encoding declaration
     only for bytes; a `str` carrying one is skipped as unparsable.
     """
+    if _has_doctype(text):
+        log.warning(
+            "nur: skipping %s (document type declaration not allowed)", source_file
+        )
+        return []
     try:
         root = ET.fromstring(text)
     except (ET.ParseError, LookupError, ValueError, UnicodeError) as exc:
         log.warning("nur: skipping %s (%s)", source_file, exc)
         return []
     tasks: dict[str, Task] = {}
-    for element in root.iter():
+    # Only direct children of the project root: Ant only accepts <target> and
+    # <extension-point> there, so nested elements of the same name (e.g. inside
+    # <macrodef>) are not runnable entry points.
+    for element in root:
         if _local(element.tag) not in _RUNNABLE:
             continue
         raw = element.get("name")
         if raw is None or not raw.strip():
             continue
-        if raw.startswith("-"):
+        if raw.strip().startswith("-"):
             # Ant parses leading-hyphen arguments as options, so `-init` and
             # friends can never run as `ant <name>`; make skips `.`-prefixed
-            # names for the same reason.
+            # names for the same reason. The check uses the stripped name so
+            # padded variants (`  -init `) are skipped too, while the kept
+            # name stays verbatim.
             continue
         name = raw
         declared = Task(

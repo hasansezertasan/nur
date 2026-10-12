@@ -314,3 +314,41 @@ def test_discover_unreadable_file_returns_empty(tmp_path, monkeypatch, caplog) -
     monkeypatch.setattr("pathlib.Path.read_bytes", boom)
     assert AntProvider().discover(tmp_path) == []
     assert any("skipping build.xml" in r.message for r in caplog.records)
+
+
+def test_parse_build_xml_skips_doctype_declaration(caplog) -> None:
+    source = (
+        '<?xml version="1.0"?>'
+        '<!DOCTYPE project [<!ENTITY greeting "hello">]>'
+        '<project><target name="a" description="&greeting;"/></project>'
+    )
+    assert parse_build_xml(source) == []
+    assert any("build.xml" in r.message for r in caplog.records)
+
+
+def test_parse_build_xml_skips_doctype_bytes(caplog) -> None:
+    source = (
+        b'<?xml version="1.0"?>'
+        b'<!DOCTYPE project [<!ENTITY a "x">]>'
+        b"<project><target name='a'/></project>"
+    )
+    assert parse_build_xml(source) == []
+    assert any("build.xml" in r.message for r in caplog.records)
+
+
+def test_parse_build_xml_skips_padded_hyphen_prefixed_targets() -> None:
+    tasks = {
+        t.name: t
+        for t in parse_build_xml(
+            "<project><target name='  -init '/><target name='build'/></project>"
+        )
+    }
+    assert list(tasks) == ["build"]
+
+
+def test_parse_build_xml_ignores_nested_targets() -> None:
+    tasks = parse_build_xml(
+        "<project><macrodef name='helper'><target name='nested'/>"
+        "</macrodef><target name='real'/></project>"
+    )
+    assert [t.name for t in tasks] == ["real"]
