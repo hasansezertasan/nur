@@ -35,38 +35,83 @@ _STR_DECL_ENCODING_RE = re.compile(
     r"(?P<head><\?xml\s[^?]*?encoding\s*=\s*[\"'])[^\"']+(?P<quote>[\"'])"
 )
 # Encodings the stdlib XML stack parses natively; anything else declared is
-# transcoded to UTF-8 below (e.g. Shift_JIS, which pyexpat rejects but Ant's
-# JAXP reader accepts).
+# transcoded to UTF-8 below (multibyte ones like Shift_JIS, which pyexpat
+# rejects but Ant's JAXP reader accepts).
 _NATIVE_ENCODINGS = frozenset({"utf-8", "utf8", "ascii", "us-ascii"})
+# Byte signatures for encodings whose declaration is not ASCII-readable, with
+# the codec that decodes them (XML spec Appendix F). UTF-32 travels here
+# because pyexpat rejects it even with a BOM; UTF-16 never matches the
+# declaration probe (its NUL bytes break it) and stays on native handling.
+_UTF32_SIGNATURES: tuple[tuple[bytes, str], ...] = (
+    (b"\x00\x00\xfe\xff", "utf-32-be"),
+    (b"\xff\xfe\x00\x00", "utf-32-le"),
+    (b"\x00\x00\x00\x3c", "utf-32-be"),
+    (b"\x3c\x00\x00\x00", "utf-32-le"),
+)
+# `<?xml` in EBCDIC, shared by CP037/CP500/CP1140/CP273; the exact variant is
+# pinned down by trial-decoding below.
+_EBCDIC_PREFIX = b"\x4c\x6f\xa7\x94\x93"
+_EBCDIC_CODECS = ("cp037", "cp500", "cp1140", "cp273")
+_XML_VERSION_RE = re.compile(r"<\?xml\s+version\s*=")
+
+
+def _to_utf8(text: str) -> bytes:
+    """Patch the declaration of *text* to UTF-8 and encode it."""
+    text = _STR_DECL_ENCODING_RE.sub(r"\g<head>UTF-8\g<quote>", text, count=1)
+    return text.encode("utf-8")
+
+
+def _recode(source: bytes, codec: str) -> str | None:
+    """Decode *source* with *codec*, or None when it cannot be that codec."""
+    try:
+        return source.decode(codec).lstrip("\ufeff")
+    except LookupError:
+        return None
+    except UnicodeError:
+        return None
+
+
+def _transcode_signature(source: bytes) -> bytes:
+    """Transcode byte input whose declaration is not ASCII-readable.
+
+    UTF-32 byte patterns are unambiguous (NUL bytes are illegal in XML
+    content), so a match is decoded directly. EBCDIC variants share one
+    `<?xml` prefix, so each sibling codec is tried and the first decode that
+    actually opens an XML declaration wins; anything else passes through for
+    the real parse to report.
+    """
+    for prefix, codec in _UTF32_SIGNATURES:
+        if source.startswith(prefix):
+            text = _recode(source, codec)
+            return _to_utf8(text) if text is not None else source
+    if source.startswith(_EBCDIC_PREFIX):
+        for codec in _EBCDIC_CODECS:
+            text = _recode(source, codec)
+            if text is not None and _XML_VERSION_RE.match(text) is not None:
+                return _to_utf8(text)
+    return source
 
 
 def _transcode(source: bytes) -> bytes:
     """Return *source* as bytes ElementTree can parse.
 
     The declared encoding is honoured: UTF-8/ASCII pass through untouched and
-    UTF-16/32 never match the declaration probe (their NUL bytes break it) so
-    they pass through to native handling, while any other declared codec —
-    multibyte ones like Shift_JIS included — is decoded and re-encoded as
-    UTF-8 with the declaration patched to match. Undeclared input and
-    undecodable declarations pass through; the real parse below reports them.
+    undeclared input without a non-ASCII signature passes through to native
+    handling (UTF-16 included), while any other declared codec is decoded and
+    re-encoded as UTF-8 with the declaration patched to match. Undecodable
+    declarations pass through; the real parse below reports them.
     """
     match = _DECL_ENCODING_RE.search(source)
     if match is None:
-        return source
+        return _transcode_signature(source)
     try:
         declared = match.group(1).decode("ascii")
     except UnicodeDecodeError:
         return source
     if declared.lower().replace("_", "-") in _NATIVE_ENCODINGS:
         return source
-    try:
-        text = source.decode(declared)
-    except LookupError:
-        return source
-    except UnicodeError:
-        return source
-    text = _STR_DECL_ENCODING_RE.sub(r"\g<head>UTF-8\g<quote>", text, count=1)
-    return text.encode("utf-8")
+    text = _recode(source, declared)
+    return _to_utf8(text) if text is not None else source
 
 
 def _prepare(text: str | bytes) -> str | bytes:
@@ -213,8 +258,9 @@ def parse_build_xml(text: str | bytes, source_file: str = _SOURCE_FILE) -> list[
 
     Byte input is preferred: ElementTree honours the XML encoding declaration
     only for bytes; a `str` carrying one is skipped as unparsable. Byte input
-    in a declared multibyte encoding (e.g. Shift_JIS, which pyexpat rejects
-    but Ant accepts) is transcoded to UTF-8 first.
+    in an encoding outside the stdlib's native set (multibyte ones like
+    Shift_JIS, UTF-32, or EBCDIC variants, which Ant accepts) is transcoded to
+    UTF-8 first.
     """
     text = _prepare(text)
     if _has_doctype(text):

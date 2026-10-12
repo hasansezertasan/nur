@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import codecs
+
 from nur.core.discovery import discover
 from nur.core.providers.ant import AntProvider, parse_build_xml
 
@@ -284,6 +286,30 @@ def test_parse_build_xml_transcoded_shift_jis_still_rejects_doctype(caplog) -> N
     ).encode("shift_jis")
     assert parse_build_xml(source) == []
     assert any("build.xml" in r.message for r in caplog.records)
+
+
+def test_parse_build_xml_decodes_utf32() -> None:
+    body = (
+        '<?xml version="1.0" encoding="UTF-32"?>'
+        "<project><target name='build'/></project>"
+    )
+    variants = {
+        "utf-32-le BOM": codecs.BOM_UTF32_LE + body.encode("utf-32-le"),
+        "utf-32-be BOM": codecs.BOM_UTF32_BE + body.encode("utf-32-be"),
+        "utf-32-le": body.encode("utf-32-le"),
+        "utf-32-be": body.encode("utf-32-be"),
+    }
+    for label, source in variants.items():
+        assert [t.name for t in parse_build_xml(source)] == ["build"], label
+
+
+def test_parse_build_xml_decodes_ebcdic_cp037() -> None:
+    source = (
+        '<?xml version="1.0" encoding="CP037"?>'
+        "<project><target name='build' description='hello'/></project>"
+    ).encode("cp037")
+    tasks = {t.name: t for t in parse_build_xml(source)}
+    assert tasks["build"].description == "hello"
 
 
 def test_parse_build_xml_malformed_returns_empty(caplog) -> None:
