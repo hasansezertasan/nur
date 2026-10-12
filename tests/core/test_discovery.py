@@ -41,6 +41,7 @@ def test_providers_registry_order() -> None:
         "nx",
         "grunt",
         "gulp",
+        "ant",
         "workspace",
     ]
 

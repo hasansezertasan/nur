@@ -34,6 +34,7 @@ keywords = [
   "rake",
   "grunt",
   "gulp",
+  "ant",
   "turbo",
   "nx",
   "workspace",
@@ -534,6 +535,14 @@ convention = "pep257"
   "subprocess-without-shell-equals-true",
   "start-process-with-partial-path",
   "hardcoded-password-string",
+]
+# The Ant provider parses the project's own repo-local build.xml with the
+# stdlib XML parser: external entities are never fetched, and a hostile file
+# could only come from a checkout the user already trusts (the same trust
+# given to every other parsed task file), so defusedxml is not warranted.
+"src/nur/core/providers/ant.py" = [
+  "suspicious-xml-etree-import",
+  "suspicious-xml-element-tree-usage",
 ]
 # Textual invokes compose() as an instance method and stores BINDINGS as a
 # class-level list, both mandated by the framework. The assert in _matches()

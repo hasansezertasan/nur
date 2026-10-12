@@ -58,7 +58,7 @@ Providers (``nur.core.providers``)
 
 One module per supported task source (make, npm, deno, composer, just, taskfile,
 pre-commit, pdm, poe, tox, mise, cargo-make, moon, xc, VS Code tasks, nox, mask, invoke, rake,
-grunt, gulp, turbo, nx, workspace).
+grunt, gulp, ant, turbo, nx, workspace).
 
 .. automodule:: nur.core.providers.make
 
@@ -103,6 +103,8 @@ grunt, gulp, turbo, nx, workspace).
 .. automodule:: nur.core.providers.grunt
 
 .. automodule:: nur.core.providers.gulp
+
+.. automodule:: nur.core.providers.ant
 
 .. automodule:: nur.core.providers.workspace
 
