@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import xml.etree.ElementTree as ET
 import xml.parsers.expat
 from dataclasses import replace
@@ -24,6 +25,55 @@ _RUNNABLE = frozenset({"target", "extension-point"})
 # core antlib URI (ProjectHelper.ANT_CORE_URI); elements of the same local
 # name in any other namespace are ordinary task/type uses, not entry points.
 _ANT_CORE_URI = "antlib:org.apache.tools.ant"
+# The XML declaration, when present, is the first markup in the file (after an
+# optional BOM), so the encoding name is read from there only — never from
+# later lookalikes inside comments or document text.
+_DECL_ENCODING_RE = re.compile(
+    rb"\A(?:\xef\xbb\xbf)?\s*<\?xml\s[^?]*?encoding\s*=\s*[\"']([^\"']+)[\"']"
+)
+_STR_DECL_ENCODING_RE = re.compile(
+    r"(?P<head><\?xml\s[^?]*?encoding\s*=\s*[\"'])[^\"']+(?P<quote>[\"'])"
+)
+# Encodings the stdlib XML stack parses natively; anything else declared is
+# transcoded to UTF-8 below (e.g. Shift_JIS, which pyexpat rejects but Ant's
+# JAXP reader accepts).
+_NATIVE_ENCODINGS = frozenset({"utf-8", "utf8", "ascii", "us-ascii"})
+
+
+def _transcode(source: bytes) -> bytes:
+    """Return *source* as bytes ElementTree can parse.
+
+    The declared encoding is honoured: UTF-8/ASCII pass through untouched and
+    UTF-16/32 never match the declaration probe (their NUL bytes break it) so
+    they pass through to native handling, while any other declared codec —
+    multibyte ones like Shift_JIS included — is decoded and re-encoded as
+    UTF-8 with the declaration patched to match. Undeclared input and
+    undecodable declarations pass through; the real parse below reports them.
+    """
+    match = _DECL_ENCODING_RE.search(source)
+    if match is None:
+        return source
+    try:
+        declared = match.group(1).decode("ascii")
+    except UnicodeDecodeError:
+        return source
+    if declared.lower().replace("_", "-") in _NATIVE_ENCODINGS:
+        return source
+    try:
+        text = source.decode(declared)
+    except LookupError:
+        return source
+    except UnicodeError:
+        return source
+    text = _STR_DECL_ENCODING_RE.sub(r"\g<head>UTF-8\g<quote>", text, count=1)
+    return text.encode("utf-8")
+
+
+def _prepare(text: str | bytes) -> str | bytes:
+    """Return *text* in a form the stdlib XML stack parses (see `_transcode`)."""
+    if isinstance(text, bytes):
+        return _transcode(text)
+    return text
 
 
 class _DoctypeFoundError(Exception):
@@ -56,8 +106,17 @@ def _has_doctype(text: str | bytes) -> bool:
         parser.Parse(text, True)  # noqa: FBT003
     except _DoctypeFoundError:
         return True
-    except xml.parsers.expat.ExpatError, LookupError, ValueError, UnicodeError:
-        # Unparseable input (unknown encoding, malformed XML, ...): no
+    # Parenthesized with a binding on purpose: ruff format's preview style
+    # strips parens from binding-less tuples, which CPython before 3.14 cannot
+    # parse (the prek check-ast hook runs 3.10). The binding is intentionally
+    # unused: the ElementTree parse below logs the skip with the real error.
+    except (
+        xml.parsers.expat.ExpatError,
+        LookupError,
+        ValueError,
+        UnicodeError,
+    ) as _exc:
+        # Unparsable input (unknown encoding, malformed XML, ...): no
         # declaration was seen; the ElementTree parse below skips the file.
         return False
     return False
@@ -153,8 +212,11 @@ def parse_build_xml(text: str | bytes, source_file: str = _SOURCE_FILE) -> list[
     promise that Ant will accept or successfully execute each target.
 
     Byte input is preferred: ElementTree honours the XML encoding declaration
-    only for bytes; a `str` carrying one is skipped as unparsable.
+    only for bytes; a `str` carrying one is skipped as unparsable. Byte input
+    in a declared multibyte encoding (e.g. Shift_JIS, which pyexpat rejects
+    but Ant accepts) is transcoded to UTF-8 first.
     """
+    text = _prepare(text)
     if _has_doctype(text):
         log.warning(
             "nur: skipping %s (document type declaration not allowed)", source_file

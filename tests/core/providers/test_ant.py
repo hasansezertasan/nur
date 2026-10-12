@@ -265,6 +265,27 @@ def test_parse_build_xml_accepts_bytes_preserving_declared_encoding() -> None:
     assert [t.name for t in parse_build_xml(source)] == ["grüße"]
 
 
+def test_parse_build_xml_transcodes_shift_jis() -> None:
+    # pyexpat rejects multibyte encodings outright, but Ant's JAXP reader
+    # accepts them, so transcode to UTF-8 instead of skipping the file.
+    source = (
+        '<?xml version="1.0" encoding="Shift_JIS"?>'
+        "<project><target name='build' description='日本語'/></project>"
+    ).encode("shift_jis")
+    tasks = {t.name: t for t in parse_build_xml(source)}
+    assert tasks["build"].description == "日本語"
+
+
+def test_parse_build_xml_transcoded_shift_jis_still_rejects_doctype(caplog) -> None:
+    source = (
+        '<?xml version="1.0" encoding="Shift_JIS"?>'
+        '<!DOCTYPE project [<!ENTITY x "value">]>'
+        "<project><target name='a' description='&x;'/></project>"
+    ).encode("shift_jis")
+    assert parse_build_xml(source) == []
+    assert any("build.xml" in r.message for r in caplog.records)
+
+
 def test_parse_build_xml_malformed_returns_empty(caplog) -> None:
     assert parse_build_xml("<project><target") == []
     assert any("build.xml" in r.message for r in caplog.records)
