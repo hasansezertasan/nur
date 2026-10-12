@@ -795,7 +795,9 @@ run via <code class="docutils literal notranslate"><span class="pre">ant</span> 
 mirrors Ant’s own <code class="docutils literal notranslate"><span class="pre">startsWith(&quot;-&quot;)</span></code> on the same verbatim token, so
 padded variants (``  -init <code class="docutils literal notranslate"><span class="pre">)</span> <span class="pre">stay</span> <span class="pre">listed.</span> <span class="pre">Only</span> <span class="pre">core-namespace</span>
 <span class="pre">``&lt;target&gt;</span></code>/<code class="docutils literal notranslate"><span class="pre">&lt;extension-point&gt;</span></code> elements count: other namespaces are
-ordinary task/type uses, not entry points. Task bodies stay
+ordinary task/type uses, not entry points. Documents whose root is not an
+Ant <code class="docutils literal notranslate"><span class="pre">&lt;project&gt;</span></code> element are skipped: Ant rejects them before installing
+any target. Task bodies stay
 opaque, so <code class="docutils literal notranslate"><span class="pre">definition</span></code> is empty. Imported/included build files,
 <code class="docutils literal notranslate"><span class="pre">macrodef</span></code>-defined
 behaviour, <code class="docutils literal notranslate"><span class="pre">if</span></code>/<code class="docutils literal notranslate"><span class="pre">unless</span></code> conditions, <code class="docutils literal notranslate"><span class="pre">depends</span></code> ordering, and
