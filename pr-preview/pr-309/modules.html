@@ -789,9 +789,13 @@ as <code class="docutils literal notranslate"><span class="pre">ant</span> <span
 attribute; every entry is listed, including ones without a description
 (which <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">-p</span></code> hides as internal). Names are kept verbatim — Ant permits
 spaces in target names and <code class="docutils literal notranslate"><span class="pre">argv_base</span></code> passes the name as a single token,
-so normalizing would change the target’s identity. Leading-hyphen names
-are skipped: Ant parses them as options, so they cannot run via
-<code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">&lt;name&gt;</span></code> (the conventional internal-target form). Task bodies stay
+so normalizing would change the target’s identity. Names beginning with a
+hyphen are skipped: Ant parses such arguments as options, so they cannot
+run via <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">&lt;name&gt;</span></code> (the conventional internal-target form); the check
+mirrors Ant’s own <code class="docutils literal notranslate"><span class="pre">startsWith(&quot;-&quot;)</span></code> on the same verbatim token, so
+padded variants (``  -init <code class="docutils literal notranslate"><span class="pre">)</span> <span class="pre">stay</span> <span class="pre">listed.</span> <span class="pre">Only</span> <span class="pre">core-namespace</span>
+<span class="pre">``&lt;target&gt;</span></code>/<code class="docutils literal notranslate"><span class="pre">&lt;extension-point&gt;</span></code> elements count: other namespaces are
+ordinary task/type uses, not entry points. Task bodies stay
 opaque, so <code class="docutils literal notranslate"><span class="pre">definition</span></code> is empty. Imported/included build files,
 <code class="docutils literal notranslate"><span class="pre">macrodef</span></code>-defined
 behaviour, <code class="docutils literal notranslate"><span class="pre">if</span></code>/<code class="docutils literal notranslate"><span class="pre">unless</span></code> conditions, <code class="docutils literal notranslate"><span class="pre">depends</span></code> ordering, and
