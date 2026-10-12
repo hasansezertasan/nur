@@ -785,8 +785,13 @@ so <code class="docutils literal notranslate"><span class="pre">&lt;target</span
 (a sequence of XML tasks, not shell commands) never runs during discovery.
 Each target runs as <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">&lt;name&gt;</span></code>. Descriptions come from the <code class="docutils literal notranslate"><span class="pre">description</span></code>
 attribute; every target is listed, including ones without a description
-(which <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">-p</span></code> hides as internal). Task bodies stay opaque, so
-<code class="docutils literal notranslate"><span class="pre">definition</span></code> is empty. Imported/included build files, <code class="docutils literal notranslate"><span class="pre">macrodef</span></code>-defined
+(which <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">-p</span></code> hides as internal). Names are kept verbatim — Ant permits
+spaces in target names and <code class="docutils literal notranslate"><span class="pre">argv_base</span></code> passes the name as a single token,
+so normalizing would change the target’s identity. Leading-hyphen names
+are skipped: Ant parses them as options, so they cannot run via
+<code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">&lt;name&gt;</span></code> (the conventional internal-target form). Task bodies stay
+opaque, so <code class="docutils literal notranslate"><span class="pre">definition</span></code> is empty. Imported/included build files,
+<code class="docutils literal notranslate"><span class="pre">macrodef</span></code>-defined
 behaviour, <code class="docutils literal notranslate"><span class="pre">if</span></code>/<code class="docutils literal notranslate"><span class="pre">unless</span></code> conditions, <code class="docutils literal notranslate"><span class="pre">depends</span></code> ordering, and
 <code class="docutils literal notranslate"><span class="pre">${property}</span></code> interpolation are not resolved; names are left literal.
 Parser errors skip the file. Results are syntactic task candidates, not a
