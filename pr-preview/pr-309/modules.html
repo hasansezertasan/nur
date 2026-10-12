@@ -779,12 +779,14 @@ candidates, not a promise that Gulp will register or run each task.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="nur.core.providers.ant.parse_build_xml">
 <span class="sig-prename descclassname"><span class="pre">nur.core.providers.ant.</span></span><span class="sig-name descname"><span class="pre">parse_build_xml</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'build.xml'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/core/providers/ant.html#parse_build_xml"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.core.providers.ant.parse_build_xml" title="Link to this definition">#</a></dt>
-<dd><p>Extract target names from <code class="docutils literal notranslate"><span class="pre">build.xml</span></code> content without executing anything.</p>
+<dd><p>Extract runnable entry names from <code class="docutils literal notranslate"><span class="pre">build.xml</span></code> without executing anything.</p>
 <p>Deliberately does NOT shell out to <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">-p</span></code>: the file is declarative XML,
 so <code class="docutils literal notranslate"><span class="pre">&lt;target</span> <span class="pre">name=...&gt;</span></code> attributes can be read directly and a task body
 (a sequence of XML tasks, not shell commands) never runs during discovery.
-Each target runs as <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">&lt;name&gt;</span></code>. Descriptions come from the <code class="docutils literal notranslate"><span class="pre">description</span></code>
-attribute; every target is listed, including ones without a description
+<code class="docutils literal notranslate"><span class="pre">&lt;extension-point</span> <span class="pre">name=...&gt;</span></code> entries are listed the same way: they are
+target-like states with a name and an optional description, each running
+as <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">&lt;name&gt;</span></code>. Descriptions come from the <code class="docutils literal notranslate"><span class="pre">description</span></code>
+attribute; every entry is listed, including ones without a description
 (which <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">-p</span></code> hides as internal). Names are kept verbatim — Ant permits
 spaces in target names and <code class="docutils literal notranslate"><span class="pre">argv_base</span></code> passes the name as a single token,
 so normalizing would change the target’s identity. Leading-hyphen names
