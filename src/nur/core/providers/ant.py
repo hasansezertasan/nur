@@ -42,8 +42,13 @@ def parse_build_xml(text: str | bytes, source_file: str = _SOURCE_FILE) -> list[
     (a sequence of XML tasks, not shell commands) never runs during discovery.
     Each target runs as ``ant <name>``. Descriptions come from the ``description``
     attribute; every target is listed, including ones without a description
-    (which ``ant -p`` hides as internal). Task bodies stay opaque, so
-    ``definition`` is empty. Imported/included build files, ``macrodef``-defined
+    (which ``ant -p`` hides as internal). Names are kept verbatim — Ant permits
+    spaces in target names and ``argv_base`` passes the name as a single token,
+    so normalizing would change the target's identity. Leading-hyphen names
+    are skipped: Ant parses them as options, so they cannot run via
+    ``ant <name>`` (the conventional internal-target form). Task bodies stay
+    opaque, so ``definition`` is empty. Imported/included build files,
+    ``macrodef``-defined
     behaviour, ``if``/``unless`` conditions, ``depends`` ordering, and
     ``${property}`` interpolation are not resolved; names are left literal.
     Parser errors skip the file. Results are syntactic task candidates, not a
@@ -62,11 +67,14 @@ def parse_build_xml(text: str | bytes, source_file: str = _SOURCE_FILE) -> list[
         if _local(element.tag) != "target":
             continue
         raw = element.get("name")
-        # Ant accepts most characters in a name and `argv_base` passes it as a
-        # single token, so only surrounding padding is stripped, never rejected.
-        name = raw.strip() if raw is not None else ""
-        if not name:
+        if raw is None or not raw.strip():
             continue
+        if raw.startswith("-"):
+            # Ant parses leading-hyphen arguments as options, so `-init` and
+            # friends can never run as `ant <name>`; make skips `.`-prefixed
+            # names for the same reason.
+            continue
+        name = raw
         declared = Task(
             name=name,
             prefix="ant",

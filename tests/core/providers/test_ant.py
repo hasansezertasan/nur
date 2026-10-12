@@ -108,23 +108,38 @@ def test_parse_build_xml_skips_targets_without_usable_name() -> None:
     )
 
 
-def test_parse_build_xml_strips_padded_names() -> None:
+def test_parse_build_xml_preserves_padded_names() -> None:
+    # Ant permits spaces in target names and `argv_base` passes the name as a
+    # single token, so the exact XML name is kept, never normalized.
     tasks = {
         t.name: t
         for t in parse_build_xml("<project><target name='  clean  '/></project>")
     }
-    assert list(tasks) == ["clean"]
-    assert tasks["clean"].argv_base == ("ant", "clean")
+    assert list(tasks) == ["  clean  "]
+    assert tasks["  clean  "].argv_base == ("ant", "  clean  ")
 
 
-def test_parse_build_xml_deduplicates_padded_variants() -> None:
+def test_parse_build_xml_treats_padded_variants_as_distinct() -> None:
     tasks = {
         t.name: t
         for t in parse_build_xml(
             "<project><target name='a'/><target name=' a '/></project>"
         )
     }
-    assert list(tasks) == ["a"]
+    assert list(tasks) == ["a", " a "]
+
+
+def test_parse_build_xml_skips_hyphen_prefixed_targets() -> None:
+    # Ant parses leading-hyphen arguments as options, so `-init` can never run
+    # as `ant -init` (the conventional internal-target form).
+    tasks = {
+        t.name: t
+        for t in parse_build_xml(
+            "<project><target name='-init'/><target name='-'/>"
+            "<target name='build'/></project>"
+        )
+    }
+    assert list(tasks) == ["build"]
 
 
 def test_parse_build_xml_deduplicates_keeping_first_description() -> None:

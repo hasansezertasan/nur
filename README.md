@@ -237,7 +237,9 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
    `ant` parses the declarative `build.xml` without running Ant or `ant -p`.
    It discovers every `<target name="...">` (including ones without a
    `description`, which `ant -p` hides as internal), running each as
-   `ant <name>` and available as `nur ant:<name>`. The `description`
+   `ant <name>` and available as `nur ant:<name>`. Names are kept verbatim
+   (Ant permits spaces) except leading-hyphen targets, which Ant parses as
+   options and can never run from the command line. The `description`
    attribute supplies description metadata. Task bodies (XML tasks, not shell
    commands) stay opaque, so `definition` is empty. Imported/included build
    files, `macrodef`-defined behaviour, `if`/`unless` conditions, `depends`
