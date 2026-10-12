@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import xml.etree.ElementTree as ET
 from dataclasses import replace
 from typing import TYPE_CHECKING
@@ -19,25 +20,47 @@ _SOURCE_FILE = "build.xml"
 # Both run as `ant <name>`: extension-points are target-like entry points with
 # a name, a depends list, and a description, but no task body of their own.
 _RUNNABLE = frozenset({"target", "extension-point"})
+# Ant installs <target>/<extension-point> only from the empty namespace or its
+# core antlib URI (ProjectHelper.ANT_CORE_URI); elements of the same local
+# name in any other namespace are ordinary task/type uses, not entry points.
+_ANT_CORE_URI = "antlib:org.apache.tools.ant"
+_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+_CDATA_RE = re.compile(r"<!\[CDATA\[.*?\]\]>", re.DOTALL)
+_DOCTYPE_RE = re.compile(r"<!doctype", re.IGNORECASE)
 
 
 def _has_doctype(text: str | bytes) -> bool:
-    """Return whether *text* contains a ``<!DOCTYPE`` declaration.
+    """Return whether *text* contains a real ``<!DOCTYPE`` declaration.
 
     The declaration is the only carrier of inline ``<!ENTITY>`` definitions,
     whose expansion ElementTree performs without bounds (billion laughs), and
     of external entity references (which abort parsing and skip the file).
     Genuine Ant build files never need a DOCTYPE, so reject it up front and
     keep the stdlib parser without adding defusedxml.
+
+    The probe sees through UTF-16/32 byte input (NUL bytes stripped before an
+    ASCII decode) and ignores ``<!DOCTYPE``-looking text inside XML comments
+    and CDATA sections, which are not declarations.
     """
     if isinstance(text, bytes):
-        return b"<!doctype" in text.lower()
-    return "<!doctype" in text.lower()
+        probe = text.replace(b"\x00", b"").decode("ascii", errors="ignore")
+    else:
+        probe = text
+    probe = _COMMENT_RE.sub("", probe)
+    probe = _CDATA_RE.sub("", probe)
+    return _DOCTYPE_RE.search(probe) is not None
 
 
-def _local(tag: str) -> str:
-    """Return the namespace-free element name (``{ns}target`` -> ``target``)."""
-    return tag.rsplit("}", 1)[-1]
+def _runnable(tag: str) -> bool:
+    """Whether *tag* is an Ant core target-like element.
+
+    ElementTree reports namespaced tags as ``{uri}local``; only the empty
+    namespace and Ant's core URI count (``<plugin:target>`` is a task use).
+    """
+    if tag.startswith("{"):
+        uri, _, local = tag[1:].partition("}")
+        return local in _RUNNABLE and uri == _ANT_CORE_URI
+    return tag in _RUNNABLE
 
 
 def _description(element: ET.Element) -> str | None:
@@ -63,9 +86,13 @@ def parse_build_xml(text: str | bytes, source_file: str = _SOURCE_FILE) -> list[
     attribute; every entry is listed, including ones without a description
     (which ``ant -p`` hides as internal). Names are kept verbatim — Ant permits
     spaces in target names and ``argv_base`` passes the name as a single token,
-    so normalizing would change the target's identity. Leading-hyphen names
-    are skipped: Ant parses them as options, so they cannot run via
-    ``ant <name>`` (the conventional internal-target form). Task bodies stay
+    so normalizing would change the target's identity. Names beginning with a
+    hyphen are skipped: Ant parses such arguments as options, so they cannot
+    run via ``ant <name>`` (the conventional internal-target form); the check
+    mirrors Ant's own ``startsWith("-")`` on the same verbatim token, so
+    padded variants (``  -init ``) stay listed. Only core-namespace
+    ``<target>``/``<extension-point>`` elements count: other namespaces are
+    ordinary task/type uses, not entry points. Task bodies stay
     opaque, so ``definition`` is empty. Imported/included build files,
     ``macrodef``-defined
     behaviour, ``if``/``unless`` conditions, ``depends`` ordering, and
@@ -94,17 +121,17 @@ def parse_build_xml(text: str | bytes, source_file: str = _SOURCE_FILE) -> list[
     # <extension-point> there, so nested elements of the same name (e.g. inside
     # <macrodef>) are not runnable entry points.
     for element in root:
-        if _local(element.tag) not in _RUNNABLE:
+        if not _runnable(element.tag):
             continue
         raw = element.get("name")
         if raw is None or not raw.strip():
             continue
-        if raw.strip().startswith("-"):
-            # Ant parses leading-hyphen arguments as options, so `-init` and
-            # friends can never run as `ant <name>`; make skips `.`-prefixed
-            # names for the same reason. The check uses the stripped name so
-            # padded variants (`  -init `) are skipped too, while the kept
-            # name stays verbatim.
+        if raw.startswith("-"):
+            # Ant checks the original command-line token with startsWith("-"),
+            # so only position-zero hyphens read as options; padded variants
+            # (`  -init `) stay runnable as single-token target names, exactly
+            # as Ant itself treats them. Make skips `.`-prefixed names for the
+            # same reason.
             continue
         name = raw
         declared = Task(

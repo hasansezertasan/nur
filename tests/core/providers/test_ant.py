@@ -209,11 +209,24 @@ def test_parse_build_xml_unescapes_entities() -> None:
     assert tasks["a&b"].description == "x <y>"
 
 
-def test_parse_build_xml_supports_namespaced_targets() -> None:
+def test_parse_build_xml_supports_core_namespaced_targets() -> None:
     tasks = parse_build_xml(
-        '<project xmlns:ant="urn:ant"><ant:target name="x"/></project>'
+        '<project xmlns:ant="antlib:org.apache.tools.ant">'
+        '<ant:target name="x"/></project>'
     )
     assert [t.name for t in tasks] == ["x"]
+
+
+def test_parse_build_xml_ignores_foreign_namespaced_targets() -> None:
+    # Other namespaces are ordinary task/type uses, not Ant entry points.
+    assert (
+        parse_build_xml(
+            '<project xmlns:plugin="urn:plugin">'
+            '<plugin:target name="x"/>'
+            '<plugin:extension-point name="y"/></project>'
+        )
+        == []
+    )
 
 
 def test_parse_build_xml_ignores_macrodef_bodies() -> None:
@@ -336,14 +349,43 @@ def test_parse_build_xml_skips_doctype_bytes(caplog) -> None:
     assert any("build.xml" in r.message for r in caplog.records)
 
 
-def test_parse_build_xml_skips_padded_hyphen_prefixed_targets() -> None:
+def test_parse_build_xml_ignores_doctype_text_in_comment() -> None:
+    tasks = parse_build_xml(
+        "<project><!-- <!DOCTYPE html> --><target name='real'/></project>"
+    )
+    assert [t.name for t in tasks] == ["real"]
+
+
+def test_parse_build_xml_ignores_doctype_text_in_cdata() -> None:
+    tasks = parse_build_xml(
+        "<project><target name='real'>"
+        "<echo><![CDATA[<!DOCTYPE html>]]></echo>"
+        "</target></project>"
+    )
+    assert [t.name for t in tasks] == ["real"]
+
+
+def test_parse_build_xml_skips_utf16_doctype(caplog) -> None:
+    source = (
+        '<?xml version="1.0" encoding="UTF-16"?>'
+        '<!DOCTYPE project [<!ENTITY a "x">]>'
+        "<project><target name='a'/></project>"
+    ).encode("utf-16")
+    assert parse_build_xml(source) == []
+    assert any("build.xml" in r.message for r in caplog.records)
+
+
+def test_parse_build_xml_keeps_padded_hyphen_prefixed_targets() -> None:
+    # The argv token is passed verbatim and starts with a space, so Ant does
+    # not parse it as an option; only position-zero hyphens are skipped.
     tasks = {
         t.name: t
         for t in parse_build_xml(
             "<project><target name='  -init '/><target name='build'/></project>"
         )
     }
-    assert list(tasks) == ["build"]
+    assert list(tasks) == ["  -init ", "build"]
+    assert tasks["  -init "].argv_base == ("ant", "  -init ")
 
 
 def test_parse_build_xml_ignores_nested_targets() -> None:
