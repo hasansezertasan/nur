@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import re
 import xml.etree.ElementTree as ET
 from dataclasses import replace
 from typing import TYPE_CHECKING
@@ -24,14 +23,11 @@ _RUNNABLE = frozenset({"target", "extension-point"})
 # core antlib URI (ProjectHelper.ANT_CORE_URI); elements of the same local
 # name in any other namespace are ordinary task/type uses, not entry points.
 _ANT_CORE_URI = "antlib:org.apache.tools.ant"
-_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
-_CDATA_RE = re.compile(r"<!\[CDATA\[.*?\]\]>", re.DOTALL)
-_PI_RE = re.compile(r"<\?.*?\?>", re.DOTALL)
-_DOCTYPE_RE = re.compile(r"<!doctype", re.IGNORECASE)
+_DOCTYPE_OPEN = "<!DOCTYPE"
 
 
 def _has_doctype(text: str | bytes) -> bool:
-    """Return whether *text* contains a real ``<!DOCTYPE`` declaration.
+    """Return whether *text* carries a ``<!DOCTYPE`` declaration.
 
     The declaration is the only carrier of inline ``<!ENTITY>`` definitions,
     whose expansion ElementTree performs without bounds (billion laughs), and
@@ -39,20 +35,38 @@ def _has_doctype(text: str | bytes) -> bool:
     Genuine Ant build files never need a DOCTYPE, so reject it up front and
     keep the stdlib parser without adding defusedxml.
 
-    The probe sees through UTF-16/32 byte input (NUL bytes stripped before an
-    ASCII decode) and ignores ``<!DOCTYPE``-looking text inside processing
-    instructions, XML comments, and CDATA sections, which are not declarations
-    (instructions are stripped first, as their data may itself contain
-    comment- or CDATA-like text).
+    The check walks the prolog construct by construct — XML declaration and
+    processing instructions, comments, then either the declaration or the root
+    element — instead of pattern-matching the raw buffer, so ``<!DOCTYPE``
+    text inside a comment, a processing instruction, or (for the body scan)
+    a CDATA section is never mistaken for a declaration, and constructs can
+    never bleed into each other. Detection stops at the root element: a legal
+    declaration always precedes it, and anything malformed is rejected by the
+    real parse below. The probe sees through UTF-16/32 byte input (NUL bytes
+    stripped before an ASCII decode; prolog markup is pure ASCII).
     """
     if isinstance(text, bytes):
         probe = text.replace(b"\x00", b"").decode("ascii", errors="ignore")
     else:
         probe = text
-    probe = _PI_RE.sub("", probe)
-    probe = _COMMENT_RE.sub("", probe)
-    probe = _CDATA_RE.sub("", probe)
-    return _DOCTYPE_RE.search(probe) is not None
+    pos = 0
+    end = len(probe)
+    while True:
+        while pos < end and probe[pos] in " \t\r\n":
+            pos += 1
+        if probe.startswith("<?", pos):
+            close = probe.find("?>", pos + 2)
+            if close == -1:
+                return False
+            pos = close + 2
+            continue
+        if probe.startswith("<!--", pos):
+            close = probe.find("-->", pos + 4)
+            if close == -1:
+                return False
+            pos = close + 3
+            continue
+        return probe[pos : pos + 9].upper() == _DOCTYPE_OPEN
 
 
 def _runnable(tag: str) -> bool:

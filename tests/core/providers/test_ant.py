@@ -372,6 +372,20 @@ def test_parse_build_xml_ignores_doctype_text_in_pi() -> None:
     assert [t.name for t in tasks] == ["real"]
 
 
+def test_parse_build_xml_detects_doctype_after_tricky_comment(caplog) -> None:
+    # The comment holds a PI opener and a later real PI supplies the first
+    # `?>`; a regex sanitizer could erase the genuine declaration along with
+    # the pseudo-instruction, but the prolog walk still sees it.
+    source = (
+        "<!-- <?fake -->"
+        '<!DOCTYPE project [<!ENTITY x "value">]>'
+        "<?real?>"
+        "<project><target name='a' description='&x;'/></project>"
+    )
+    assert parse_build_xml(source) == []
+    assert any("build.xml" in r.message for r in caplog.records)
+
+
 def test_parse_build_xml_skips_utf16_doctype(caplog) -> None:
     source = (
         '<?xml version="1.0" encoding="UTF-16"?>'
