@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="amber" data-content_root="../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>JS-adjacent runners: accept Grunt, Gulp, Turborepo, Nx, and workspace members - nur</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Repository setup" href="../maintaining/setup.html" /><link rel="prev" title="Bounded Make discovery: read rule headers with Tree-sitter, never run Make" href="0003-bounded-make-discovery.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=e1a1ceaf" />
+    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx_paramlinks.css" />
+    <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="JS-adjacent runners: accept Grunt, Gulp, Turborepo, Nx, and workspace members"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../index.html">
+      
+      
+      <strong>nur</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials">
+  <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli-reference.html">CLI reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">Modules</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Architecture Decision Records</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="0001-provider-selection-criteria.html">Provider selection criteria: static discovery, never execution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="0002-bounded-rake-discovery.html">Bounded Rake discovery: extract literal declarations without simulating Ruby</a></li>
+<li class="toctree-l2"><a class="reference internal" href="0003-bounded-make-discovery.html">Bounded Make discovery: read rule headers with Tree-sitter, never run Make</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">JS-adjacent runners: accept Grunt, Gulp, Turborepo, Nx, and workspace members</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Maintainer guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../maintaining/setup.html">Repository setup</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../packaging/homebrew-tap/README.html">Homebrew tap setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../packaging/scoop-bucket/README.html">Scoop bucket setup</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#context-and-problem-statement">Context and Problem Statement</a></li>
+<li><a class="reference internal" href="#decision-drivers">Decision Drivers</a></li>
+<li><a class="reference internal" href="#considered-options">Considered Options</a></li>
+<li><a class="reference internal" href="#decision-outcome">Decision Outcome</a></li>
+<li><a class="reference internal" href="#consequences">Consequences</a></li>
+<li><a class="reference internal" href="#more-information">More Information</a></li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../index.html"><span itemprop="name">nur</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="index.html"><span itemprop="name">Architecture Decision Records</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">JS-adjacent runners: accept Grunt, Gulp, Turborepo, Nx, and workspace members</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <section id="js-adjacent-runners-accept-grunt-gulp-turborepo-nx-and-workspace-members">
+<h1>JS-adjacent runners: accept Grunt, Gulp, Turborepo, Nx, and workspace members<a class="headerlink" href="#js-adjacent-runners-accept-grunt-gulp-turborepo-nx-and-workspace-members" title="Link to this heading">#</a></h1>
+<section id="context-and-problem-statement">
+<h2>Context and Problem Statement<a class="headerlink" href="#context-and-problem-statement" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">npm</span></code> provider already covers <code class="docutils literal notranslate"><span class="pre">package.json</span></code> scripts, but the JavaScript
+ecosystem has more task-running machinery around it: Grunt, Gulp, script
+composers (<code class="docutils literal notranslate"><span class="pre">npm-run-all</span></code> / <code class="docutils literal notranslate"><span class="pre">run-p</span></code> / <code class="docutils literal notranslate"><span class="pre">run-s</span></code>), and workspace orchestrators
+(pnpm / yarn / bun workspaces, Lerna, Turborepo, Nx). Issue #75 scoped this as
+a <strong>decision + phased breakout</strong>: confirm which candidates are worth their own
+provider under <a class="reference internal" href="0001-provider-selection-criteria.html"><span class="std std-doc">ADR 0001</span></a>, then split each
+accepted candidate into its own implementation issue.</p>
+<p>This record was first written with conservative verdicts (decline most,
+park Grunt/Gulp). On review, the maintainer reversed that direction: adoption
+is retired as a gate — <code class="docutils literal notranslate"><span class="pre">nur</span></code> should enlighten the terminal for as many people
+and agents as possible, so every candidate that can be supported honestly is
+<strong>accepted</strong>, and all five providers are implemented in the same change rather
+than phased. This revision records that decision and its consequences,
+including the one scope change it requires.</p>
+<p>The original #75 sketch assumed Grunt/Gulp “fail” the declarative-parse test
+and are regex-scrape only. That was imprecise for the same reason issue #78
+notes: the ADR 0001 hard rule is that <em>listing</em> must not execute project code,
+and task <em>names</em> are often statically readable even when the command body is
+imperative, with execution delegating to the runner (<code class="docutils literal notranslate"><span class="pre">grunt</span> <span class="pre">&lt;name&gt;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">gulp</span> <span class="pre">&lt;name&gt;</span></code> — the same shape as the accepted <code class="docutils literal notranslate"><span class="pre">invoke</span></code>, <code class="docutils literal notranslate"><span class="pre">nox</span></code>, and <code class="docutils literal notranslate"><span class="pre">rake</span></code>
+providers).</p>
+</section>
+<section id="decision-drivers">
+<h2>Decision Drivers<a class="headerlink" href="#decision-drivers" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Safety (hard rule, unchanged)</strong> — discovery parses files; it never runs
+the project’s task code or shells out to enumerate (<code class="docutils literal notranslate"><span class="pre">grunt</span> <span class="pre">--help</span></code>,
+<code class="docutils literal notranslate"><span class="pre">gulp</span> <span class="pre">--tasks</span></code>, <code class="docutils literal notranslate"><span class="pre">turbo</span> <span class="pre">run</span></code>, <code class="docutils literal notranslate"><span class="pre">nx</span> <span class="pre">show</span></code> are all forbidden for listing).</p></li>
+<li><p><strong>Coverage over adoption (changed)</strong> — ADR 0001 ranked qualifying formats by
+adoption × ecosystem fit. That gate is retired: a format that clears safety
+and yields a faithful run command is accepted regardless of popularity.
+This record partially supersedes ADR 0001 on that clause.</p></li>
+<li><p><strong>Rooted scope (changed)</strong> — ADR 0001 limited discovery to “a single
+well-known source file in the current directory”. Workspace runners force
+the question: member <code class="docutils literal notranslate"><span class="pre">package.json</span></code> scripts are real tasks <code class="docutils literal notranslate"><span class="pre">nur</span></code> would
+otherwise miss. Scope is relaxed to <strong>rooted at the current directory</strong>:
+providers may read files under <code class="docutils literal notranslate"><span class="pre">cwd</span></code> reached through workspace globs, still
+by static parsing only, never escaping <code class="docutils literal notranslate"><span class="pre">cwd</span></code>. This record partially
+supersedes ADR 0001 on that clause. Everything else in ADR 0001 stands.</p></li>
+<li><p><strong>Honesty over completeness</strong> — where only a safe subset is enumerable
+(imperative bodies, plugin-loaded tasks, per-project files), list the
+subset as syntactic candidates and say so, following the rake/make
+precedent.</p></li>
+</ul>
+</section>
+<section id="considered-options">
+<h2>Considered Options<a class="headerlink" href="#considered-options" title="Link to this heading">#</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Candidate</p></th>
+<th class="head"><p>Source file(s)</p></th>
+<th class="head"><p>Static basis (verified against primary docs)</p></th>
+<th class="head"><p>Verdict</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Grunt</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Gruntfile.js</span></code></p></td>
+<td><p>Literal <code class="docutils literal notranslate"><span class="pre">grunt.registerTask(name,</span> <span class="pre">...)</span></code> / <code class="docutils literal notranslate"><span class="pre">grunt.registerMultiTask(name,</span> <span class="pre">...)</span></code> names (plus <code class="docutils literal notranslate"><span class="pre">grunt.task.*</span></code> aliases) read via Tree-sitter without running JS; run delegates to <code class="docutils literal notranslate"><span class="pre">grunt</span> <span class="pre">&lt;name&gt;</span></code>. Plugin-loaded tasks (<code class="docutils literal notranslate"><span class="pre">loadNpmTasks</span></code>) and alias bodies stay opaque.</p></td>
+<td><p>Accepted (new <code class="docutils literal notranslate"><span class="pre">grunt</span></code> provider)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Gulp</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">gulpfile.js</span></code> (+ <code class="docutils literal notranslate"><span class="pre">Gulpfile.js</span></code>, <code class="docutils literal notranslate"><span class="pre">.mjs</span></code>/<code class="docutils literal notranslate"><span class="pre">.cjs</span></code> variants)</p></td>
+<td><p>Literal <code class="docutils literal notranslate"><span class="pre">gulp.task(name,</span> <span class="pre">...)</span></code> names and CommonJS <code class="docutils literal notranslate"><span class="pre">exports.name</span></code> assignments read via Tree-sitter without running JS; run delegates to <code class="docutils literal notranslate"><span class="pre">gulp</span> <span class="pre">&lt;name&gt;</span></code>. ESM <code class="docutils literal notranslate"><span class="pre">export</span></code> forms beyond plain function/const exports and <code class="docutils literal notranslate"><span class="pre">series()</span></code>/<code class="docutils literal notranslate"><span class="pre">parallel()</span></code> composition stay opaque.</p></td>
+<td><p>Accepted (new <code class="docutils literal notranslate"><span class="pre">gulp</span></code> provider)</p></td>
+</tr>
+<tr class="row-even"><td><p>npm-run-all / run-p / run-s</p></td>
+<td><p>none</p></td>
+<td><p>No config file of its own; composes existing <code class="docutils literal notranslate"><span class="pre">package.json</span></code> scripts — every runnable unit is already surfaced by the <code class="docutils literal notranslate"><span class="pre">npm</span></code> provider.</p></td>
+<td><p>No provider (already covered, not declined)</p></td>
+</tr>
+<tr class="row-odd"><td><p>pnpm / yarn / bun workspaces, Lerna</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pnpm-workspace.yaml</span></code>, <code class="docutils literal notranslate"><span class="pre">package.json</span></code> (<code class="docutils literal notranslate"><span class="pre">workspaces</span></code>), <code class="docutils literal notranslate"><span class="pre">lerna.json</span></code> + member <code class="docutils literal notranslate"><span class="pre">package.json</span></code> files</p></td>
+<td><p>Globs locate members; member <code class="docutils literal notranslate"><span class="pre">scripts</span></code> are real tasks. Run delegates per package manager (<code class="docutils literal notranslate"><span class="pre">pnpm</span> <span class="pre">--filter</span></code>, <code class="docutils literal notranslate"><span class="pre">yarn</span> <span class="pre">workspace</span></code>, <code class="docutils literal notranslate"><span class="pre">npm</span> <span class="pre">--workspace</span></code>, <code class="docutils literal notranslate"><span class="pre">bun</span> <span class="pre">--filter</span></code>, <code class="docutils literal notranslate"><span class="pre">lerna</span> <span class="pre">run</span> <span class="pre">--scope</span></code>).</p></td>
+<td><p>Accepted (new <code class="docutils literal notranslate"><span class="pre">workspace</span></code> provider, rooted traversal)</p></td>
+</tr>
+<tr class="row-even"><td><p>Turborepo</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">turbo.json</span></code></p></td>
+<td><p>Declarative JSON: each key of <code class="docutils literal notranslate"><span class="pre">tasks</span></code> (v2; legacy <code class="docutils literal notranslate"><span class="pre">pipeline</span></code> in v1) is runnable via <code class="docutils literal notranslate"><span class="pre">turbo</span> <span class="pre">run</span> <span class="pre">&lt;task&gt;</span></code>, resolved against member <code class="docutils literal notranslate"><span class="pre">package.json</span></code> scripts. Root tasks list under their stripped name, keeping <code class="docutils literal notranslate"><span class="pre">//#</span></code> identity on collision.</p></td>
+<td><p>Accepted (new <code class="docutils literal notranslate"><span class="pre">turbo</span></code> provider)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Nx</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">nx.json</span></code></p></td>
+<td><p>Root <code class="docutils literal notranslate"><span class="pre">targetDefaults</span></code> literal keys name the shared tasks (executor keys and globs skipped, array-form defaults accepted); run delegates to <code class="docutils literal notranslate"><span class="pre">nx</span> <span class="pre">run-many</span> <span class="pre">-t</span> <span class="pre">&lt;name&gt;</span></code> across projects. Per-project files stay opaque.</p></td>
+<td><p>Accepted (new <code class="docutils literal notranslate"><span class="pre">nx</span></code> provider)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="decision-outcome">
+<h2>Decision Outcome<a class="headerlink" href="#decision-outcome" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Five new providers land in this change:</strong> <code class="docutils literal notranslate"><span class="pre">grunt</span></code>, <code class="docutils literal notranslate"><span class="pre">gulp</span></code>, <code class="docutils literal notranslate"><span class="pre">turbo</span></code>, <code class="docutils literal notranslate"><span class="pre">nx</span></code>,
+<code class="docutils literal notranslate"><span class="pre">workspace</span></code>. Phasing is dropped: the breakout issues #75 envisioned are
+replaced by the implementation itself.</p></li>
+<li><p><strong>Grunt/Gulp parse imperatively-written files safely.</strong> Tree-sitter
+(<code class="docutils literal notranslate"><span class="pre">tree-sitter-javascript</span></code>, same pattern as the <code class="docutils literal notranslate"><span class="pre">rake</span></code> provider) extracts
+literal task names; descriptions come from adjacent literals where the API
+offers them (Grunt’s optional description argument, Gulp’s <code class="docutils literal notranslate"><span class="pre">.description</span></code>
+assignments). Bodies, plugin tasks, and composed targets stay opaque, and
+the providers say so in their docstrings and README notes.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">workspace</span></code> traverses member packages.</strong> Globs come from
+<code class="docutils literal notranslate"><span class="pre">pnpm-workspace.yaml</span></code> (<code class="docutils literal notranslate"><span class="pre">packages</span></code>), <code class="docutils literal notranslate"><span class="pre">package.json</span></code> (<code class="docutils literal notranslate"><span class="pre">workspaces</span></code>), and
+<code class="docutils literal notranslate"><span class="pre">lerna.json</span></code> (<code class="docutils literal notranslate"><span class="pre">packages</span></code>, or <code class="docutils literal notranslate"><span class="pre">package.json</span></code> via <code class="docutils literal notranslate"><span class="pre">useWorkspaces</span></code>); only
+directories under <code class="docutils literal notranslate"><span class="pre">cwd</span></code> containing a <code class="docutils literal notranslate"><span class="pre">package.json</span></code> with scripts become
+members. Tasks are named <code class="docutils literal notranslate"><span class="pre">&lt;package&gt;:&lt;script&gt;</span></code> under the <code class="docutils literal notranslate"><span class="pre">workspace</span></code> prefix
+(bare names resolve when unambiguous, per the registry’s existing rule) and
+run through the lockfile-resolved package manager. Negations and
+<code class="docutils literal notranslate"><span class="pre">node_modules</span></code> are skipped.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">turbo</span></code> reads root <code class="docutils literal notranslate"><span class="pre">tasks</span></code> keys</strong> (falling back to legacy <code class="docutils literal notranslate"><span class="pre">pipeline</span></code>),
+including <code class="docutils literal notranslate"><span class="pre">//#&lt;name&gt;</span></code> root tasks under their stripped name; <code class="docutils literal notranslate"><span class="pre">definition</span></code> stays
+empty (orchestration config, not the command), matching the
+pre-commit/rake precedent for opaque bodies.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">nx</span></code> reads root <code class="docutils literal notranslate"><span class="pre">targetDefaults</span></code> keys</strong> as the shared task list with
+<code class="docutils literal notranslate"><span class="pre">nx</span> <span class="pre">run-many</span> <span class="pre">-t</span> <span class="pre">&lt;name&gt;</span></code> delegation — syntactic candidates, not a promise
+every project implements each target.</p></li>
+<li><p><strong>npm-run-all needs nothing.</strong> Its tasks are <code class="docutils literal notranslate"><span class="pre">package.json</span></code> scripts by
+definition; the <code class="docutils literal notranslate"><span class="pre">npm</span></code> provider already lists them.</p></li>
+</ul>
+</section>
+<section id="consequences">
+<h2>Consequences<a class="headerlink" href="#consequences" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Good: monorepo, Grunt, Gulp, Turborepo, and Nx users all get discovery with
+the same never-executes guarantee; no candidate is left parked on adoption.</p></li>
+<li><p>Good: the value clause of ADR 0001 is simplified — contributors no longer
+argue popularity, only safety and a faithful run command.</p></li>
+<li><p>Bad / accepted: a new runtime dependency (<code class="docutils literal notranslate"><span class="pre">tree-sitter-javascript</span></code>) and a
+wider discovery surface (member files) to maintain; Grunt/Gulp subsets miss
+plugin/composed tasks, and Nx misses per-project-only targets. Each
+provider documents its boundary.</p></li>
+<li><p>Bad / accepted: rooted traversal reads more files than single-file
+discovery; very large monorepos list more tasks. Confinement to <code class="docutils literal notranslate"><span class="pre">cwd</span></code> and
+JSON-only parsing bound the risk.</p></li>
+<li><p>Follow-up: index the new providers from #78 alongside the existing
+candidate/declined entries.</p></li>
+</ul>
+</section>
+<section id="more-information">
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Umbrella issue #75; provider criteria ADR 0001; candidate/declined index #78.</p></li>
+<li><p>Primary sources consulted: <code class="docutils literal notranslate"><span class="pre">gruntjs.com</span></code> (creating tasks, <code class="docutils literal notranslate"><span class="pre">grunt.task</span></code> API,
+sample Gruntfile), <code class="docutils literal notranslate"><span class="pre">gulpjs.com</span></code> (creating tasks, <code class="docutils literal notranslate"><span class="pre">task</span></code> API, gulpfile guide),
+<code class="docutils literal notranslate"><span class="pre">turborepo.dev</span></code> (configuring <code class="docutils literal notranslate"><span class="pre">turbo.json</span></code>, crafting tasks, package
+configurations).</p></li>
+<li><p>Template: <a class="reference external" href="https://adr.github.io/madr/">MADR 4.0.0</a>.</p></li>
+</ul>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="0003-bounded-make-discovery.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Bounded Make discovery: read rule headers with Tree-sitter, never run Make</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="../maintaining/setup.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">Repository setup</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Hasan Sezer Taşan</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
+    </div>
+  </div>
+</footer>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+      <script>let toggleHintShow = 'Click to show';</script>
+      <script>let toggleHintHide = 'Click to hide';</script>
+      <script>let toggleOpenOnPrint = 'true';</script>
+      <script src="../_static/togglebutton.js?v=b8b12719"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+      <script src="../_static/shibuya.js?v=50760d75"></script></body>
+</html>
