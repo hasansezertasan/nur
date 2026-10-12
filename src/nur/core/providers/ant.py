@@ -83,13 +83,17 @@ def _attr(element: ET.Element, local: str) -> str | None:
     """Return the attribute with local name *local*, Ant-style.
 
     Ant interprets attributes by local name when unqualified or qualified with
-    the element's own namespace, and ignores other namespaces; ElementTree
-    keys a namespaced attribute as ``{uri}local``. The core-qualified form is
-    therefore only consulted for elements in the core namespace itself.
+    the element's own namespace, ignores other namespaces, and assigns while
+    iterating so the later duplicate wins. ElementTree keys a namespaced
+    attribute as ``{uri}local`` but preserves document order in
+    ``element.attrib``, so the last accepted form is returned.
     """
-    value = element.get(local)
-    if value is None and element.tag.startswith(f"{{{_ANT_CORE_URI}}}"):
-        value = element.get(f"{{{_ANT_CORE_URI}}}{local}")
+    core = f"{{{_ANT_CORE_URI}}}{local}"
+    namespaced = element.tag.startswith(f"{{{_ANT_CORE_URI}}}")
+    value: str | None = None
+    for key, val in element.attrib.items():
+        if key == local or (namespaced and key == core):
+            value = val
     return value
 
 

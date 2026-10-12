@@ -450,3 +450,26 @@ def test_parse_build_xml_ignores_core_qualified_attrs_on_plain_target() -> None:
         )
         == []
     )
+
+
+def test_parse_build_xml_later_duplicate_attr_wins() -> None:
+    # Like Ant, which assigns while iterating attributes, the later of the
+    # accepted duplicate forms wins.
+    first = {
+        t.name: t
+        for t in parse_build_xml(
+            '<project xmlns:ant="antlib:org.apache.tools.ant">'
+            '<ant:target name="old" ant:name="new"/>'
+            "</project>"
+        )
+    }
+    assert list(first) == ["new"]
+    second = {
+        t.name: t
+        for t in parse_build_xml(
+            '<project xmlns:ant="antlib:org.apache.tools.ant">'
+            '<ant:target ant:name="new" name="old"/>'
+            "</project>"
+        )
+    }
+    assert list(second) == ["old"]
