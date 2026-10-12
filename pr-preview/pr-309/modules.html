@@ -796,7 +796,10 @@ opaque, so <code class="docutils literal notranslate"><span class="pre">definiti
 <code class="docutils literal notranslate"><span class="pre">macrodef</span></code>-defined
 behaviour, <code class="docutils literal notranslate"><span class="pre">if</span></code>/<code class="docutils literal notranslate"><span class="pre">unless</span></code> conditions, <code class="docutils literal notranslate"><span class="pre">depends</span></code> ordering, and
 <code class="docutils literal notranslate"><span class="pre">${property}</span></code> interpolation are not resolved; names are left literal.
-Parser errors skip the file. Results are syntactic task candidates, not a
+Parser errors skip the file. Files with a <code class="docutils literal notranslate"><span class="pre">&lt;!DOCTYPE&gt;</span></code> declaration are
+skipped as well: it is the only carrier of <code class="docutils literal notranslate"><span class="pre">&lt;!ENTITY&gt;</span></code> definitions,
+whose expansion is unbounded, and genuine Ant build files never need one.
+Results are syntactic task candidates, not a
 promise that Ant will accept or successfully execute each target.</p>
 <p>Byte input is preferred: ElementTree honours the XML encoding declaration
 only for bytes; a <cite>str</cite> carrying one is skipped as unparsable.</p>
