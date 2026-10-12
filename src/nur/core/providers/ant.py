@@ -16,6 +16,9 @@ __all__ = ["AntProvider", "parse_build_xml"]
 
 log = logging.getLogger("nur")
 _SOURCE_FILE = "build.xml"
+# Both run as `ant <name>`: extension-points are target-like entry points with
+# a name, a depends list, and a description, but no task body of their own.
+_RUNNABLE = frozenset({"target", "extension-point"})
 
 
 def _local(tag: str) -> str:
@@ -35,13 +38,15 @@ def _description(element: ET.Element) -> str | None:
 
 
 def parse_build_xml(text: str | bytes, source_file: str = _SOURCE_FILE) -> list[Task]:
-    """Extract target names from ``build.xml`` content without executing anything.
+    """Extract runnable entry names from ``build.xml`` without executing anything.
 
     Deliberately does NOT shell out to ``ant -p``: the file is declarative XML,
     so ``<target name=...>`` attributes can be read directly and a task body
     (a sequence of XML tasks, not shell commands) never runs during discovery.
-    Each target runs as ``ant <name>``. Descriptions come from the ``description``
-    attribute; every target is listed, including ones without a description
+    ``<extension-point name=...>`` entries are listed the same way: they are
+    target-like states with a name and an optional description, each running
+    as ``ant <name>``. Descriptions come from the ``description``
+    attribute; every entry is listed, including ones without a description
     (which ``ant -p`` hides as internal). Names are kept verbatim — Ant permits
     spaces in target names and ``argv_base`` passes the name as a single token,
     so normalizing would change the target's identity. Leading-hyphen names
@@ -64,7 +69,7 @@ def parse_build_xml(text: str | bytes, source_file: str = _SOURCE_FILE) -> list[
         return []
     tasks: dict[str, Task] = {}
     for element in root.iter():
-        if _local(element.tag) != "target":
+        if _local(element.tag) not in _RUNNABLE:
             continue
         raw = element.get("name")
         if raw is None or not raw.strip():

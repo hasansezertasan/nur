@@ -142,6 +142,24 @@ def test_parse_build_xml_skips_hyphen_prefixed_targets() -> None:
     assert list(tasks) == ["build"]
 
 
+def test_parse_build_xml_lists_extension_points_like_targets() -> None:
+    # Extension-points are target-like states runnable as `ant <name>`.
+    tasks = {
+        t.name: t
+        for t in parse_build_xml(
+            "<project><target name='build'/>"
+            "<extension-point name='ready' description='ready to build'/>"
+            "<extension-point name='-hidden'/>"
+            "<extension-point name='plain'/></project>"
+        )
+    }
+    assert [t.name for t in tasks.values()] == ["build", "ready", "plain"]
+    assert tasks["ready"].argv_base == ("ant", "ready")
+    assert tasks["ready"].prefix == "ant"
+    assert tasks["ready"].description == "ready to build"
+    assert tasks["ready"].source_file == "build.xml"
+
+
 def test_parse_build_xml_deduplicates_keeping_first_description() -> None:
     tasks = {
         t.name: t
