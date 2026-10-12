@@ -26,6 +26,7 @@ _RUNNABLE = frozenset({"target", "extension-point"})
 _ANT_CORE_URI = "antlib:org.apache.tools.ant"
 _COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 _CDATA_RE = re.compile(r"<!\[CDATA\[.*?\]\]>", re.DOTALL)
+_PI_RE = re.compile(r"<\?.*?\?>", re.DOTALL)
 _DOCTYPE_RE = re.compile(r"<!doctype", re.IGNORECASE)
 
 
@@ -39,13 +40,16 @@ def _has_doctype(text: str | bytes) -> bool:
     keep the stdlib parser without adding defusedxml.
 
     The probe sees through UTF-16/32 byte input (NUL bytes stripped before an
-    ASCII decode) and ignores ``<!DOCTYPE``-looking text inside XML comments
-    and CDATA sections, which are not declarations.
+    ASCII decode) and ignores ``<!DOCTYPE``-looking text inside processing
+    instructions, XML comments, and CDATA sections, which are not declarations
+    (instructions are stripped first, as their data may itself contain
+    comment- or CDATA-like text).
     """
     if isinstance(text, bytes):
         probe = text.replace(b"\x00", b"").decode("ascii", errors="ignore")
     else:
         probe = text
+    probe = _PI_RE.sub("", probe)
     probe = _COMMENT_RE.sub("", probe)
     probe = _CDATA_RE.sub("", probe)
     return _DOCTYPE_RE.search(probe) is not None
@@ -78,13 +82,13 @@ def _is_project_root(tag: str) -> bool:
 def _attr(element: ET.Element, local: str) -> str | None:
     """Return the attribute with local name *local*, Ant-style.
 
-    Ant interprets attributes by local name whether unqualified or qualified
-    with the element's own namespace (other namespaces are ignored), while
-    ElementTree keys a namespaced attribute as ``{uri}local``. Check the
-    unqualified form first, then the core-namespace form.
+    Ant interprets attributes by local name when unqualified or qualified with
+    the element's own namespace, and ignores other namespaces; ElementTree
+    keys a namespaced attribute as ``{uri}local``. The core-qualified form is
+    therefore only consulted for elements in the core namespace itself.
     """
     value = element.get(local)
-    if value is None:
+    if value is None and element.tag.startswith(f"{{{_ANT_CORE_URI}}}"):
         value = element.get(f"{{{_ANT_CORE_URI}}}{local}")
     return value
 

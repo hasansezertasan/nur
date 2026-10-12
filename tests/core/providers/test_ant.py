@@ -365,6 +365,13 @@ def test_parse_build_xml_ignores_doctype_text_in_cdata() -> None:
     assert [t.name for t in tasks] == ["real"]
 
 
+def test_parse_build_xml_ignores_doctype_text_in_pi() -> None:
+    tasks = parse_build_xml(
+        "<?meta <!DOCTYPE html>?><project><target name='real'/></project>"
+    )
+    assert [t.name for t in tasks] == ["real"]
+
+
 def test_parse_build_xml_skips_utf16_doctype(caplog) -> None:
     source = (
         '<?xml version="1.0" encoding="UTF-16"?>'
@@ -431,3 +438,15 @@ def test_parse_build_xml_reads_core_namespaced_attributes() -> None:
     assert list(tasks) == ["build"]
     assert tasks["build"].description == "Build"
     assert tasks["build"].argv_base == ("ant", "build")
+
+
+def test_parse_build_xml_ignores_core_qualified_attrs_on_plain_target() -> None:
+    # Ant ignores attributes whose namespace differs from the element's own
+    # (empty) namespace, leaving the target nameless, so nothing is listed.
+    assert (
+        parse_build_xml(
+            '<project xmlns:ant="antlib:org.apache.tools.ant">'
+            '<target ant:name="build"/></project>'
+        )
+        == []
+    )
