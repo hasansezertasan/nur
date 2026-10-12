@@ -63,6 +63,18 @@ def _runnable(tag: str) -> bool:
     return tag in _RUNNABLE
 
 
+def _is_project_root(tag: str) -> bool:
+    """Whether *tag* is an Ant ``<project>`` root element.
+
+    Ant's root handler only accepts ``project`` in the empty namespace or its
+    core URI and rejects anything else before installing any target.
+    """
+    if tag.startswith("{"):
+        uri, _, local = tag[1:].partition("}")
+        return local == "project" and uri == _ANT_CORE_URI
+    return tag == "project"
+
+
 def _description(element: ET.Element) -> str | None:
     value = element.get("description")
     if value is None:
@@ -92,7 +104,9 @@ def parse_build_xml(text: str | bytes, source_file: str = _SOURCE_FILE) -> list[
     mirrors Ant's own ``startsWith("-")`` on the same verbatim token, so
     padded variants (``  -init ``) stay listed. Only core-namespace
     ``<target>``/``<extension-point>`` elements count: other namespaces are
-    ordinary task/type uses, not entry points. Task bodies stay
+    ordinary task/type uses, not entry points. Documents whose root is not an
+    Ant ``<project>`` element are skipped: Ant rejects them before installing
+    any target. Task bodies stay
     opaque, so ``definition`` is empty. Imported/included build files,
     ``macrodef``-defined
     behaviour, ``if``/``unless`` conditions, ``depends`` ordering, and
@@ -115,6 +129,9 @@ def parse_build_xml(text: str | bytes, source_file: str = _SOURCE_FILE) -> list[
         root = ET.fromstring(text)
     except (ET.ParseError, LookupError, ValueError, UnicodeError) as exc:
         log.warning("nur: skipping %s (%s)", source_file, exc)
+        return []
+    if not _is_project_root(root.tag):
+        log.warning("nur: skipping %s (not an Ant project file)", source_file)
         return []
     tasks: dict[str, Task] = {}
     # Only direct children of the project root: Ant only accepts <target> and

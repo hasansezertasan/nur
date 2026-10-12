@@ -394,3 +394,26 @@ def test_parse_build_xml_ignores_nested_targets() -> None:
         "</macrodef><target name='real'/></project>"
     )
     assert [t.name for t in tasks] == ["real"]
+
+
+def test_parse_build_xml_skips_non_project_root(caplog) -> None:
+    assert parse_build_xml("<config><target name='deploy'/></config>") == []
+    assert any("build.xml" in r.message for r in caplog.records)
+
+
+def test_parse_build_xml_skips_foreign_namespaced_root() -> None:
+    assert (
+        parse_build_xml(
+            '<plugin:project xmlns:plugin="urn:plugin">'
+            '<target name="deploy"/></plugin:project>'
+        )
+        == []
+    )
+
+
+def test_parse_build_xml_accepts_core_namespaced_root() -> None:
+    tasks = parse_build_xml(
+        '<ant:project xmlns:ant="antlib:org.apache.tools.ant">'
+        '<ant:target name="x"/></ant:project>'
+    )
+    assert [t.name for t in tasks] == ["x"]
