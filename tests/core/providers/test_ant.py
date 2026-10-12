@@ -100,12 +100,23 @@ def test_parse_build_xml_leaves_property_references_literal() -> None:
 
 
 def test_parse_build_xml_skips_targets_without_usable_name() -> None:
+    # Ant rejects a missing or actually empty name; anything else is kept.
     assert (
         parse_build_xml(
-            "<project><target description='no name'/><target name='  '/></project>"
+            "<project><target description='no name'/><target name=''/></project>"
         )
         == []
     )
+
+
+def test_parse_build_xml_keeps_whitespace_only_names() -> None:
+    # Ant only rejects an actually empty name, so a whitespace-only name is a
+    # runnable entry and stays listed verbatim as a single argv token.
+    tasks = {
+        t.name: t for t in parse_build_xml("<project><target name='  '/></project>")
+    }
+    assert list(tasks) == ["  "]
+    assert tasks["  "].argv_base == ("ant", "  ")
 
 
 def test_parse_build_xml_preserves_padded_names() -> None:

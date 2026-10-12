@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import xml.etree.ElementTree as ET
+import xml.parsers.expat
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
@@ -23,7 +24,14 @@ _RUNNABLE = frozenset({"target", "extension-point"})
 # core antlib URI (ProjectHelper.ANT_CORE_URI); elements of the same local
 # name in any other namespace are ordinary task/type uses, not entry points.
 _ANT_CORE_URI = "antlib:org.apache.tools.ant"
-_DOCTYPE_OPEN = "<!DOCTYPE"
+
+
+class _DoctypeFoundError(Exception):
+    """Control flow: the pre-scan spotted a document type declaration."""
+
+
+def _reject_doctype(*_args: object) -> None:
+    raise _DoctypeFoundError
 
 
 def _has_doctype(text: str | bytes) -> bool:
@@ -31,42 +39,28 @@ def _has_doctype(text: str | bytes) -> bool:
 
     The declaration is the only carrier of inline ``<!ENTITY>`` definitions,
     whose expansion ElementTree performs without bounds (billion laughs), and
-    of external entity references (which abort parsing and skip the file).
-    Genuine Ant build files never need a DOCTYPE, so reject it up front and
-    keep the stdlib parser without adding defusedxml.
+    of external entity references. Genuine Ant build files never need a
+    DOCTYPE, so reject it up front and keep the stdlib parser without adding
+    defusedxml.
 
-    The check walks the prolog construct by construct — XML declaration and
-    processing instructions, comments, then either the declaration or the root
-    element — instead of pattern-matching the raw buffer, so ``<!DOCTYPE``
-    text inside a comment, a processing instruction, or (for the body scan)
-    a CDATA section is never mistaken for a declaration, and constructs can
-    never bleed into each other. Detection stops at the root element: a legal
-    declaration always precedes it, and anything malformed is rejected by the
-    real parse below. The probe sees through UTF-16/32 byte input (NUL bytes
-    stripped before an ASCII decode; prolog markup is pure ASCII).
+    Detection itself runs on expat with a handler that aborts the parse the
+    moment a declaration starts, so no entity is ever expanded and encodings,
+    comments, processing instructions, and CDATA sections are all handled by
+    a real parser rather than pattern matching. Anything expat rejects is
+    left for the ElementTree parse below, which skips the file the same way.
     """
-    if isinstance(text, bytes):
-        probe = text.replace(b"\x00", b"").decode("ascii", errors="ignore")
-    else:
-        probe = text
-    pos = 0
-    end = len(probe)
-    while True:
-        while pos < end and probe[pos] in " \t\r\n":
-            pos += 1
-        if probe.startswith("<?", pos):
-            close = probe.find("?>", pos + 2)
-            if close == -1:
-                return False
-            pos = close + 2
-            continue
-        if probe.startswith("<!--", pos):
-            close = probe.find("-->", pos + 4)
-            if close == -1:
-                return False
-            pos = close + 3
-            continue
-        return probe[pos : pos + 9].upper() == _DOCTYPE_OPEN
+    parser = xml.parsers.expat.ParserCreate()
+    parser.StartDoctypeDeclHandler = _reject_doctype
+    try:
+        # pyexpat's Parse takes no keyword arguments, hence the positional flag.
+        parser.Parse(text, True)  # noqa: FBT003
+    except _DoctypeFoundError:
+        return True
+    except xml.parsers.expat.ExpatError, LookupError, ValueError, UnicodeError:
+        # Unparseable input (unknown encoding, malformed XML, ...): no
+        # declaration was seen; the ElementTree parse below skips the file.
+        return False
+    return False
 
 
 def _runnable(tag: str) -> bool:
@@ -134,7 +128,10 @@ def parse_build_xml(text: str | bytes, source_file: str = _SOURCE_FILE) -> list[
     attribute; every entry is listed, including ones without a description
     (which ``ant -p`` hides as internal). Names are kept verbatim — Ant permits
     spaces in target names and ``argv_base`` passes the name as a single token,
-    so normalizing would change the target's identity. Names beginning with a
+    so normalizing would change the target's identity. Only a missing name or
+    an actually empty one is skipped (Ant rejects the latter); anything else,
+    including whitespace-only names, stays listed exactly as Ant accepts it.
+    Names beginning with a
     hyphen are skipped: Ant parses such arguments as options, so they cannot
     run via ``ant <name>`` (the conventional internal-target form); the check
     mirrors Ant's own ``startsWith("-")`` on the same verbatim token, so
@@ -150,6 +147,8 @@ def parse_build_xml(text: str | bytes, source_file: str = _SOURCE_FILE) -> list[
     Parser errors skip the file. Files with a ``<!DOCTYPE>`` declaration are
     skipped as well: it is the only carrier of ``<!ENTITY>`` definitions,
     whose expansion is unbounded, and genuine Ant build files never need one.
+    Detection is an expat pre-scan that aborts at the first declaration, so no
+    entity is ever expanded during discovery.
     Results are syntactic task candidates, not a
     promise that Ant will accept or successfully execute each target.
 
@@ -177,7 +176,7 @@ def parse_build_xml(text: str | bytes, source_file: str = _SOURCE_FILE) -> list[
         if not _runnable(element.tag):
             continue
         raw = _attr(element, "name")
-        if raw is None or not raw.strip():
+        if not raw:
             continue
         if raw.startswith("-"):
             # Ant checks the original command-line token with startsWith("-"),
