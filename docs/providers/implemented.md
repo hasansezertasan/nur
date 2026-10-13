@@ -85,10 +85,11 @@ is defined by their provider modules and tests. Open items:
   its real precedence was buggy until tox PR #3742 (merged Feb 2026, issue
   #3645). Pick the first existing file by a documented order and do not
   over-trust cross-version precedence.
-- **Left out:** TOML structured matrices (`range`, `labeled`, `product`),
-  factor-conditional settings, generative section headers `[testenv:{a,b}]`,
-  `labels`, and provisioning environments (`.pkg`, `.tox`), treated as
-  non-runnable.
+- **Also read:** generative section headers `[testenv:{a,b}]`, factor-conditional
+  commands (filtered by the current environment's factors) and `labels` (INI and
+  TOML).
+- **Left out:** TOML structured matrices (`range`, `labeled`, `product`) and
+  provisioning environments (`.pkg`, `.tox`), treated as non-runnable.
 - **Adoption (information only):** about 1,869 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).
 
 ## cargo-make
@@ -117,12 +118,13 @@ is defined by their provider modules and tests. Open items:
 - **Run:** the task's own `command` and `args`.
 - **Reads:** schema `version` `"2.0.0"`, JSONC. Task `label` is the name,
   `detail` the description. `shell`, `process` and untyped tasks with a
-  `command` are runnable. `command` may be a string or an OS-variant object
-  (`windows`, `linux`, `osx`); `args` items may be strings or
-  `{ "value", "quoting" }`.
+  `command` are runnable. A task or the document may carry `windows`, `linux` and
+  `osx` override objects, merged for the current platform; `command` and `args`
+  items may be strings or `{ "value", "quoting" }`.
 - **Left out:** the legacy `"0.1.0"` schema; extension-contributed task types
   (`npm`, `typescript`, `gulp`, `grunt`, `cargo`, ...), which the extension
-  resolves at runtime; `dependsOn`-only compound tasks; editor-only variables
+  resolves at runtime; any task with a non-empty `dependsOn` (even one that also has its own
+  `command`); editor-only variables
   (`${file}`, `${selectedText}`, `${input:...}`): a task whose command, args or
   working directory still contains an unresolved variable is **skipped**, not
   listed (`${workspaceFolder}` resolves to the discovery directory). Duplicate
