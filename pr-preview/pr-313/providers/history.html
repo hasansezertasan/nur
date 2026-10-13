@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="amber" data-content_root="../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Origin of the register (issue #78) - nur</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Markdown parser evaluation (mask and xc)" href="research/markdown-parser.html" /><link rel="prev" title="Declined formats" href="declined.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=e1a1ceaf" />
+    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx_paramlinks.css" />
+    <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Origin of the register (issue #78)"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../index.html">
+      
+      
+      <strong>nur</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials">
+  <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli-reference.html">CLI reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">Modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../adr/index.html">Architecture Decision Records</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0001-provider-selection-criteria.html">Provider selection criteria: static discovery, never execution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0002-bounded-rake-discovery.html">Bounded Rake discovery: extract literal declarations without simulating Ruby</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0003-bounded-make-discovery.html">Bounded Make discovery: read rule headers with Tree-sitter, never run Make</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0004-js-adjacent-task-runners.html">JS-adjacent runners: accept Grunt, Gulp, Turborepo, Nx, and workspace members</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0005-completeness-over-popularity.html">Completeness over popularity: every honestly supportable format, recorded in the repo</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Provider register</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="template.html">Evaluation template</a></li>
+<li class="toctree-l2"><a class="reference internal" href="implemented.html">Implemented providers: evaluations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="candidates.html">Candidates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="declined.html">Declined formats</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Origin of the register (issue #78)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="research/markdown-parser.html">Markdown parser evaluation (mask and xc)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Maintainer guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../maintaining/setup.html">Repository setup</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../packaging/homebrew-tap/README.html">Homebrew tap setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../packaging/scoop-bucket/README.html">Scoop bucket setup</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#purpose-of-the-issue">Purpose of the issue</a></li>
+<li><a class="reference internal" href="#provenance">Provenance</a></li>
+<li><a class="reference internal" href="#re-analysis-note-from-140">Re-analysis note (from #140)</a></li>
+<li><a class="reference internal" href="#graduated-to-candidate-provider-issues">Graduated to candidate provider issues</a></li>
+<li><a class="reference internal" href="#declined-with-documented-grounds">Declined with documented grounds</a></li>
+<li><a class="reference internal" href="#use-case">Use case</a></li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../index.html"><span itemprop="name">nur</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="index.html"><span itemprop="name">Provider register</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Origin of the register (issue #78)</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <section id="origin-of-the-register-issue-78">
+<h1>Origin of the register (issue #78)<a class="headerlink" href="#origin-of-the-register-issue-78" title="Link to this heading">#</a></h1>
+<p>This page preserves the content of issue #78, “Tracking: researched-but-deferred
+provider candidates”, so closing the issue loses nothing. It is a historical
+record: the verdicts below are the ones given when the issue was written. They
+were re-triaged by <a class="reference internal" href="../adr/0005-completeness-over-popularity.html"><span class="std std-doc">ADR 0005</span></a>; the
+current state of every format is in the <a class="reference internal" href="index.html"><span class="std std-doc">register</span></a>.</p>
+<section id="purpose-of-the-issue">
+<h2>Purpose of the issue<a class="headerlink" href="#purpose-of-the-issue" title="Link to this heading">#</a></h2>
+<p>The issue indexed candidate provider formats that had been researched. Each had
+its own issue with usage detail and a rationale, so the evaluation was not
+repeated and the reasoning for building or not building was discoverable.</p>
+</section>
+<section id="provenance">
+<h2>Provenance<a class="headerlink" href="#provenance" title="Link to this heading">#</a></h2>
+<p>Most candidates were surfaced by <code class="docutils literal notranslate"><span class="pre">nur</span></code>’s closest analog,
+<a class="reference external" href="https://github.com/linux-china/task-keeper">task-keeper</a>, a static multi-runner
+covering about 28 formats. They were cross-checked against <code class="docutils literal notranslate"><span class="pre">nur</span></code>’s supported and
+filed lists.</p>
+</section>
+<section id="re-analysis-note-from-140">
+<h2>Re-analysis note (from #140)<a class="headerlink" href="#re-analysis-note-from-140" title="Link to this heading">#</a></h2>
+<p>The original split assumed several formats “cannot be statically parsed”. That
+was imprecise. The <a class="reference internal" href="../adr/0001-provider-selection-criteria.html"><span class="std std-doc">ADR 0001</span></a> hard
+rule is that <em>listing</em> must not execute project code, and AST, text and comment
+parsing are safe. Task <strong>names</strong> are often statically discoverable even when the
+command <strong>body</strong> is imperative, and a delegated run command (<code class="docutils literal notranslate"><span class="pre">invoke</span> <span class="pre">&lt;name&gt;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">rake</span> <span class="pre">&lt;name&gt;</span></code>, and so on) is legitimate. So <code class="docutils literal notranslate"><span class="pre">invoke</span></code>, <code class="docutils literal notranslate"><span class="pre">nox</span></code> and Rake were
+candidates, parked on value and reliability rather than safety, while GitHub
+Actions, Gradle/Maven, CMake and cargo-xtask were declined on honest, per-format
+grounds.</p>
+</section>
+<section id="graduated-to-candidate-provider-issues">
+<h2>Graduated to candidate provider issues<a class="headerlink" href="#graduated-to-candidate-provider-issues" title="Link to this heading">#</a></h2>
+<p>Safe to parse; parked on demand or value. The “Verdict” column is the original
+one. Every row except Procfile, JBang and argc has since shipped (see the
+<a class="reference internal" href="index.html"><span class="std std-doc">register</span></a>).</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Format</p></th>
+<th class="head"><p>Source file</p></th>
+<th class="head"><p>Static basis</p></th>
+<th class="head"><p>Verdict</p></th>
+<th class="head"><p>Issue</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>VS Code / Zed tasks</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.vscode/tasks.json</span></code></p></td>
+<td><p>JSONC parse; <code class="docutils literal notranslate"><span class="pre">shell</span></code>/<code class="docutils literal notranslate"><span class="pre">process</span></code> tasks are locally runnable</p></td>
+<td><p>candidate</p></td>
+<td><p>#139</p></td>
+</tr>
+<tr class="row-odd"><td><p>invoke</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tasks.py</span></code></p></td>
+<td><p>AST of <code class="docutils literal notranslate"><span class="pre">&#64;task</span></code> names; run <code class="docutils literal notranslate"><span class="pre">invoke</span> <span class="pre">&lt;name&gt;</span></code></p></td>
+<td><p>candidate (low priority)</p></td>
+<td><p>#140</p></td>
+</tr>
+<tr class="row-even"><td><p>Ant</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">build.xml</span></code></p></td>
+<td><p>XML <code class="docutils literal notranslate"><span class="pre">&lt;target&gt;</span></code> names; run <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">&lt;target&gt;</span></code></p></td>
+<td><p>candidate (low priority)</p></td>
+<td><p>#141</p></td>
+</tr>
+<tr class="row-odd"><td><p>nox</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">noxfile.py</span></code></p></td>
+<td><p>AST of <code class="docutils literal notranslate"><span class="pre">&#64;nox.session</span></code> names; run <code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">-s</span> <span class="pre">&lt;name&gt;</span></code></p></td>
+<td><p>candidate (low priority)</p></td>
+<td><p>#142</p></td>
+</tr>
+<tr class="row-even"><td><p>Rake</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Rakefile</span></code></p></td>
+<td><p>parse literal <code class="docutils literal notranslate"><span class="pre">task</span> <span class="pre">:name</span></code> + <code class="docutils literal notranslate"><span class="pre">desc</span></code>; run <code class="docutils literal notranslate"><span class="pre">rake</span> <span class="pre">&lt;name&gt;</span></code></p></td>
+<td><p>candidate (low priority)</p></td>
+<td><p>#143</p></td>
+</tr>
+<tr class="row-odd"><td><p>mask</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">maskfile.md</span></code></p></td>
+<td><p>Markdown headings + fenced bodies</p></td>
+<td><p>candidate (overlaps <code class="docutils literal notranslate"><span class="pre">xc</span></code>)</p></td>
+<td><p>#144</p></td>
+</tr>
+<tr class="row-even"><td><p>Procfile</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Procfile</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">command</span></code> lines</p></td>
+<td><p>candidate (borderline: process manager)</p></td>
+<td><p>#145</p></td>
+</tr>
+<tr class="row-odd"><td><p>JBang / argc</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">jbang-catalog.json</span></code> / <code class="docutils literal notranslate"><span class="pre">Argcfile.sh</span></code></p></td>
+<td><p>JSON aliases / <code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">&#64;cmd</span></code> comment scan</p></td>
+<td><p>candidate (niche)</p></td>
+<td><p>#146</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>“Overlaps <code class="docutils literal notranslate"><span class="pre">xc</span></code>”, “borderline” and “niche” are no longer grounds to park a format
+(ADR 0005). Zed tasks were listed with VS Code in #139 and are tracked
+separately as pending in the register.</p>
+</section>
+<section id="declined-with-documented-grounds">
+<h2>Declined with documented grounds<a class="headerlink" href="#declined-with-documented-grounds" title="Link to this heading">#</a></h2>
+<p>The original reasons, per format. The current, gate-based records are in
+<a class="reference internal" href="declined.html"><span class="std std-doc">declined</span></a>.</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Format</p></th>
+<th class="head"><p>Source file</p></th>
+<th class="head"><p>Why declined</p></th>
+<th class="head"><p>Issue</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>GitHub Actions</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.github/workflows/*.yml</span></code></p></td>
+<td><p>Parses fine, but <strong>not a local task runner</strong> (remote runners, <code class="docutils literal notranslate"><span class="pre">${{</span> <span class="pre">}}</span></code> / matrix / <code class="docutils literal notranslate"><span class="pre">needs</span></code>) and inherently <strong>multi-file</strong> versus the single-file scope. The highest adoption (~39,887) does not override this.</p></td>
+<td><p>#147</p></td>
+</tr>
+<tr class="row-odd"><td><p>Gradle / Maven</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">build.gradle(.kts)</span></code> / <code class="docutils literal notranslate"><span class="pre">pom.xml</span></code></p></td>
+<td><p>Gradle’s task set is plugin- and runtime-produced (no reliable static parse). Maven’s runnable units are a fixed universal lifecycle, so <code class="docutils literal notranslate"><span class="pre">pom.xml</span></code> yields nothing project-specific. Gradle ~7,736.</p></td>
+<td><p>#148</p></td>
+</tr>
+<tr class="row-even"><td><p>CMake</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CMakeLists.txt</span></code></p></td>
+<td><p>Imperative build <strong>generator</strong>, not a task runner; target names are variable-, loop- and generator-expression-driven; the two-step configure/build model leaves no clean delegated run. ~6,771.</p></td>
+<td><p>#149</p></td>
+</tr>
+<tr class="row-odd"><td><p>cargo-xtask</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">xtask/</span></code> crate</p></td>
+<td><p>Not a format but a convention; subcommands are arbitrary Rust with no declarative file (<code class="docutils literal notranslate"><span class="pre">.cargo/config.toml</span></code> only proves the alias exists).</p></td>
+<td><p>#150</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The multi-file ground for GitHub Actions was retired when ADR 0004 replaced the
+single-file scope with a rooted scope.</p>
+</section>
+<section id="use-case">
+<h2>Use case<a class="headerlink" href="#use-case" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">nur</span></code>’s value depends on a hard guarantee: <strong>listing tasks never executes
+project code.</strong> As candidate formats are researched, some turn out to be safe to
+parse (even if only a subset), and some genuinely do not fit: not a local task
+runner (GitHub Actions), no reliable static parse (Gradle, CMake), or no
+declarative file at all (cargo-xtask). The issue indexed those decisions with
+their rationale so future contributors do not re-litigate them, and so the
+boundary of what <code class="docutils literal notranslate"><span class="pre">nur</span></code> will and will not support stays explicit. Candidates can
+be built when demand or value warrants; declines can be revisited if
+circumstances change.</p>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="declined.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Declined formats</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="research/markdown-parser.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">Markdown parser evaluation (mask and xc)</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Hasan Sezer Taşan</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
+    </div>
+  </div>
+</footer>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+      <script>let toggleHintShow = 'Click to show';</script>
+      <script>let toggleHintHide = 'Click to hide';</script>
+      <script>let toggleOpenOnPrint = 'true';</script>
+      <script src="../_static/togglebutton.js?v=b8b12719"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+      <script src="../_static/shibuya.js?v=50760d75"></script></body>
+</html>

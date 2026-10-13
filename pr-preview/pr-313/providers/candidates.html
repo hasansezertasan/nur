@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="amber" data-content_root="../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Candidates - nur</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Declined formats" href="declined.html" /><link rel="prev" title="Implemented providers: evaluations" href="implemented.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=e1a1ceaf" />
+    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx_paramlinks.css" />
+    <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Candidates"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../index.html">
+      
+      
+      <strong>nur</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials">
+  <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli-reference.html">CLI reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">Modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../adr/index.html">Architecture Decision Records</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0001-provider-selection-criteria.html">Provider selection criteria: static discovery, never execution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0002-bounded-rake-discovery.html">Bounded Rake discovery: extract literal declarations without simulating Ruby</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0003-bounded-make-discovery.html">Bounded Make discovery: read rule headers with Tree-sitter, never run Make</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0004-js-adjacent-task-runners.html">JS-adjacent runners: accept Grunt, Gulp, Turborepo, Nx, and workspace members</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0005-completeness-over-popularity.html">Completeness over popularity: every honestly supportable format, recorded in the repo</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Provider register</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="template.html">Evaluation template</a></li>
+<li class="toctree-l2"><a class="reference internal" href="implemented.html">Implemented providers: evaluations</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Candidates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="declined.html">Declined formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="history.html">Origin of the register (issue #78)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="research/markdown-parser.html">Markdown parser evaluation (mask and xc)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Maintainer guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../maintaining/setup.html">Repository setup</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../packaging/homebrew-tap/README.html">Homebrew tap setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../packaging/scoop-bucket/README.html">Scoop bucket setup</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#procfile">Procfile</a></li>
+<li><a class="reference internal" href="#jbang-catalog">JBang catalog</a></li>
+<li><a class="reference internal" href="#argc">argc</a></li>
+<li><a class="reference internal" href="#zed-tasks">Zed tasks</a></li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../index.html"><span itemprop="name">nur</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="index.html"><span itemprop="name">Provider register</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Candidates</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <section id="candidates">
+<h1>Candidates<a class="headerlink" href="#candidates" title="Link to this heading">#</a></h1>
+<p>Formats not yet shipped. <strong>Accepted</strong> means all three gates of
+<a class="reference internal" href="../adr/0005-completeness-over-popularity.html"><span class="std std-doc">ADR 0005</span></a> pass. <strong>Pending</strong> means a
+gate is unresolved or the evaluation is incomplete; it is neither accepted nor
+declined. They were previously parked on niche adoption or fit, which is no
+longer a ground. Each moves to <a class="reference internal" href="implemented.html"><span class="std std-doc">implemented</span></a> when it ships.</p>
+<section id="procfile">
+<h2>Procfile<a class="headerlink" href="#procfile" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Format:</strong> the process-declaration format used by
+<a class="reference external" href="https://github.com/ddollar/foreman">foreman</a>,
+<a class="reference external" href="https://github.com/nickstenning/honcho">honcho</a>,
+<a class="reference external" href="https://github.com/DarthSim/overmind">overmind</a>, Hivemind and Heroku or
+Dokku-style platforms.</p></li>
+<li><p><strong>Source files:</strong> <code class="docutils literal notranslate"><span class="pre">Procfile</span></code> (root). <code class="docutils literal notranslate"><span class="pre">Procfile.dev</span></code> and similar by convention.</p></li>
+<li><p><strong>Docs:</strong> <a class="reference external" href="https://devcenter.heroku.com/articles/procfile">https://devcenter.heroku.com/articles/procfile</a></p></li>
+<li><p><strong>State:</strong> Pending. Gates 1 and 3 pass; gate 2 needs a chosen runner. Issue #145.</p></li>
+</ul>
+<p><strong>How it is used:</strong></p>
+<p>One process per line, <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">command</span></code>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><span data-line="1">web: gunicorn app:app --bind 0.0.0.0:$PORT
+</span><span data-line="2">worker: celery -A app worker
+</span><span data-line="3">release: python manage.py migrate
+</span></pre></div>
+</div>
+<p>Each entry is a process type. Run all with <code class="docutils literal notranslate"><span class="pre">foreman</span> <span class="pre">start</span></code>, <code class="docutils literal notranslate"><span class="pre">honcho</span> <span class="pre">start</span></code> or
+<code class="docutils literal notranslate"><span class="pre">overmind</span> <span class="pre">start</span></code>; run one with <code class="docutils literal notranslate"><span class="pre">honcho</span> <span class="pre">start</span> <span class="pre">&lt;name&gt;</span></code> or <code class="docutils literal notranslate"><span class="pre">foreman</span> <span class="pre">start</span> <span class="pre">&lt;name&gt;</span></code>.
+<code class="docutils literal notranslate"><span class="pre">$PORT</span></code> and other variables are substituted by the manager at launch.</p>
+<p><strong>Gate check:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Safe listing:</strong> passes. A flat <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">command</span></code> text file; nothing runs.</p></li>
+<li><p><strong>Faithful run command:</strong> unresolved until a runner is chosen. The entries are
+long-running processes rather than one-shot tasks, and foreman, honcho and
+overmind differ, so the delegated command needs a deliberate choice (see
+open design question).</p></li>
+<li><p><strong>Honest subset:</strong> passes. <code class="docutils literal notranslate"><span class="pre">name</span></code> and the full <code class="docutils literal notranslate"><span class="pre">command</span></code> are literal; only
+<code class="docutils literal notranslate"><span class="pre">$PORT</span></code> and environment interpolation is left literal.</p></li>
+</ol>
+<p><strong>Task-model mapping:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">prefix</span></code> ← <code class="docutils literal notranslate"><span class="pre">procfile</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">name</span></code> ← process-type name (left of <code class="docutils literal notranslate"><span class="pre">:</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">argv_base</span></code> ← not yet defined: <code class="docutils literal notranslate"><span class="pre">&lt;manager&gt;</span> <span class="pre">start</span> <span class="pre">&lt;name&gt;</span></code> once the manager is chosen</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">description</span></code> ← none (the format has no description field)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">definition</span></code> ← the command string (right of <code class="docutils literal notranslate"><span class="pre">:</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">source_file</span></code> ← <code class="docutils literal notranslate"><span class="pre">Procfile</span></code></p></li>
+</ul>
+<p><strong>Open design question:</strong></p>
+<p>Which manager to delegate to. Options: a fixed default (honcho), detection of an
+installed manager, a project setting, or running the command string directly and
+bypassing the manager. Decide in the implementation issue and record it here.
+This is a fidelity question (gate 2), not a reason to decline. The candidate
+becomes <strong>accepted</strong> when one invocation is chosen and validated, and its
+concrete form is recorded here.</p>
+<p><strong>Deferred:</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">$VAR</span></code> and <code class="docutils literal notranslate"><span class="pre">$PORT</span></code> substitution, <code class="docutils literal notranslate"><span class="pre">.env</span></code> and concurrency options (<code class="docutils literal notranslate"><span class="pre">-c</span> <span class="pre">web=2</span></code>),
+manager-specific extensions, automatic manager selection.</p>
+<p><strong>Adoption (information only):</strong></p>
+<p>Common in Heroku-era web apps and local multi-process development. No census
+figure is known and none is invented.</p>
+</section>
+<section id="jbang-catalog">
+<h2>JBang catalog<a class="headerlink" href="#jbang-catalog" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Format:</strong> <a class="reference external" href="https://www.jbang.dev/">JBang</a> alias catalog, named script aliases
+for the JVM scripting runner.</p></li>
+<li><p><strong>Source files:</strong> <code class="docutils literal notranslate"><span class="pre">jbang-catalog.json</span></code>.</p></li>
+<li><p><strong>Docs:</strong> <a class="reference external" href="https://www.jbang.dev/documentation/guide/latest/alias_catalogs.html">https://www.jbang.dev/documentation/guide/latest/alias_catalogs.html</a></p></li>
+<li><p><strong>State:</strong> Accepted. Tracked with argc in #146; implement independently.</p></li>
+</ul>
+<p><strong>How it is used:</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="p">{</span>
+</span><span data-line="2"><span class="w">  </span><span class="nt">"aliases"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span data-line="3"><span class="w">    </span><span class="nt">"hello"</span><span class="p">:</span><span class="w">   </span><span class="p">{</span><span class="w"> </span><span class="nt">"script-ref"</span><span class="p">:</span><span class="w"> </span><span class="s2">"hello.java"</span><span class="p">,</span><span class="w"> </span><span class="nt">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Say hello"</span><span class="w"> </span><span class="p">},</span>
+</span><span data-line="4"><span class="w">    </span><span class="nt">"release"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"script-ref"</span><span class="p">:</span><span class="w"> </span><span class="s2">"scripts/release.java"</span><span class="w"> </span><span class="p">}</span>
+</span><span data-line="5"><span class="w">  </span><span class="p">}</span>
+</span><span data-line="6"><span class="p">}</span>
+</span></pre></div>
+</div>
+<p>Run an alias with <code class="docutils literal notranslate"><span class="pre">jbang</span> <span class="pre">&lt;alias&gt;</span></code>. <code class="docutils literal notranslate"><span class="pre">script-ref</span></code> points at a <code class="docutils literal notranslate"><span class="pre">.java</span></code>, <code class="docutils literal notranslate"><span class="pre">.jsh</span></code> or
+URL; <code class="docutils literal notranslate"><span class="pre">description</span></code> is optional.</p>
+<p><strong>Gate check:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Safe listing:</strong> passes. Plain JSON parse.</p></li>
+<li><p><strong>Faithful run command:</strong> passes (<code class="docutils literal notranslate"><span class="pre">jbang</span> <span class="pre">&lt;alias&gt;</span></code>).</p></li>
+<li><p><strong>Honest subset:</strong> passes. Remote or nested catalog imports can be deferred.</p></li>
+</ol>
+<p><strong>Task-model mapping:</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">prefix</span></code> ← <code class="docutils literal notranslate"><span class="pre">jbang</span></code>; <code class="docutils literal notranslate"><span class="pre">name</span></code> ← alias key under <code class="docutils literal notranslate"><span class="pre">aliases</span></code>; <code class="docutils literal notranslate"><span class="pre">argv_base</span></code> ←
+<code class="docutils literal notranslate"><span class="pre">(&quot;jbang&quot;,</span> <span class="pre">name)</span></code>; <code class="docutils literal notranslate"><span class="pre">description</span></code> ← alias <code class="docutils literal notranslate"><span class="pre">description</span></code>; <code class="docutils literal notranslate"><span class="pre">definition</span></code> ← the
+<code class="docutils literal notranslate"><span class="pre">script-ref</span></code>; <code class="docutils literal notranslate"><span class="pre">source_file</span></code> ← <code class="docutils literal notranslate"><span class="pre">jbang-catalog.json</span></code>.</p>
+<p><strong>Deferred:</strong></p>
+<p>Catalog <code class="docutils literal notranslate"><span class="pre">catalogs</span></code> and remote imports; <code class="docutils literal notranslate"><span class="pre">run</span></code> options and per-alias JVM
+arguments.</p>
+<p><strong>Adoption (information only):</strong></p>
+<p>No figure known; none invented.</p>
+</section>
+<section id="argc">
+<h2>argc<a class="headerlink" href="#argc" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Format:</strong> <a class="reference external" href="https://github.com/sigoden/argc">argc</a>, a Bash-based command
+runner and CLI framework.</p></li>
+<li><p><strong>Source files:</strong> <code class="docutils literal notranslate"><span class="pre">Argcfile.sh</span></code>.</p></li>
+<li><p><strong>Docs:</strong> <a class="reference external" href="https://github.com/sigoden/argc">https://github.com/sigoden/argc</a></p></li>
+<li><p><strong>State:</strong> Accepted. Tracked with JBang in #146; implement independently.</p></li>
+</ul>
+<p><strong>How it is used:</strong></p>
+<p>Subcommands are declared with comment annotations that argc reads without
+executing the bodies:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="ch">#!/usr/bin/env bash</span>
+</span><span data-line="2"><span class="nb">set</span><span class="w"> </span>-e
+</span><span data-line="3">
+</span><span data-line="4"><span class="c1"># @cmd Build the project</span>
+</span><span data-line="5"><span class="c1"># @option --target[=debug]  Build target</span>
+</span><span data-line="6">build<span class="o">()</span><span class="w"> </span><span class="o">{</span>
+</span><span data-line="7"><span class="w">    </span>cargo<span class="w"> </span>build<span class="w"> </span>--target<span class="w"> </span><span class="s2">"</span><span class="nv">$argc_target</span><span class="s2">"</span>
+</span><span data-line="8"><span class="o">}</span>
+</span><span data-line="9">
+</span><span data-line="10"><span class="c1"># @cmd Run tests</span>
+</span><span data-line="11">test<span class="o">()</span><span class="w"> </span><span class="o">{</span>
+</span><span data-line="12"><span class="w">    </span>cargo<span class="w"> </span><span class="nb">test</span>
+</span><span data-line="13"><span class="o">}</span>
+</span><span data-line="14">
+</span><span data-line="15"><span class="nb">eval</span><span class="w"> </span><span class="s2">"</span><span class="k">$(</span>argc<span class="w"> </span>--argc-eval<span class="w"> </span><span class="s2">"</span><span class="nv">$0</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$@</span><span class="s2">"</span><span class="k">)</span><span class="s2">"</span>
+</span></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">&#64;cmd</span> <span class="pre">&lt;desc&gt;</span></code> above a function declares a subcommand; <code class="docutils literal notranslate"><span class="pre">&#64;option</span></code>, <code class="docutils literal notranslate"><span class="pre">&#64;flag</span></code> and
+<code class="docutils literal notranslate"><span class="pre">&#64;arg</span></code> declare its parameters. Run with <code class="docutils literal notranslate"><span class="pre">argc</span> <span class="pre">build</span></code>.</p>
+<p><strong>Gate check:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Safe listing:</strong> passes by comment scan. <strong>Never use <code class="docutils literal notranslate"><span class="pre">argc</span> <span class="pre">--argc-eval</span></code></strong>,
+which executes the script, and never execute the <code class="docutils literal notranslate"><span class="pre">eval</span></code> footer.</p></li>
+<li><p><strong>Faithful run command:</strong> passes (<code class="docutils literal notranslate"><span class="pre">argc</span> <span class="pre">&lt;name&gt;</span></code>).</p></li>
+<li><p><strong>Honest subset:</strong> passes. The function body is shell and stays opaque.</p></li>
+</ol>
+<p><strong>Task-model mapping:</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">prefix</span></code> ← <code class="docutils literal notranslate"><span class="pre">argc</span></code>; <code class="docutils literal notranslate"><span class="pre">name</span></code> ← the function name paired with a <code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">&#64;cmd</span></code>;
+<code class="docutils literal notranslate"><span class="pre">argv_base</span></code> ← <code class="docutils literal notranslate"><span class="pre">(&quot;argc&quot;,</span> <span class="pre">name)</span></code>; <code class="docutils literal notranslate"><span class="pre">description</span></code> ← the <code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">&#64;cmd</span></code> text;
+<code class="docutils literal notranslate"><span class="pre">definition</span></code> ← empty (the body is opaque shell); <code class="docutils literal notranslate"><span class="pre">source_file</span></code> ← <code class="docutils literal notranslate"><span class="pre">Argcfile.sh</span></code>.</p>
+<p><strong>Parsing edge cases:</strong></p>
+<ul class="simple">
+<li><p>Pair each <code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">&#64;cmd</span></code> with the next function definition to get the runnable name.</p></li>
+<li><p>Only <code class="docutils literal notranslate"><span class="pre">&#64;cmd</span></code>-annotated functions are subcommands; plain shell functions are not
+tasks.</p></li>
+<li><p>Nested or aliased subcommands and <code class="docutils literal notranslate"><span class="pre">&#64;meta</span></code> need care.</p></li>
+</ul>
+<p><strong>Deferred:</strong></p>
+<p>Resolving <code class="docutils literal notranslate"><span class="pre">&#64;option</span></code>, <code class="docutils literal notranslate"><span class="pre">&#64;flag</span></code> and <code class="docutils literal notranslate"><span class="pre">&#64;arg</span></code> into full invocations; subcommand groups;
+<code class="docutils literal notranslate"><span class="pre">&#64;meta</span></code> directives.</p>
+<p><strong>Adoption (information only):</strong></p>
+<p>No figure known; none invented.</p>
+</section>
+<section id="zed-tasks">
+<h2>Zed tasks<a class="headerlink" href="#zed-tasks" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Format:</strong> Zed editor tasks.</p></li>
+<li><p><strong>Source files:</strong> <code class="docutils literal notranslate"><span class="pre">.zed/tasks.json</span></code>.</p></li>
+<li><p><strong>State:</strong> Pending evaluation. A sibling of the VS Code provider, raised in
+#139; no separate issue yet. The three gates have not been checked.</p></li>
+</ul>
+<p>It shares the <code class="docutils literal notranslate"><span class="pre">label</span></code>, <code class="docutils literal notranslate"><span class="pre">command</span></code> and <code class="docutils literal notranslate"><span class="pre">args</span></code> vocabulary of VS Code tasks but has
+a different top-level shape (a bare JSON array rather than an object with a
+<code class="docutils literal notranslate"><span class="pre">tasks</span></code> field), so it is a separate provider. Evaluate it against the template
+before it is accepted; the VS Code evaluation in
+<a class="reference internal" href="implemented.html"><span class="std std-doc">implemented</span></a> is the starting point.</p>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="implemented.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Implemented providers: evaluations</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="declined.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">Declined formats</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Hasan Sezer Taşan</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
+    </div>
+  </div>
+</footer>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+      <script>let toggleHintShow = 'Click to show';</script>
+      <script>let toggleHintHide = 'Click to hide';</script>
+      <script>let toggleOpenOnPrint = 'true';</script>
+      <script src="../_static/togglebutton.js?v=b8b12719"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+      <script src="../_static/shibuya.js?v=50760d75"></script></body>
+</html>
