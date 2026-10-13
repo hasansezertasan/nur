@@ -363,6 +363,23 @@ def test_parse_build_xml_decodes_ebcdic_ibm_alias() -> None:
     assert [t.name for t in parse_build_xml(source)] == ["build"]
 
 
+def test_parse_build_xml_decodes_ibm_numeric_aliases() -> None:
+    # IBM00858/CP00858 and IBM01140/CP01140 resolve via Python's own alias
+    # registry (unlike CCSID00858/CCSID01140, which need the Xerces map);
+    # pinned so a regression is caught.
+    for declared, codec in (
+        ("IBM00858", "cp858"),
+        ("CP00858", "cp858"),
+        ("IBM01140", "cp1140"),
+        ("CP01140", "cp1140"),
+    ):
+        source = (
+            f'<?xml version="1.0" encoding="{declared}"?>'
+            "<project><target name='build'/></project>"
+        ).encode(codec)
+        assert [t.name for t in parse_build_xml(source)] == ["build"], declared
+
+
 def test_parse_build_xml_decodes_korean_aliases() -> None:
     for declared in ("KS_C_5601-1989", "KSC_5601", "ISO-IR-149", "CSKSC56011987"):
         source = (
