@@ -343,6 +343,26 @@ def test_parse_build_xml_decodes_ibm_1208_alias() -> None:
     assert [t.name for t in parse_build_xml(source)] == ["build"]
 
 
+def test_parse_build_xml_decodes_cseucpkdfmtjapanese_alias() -> None:
+    # The thread's exact case: a Xerces alias Python's registry does not know.
+    source = (
+        '<?xml version="1.0" encoding="CSEUCPKDFMTJAPANESE"?>'
+        "<project><target name='build' description='日本語'/></project>"
+    ).encode("euc-jp")
+    tasks = {t.name: t for t in parse_build_xml(source)}
+    assert tasks["build"].description == "日本語"
+
+
+def test_parse_build_xml_decodes_ebcdic_ibm_alias() -> None:
+    # IBM-500 is unknown to Python's registry, so this covers the alias map
+    # (CSIBM500 and EBCDIC-CP-* resolve natively).
+    source = (
+        '<?xml version="1.0" encoding="IBM-500"?>'
+        "<project><target name='build'/></project>"
+    ).encode("cp500")
+    assert [t.name for t in parse_build_xml(source)] == ["build"]
+
+
 def test_parse_build_xml_decodes_ebcdic_cp037() -> None:
     source = (
         '<?xml version="1.0" encoding="CP037"?>'

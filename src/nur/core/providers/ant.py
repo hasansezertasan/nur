@@ -38,8 +38,45 @@ _STR_DECL_ENCODING_RE = re.compile(
 # transcoded to UTF-8 below (multibyte ones like Shift_JIS, which pyexpat
 # rejects but Ant's JAXP reader accepts).
 _NATIVE_ENCODINGS = frozenset({"utf-8", "utf8", "ascii", "us-ascii"})
-# Xerces-supported aliases Python's codec registry does not know.
-_XERCES_ALIASES = {"ibm-1208": "utf-8", "eucjis": "euc-jp"}
+# Xerces-supported aliases Python's codec registry does not know, derived from
+# the fIANA2JavaMap table in Xerces' EncodingMap.java: every IANA name Python
+# cannot resolve whose Java target has a verified Python equivalent. Keys are
+# lowercased with `_` folded to `-`, matching the normalization in
+# `_codec_for`. Java targets Python cannot decode (CP277/278/..., JIS0208,
+# ...) are deliberately absent: those files keep the graceful skip.
+_XERCES_ALIASES = {
+    "ccsid00858": "cp858",
+    "ccsid01140": "cp1140",
+    "cseucpkdfmtjapanese": "euc_jp",
+    "csgb2312": "gb2312",
+    "cswindows31j": "cp932",
+    "extended-unix-code-packed-format-for-japanese": "euc_jp",
+    "ibm-1026": "cp1026",
+    "ibm-1140": "cp1140",
+    "ibm-273": "cp273",
+    "ibm-367": "ascii",
+    "ibm-37": "cp037",
+    "ibm-437": "cp437",
+    "ibm-500": "cp500",
+    "ibm-775": "cp775",
+    "ibm-819": "iso8859_1",
+    "ibm-850": "cp850",
+    "ibm-852": "cp852",
+    "ibm-855": "cp855",
+    "ibm-857": "cp857",
+    "ibm-858": "cp858",
+    "ibm-860": "cp860",
+    "ibm-861": "cp861",
+    "ibm-862": "cp862",
+    "ibm-863": "cp863",
+    "ibm-864": "cp864",
+    "ibm-865": "cp865",
+    "ibm-866": "cp866",
+    "ibm-869": "cp869",
+    "ibm-1208": "utf-8",
+    "eucjis": "euc-jp",
+    "windows-936": "gbk",
+}
 # Byte signatures for UTF-32/UTF-16 with the codec that decodes them (XML spec
 # Appendix F). Order matters: `FF FE` opens both UTF-32LE and UTF-16LE, so the
 # longer UTF-32 entries come first. Matched input is always transcoded, which
@@ -67,6 +104,16 @@ def _to_utf8(text: str) -> bytes:
     """Patch the declaration of *text* to UTF-8 and encode it."""
     text = _STR_DECL_ENCODING_RE.sub(r"\g<head>UTF-8\g<quote>", text, count=1)
     return text.encode("utf-8")
+
+
+def _codec_for(declared: str) -> str:
+    """Map a declared encoding name to a Python codec.
+
+    Xerces aliases Python's registry does not know are translated first;
+    anything unmapped is returned unchanged for Python (or the graceful
+    skip) to judge.
+    """
+    return _XERCES_ALIASES.get(declared.lower().replace("_", "-"), declared)
 
 
 def _recode(source: bytes, codec: str) -> str | None:
@@ -104,8 +151,8 @@ def _transcode_ebcdic(source: bytes) -> bytes:
     character whose mapping differs (a `[` target would be listed as `¢`).
     Instead any sibling bootstrap-decodes the declaration — whose characters
     are variant-invariant — and the complete document is decoded with the
-    codec the declaration specifies (Python resolves aliases such as
-    EBCDIC-CP-CH itself). Anything unresolvable passes through for the real
+    codec the declaration specifies (Xerces aliases resolved via
+    `_codec_for`). Anything unresolvable passes through for the real
     parse to report.
     """
     for codec in _EBCDIC_CODECS:
@@ -115,7 +162,7 @@ def _transcode_ebcdic(source: bytes) -> bytes:
         match = _STR_DECL_NAME_RE.search(bootstrap)
         if match is None:
             continue
-        text = _recode(source, match.group(1))
+        text = _recode(source, _codec_for(match.group(1)))
         if text is None or _XML_VERSION_RE.match(text) is None:
             continue
         return _to_utf8(text)
@@ -142,7 +189,7 @@ def _transcode(source: bytes) -> bytes:
     normalized = declared.lower().replace("_", "-")
     if normalized in _NATIVE_ENCODINGS:
         return source
-    text = _recode(source, _XERCES_ALIASES.get(normalized, declared))
+    text = _recode(source, _codec_for(declared))
     return _to_utf8(text) if text is not None else source
 
 
