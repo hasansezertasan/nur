@@ -363,6 +363,17 @@ def test_parse_build_xml_decodes_ebcdic_ibm_alias() -> None:
     assert [t.name for t in parse_build_xml(source)] == ["build"]
 
 
+def test_parse_build_xml_decodes_korean_aliases() -> None:
+    for declared in ("KS_C_5601-1989", "KSC_5601", "ISO-IR-149", "CSKSC56011987"):
+        source = (
+            f'<?xml version="1.0" encoding="{declared}"?>'
+            "<project><target name='build' description='한국어'/></project>"
+        ).encode("euc-kr")
+        tasks = {t.name: t for t in parse_build_xml(source)}
+        assert list(tasks) == ["build"], declared
+        assert tasks["build"].description == "한국어", declared
+
+
 def test_parse_build_xml_decodes_ebcdic_cp037() -> None:
     source = (
         '<?xml version="1.0" encoding="CP037"?>'

@@ -75,6 +75,12 @@ _XERCES_ALIASES = {
     "ibm-869": "cp869",
     "ibm-1208": "utf-8",
     "eucjis": "euc-jp",
+    # Korean aliases for KS X 1001: Python resolves KOREAN/KS_C_5601-1987 to
+    # euc_kr itself, and these remaining Xerces names render the same way.
+    "iso-ir-149": "euc_kr",
+    "ks-c-5601-1989": "euc_kr",
+    "ksc-5601": "euc_kr",
+    "csksc56011987": "euc_kr",
     "windows-936": "gbk",
 }
 # Byte signatures for UTF-32/UTF-16 with the codec that decodes them (XML spec
