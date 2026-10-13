@@ -123,7 +123,9 @@ closed once their content is in the repo.
   and the full evaluation of each candidate, implemented provider, declined
   format and research effort, including measured results.
 - Each new candidate gets a register entry **before** an implementation issue is
-  opened. Each implemented provider keeps its evaluation after it ships.
+  opened. Each implemented provider keeps its evaluation after it ships. The
+  eight providers that predate the register have no per-format evaluation
+  beyond their module documentation; backfilling them is open work.
 - Decisions that change the rules, or adopt a dependency, are ADRs.
   Evaluations and their results are register pages.
 - ADR 0001 is not rewritten; only its `status` changes to point here.
