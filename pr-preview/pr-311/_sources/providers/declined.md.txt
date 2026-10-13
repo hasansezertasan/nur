@@ -113,8 +113,8 @@ misleads.
 - **Format:** Maven project object model.
 - **Source file:** `pom.xml`.
 - **Docs:** <https://maven.apache.org/guides/>
-- **State:** Declined. **Failed gate:** 3 (honest subset): nothing
-  project-specific to discover. Issue #148.
+- **State:** Declined. **Failed gate:** 3 (honest subset): the provider would
+  not enumerate anything project-specific today. Issue #148.
 
 **How it is used:**
 
@@ -127,7 +127,9 @@ every Maven project; `pom.xml` configures how they behave, not which exist.
 
 1. **Safe listing:** passes, `pom.xml` is XML.
 2. **Faithful run command:** passes (`mvn <phase>`).
-3. **Honest subset:** nothing project-distinct is discovered. The runnable phases
+3. **Honest subset: fails today.** Configured plugin goals are project-specific,
+   but extracting them is not done (see below), so nothing project-distinct is
+   discovered. The runnable phases
    are a fixed universal list `nur` could hard-code without reading any file,
    which is not discovery. Plugin `<executions>` bind goals to phases that still
    run via `mvn <phase>`, and correctness needs `<parent>`, `<profiles>` and

@@ -252,8 +252,8 @@ be presented unambiguously as incomplete and is judged worth shipping.</p></li>
 <li><p><strong>Format:</strong> Maven project object model.</p></li>
 <li><p><strong>Source file:</strong> <code class="docutils literal notranslate"><span class="pre">pom.xml</span></code>.</p></li>
 <li><p><strong>Docs:</strong> <a class="reference external" href="https://maven.apache.org/guides/">https://maven.apache.org/guides/</a></p></li>
-<li><p><strong>State:</strong> Declined. <strong>Failed gate:</strong> 3 (honest subset): nothing
-project-specific to discover. Issue #148.</p></li>
+<li><p><strong>State:</strong> Declined. <strong>Failed gate:</strong> 3 (honest subset): the provider would
+not enumerate anything project-specific today. Issue #148.</p></li>
 </ul>
 <p><strong>How it is used:</strong></p>
 <p><code class="docutils literal notranslate"><span class="pre">pom.xml</span></code> is declarative XML, but Maven is not a named-task runner. You invoke
@@ -264,7 +264,9 @@ every Maven project; <code class="docutils literal notranslate"><span class="pre
 <ol class="arabic simple">
 <li><p><strong>Safe listing:</strong> passes, <code class="docutils literal notranslate"><span class="pre">pom.xml</span></code> is XML.</p></li>
 <li><p><strong>Faithful run command:</strong> passes (<code class="docutils literal notranslate"><span class="pre">mvn</span> <span class="pre">&lt;phase&gt;</span></code>).</p></li>
-<li><p><strong>Honest subset:</strong> nothing project-distinct is discovered. The runnable phases
+<li><p><strong>Honest subset: fails today.</strong> Configured plugin goals are project-specific,
+but extracting them is not done (see below), so nothing project-distinct is
+discovered. The runnable phases
 are a fixed universal list <code class="docutils literal notranslate"><span class="pre">nur</span></code> could hard-code without reading any file,
 which is not discovery. Plugin <code class="docutils literal notranslate"><span class="pre">&lt;executions&gt;</span></code> bind goals to phases that still
 run via <code class="docutils literal notranslate"><span class="pre">mvn</span> <span class="pre">&lt;phase&gt;</span></code>, and correctness needs <code class="docutils literal notranslate"><span class="pre">&lt;parent&gt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;profiles&gt;</span></code> and

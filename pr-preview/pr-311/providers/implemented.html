@@ -326,7 +326,8 @@ into each task. For duplicate labels the last definition wins.</p></li>
 <code class="docutils literal notranslate"><span class="pre">&#64;invoke.task</span></code> and aliased imports; explicit <code class="docutils literal notranslate"><span class="pre">name=</span></code> and <code class="docutils literal notranslate"><span class="pre">aliases=</span></code>; first
 docstring line as <code class="docutils literal notranslate"><span class="pre">description</span></code>. The module is never imported.</p></li>
 <li><p><strong>Notes:</strong> only top-level <code class="docutils literal notranslate"><span class="pre">def</span></code>s with one decorator are read; underscores in
-names become dashes. A task with <code class="docutils literal notranslate"><span class="pre">pre=</span></code>/<code class="docutils literal notranslate"><span class="pre">post=</span></code> is dropped, and invalid task
+names become dashes. A task with a non-empty <code class="docutils literal notranslate"><span class="pre">pre=</span></code>/<code class="docutils literal notranslate"><span class="pre">post=</span></code> is dropped (empty collections are
+accepted), and invalid task
 metadata or colliding <code class="docutils literal notranslate"><span class="pre">default=True</span></code> tasks make the whole file list nothing.</p></li>
 <li><p><strong>Left out:</strong> command bodies (<code class="docutils literal notranslate"><span class="pre">c.run(...)</span></code>), parameters, <code class="docutils literal notranslate"><span class="pre">pre</span></code>/<code class="docutils literal notranslate"><span class="pre">post</span></code> graphs,
 <code class="docutils literal notranslate"><span class="pre">Collection</span></code> namespacing (so namespaced setups are under-covered), and tasks
@@ -346,7 +347,8 @@ import); explicit <code class="docutils literal notranslate"><span class="pre">n
 such as <code class="docutils literal notranslate"><span class="pre">tests-3.11</span></code> are runtime-generated, so only the base session name is
 listed, and <code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">-s</span> <span class="pre">tests</span></code> still runs all its variants), dynamically registered
 sessions, command bodies. If the module is not straight-line (loops, <code class="docutils literal notranslate"><span class="pre">with</span></code>,
-<code class="docutils literal notranslate"><span class="pre">match</span></code>, star imports, namespace mutation), the provider lists nothing for the
+<code class="docutils literal notranslate"><span class="pre">match</span></code>, unrecognized star imports, namespace mutation; <code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">nox</span> <span class="pre">import</span> <span class="pre">*</span></code> is
+modeled), the provider lists nothing for the
 file. Only top-level <code class="docutils literal notranslate"><span class="pre">def</span></code>s register sessions; <code class="docutils literal notranslate"><span class="pre">nox_uv.session</span></code> is accepted.</p></li>
 </ul>
 </section>
