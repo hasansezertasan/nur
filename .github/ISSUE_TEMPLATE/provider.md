@@ -38,7 +38,7 @@ honest about what it leaves opaque.
 
 - **Does listing tasks avoid executing project task code / project-controlled expressions?** <!-- Must be Yes — this is the hard rule -->
 - **Can a useful subset of runnable tasks (name + run command) be parsed from the file without evaluation?** <!-- Yes / No — a safe subset is enough; full coverage is a bonus -->
-- **Does discovery avoid shelling out to enumerate tasks (e.g. `tool -l`)?** <!-- Yes preferred; a parse-only dump like `just --dump` is tolerated as a temporary deviation only -->
+- **Does discovery avoid shelling out to enumerate tasks (e.g. `tool -l`)?** <!-- Must be Yes: no runner is invoked to list tasks, including parse-only dumps -->
 - **Does a delegated command (`<runner> <name>`) run the task locally and faithfully?** <!-- Yes / No; say what it needs beforehand -->
 - **If enumeration is partial, what is deliberately not resolved, and why is that the safety trade-off?** <!-- e.g. include directives, computed names, remote hooks -->
 
