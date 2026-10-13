@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING
 
+from nur.core.providers.ant import AntProvider
 from nur.core.providers.cargo_make import CargoMakeProvider
 from nur.core.providers.composer import ComposerProvider
 from nur.core.providers.deno import DenoProvider
@@ -52,11 +53,13 @@ PROVIDERS: list[Provider] = [
     NxProvider(),
     GruntProvider(),
     GulpProvider(),
+    AntProvider(),
     WorkspaceProvider(),
 ]
 
 __all__ = [
     "PROVIDERS",
+    "AntProvider",
     "CargoMakeProvider",
     "ComposerProvider",
     "DenoProvider",

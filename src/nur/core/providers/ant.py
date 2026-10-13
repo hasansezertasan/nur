@@ -1,0 +1,413 @@
+"""Discover Apache Ant targets by parsing build.xml, without running Ant."""
+
+from __future__ import annotations
+
+import logging
+import re
+import xml.etree.ElementTree as ET
+import xml.parsers.expat
+from dataclasses import replace
+from typing import TYPE_CHECKING
+
+from nur.core.models import Task
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+__all__ = ["AntProvider", "parse_build_xml"]
+
+log = logging.getLogger("nur")
+_SOURCE_FILE = "build.xml"
+# Both run as `ant <name>`: extension-points are target-like entry points with
+# a name, a depends list, and a description, but no task body of their own.
+_RUNNABLE = frozenset({"target", "extension-point"})
+# Ant installs <target>/<extension-point> only from the empty namespace or its
+# core antlib URI (ProjectHelper.ANT_CORE_URI); elements of the same local
+# name in any other namespace are ordinary task/type uses, not entry points.
+_ANT_CORE_URI = "antlib:org.apache.tools.ant"
+# The XML declaration, when present, is the first markup in the file (after an
+# optional BOM), so the encoding name is read from there only — never from
+# later lookalikes inside comments or document text.
+_DECL_ENCODING_RE = re.compile(
+    rb"\A(?:\xef\xbb\xbf)?\s*<\?xml\s[^?]*?encoding\s*=\s*[\"']([^\"']+)[\"']"
+)
+_STR_DECL_ENCODING_RE = re.compile(
+    r"(?P<head><\?xml\s[^?]*?encoding\s*=\s*[\"'])[^\"']+(?P<quote>[\"'])"
+)
+# Encodings the stdlib XML stack parses natively; anything else declared is
+# transcoded to UTF-8 below (multibyte ones like Shift_JIS, which pyexpat
+# rejects but Ant's JAXP reader accepts).
+_NATIVE_ENCODINGS = frozenset({"utf-8", "utf8", "ascii", "us-ascii"})
+# Xerces-supported aliases Python's codec registry does not know, derived from
+# the fIANA2JavaMap table in Xerces' EncodingMap.java: every IANA name Python
+# cannot resolve whose Java target has a verified Python equivalent. Keys are
+# lowercased with `_` folded to `-`, matching the normalization in
+# `_codec_for`. Java targets Python cannot decode (CP277/278/..., JIS0208,
+# ...) are deliberately absent: those files keep the graceful skip.
+_XERCES_ALIASES = {
+    "ccsid00858": "cp858",
+    "ccsid01140": "cp1140",
+    "cseucpkdfmtjapanese": "euc_jp",
+    "csgb2312": "gb2312",
+    "cswindows31j": "cp932",
+    "extended-unix-code-packed-format-for-japanese": "euc_jp",
+    "ibm-1026": "cp1026",
+    "ibm-1140": "cp1140",
+    "ibm-273": "cp273",
+    "ibm-367": "ascii",
+    "ibm-37": "cp037",
+    "ibm-437": "cp437",
+    "ibm-500": "cp500",
+    "ibm-775": "cp775",
+    "ibm-819": "iso8859_1",
+    "ibm-850": "cp850",
+    "ibm-852": "cp852",
+    "ibm-855": "cp855",
+    "ibm-857": "cp857",
+    "ibm-858": "cp858",
+    "ibm-860": "cp860",
+    "ibm-861": "cp861",
+    "ibm-862": "cp862",
+    "ibm-863": "cp863",
+    "ibm-864": "cp864",
+    "ibm-865": "cp865",
+    "ibm-866": "cp866",
+    "ibm-869": "cp869",
+    "ibm-1208": "utf-8",
+    "eucjis": "euc-jp",
+    # Korean aliases for KS X 1001: Python resolves KOREAN/KS_C_5601-1987 to
+    # euc_kr itself, and these remaining Xerces names render the same way.
+    "iso-ir-149": "euc_kr",
+    "ks-c-5601-1989": "euc_kr",
+    "ksc-5601": "euc_kr",
+    "csksc56011987": "euc_kr",
+    "windows-936": "gbk",
+}
+# Byte signatures for UTF-32/UTF-16 with the codec that decodes them (XML spec
+# Appendix F). Order matters: `FF FE` opens both UTF-32LE and UTF-16LE, so the
+# longer UTF-32 entries come first. Matched input is always transcoded, which
+# also maps names Python does not know (e.g. ISO-10646-UCS-2) to the right
+# decoder via the byte signature rather than the declared name.
+_UNICODE_SIGNATURES: tuple[tuple[bytes, str], ...] = (
+    (b"\x00\x00\xfe\xff", "utf-32-be"),
+    (b"\xff\xfe\x00\x00", "utf-32-le"),
+    (b"\x00\x00\x00\x3c", "utf-32-be"),
+    (b"\x3c\x00\x00\x00", "utf-32-le"),
+    (b"\xfe\xff", "utf-16"),
+    (b"\xff\xfe", "utf-16"),
+    (b"\x00\x3c\x00\x3f", "utf-16-be"),
+    (b"\x3c\x00\x3f\x00", "utf-16-le"),
+)
+# `<?xml` in EBCDIC, shared by CP037/CP500/CP1140/CP273; the exact variant is
+# read from the declaration itself (see `_transcode_ebcdic`).
+_EBCDIC_PREFIX = b"\x4c\x6f\xa7\x94\x93"
+_EBCDIC_CODECS = ("cp037", "cp500", "cp1140", "cp273")
+_XML_VERSION_RE = re.compile(r"<\?xml\s+version\s*=")
+_STR_DECL_NAME_RE = re.compile(r"<\?xml\s[^?]*?encoding\s*=\s*[\"']([^\"']+)[\"']")
+
+
+def _to_utf8(text: str) -> bytes:
+    """Patch the declaration of *text* to UTF-8 and encode it."""
+    text = _STR_DECL_ENCODING_RE.sub(r"\g<head>UTF-8\g<quote>", text, count=1)
+    return text.encode("utf-8")
+
+
+def _codec_for(declared: str) -> str:
+    """Map a declared encoding name to a Python codec.
+
+    Xerces aliases Python's registry does not know are translated first;
+    anything unmapped is returned unchanged for Python (or the graceful
+    skip) to judge.
+    """
+    return _XERCES_ALIASES.get(declared.lower().replace("_", "-"), declared)
+
+
+def _recode(source: bytes, codec: str) -> str | None:
+    """Decode *source* with *codec*, or None when it cannot be that codec."""
+    try:
+        return source.decode(codec).lstrip("\ufeff")
+    except LookupError:
+        return None
+    except UnicodeError:
+        return None
+
+
+def _transcode_signature(source: bytes) -> bytes:
+    """Transcode byte input whose declaration is not ASCII-readable.
+
+    UTF-32/UTF-16 byte patterns are unambiguous (NUL bytes are illegal in XML
+    content), so a match is decoded directly. EBCDIC input goes through
+    `_transcode_ebcdic`; anything else passes through for the real parse to
+    report.
+    """
+    for prefix, codec in _UNICODE_SIGNATURES:
+        if source.startswith(prefix):
+            text = _recode(source, codec)
+            return _to_utf8(text) if text is not None else source
+    if source.startswith(_EBCDIC_PREFIX):
+        return _transcode_ebcdic(source)
+    return source
+
+
+def _transcode_ebcdic(source: bytes) -> bytes:
+    """Transcode EBCDIC input with the codec its own declaration names.
+
+    Sibling EBCDIC codecs share one `<?xml` prefix, so the prefix alone cannot
+    select the codec: decoding a CP500 file as CP037 silently mangles every
+    character whose mapping differs (a `[` target would be listed as `¢`).
+    Instead any sibling bootstrap-decodes the declaration — whose characters
+    are variant-invariant — and the complete document is decoded with the
+    codec the declaration specifies (Xerces aliases resolved via
+    `_codec_for`). Anything unresolvable passes through for the real
+    parse to report.
+    """
+    for codec in _EBCDIC_CODECS:
+        bootstrap = _recode(source, codec)
+        if bootstrap is None:
+            continue
+        match = _STR_DECL_NAME_RE.search(bootstrap)
+        if match is None:
+            continue
+        text = _recode(source, _codec_for(match.group(1)))
+        if text is None or _XML_VERSION_RE.match(text) is None:
+            continue
+        return _to_utf8(text)
+    return source
+
+
+def _transcode(source: bytes) -> bytes:
+    """Return *source* as bytes ElementTree can parse.
+
+    The declared encoding is honoured: UTF-8/ASCII pass through untouched,
+    Xerces aliases Python does not know are mapped first, and anything else
+    declared is decoded and re-encoded as UTF-8 with the declaration patched
+    to match. Undeclared input without a recognised signature passes through
+    to native handling. Undecodable declarations pass through; the real parse
+    below reports them.
+    """
+    match = _DECL_ENCODING_RE.search(source)
+    if match is None:
+        return _transcode_signature(source)
+    try:
+        declared = match.group(1).decode("ascii")
+    except UnicodeDecodeError:
+        return source
+    normalized = declared.lower().replace("_", "-")
+    if normalized in _NATIVE_ENCODINGS:
+        return source
+    text = _recode(source, _codec_for(declared))
+    return _to_utf8(text) if text is not None else source
+
+
+def _prepare(text: str | bytes) -> str | bytes:
+    """Return *text* in a form the stdlib XML stack parses (see `_transcode`)."""
+    if isinstance(text, bytes):
+        return _transcode(text)
+    return text
+
+
+class _DoctypeFoundError(Exception):
+    """Control flow: the pre-scan spotted a document type declaration."""
+
+
+def _reject_doctype(*_args: object) -> None:
+    raise _DoctypeFoundError
+
+
+def _has_doctype(text: str | bytes) -> bool:
+    """Return whether *text* carries a ``<!DOCTYPE`` declaration.
+
+    The declaration is the only carrier of inline ``<!ENTITY>`` definitions,
+    whose expansion ElementTree performs without bounds (billion laughs), and
+    of external entity references. Genuine Ant build files never need a
+    DOCTYPE, so reject it up front and keep the stdlib parser without adding
+    defusedxml.
+
+    Detection itself runs on expat with a handler that aborts the parse the
+    moment a declaration starts, so no entity is ever expanded and encodings,
+    comments, processing instructions, and CDATA sections are all handled by
+    a real parser rather than pattern matching. Anything expat rejects is
+    left for the ElementTree parse below, which skips the file the same way.
+    """
+    parser = xml.parsers.expat.ParserCreate()
+    parser.StartDoctypeDeclHandler = _reject_doctype
+    try:
+        # pyexpat's Parse takes no keyword arguments, hence the positional flag.
+        parser.Parse(text, True)  # noqa: FBT003
+    except _DoctypeFoundError:
+        return True
+    # Parenthesized with a binding on purpose: ruff format's preview style
+    # strips parens from binding-less tuples, which CPython before 3.14 cannot
+    # parse (the prek check-ast hook runs 3.10). The binding is intentionally
+    # unused: the ElementTree parse below logs the skip with the real error.
+    except (
+        xml.parsers.expat.ExpatError,
+        LookupError,
+        ValueError,
+        UnicodeError,
+    ) as _exc:
+        # Unparsable input (unknown encoding, malformed XML, ...): no
+        # declaration was seen; the ElementTree parse below skips the file.
+        return False
+    return False
+
+
+def _runnable(tag: str) -> bool:
+    """Whether *tag* is an Ant core target-like element.
+
+    ElementTree reports namespaced tags as ``{uri}local``; only the empty
+    namespace and Ant's core URI count (``<plugin:target>`` is a task use).
+    """
+    if tag.startswith("{"):
+        uri, _, local = tag[1:].partition("}")
+        return local in _RUNNABLE and uri == _ANT_CORE_URI
+    return tag in _RUNNABLE
+
+
+def _is_project_root(tag: str) -> bool:
+    """Whether *tag* is an Ant ``<project>`` root element.
+
+    Ant's root handler only accepts ``project`` in the empty namespace or its
+    core URI and rejects anything else before installing any target.
+    """
+    if tag.startswith("{"):
+        uri, _, local = tag[1:].partition("}")
+        return local == "project" and uri == _ANT_CORE_URI
+    return tag == "project"
+
+
+def _attr(element: ET.Element, local: str) -> str | None:
+    """Return the attribute with local name *local*, Ant-style.
+
+    Ant interprets attributes by local name when unqualified or qualified with
+    the element's own namespace, ignores other namespaces, and assigns while
+    iterating so the later duplicate wins. ElementTree keys a namespaced
+    attribute as ``{uri}local`` but preserves document order in
+    ``element.attrib``, so the last accepted form is returned.
+    """
+    core = f"{{{_ANT_CORE_URI}}}{local}"
+    namespaced = element.tag.startswith(f"{{{_ANT_CORE_URI}}}")
+    value: str | None = None
+    for key, val in element.attrib.items():
+        if key == local or (namespaced and key == core):
+            value = val
+    return value
+
+
+def _description(element: ET.Element) -> str | None:
+    value = _attr(element, "description")
+    if value is None:
+        return None
+    # XML attribute normalization already folds literal newlines to spaces, so
+    # only `&#10;` character references still split lines; strip the first one.
+    lines = value.splitlines()
+    first = lines[0].strip() if lines else ""
+    return first or None
+
+
+def parse_build_xml(text: str | bytes, source_file: str = _SOURCE_FILE) -> list[Task]:
+    """Extract runnable entry names from ``build.xml`` without executing anything.
+
+    Deliberately does NOT shell out to ``ant -p``: the file is declarative XML,
+    so ``<target name=...>`` attributes can be read directly and a task body
+    (a sequence of XML tasks, not shell commands) never runs during discovery.
+    ``<extension-point name=...>`` entries are listed the same way: they are
+    target-like states with a name and an optional description, each running
+    as ``ant <name>``. Descriptions come from the ``description``
+    attribute; every entry is listed, including ones without a description
+    (which ``ant -p`` hides as internal). Names are kept verbatim — Ant permits
+    spaces in target names and ``argv_base`` passes the name as a single token,
+    so normalizing would change the target's identity. Only a missing name or
+    an actually empty one is skipped (Ant rejects the latter); anything else,
+    including whitespace-only names, stays listed exactly as Ant accepts it.
+    Names beginning with a
+    hyphen are skipped: Ant parses such arguments as options, so they cannot
+    run via ``ant <name>`` (the conventional internal-target form); the check
+    mirrors Ant's own ``startsWith("-")`` on the same verbatim token, so
+    padded variants (``  -init ``) stay listed. Only core-namespace
+    ``<target>``/``<extension-point>`` elements count: other namespaces are
+    ordinary task/type uses, not entry points. Documents whose root is not an
+    Ant ``<project>`` element are skipped: Ant rejects them before installing
+    any target. Task bodies stay
+    opaque, so ``definition`` is empty. Imported/included build files,
+    ``macrodef``-defined
+    behaviour, ``if``/``unless`` conditions, ``depends`` ordering, and
+    ``${property}`` interpolation are not resolved; names are left literal.
+    Parser errors skip the file. Files with a ``<!DOCTYPE>`` declaration are
+    skipped as well: it is the only carrier of ``<!ENTITY>`` definitions,
+    whose expansion is unbounded, and genuine Ant build files never need one.
+    Detection is an expat pre-scan that aborts at the first declaration, so no
+    entity is ever expanded during discovery.
+    Results are syntactic task candidates, not a
+    promise that Ant will accept or successfully execute each target.
+
+    Byte input is preferred: ElementTree honours the XML encoding declaration
+    only for bytes; a `str` carrying one is skipped as unparsable. Byte input
+    in an encoding outside the stdlib's native set (multibyte ones like
+    Shift_JIS, UTF-32, or EBCDIC variants, which Ant accepts) is transcoded to
+    UTF-8 first.
+    """
+    text = _prepare(text)
+    if _has_doctype(text):
+        log.warning(
+            "nur: skipping %s (document type declaration not allowed)", source_file
+        )
+        return []
+    try:
+        root = ET.fromstring(text)
+    except (ET.ParseError, LookupError, ValueError, UnicodeError) as exc:
+        log.warning("nur: skipping %s (%s)", source_file, exc)
+        return []
+    if not _is_project_root(root.tag):
+        log.warning("nur: skipping %s (not an Ant project file)", source_file)
+        return []
+    tasks: dict[str, Task] = {}
+    # Only direct children of the project root: Ant only accepts <target> and
+    # <extension-point> there, so nested elements of the same name (e.g. inside
+    # <macrodef>) are not runnable entry points.
+    for element in root:
+        if not _runnable(element.tag):
+            continue
+        raw = _attr(element, "name")
+        if not raw:
+            continue
+        if raw.startswith("-"):
+            # Ant checks the original command-line token with startsWith("-"),
+            # so only position-zero hyphens read as options; padded variants
+            # (`  -init `) stay runnable as single-token target names, exactly
+            # as Ant itself treats them. Make skips `.`-prefixed names for the
+            # same reason.
+            continue
+        name = raw
+        declared = Task(
+            name=name,
+            prefix="ant",
+            argv_base=("ant", name),
+            description=_description(element),
+            source_file=source_file,
+        )
+        existing = tasks.get(name)
+        if existing is not None:
+            if existing.description is None and declared.description is not None:
+                tasks[name] = replace(existing, description=declared.description)
+            continue
+        tasks[name] = declared
+    return list(tasks.values())
+
+
+class AntProvider:
+    prefix = "ant"
+
+    def detect(self, cwd: Path) -> bool:
+        return (cwd / _SOURCE_FILE).is_file()
+
+    def discover(self, cwd: Path) -> list[Task]:
+        # Bytes (not text): ElementTree honours the XML encoding declaration
+        # only for byte input; decoding first would misread non-UTF-8 files
+        # and reject declarations outright.
+        try:
+            source = (cwd / _SOURCE_FILE).read_bytes()
+        except OSError as exc:
+            log.warning("nur: skipping %s (%s)", _SOURCE_FILE, exc)
+            return []
+        return parse_build_xml(source)

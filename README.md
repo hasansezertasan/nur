@@ -25,7 +25,7 @@
 Run `nur` in a project and it discovers the tasks your project already defines —
 from npm, Make, deno, composer, just, Taskfile, pre-commit, PDM/poe, tox, mise,
 cargo-make, moon, xc, VS Code tasks, nox, mask, Invoke, Rake, Grunt, Gulp,
-Turborepo, Nx, and npm/pnpm/yarn/bun workspaces — then lets you run them from a TUI picker or directly from the command line.
+Ant, Turborepo, Nx, and npm/pnpm/yarn/bun workspaces — then lets you run them from a TUI picker or directly from the command line.
 Discovery is rooted at the current directory. See [Features](#features) for the
 full list of source files.
 
@@ -130,12 +130,12 @@ If you have any questions or need help, feel free to open an issue on the [GitHu
 Every project speaks a different task dialect — `make test`, `npm run test`,
 `just test`, `task test`, `pdm run test`, `poe test`, `tox -e test`, `mise run test`, `xc test`. nur gives
 you one command that discovers whatever a project already uses and runs it, with no config and
-no need to remember which runner lives where. Discovery is pure text/JSON/TOML
+no need to remember which runner lives where. Discovery is pure text/JSON/TOML/XML
 parsing, so listing tasks never executes anything (no `make -pRrq` side effects).
 
 ## Features
 
-- **Zero-config discovery** across twenty-four providers, each parsed from a
+- **Zero-config discovery** across twenty-five providers, each parsed from a
   source file rooted at the current directory:
 
   | Provider | Prefix | Source file |
@@ -161,6 +161,7 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   | Rake | `rake` | `Rakefile` (see below) |
   | Grunt | `grunt` | `Gruntfile.js` (see below) |
   | Gulp | `gulp` | `gulpfile.js` (see below) |
+  | Ant | `ant` | `build.xml` (see below) |
   | Turborepo | `turbo` | `turbo.json` (see below) |
   | Nx | `nx` | `nx.json` (see below) |
   | workspaces | `workspace` | member `package.json` files (see below) |
@@ -227,11 +228,26 @@ parsing, so listing tasks never executes anything (no `make -pRrq` side effects)
   `task('name', ...)` names, CommonJS `exports.name` / `module.exports.name` /
   `exports['name']` assignments, and ESM `export function` / `export const` /
   `export default` / `export {a as b}` forms, running each as `gulp <name>`.
-  `<task>.description` string assignments supply description metadata. Task
+   `<task>.description` string assignments supply description metadata. Task
   bodies, function references (`task(build)`), `series()`/`parallel()`
   composition, computed keys, object-literal `module.exports = {...}`, and
   re-exports are skipped. These are **syntactic task candidates**, not a
   guarantee that Gulp will register or successfully execute each task.
+
+   `ant` parses the declarative `build.xml` without running Ant or `ant -p`.
+   It discovers every `<target name="...">` (including ones without a
+   `description`, which `ant -p` hides as internal), running each as
+   `ant <name>` and available as `nur ant:<name>`. Target-like
+   `<extension-point name="...">` entries are listed the same way. Names are
+   kept verbatim
+   (Ant permits spaces) except leading-hyphen targets, which Ant parses as
+   options and can never run from the command line. The `description`
+   attribute supplies description metadata. Task bodies (XML tasks, not shell
+   commands) stay opaque, so `definition` is empty. Imported/included build
+   files, `macrodef`-defined behaviour, `if`/`unless` conditions, `depends`
+   ordering, and `${property}` interpolation are not resolved; names are left
+   literal. These are **syntactic task candidates**, not a guarantee that Ant
+   will accept or successfully execute each target.
 
   `turbo` reads the root `turbo.json` (JSONC) `tasks` table (falling back to
   the legacy v1 `pipeline` key) and runs each key as `turbo run <name>`,
