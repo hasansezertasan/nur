@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: "superseded by [ADR 0005](0005-completeness-over-popularity.md)"
 date: 2026-08-06
 decision-makers: [hasansezertasan]
 consulted: []
