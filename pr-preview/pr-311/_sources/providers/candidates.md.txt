@@ -157,7 +157,7 @@ eval "$(argc --argc-eval "$0" "$@")"
 
 `prefix` ← `argc`; `name` ← the function name paired with a `# @cmd`;
 `argv_base` ← `("argc", name)`; `description` ← the `# @cmd` text;
-`definition` ← the same description (body opaque); `source_file` ← `Argcfile.sh`.
+`definition` ← empty (the body is opaque shell); `source_file` ← `Argcfile.sh`.
 
 **Parsing edge cases:**
 

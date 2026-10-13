@@ -245,10 +245,11 @@ inherited from <code class="docutils literal notranslate"><span class="pre">[tes
 its real precedence was buggy until tox PR #3742 (merged Feb 2026, issue
 #3645). Pick the first existing file by a documented order and do not
 over-trust cross-version precedence.</p></li>
-<li><p><strong>Left out:</strong> TOML structured matrices (<code class="docutils literal notranslate"><span class="pre">range</span></code>, <code class="docutils literal notranslate"><span class="pre">labeled</span></code>, <code class="docutils literal notranslate"><span class="pre">product</span></code>),
-factor-conditional settings, generative section headers <code class="docutils literal notranslate"><span class="pre">[testenv:{a,b}]</span></code>,
-<code class="docutils literal notranslate"><span class="pre">labels</span></code>, and provisioning environments (<code class="docutils literal notranslate"><span class="pre">.pkg</span></code>, <code class="docutils literal notranslate"><span class="pre">.tox</span></code>), treated as
-non-runnable.</p></li>
+<li><p><strong>Also read:</strong> generative section headers <code class="docutils literal notranslate"><span class="pre">[testenv:{a,b}]</span></code>, factor-conditional
+commands (filtered by the current environment’s factors) and <code class="docutils literal notranslate"><span class="pre">labels</span></code> (INI and
+TOML).</p></li>
+<li><p><strong>Left out:</strong> TOML structured matrices (<code class="docutils literal notranslate"><span class="pre">range</span></code>, <code class="docutils literal notranslate"><span class="pre">labeled</span></code>, <code class="docutils literal notranslate"><span class="pre">product</span></code>) and
+provisioning environments (<code class="docutils literal notranslate"><span class="pre">.pkg</span></code>, <code class="docutils literal notranslate"><span class="pre">.tox</span></code>), treated as non-runnable.</p></li>
 <li><p><strong>Adoption (information only):</strong> about 1,869 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).</p></li>
 </ul>
 </section>
@@ -283,12 +284,13 @@ appear), and the <code class="docutils literal notranslate"><span class="pre">ma
 <li><p><strong>Run:</strong> the task’s own <code class="docutils literal notranslate"><span class="pre">command</span></code> and <code class="docutils literal notranslate"><span class="pre">args</span></code>.</p></li>
 <li><p><strong>Reads:</strong> schema <code class="docutils literal notranslate"><span class="pre">version</span></code> <code class="docutils literal notranslate"><span class="pre">&quot;2.0.0&quot;</span></code>, JSONC. Task <code class="docutils literal notranslate"><span class="pre">label</span></code> is the name,
 <code class="docutils literal notranslate"><span class="pre">detail</span></code> the description. <code class="docutils literal notranslate"><span class="pre">shell</span></code>, <code class="docutils literal notranslate"><span class="pre">process</span></code> and untyped tasks with a
-<code class="docutils literal notranslate"><span class="pre">command</span></code> are runnable. <code class="docutils literal notranslate"><span class="pre">command</span></code> may be a string or an OS-variant object
-(<code class="docutils literal notranslate"><span class="pre">windows</span></code>, <code class="docutils literal notranslate"><span class="pre">linux</span></code>, <code class="docutils literal notranslate"><span class="pre">osx</span></code>); <code class="docutils literal notranslate"><span class="pre">args</span></code> items may be strings or
-<code class="docutils literal notranslate"><span class="pre">{</span> <span class="pre">&quot;value&quot;,</span> <span class="pre">&quot;quoting&quot;</span> <span class="pre">}</span></code>.</p></li>
+<code class="docutils literal notranslate"><span class="pre">command</span></code> are runnable. A task or the document may carry <code class="docutils literal notranslate"><span class="pre">windows</span></code>, <code class="docutils literal notranslate"><span class="pre">linux</span></code> and
+<code class="docutils literal notranslate"><span class="pre">osx</span></code> override objects, merged for the current platform; <code class="docutils literal notranslate"><span class="pre">command</span></code> and <code class="docutils literal notranslate"><span class="pre">args</span></code>
+items may be strings or <code class="docutils literal notranslate"><span class="pre">{</span> <span class="pre">&quot;value&quot;,</span> <span class="pre">&quot;quoting&quot;</span> <span class="pre">}</span></code>.</p></li>
 <li><p><strong>Left out:</strong> the legacy <code class="docutils literal notranslate"><span class="pre">&quot;0.1.0&quot;</span></code> schema; extension-contributed task types
 (<code class="docutils literal notranslate"><span class="pre">npm</span></code>, <code class="docutils literal notranslate"><span class="pre">typescript</span></code>, <code class="docutils literal notranslate"><span class="pre">gulp</span></code>, <code class="docutils literal notranslate"><span class="pre">grunt</span></code>, <code class="docutils literal notranslate"><span class="pre">cargo</span></code>, …), which the extension
-resolves at runtime; <code class="docutils literal notranslate"><span class="pre">dependsOn</span></code>-only compound tasks; editor-only variables
+resolves at runtime; any task with a non-empty <code class="docutils literal notranslate"><span class="pre">dependsOn</span></code> (even one that also has its own
+<code class="docutils literal notranslate"><span class="pre">command</span></code>); editor-only variables
 (<code class="docutils literal notranslate"><span class="pre">${file}</span></code>, <code class="docutils literal notranslate"><span class="pre">${selectedText}</span></code>, <code class="docutils literal notranslate"><span class="pre">${input:...}</span></code>): a task whose command, args or
 working directory still contains an unresolved variable is <strong>skipped</strong>, not
 listed (<code class="docutils literal notranslate"><span class="pre">${workspaceFolder}</span></code> resolves to the discovery directory). Duplicate

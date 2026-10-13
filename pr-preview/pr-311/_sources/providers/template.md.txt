@@ -10,7 +10,8 @@ reason instead of leaving one out. Evaluate against the three gates in
 - **Format:** what it is, one line.
 - **Source file(s):** the file(s) read. Note any glob or pointer files.
 - **Docs / spec:** primary-source links.
-- **State:** Accepted | Implemented | Declined.
+- **State:** Pending | Accepted | Implemented | Declined. Use Pending while a
+  gate is unresolved or the evaluation is incomplete.
 
 ### How it is used
 A minimal example of the file and how the runner invokes a task.

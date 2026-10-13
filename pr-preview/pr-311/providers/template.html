@@ -146,36 +146,37 @@ reason instead of leaving one out. Evaluate against the three gates in
 </span><span data-line="3"><span class="k">-</span><span class="w"> </span><span class="gs">**Format:**</span> what it is, one line.
 </span><span data-line="4"><span class="k">-</span><span class="w"> </span><span class="gs">**Source file(s):**</span> the file(s) read. Note any glob or pointer files.
 </span><span data-line="5"><span class="k">-</span><span class="w"> </span><span class="gs">**Docs / spec:**</span> primary-source links.
-</span><span data-line="6"><span class="k">-</span><span class="w"> </span><span class="gs">**State:**</span> Accepted | Implemented | Declined.
-</span><span data-line="7">
-</span><span data-line="8"><span class="gu">### How it is used</span>
-</span><span data-line="9">A minimal example of the file and how the runner invokes a task.
-</span><span data-line="10">
-</span><span data-line="11"><span class="gu">### Gate check</span>
-</span><span data-line="12"><span class="k">1.</span> <span class="gs">**Safe listing.**</span> Can names be read without running project code or
-</span><span data-line="13">   evaluating project-controlled expressions? Which native listing command
-</span><span data-line="14">   must <span class="ge">*not*</span> be used?
-</span><span data-line="15"><span class="k">2.</span> <span class="gs">**Faithful run command.**</span> What delegated invocation runs the task locally
-</span><span data-line="16">   and does what the file says? What does it need beforehand?
-</span><span data-line="17"><span class="k">3.</span> <span class="gs">**Honest subset.**</span> What is read, and what is left opaque?
-</span><span data-line="18">
-</span><span data-line="19"><span class="gu">### Task-model mapping</span>
-</span><span data-line="20"><span class="sb">`prefix`</span>, <span class="sb">`name`</span>, <span class="sb">`argv_base`</span>, <span class="sb">`description`</span>, <span class="sb">`definition`</span>, <span class="sb">`source_file`</span>,
-</span><span data-line="21"><span class="sb">`passthrough_prefix`</span>.
-</span><span data-line="22">
-</span><span data-line="23"><span class="gu">### Parsing edge cases</span>
-</span><span data-line="24">Verified against primary docs. Cite what was confirmed and flag what was not.
-</span><span data-line="25">
-</span><span data-line="26"><span class="gu">### Deferred</span>
-</span><span data-line="27">What a first cut deliberately omits.
-</span><span data-line="28">
-</span><span data-line="29"><span class="gu">### Adoption (information only)</span>
-</span><span data-line="30">Figures with their source, or "no figure known". Never a reason to accept,
-</span><span data-line="31">decline or order work.
-</span><span data-line="32">
-</span><span data-line="33"><span class="gu">### Decision</span>
-</span><span data-line="34">Accepted / declined, which gate decides it, and for a decline the
-</span><span data-line="35"><span class="gs">**revisit trigger**</span>.
+</span><span data-line="6"><span class="k">-</span><span class="w"> </span><span class="gs">**State:**</span> Pending | Accepted | Implemented | Declined. Use Pending while a
+</span><span data-line="7">  gate is unresolved or the evaluation is incomplete.
+</span><span data-line="8">
+</span><span data-line="9"><span class="gu">### How it is used</span>
+</span><span data-line="10">A minimal example of the file and how the runner invokes a task.
+</span><span data-line="11">
+</span><span data-line="12"><span class="gu">### Gate check</span>
+</span><span data-line="13"><span class="k">1.</span> <span class="gs">**Safe listing.**</span> Can names be read without running project code or
+</span><span data-line="14">   evaluating project-controlled expressions? Which native listing command
+</span><span data-line="15">   must <span class="ge">*not*</span> be used?
+</span><span data-line="16"><span class="k">2.</span> <span class="gs">**Faithful run command.**</span> What delegated invocation runs the task locally
+</span><span data-line="17">   and does what the file says? What does it need beforehand?
+</span><span data-line="18"><span class="k">3.</span> <span class="gs">**Honest subset.**</span> What is read, and what is left opaque?
+</span><span data-line="19">
+</span><span data-line="20"><span class="gu">### Task-model mapping</span>
+</span><span data-line="21"><span class="sb">`prefix`</span>, <span class="sb">`name`</span>, <span class="sb">`argv_base`</span>, <span class="sb">`description`</span>, <span class="sb">`definition`</span>, <span class="sb">`source_file`</span>,
+</span><span data-line="22"><span class="sb">`passthrough_prefix`</span>.
+</span><span data-line="23">
+</span><span data-line="24"><span class="gu">### Parsing edge cases</span>
+</span><span data-line="25">Verified against primary docs. Cite what was confirmed and flag what was not.
+</span><span data-line="26">
+</span><span data-line="27"><span class="gu">### Deferred</span>
+</span><span data-line="28">What a first cut deliberately omits.
+</span><span data-line="29">
+</span><span data-line="30"><span class="gu">### Adoption (information only)</span>
+</span><span data-line="31">Figures with their source, or "no figure known". Never a reason to accept,
+</span><span data-line="32">decline or order work.
+</span><span data-line="33">
+</span><span data-line="34"><span class="gu">### Decision</span>
+</span><span data-line="35">Accepted / declined, which gate decides it, and for a decline the
+</span><span data-line="36"><span class="gs">**revisit trigger**</span>.
 </span></pre></div>
 </div>
 </section>
