@@ -312,6 +312,36 @@ def test_parse_build_xml_decodes_ebcdic_cp037() -> None:
     assert tasks["build"].description == "hello"
 
 
+def test_parse_build_xml_selects_declared_ebcdic_codec() -> None:
+    # Sibling EBCDIC codecs share one `<?xml` prefix, so CP037 would decode
+    # this file too — mangling `[` into `¢`. The declaration names CP500, so
+    # the name must survive verbatim.
+    source = (
+        '<?xml version="1.0" encoding="CP500"?>'
+        "<project><target name='[build]'/></project>"
+    ).encode("cp500")
+    assert [t.name for t in parse_build_xml(source)] == ["[build]"]
+
+
+def test_parse_build_xml_decodes_ebcdic_xerces_alias() -> None:
+    source = (
+        '<?xml version="1.0" encoding="EBCDIC-CP-CH"?>'
+        "<project><target name='build'/></project>"
+    ).encode("cp500")
+    assert [t.name for t in parse_build_xml(source)] == ["build"]
+
+
+def test_parse_build_xml_skips_unsupported_ebcdic_variant(caplog) -> None:
+    # EBCDIC-CP-DK maps to CP277, which Python cannot decode: skip the file
+    # instead of listing entries decoded with the wrong codec.
+    source = (
+        '<?xml version="1.0" encoding="EBCDIC-CP-DK"?>'
+        "<project><target name='build'/></project>"
+    ).encode("cp037")
+    assert parse_build_xml(source) == []
+    assert any("build.xml" in r.message for r in caplog.records)
+
+
 def test_parse_build_xml_malformed_returns_empty(caplog) -> None:
     assert parse_build_xml("<project><target") == []
     assert any("build.xml" in r.message for r in caplog.records)

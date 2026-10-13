@@ -49,10 +49,11 @@ _UTF32_SIGNATURES: tuple[tuple[bytes, str], ...] = (
     (b"\x3c\x00\x00\x00", "utf-32-le"),
 )
 # `<?xml` in EBCDIC, shared by CP037/CP500/CP1140/CP273; the exact variant is
-# pinned down by trial-decoding below.
+# read from the declaration itself (see `_transcode_ebcdic`).
 _EBCDIC_PREFIX = b"\x4c\x6f\xa7\x94\x93"
 _EBCDIC_CODECS = ("cp037", "cp500", "cp1140", "cp273")
 _XML_VERSION_RE = re.compile(r"<\?xml\s+version\s*=")
+_STR_DECL_NAME_RE = re.compile(r"<\?xml\s[^?]*?encoding\s*=\s*[\"']([^\"']+)[\"']")
 
 
 def _to_utf8(text: str) -> bytes:
@@ -75,20 +76,42 @@ def _transcode_signature(source: bytes) -> bytes:
     """Transcode byte input whose declaration is not ASCII-readable.
 
     UTF-32 byte patterns are unambiguous (NUL bytes are illegal in XML
-    content), so a match is decoded directly. EBCDIC variants share one
-    `<?xml` prefix, so each sibling codec is tried and the first decode that
-    actually opens an XML declaration wins; anything else passes through for
-    the real parse to report.
+    content), so a match is decoded directly. EBCDIC input goes through
+    `_transcode_ebcdic`; anything else passes through for the real parse to
+    report.
     """
     for prefix, codec in _UTF32_SIGNATURES:
         if source.startswith(prefix):
             text = _recode(source, codec)
             return _to_utf8(text) if text is not None else source
     if source.startswith(_EBCDIC_PREFIX):
-        for codec in _EBCDIC_CODECS:
-            text = _recode(source, codec)
-            if text is not None and _XML_VERSION_RE.match(text) is not None:
-                return _to_utf8(text)
+        return _transcode_ebcdic(source)
+    return source
+
+
+def _transcode_ebcdic(source: bytes) -> bytes:
+    """Transcode EBCDIC input with the codec its own declaration names.
+
+    Sibling EBCDIC codecs share one `<?xml` prefix, so the prefix alone cannot
+    select the codec: decoding a CP500 file as CP037 silently mangles every
+    character whose mapping differs (a `[` target would be listed as `¢`).
+    Instead any sibling bootstrap-decodes the declaration — whose characters
+    are variant-invariant — and the complete document is decoded with the
+    codec the declaration specifies (Python resolves aliases such as
+    EBCDIC-CP-CH itself). Anything unresolvable passes through for the real
+    parse to report.
+    """
+    for codec in _EBCDIC_CODECS:
+        bootstrap = _recode(source, codec)
+        if bootstrap is None:
+            continue
+        match = _STR_DECL_NAME_RE.search(bootstrap)
+        if match is None:
+            continue
+        text = _recode(source, match.group(1))
+        if text is None or _XML_VERSION_RE.match(text) is None:
+            continue
+        return _to_utf8(text)
     return source
 
 
