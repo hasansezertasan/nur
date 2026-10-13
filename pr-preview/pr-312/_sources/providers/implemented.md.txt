@@ -36,8 +36,9 @@ quoting one. Observed gaps are recorded as they are, not fixed here.
   yarn or bun; `name` is the script key; `argv_base` is `(pm, "run", name)`;
   `definition` is the script string (`str()` of the value); no `description`;
   `source_file` is `package.json`; `passthrough_prefix` is `("--",)`.
-- **Edge cases:** a missing, null or empty `scripts` lists nothing; a `scripts`
-  that is not an object, malformed JSON or an unreadable file logs a warning and
+- **Edge cases:** a missing, null or empty `scripts` lists nothing, and so does a
+  falsy `scripts` such as `false` or `0`, silently; a truthy `scripts` that is not an
+  object, malformed JSON or an unreadable file logs a warning and
   lists nothing. A JSON document whose top level is not an object, and a file
   that is not valid UTF-8, are not guarded.
 - **Opaque:** `pre*`/`post*` hooks are listed as ordinary scripts and not run
@@ -65,7 +66,8 @@ quoting one. Observed gaps are recorded as they are, not fixed here.
   `::` and static-pattern rules, backslash-continued headers, rules inside
   conditionals (no branch is evaluated), target-specific variable targets.
   Skipped: `.`-prefixed specials such as `.PHONY`, `%` pattern rules, computed
-  names (`$(X)`), assignments, recipe lines, `define` bodies, `include`
+  names (`$(X)`), a target literally named `Makefile` (excluded even though it
+  matches the name pattern), assignments, recipe lines, `define` bodies, `include`
   directives (never followed). Non-ASCII name fragments are rejected, not
   truncated. A BOM is stripped and line endings normalised. Input the grammar
   rejects logs a warning and goes through the line fallback, so valid rules
@@ -134,9 +136,10 @@ quoting one. Observed gaps are recorded as they are, not fixed here.
   `passthrough_prefix`.
 - **Edge cases:** a header is an unindented `name args: deps` line whose `:` is
   not followed by `=`, which excludes `alias`, `export X :=` and `set`. Parameters
-  and dependencies are skipped. Indented lines are bodies. A blank line or
+  and dependencies are skipped. Indented lines are bodies. A blank line or an unindented
   non-comment line clears a pending comment; attribute lines between comment and
-  recipe keep it. `doc(...)` inside another attribute's string is not mistaken
+  recipe keep it, and so do indented lines, so a comment can still reach a later
+  unindented recipe past an indented body line. `doc(...)` inside another attribute's string is not mistaken
   for a description. Triple-quoted and triple-backtick literals are skipped so
   unindented text inside them is not read as a recipe (the toggle is naive about
   quote escaping). The first of a duplicate name wins. `[private]` and
