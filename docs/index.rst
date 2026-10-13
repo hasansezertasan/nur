@@ -12,6 +12,7 @@ A script discovery and execution engine for your project's tasks.
    cli-reference
    modules
    adr/index
+   providers/index
 
 .. toctree::
    :maxdepth: 2

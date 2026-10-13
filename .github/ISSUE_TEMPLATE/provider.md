@@ -7,9 +7,12 @@ assignees: 'hasansezertasan'
 ---
 
 <!--
-nur discovers tasks by PARSING a file, never by executing code. A provider is
-only viable if its source format can be read statically. Please work through
-every section below — the static-discovery check is the deciding one.
+nur discovers tasks by PARSING a file, never by executing code. A format becomes
+a provider when it passes three gates (ADR 0005,
+docs/adr/0005-completeness-over-popularity.md): safe listing, a faithful run
+command, and an honest subset. Popularity is not a gate. Please add an entry to
+the provider register (docs/providers/, template: docs/providers/template.md)
+before or together with this issue; the register is the source of truth.
 -->
 
 ## Format
@@ -25,25 +28,23 @@ What is the format, and where does its config live?
 ## Static-discovery check (required)
 
 <!--
-The deciding rule (ADR 0001, docs/adr/0001-provider-selection-criteria.md) is
-the SAFETY invariant, not completeness: listing tasks must NEVER execute the
-project's own task code or evaluate project-controlled expressions. Enumeration
-may be a *safe subset* — completeness yields to the hard rule (e.g. the `make`
-provider text-parses and skips `include`/computed targets; `pre-commit` skips
-remote hooks). What disqualifies a format is that discovering *any* useful
-runnable task would require running project code (imperative build scripts,
-`@task` decorators, arbitrary Ruby/Python/Groovy) or resolving remote state
-(e.g. GitHub Actions runners).
+Gate 1 is the SAFETY invariant: listing tasks must NEVER execute the project's
+own task code or evaluate project-controlled expressions. Gate 2: a delegated
+command (`<runner> <name>`) must run the task locally and faithfully. Gate 3:
+enumeration may be a *safe subset* (e.g. the `make` provider text-parses and
+skips `include`/computed targets; `pre-commit` skips remote hooks) but must be
+honest about what it leaves opaque.
 -->
 
 - **Does listing tasks avoid executing project task code / project-controlled expressions?** <!-- Must be Yes — this is the hard rule -->
 - **Can a useful subset of runnable tasks (name + run command) be parsed from the file without evaluation?** <!-- Yes / No — a safe subset is enough; full coverage is a bonus -->
-- **Does discovery avoid shelling out to enumerate tasks (e.g. `tool -l`)?** <!-- Yes preferred; a parse-only dump like `just --dump` is tolerated as a temporary deviation only -->
+- **Does discovery avoid shelling out to enumerate tasks (e.g. `tool -l`)?** <!-- Must be Yes: no runner is invoked to list tasks, including parse-only dumps -->
+- **Does a delegated command (`<runner> <name>`) run the task locally and faithfully?** <!-- Yes / No; say what it needs beforehand -->
 - **If enumeration is partial, what is deliberately not resolved, and why is that the safety trade-off?** <!-- e.g. include directives, computed names, remote hooks -->
 
-> If the first answer is No — any useful discovery would require executing
-> project code or resolving remote state — the format belongs on the deferred /
-> excluded tracking issue (#78), not here.
+> If a gate fails, the format is recorded as declined in the register
+> (docs/providers/declined.md) with the failed gate and a revisit trigger. If a
+> gate is merely unresolved, it is recorded as pending.
 
 ## Task-model mapping
 
@@ -89,5 +90,6 @@ Optional but encouraged: pseudocode of discovery → parse → emit Task(...).
 ## Adoption
 
 <!--
-Rough usage signal (e.g. repo census count) to justify priority.
+Information only, with its source (or "no figure known"). Popularity is not a
+reason to accept, decline or order a provider.
 -->
