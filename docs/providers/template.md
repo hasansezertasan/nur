@@ -39,6 +39,6 @@ Figures with their source, or "no figure known". Never a reason to accept,
 decline or order work.
 
 ### Decision
-Accepted / declined, which gate decides it, and for a decline the
-**revisit trigger**.
+Accepted, pending or declined. For a decline, name the failed gate and the
+**revisit trigger**; for pending, name the unresolved gate and what resolves it.
 ```

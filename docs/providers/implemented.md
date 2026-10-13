@@ -158,7 +158,8 @@ is defined by their provider modules and tests. Open items:
   `@invoke.task` and aliased imports; explicit `name=` and `aliases=`; first
   docstring line as `description`. The module is never imported.
 - **Notes:** only top-level `def`s with one decorator are read; underscores in
-  names become dashes. A task with `pre=`/`post=` is dropped, and invalid task
+  names become dashes. A task with a non-empty `pre=`/`post=` is dropped (empty collections are
+  accepted), and invalid task
   metadata or colliding `default=True` tasks make the whole file list nothing.
 - **Left out:** command bodies (`c.run(...)`), parameters, `pre`/`post` graphs,
   `Collection` namespacing (so namespaced setups are under-covered), and tasks
@@ -176,7 +177,8 @@ is defined by their provider modules and tests. Open items:
   such as `tests-3.11` are runtime-generated, so only the base session name is
   listed, and `nox -s tests` still runs all its variants), dynamically registered
   sessions, command bodies. If the module is not straight-line (loops, `with`,
-  `match`, star imports, namespace mutation), the provider lists nothing for the
+  `match`, unrecognized star imports, namespace mutation; `from nox import *` is
+  modeled), the provider lists nothing for the
   file. Only top-level `def`s register sessions; `nox_uv.session` is accepted.
 
 ## Apache Ant
