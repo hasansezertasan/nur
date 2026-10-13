@@ -200,7 +200,11 @@ quoting one. Observed gaps are recorded as they are, not fixed here.
 - **Format:** xc, tasks written as Markdown headings. **Source:** `README.md` in
   the current directory only. **Docs:** <https://xcfile.dev/task-syntax/task-list/>.
   **Issue:** #36.
-- **Run:** `xc <name>`. **Never use:** `xc -s`, because xc executes task scripts.
+- **Run:** `xc <name>`. **Never use:** `xc -s` to list. It
+  does not run task scripts (the [Markdown parser evaluation](research/markdown-parser.md)
+  uses `xc -short` as the reference listing), but ADR 0005 gate 1 forbids shelling
+  out to a runner to enumerate, and a file scan needs no `xc` binary. The module
+  docstring says xc "executes task scripts"; that wording is imprecise.
 - **Gate check:** (1) safe: a Markdown scan; xc is never called. (2) faithful:
   `xc <name>`. (3) honest subset: names, description and first script only.
 - **Mapping:** `prefix` `xc`; `argv_base` `("xc", name)`; `description` the prose

@@ -81,6 +81,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Implemented providers: evaluations</a></li>
 <li class="toctree-l2"><a class="reference internal" href="candidates.html">Candidates</a></li>
 <li class="toctree-l2"><a class="reference internal" href="declined.html">Declined formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="history.html">Origin of the register (issue #78)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="research/markdown-parser.html">Markdown parser evaluation (mask and xc)</a></li>
 </ul>
 </li>
@@ -374,7 +375,11 @@ without falling back to another file.</p></li>
 <li><p><strong>Format:</strong> xc, tasks written as Markdown headings. <strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">README.md</span></code> in
 the current directory only. <strong>Docs:</strong> <a class="reference external" href="https://xcfile.dev/task-syntax/task-list/">https://xcfile.dev/task-syntax/task-list/</a>.
 <strong>Issue:</strong> #36.</p></li>
-<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">xc</span> <span class="pre">&lt;name&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">xc</span> <span class="pre">-s</span></code>, because xc executes task scripts.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">xc</span> <span class="pre">&lt;name&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">xc</span> <span class="pre">-s</span></code> to list. It
+does not run task scripts (the <a class="reference internal" href="research/markdown-parser.html"><span class="std std-doc">Markdown parser evaluation</span></a>
+uses <code class="docutils literal notranslate"><span class="pre">xc</span> <span class="pre">-short</span></code> as the reference listing), but ADR 0005 gate 1 forbids shelling
+out to a runner to enumerate, and a file scan needs no <code class="docutils literal notranslate"><span class="pre">xc</span></code> binary. The module
+docstring says xc “executes task scripts”; that wording is imprecise.</p></li>
 <li><p><strong>Gate check:</strong> (1) safe: a Markdown scan; xc is never called. (2) faithful:
 <code class="docutils literal notranslate"><span class="pre">xc</span> <span class="pre">&lt;name&gt;</span></code>. (3) honest subset: names, description and first script only.</p></li>
 <li><p><strong>Mapping:</strong> <code class="docutils literal notranslate"><span class="pre">prefix</span></code> <code class="docutils literal notranslate"><span class="pre">xc</span></code>; <code class="docutils literal notranslate"><span class="pre">argv_base</span></code> <code class="docutils literal notranslate"><span class="pre">(&quot;xc&quot;,</span> <span class="pre">name)</span></code>; <code class="docutils literal notranslate"><span class="pre">description</span></code> the prose
