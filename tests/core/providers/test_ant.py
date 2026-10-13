@@ -303,6 +303,46 @@ def test_parse_build_xml_decodes_utf32() -> None:
         assert [t.name for t in parse_build_xml(source)] == ["build"], label
 
 
+def test_parse_build_xml_decodes_utf16() -> None:
+    body = (
+        '<?xml version="1.0" encoding="UTF-16"?>'
+        "<project><target name='build' description='hi'/></project>"
+    )
+    variants = {
+        "utf-16-le BOM": codecs.BOM_UTF16_LE + body.encode("utf-16-le"),
+        "utf-16-be BOM": codecs.BOM_UTF16_BE + body.encode("utf-16-be"),
+        "utf-16-le": body.encode("utf-16-le"),
+        "utf-16-be": body.encode("utf-16-be"),
+    }
+    for label, source in variants.items():
+        tasks = {t.name: t for t in parse_build_xml(source)}
+        assert list(tasks) == ["build"], label
+        assert tasks["build"].description == "hi", label
+
+
+def test_parse_build_xml_decodes_ucs2_declaration() -> None:
+    # Python knows neither ISO-10646-UCS-2 nor -UCS-4; the byte signature
+    # selects the decoder instead of the declared name.
+    for encoding, declare in (
+        ("utf-16-le", "ISO-10646-UCS-2"),
+        ("utf-16-be", "ISO-10646-UCS-2"),
+        ("utf-32-le", "ISO-10646-UCS-4"),
+    ):
+        source = (
+            f'<?xml version="1.0" encoding="{declare}"?>'
+            "<project><target name='build'/></project>"
+        ).encode(encoding)
+        assert [t.name for t in parse_build_xml(source)] == ["build"], declare
+
+
+def test_parse_build_xml_decodes_ibm_1208_alias() -> None:
+    source = (
+        b'<?xml version="1.0" encoding="IBM-1208"?>'
+        b"<project><target name='build'/></project>"
+    )
+    assert [t.name for t in parse_build_xml(source)] == ["build"]
+
+
 def test_parse_build_xml_decodes_ebcdic_cp037() -> None:
     source = (
         '<?xml version="1.0" encoding="CP037"?>'

@@ -38,15 +38,22 @@ _STR_DECL_ENCODING_RE = re.compile(
 # transcoded to UTF-8 below (multibyte ones like Shift_JIS, which pyexpat
 # rejects but Ant's JAXP reader accepts).
 _NATIVE_ENCODINGS = frozenset({"utf-8", "utf8", "ascii", "us-ascii"})
-# Byte signatures for encodings whose declaration is not ASCII-readable, with
-# the codec that decodes them (XML spec Appendix F). UTF-32 travels here
-# because pyexpat rejects it even with a BOM; UTF-16 never matches the
-# declaration probe (its NUL bytes break it) and stays on native handling.
-_UTF32_SIGNATURES: tuple[tuple[bytes, str], ...] = (
+# Xerces-supported aliases Python's codec registry does not know.
+_XERCES_ALIASES = {"ibm-1208": "utf-8", "eucjis": "euc-jp"}
+# Byte signatures for UTF-32/UTF-16 with the codec that decodes them (XML spec
+# Appendix F). Order matters: `FF FE` opens both UTF-32LE and UTF-16LE, so the
+# longer UTF-32 entries come first. Matched input is always transcoded, which
+# also maps names Python does not know (e.g. ISO-10646-UCS-2) to the right
+# decoder via the byte signature rather than the declared name.
+_UNICODE_SIGNATURES: tuple[tuple[bytes, str], ...] = (
     (b"\x00\x00\xfe\xff", "utf-32-be"),
     (b"\xff\xfe\x00\x00", "utf-32-le"),
     (b"\x00\x00\x00\x3c", "utf-32-be"),
     (b"\x3c\x00\x00\x00", "utf-32-le"),
+    (b"\xfe\xff", "utf-16"),
+    (b"\xff\xfe", "utf-16"),
+    (b"\x00\x3c\x00\x3f", "utf-16-be"),
+    (b"\x3c\x00\x3f\x00", "utf-16-le"),
 )
 # `<?xml` in EBCDIC, shared by CP037/CP500/CP1140/CP273; the exact variant is
 # read from the declaration itself (see `_transcode_ebcdic`).
@@ -75,12 +82,12 @@ def _recode(source: bytes, codec: str) -> str | None:
 def _transcode_signature(source: bytes) -> bytes:
     """Transcode byte input whose declaration is not ASCII-readable.
 
-    UTF-32 byte patterns are unambiguous (NUL bytes are illegal in XML
+    UTF-32/UTF-16 byte patterns are unambiguous (NUL bytes are illegal in XML
     content), so a match is decoded directly. EBCDIC input goes through
     `_transcode_ebcdic`; anything else passes through for the real parse to
     report.
     """
-    for prefix, codec in _UTF32_SIGNATURES:
+    for prefix, codec in _UNICODE_SIGNATURES:
         if source.startswith(prefix):
             text = _recode(source, codec)
             return _to_utf8(text) if text is not None else source
@@ -118,11 +125,12 @@ def _transcode_ebcdic(source: bytes) -> bytes:
 def _transcode(source: bytes) -> bytes:
     """Return *source* as bytes ElementTree can parse.
 
-    The declared encoding is honoured: UTF-8/ASCII pass through untouched and
-    undeclared input without a non-ASCII signature passes through to native
-    handling (UTF-16 included), while any other declared codec is decoded and
-    re-encoded as UTF-8 with the declaration patched to match. Undecodable
-    declarations pass through; the real parse below reports them.
+    The declared encoding is honoured: UTF-8/ASCII pass through untouched,
+    Xerces aliases Python does not know are mapped first, and anything else
+    declared is decoded and re-encoded as UTF-8 with the declaration patched
+    to match. Undeclared input without a recognised signature passes through
+    to native handling. Undecodable declarations pass through; the real parse
+    below reports them.
     """
     match = _DECL_ENCODING_RE.search(source)
     if match is None:
@@ -131,9 +139,10 @@ def _transcode(source: bytes) -> bytes:
         declared = match.group(1).decode("ascii")
     except UnicodeDecodeError:
         return source
-    if declared.lower().replace("_", "-") in _NATIVE_ENCODINGS:
+    normalized = declared.lower().replace("_", "-")
+    if normalized in _NATIVE_ENCODINGS:
         return source
-    text = _recode(source, declared)
+    text = _recode(source, _XERCES_ALIASES.get(normalized, declared))
     return _to_utf8(text) if text is not None else source
 
 
