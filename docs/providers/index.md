@@ -23,6 +23,11 @@ The register began as issue #78; its content is preserved in
 | **Declined** | Fails a gate. Reason and revisit trigger in [declined](declined.md). |
 | **Research** | A cross-cutting investigation with measured results, under [research](research/markdown-parser.md). |
 
+The eight providers that predate the register (npm, make, pdm, poe, just,
+Taskfile, mise, xc) were backfilled in [implemented](implemented.md). ADR 0005
+still says that backfilling is open work: ADRs are immutable once accepted, so
+this page is where its completion is recorded.
+
 Add a register entry, using the [evaluation template](template.md), before
 opening an implementation issue. A provider PR updates its entry in the same
 change.

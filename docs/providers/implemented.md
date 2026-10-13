@@ -14,18 +14,216 @@ own ADR, that ADR is the contract and the entry only links to it.
 ## Providers that predate the register
 
 `npm`, `make`, `pdm`, `poe`, `just`, `Taskfile`, `mise` and `xc` were selected
-under ADR 0001 before per-format evaluations were written down. Their behavior
-is defined by their provider modules and tests. Open items:
+under ADR 0001 before per-format evaluations were written down. Their entries
+below were backfilled from the provider modules and tests, not from issue text,
+and are checked against the three gates of
+[ADR 0005](../adr/0005-completeness-over-popularity.md). Adoption: no figure for
+these eight is recorded in the repository, so each entry says so rather than
+quoting one. Observed gaps are recorded as they are, not fixed here.
 
-- **make:** [ADR 0003](../adr/0003-bounded-make-discovery.md). Never runs Make,
-  never resolves `include` or computed targets.
-- **just:** text-parsed since #91 (no `just` binary, no subprocess). A move to
-  tree-sitter is open as #294, see [research](research/markdown-parser.md).
-- **xc and mask:** Markdown scanners. See the
-  [Markdown parser evaluation](research/markdown-parser.md) for measured
-  behavior against the real runners.
-- **mise:** reads `mise.toml`, `mise.local.toml`, `.mise.toml`,
-  `.mise.local.toml` and `.config/mise.toml` (#32).
+## npm
+
+- **Format:** `scripts` of a Node package. **Source:** `package.json` (strict
+  JSON). **Docs:** <https://docs.npmjs.com/cli/using-npm/scripts>.
+- **Run:** `<pm> run <name>`, where the package manager comes from the lockfile
+  (first match of `bun.lock`, `bun.lockb`, `pnpm-lock.yaml`, `yarn.lock`,
+  `package-lock.json`; `npm` when none exists). Extra arguments follow `--`.
+  **Never use:** `npm run` with no argument to list.
+- **Gate check:** (1) safe: the file is parsed as JSON and no runner is called.
+  (2) faithful: the script runs under the package manager the lockfile names.
+  (3) honest subset: names and command strings are read; nothing is evaluated.
+- **Mapping:** `prefix` is always `npm`, even when the package manager is pnpm,
+  yarn or bun; `name` is the script key; `argv_base` is `(pm, "run", name)`;
+  `definition` is the script string (`str()` of the value); no `description`;
+  `source_file` is `package.json`; `passthrough_prefix` is `("--",)`.
+- **Edge cases:** a missing, null or empty `scripts` lists nothing, and so does a
+  falsy `scripts` such as `false` or `0`, silently; a truthy `scripts` that is not an
+  object, malformed JSON or an unreadable file logs a warning and
+  lists nothing. A JSON document whose top level is not an object, and a file
+  that is not valid UTF-8, are not guarded.
+- **Opaque:** `pre*`/`post*` hooks are listed as ordinary scripts and not run
+  specially by `nur`; `packageManager`, `engines` and workspaces (see
+  `workspace` in ADR 0004) are not read.
+- **Adoption (information only):** no figure known in the repository.
+
+## make
+
+- **Format:** Make rules. **Source:** `Makefile` in the current directory only
+  (not `makefile` or `GNUmakefile`). **Contract:**
+  [ADR 0003](../adr/0003-bounded-make-discovery.md). **Docs:**
+  <https://www.gnu.org/software/make/manual/>.
+- **Run:** `make <target>`. **Never use:** `make -pRrq` or any invocation that
+  makes Make read the file: it evaluates `$(shell ...)` and `!=` while parsing.
+- **Gate check:** (1) safe: tree-sitter-make syntax tree plus a line fallback;
+  tests prove `$(shell ...)` and `!=` never run. (2) faithful: `make <target>`
+  is what the file declares. (3) honest subset: syntactic candidates only, as
+  ADR 0003 states.
+- **Mapping:** `prefix` `make`; `name` the target; `argv_base` `("make", name)`;
+  `description` from a `##` comment on the rule's own header line (first
+  non-empty one wins; a multi-target rule gives each target the text); no
+  `definition`; `source_file` `Makefile`.
+- **Edge cases:** names match `[A-Za-z0-9][A-Za-z0-9._/-]*`. Kept: multi-target,
+  `::` and static-pattern rules, backslash-continued headers, rules inside
+  conditionals (no branch is evaluated), target-specific variable targets.
+  Skipped: `.`-prefixed specials such as `.PHONY`, `%` pattern rules, computed
+  names (`$(X)`), a target literally named `Makefile` (excluded even though it
+  matches the name pattern), assignments, recipe lines, `define` bodies, `include`
+  directives (never followed). Non-ASCII name fragments are rejected, not
+  truncated. A BOM is stripped and line endings normalised. Input the grammar
+  rejects logs a warning and goes through the line fallback, so valid rules
+  around the damage are still listed. An unreadable `Makefile` lists nothing.
+- **Opaque:** variable expansion, included files, the active branch of a
+  conditional, prerequisites, recipe bodies and the default goal. Known limits
+  (nested `define`, targets named like directive keywords) are in ADR 0003.
+- **Adoption (information only):** no figure known in the repository.
+
+## pdm
+
+- **Format:** PDM user scripts. **Source:** `[tool.pdm.scripts]` in
+  `pyproject.toml`. **Docs:**
+  <https://pdm-project.org/latest/usage/scripts/>.
+- **Run:** `pdm run <name>`. **Never use:** `pdm run --list`.
+- **Gate check:** (1) safe: `tomllib` only; `pdm` is never called. (2) faithful:
+  `pdm run <name>` is the documented way to run a script. (3) honest subset:
+  names, a description and a flat command are read; composite behaviour is not.
+- **Mapping:** `prefix` `pdm`; `argv_base` `("pdm", "run", name)`; `description`
+  from `help` when it is a string; `definition` from a string value, or a table's
+  `cmd`, else `shell`, else `call` (the first present wins; a list body is joined
+  with spaces); `source_file` `pyproject.toml`; no `passthrough_prefix`.
+- **Edge cases:** detection needs a non-empty scripts table. The reserved `_`
+  table (shared options) is skipped. A bare list value (a composite) is listed,
+  with `definition` the Python `repr` of the list, so treat it as opaque. A table
+  with only `composite` has an empty definition. Malformed TOML logs a warning
+  and lists nothing. The `call` form is handled but has no test.
+- **Opaque:** `composite` expansion, `env`, `env_file`, `working_dir`,
+  `site_packages`, `{args}` placeholders and `pre_`/`post_` hooks.
+- **Adoption (information only):** no figure known in the repository.
+
+## poe
+
+- **Format:** Poe the Poet tasks. **Source:** `[tool.poe.tasks]` in
+  `pyproject.toml` (no `poe_tasks.toml`). **Docs:**
+  <https://poethepoet.natn.io/>.
+- **Run:** `poe <name>`, the bare binary (not `poe run`, not `uv run poe`).
+  **Never use:** `poe` with no arguments, which prints the task list.
+- **Gate check:** (1) safe: `tomllib` only. (2) faithful: `poe <name>` runs the
+  declared task. (3) honest subset: as for pdm.
+- **Mapping:** `prefix` `poe`; `argv_base` `("poe", name)`; `description` from
+  `help`; `definition` from a string, or a table's `cmd`, else `shell`, else
+  `script`, a list body joined with spaces; `source_file` `pyproject.toml`; no
+  `passthrough_prefix`.
+- **Edge cases:** detection needs a non-empty tasks table. A sequence task (a
+  TOML array) is listed with the `repr` of the list as `definition`. A table with
+  only `sequence`, `switch`, `expr` or `ref` has an empty definition. Names
+  starting with `_` are listed; the tests do not pin that. Malformed TOML logs a
+  warning and lists nothing. A project that also has `[tool.pdm]` does not leak
+  pdm scripts into poe (tested). The `shell` and `script` forms are handled but
+  untested.
+- **Opaque:** `args`, `env`, `cwd`, `[tool.poe]` options such as `executor`.
+- **Adoption (information only):** no figure known in the repository.
+
+## just
+
+- **Format:** just recipes. **Source:** `justfile`, else `Justfile` (not
+  `.justfile`). **Docs:** <https://just.systems/man/en/>. **Issue:** #91.
+- **Run:** `just <name>`. **Never use:** `just --dump` or `just --list`. Before
+  #91 the provider shelled out to `just --dump`; it now needs no `just` binary.
+- **Gate check:** (1) safe: a text scan, no subprocess. (2) faithful: `just
+  <name>`. (3) honest subset: recipe names and doc text only.
+- **Mapping:** `prefix` `just`; `argv_base` `("just", name)`; a leading `@` is
+  dropped from the name; `description` from a `[doc("...")]` attribute, else the
+  `#` comment directly above; no `definition`; `source_file` the file found; no
+  `passthrough_prefix`.
+- **Edge cases:** a header is an unindented `name args: deps` line whose `:` is
+  not followed by `=`, which excludes `alias`, `export X :=` and `set`. Parameters
+  and dependencies are skipped. Indented lines are bodies. A blank line or an unindented
+  non-comment line clears a pending comment; attribute lines between comment and
+  recipe keep it, and so do indented lines, so a comment can still reach a later
+  unindented recipe past an indented body line. `doc(...)` inside another attribute's string is not mistaken
+  for a description. Triple-quoted and triple-backtick literals are skipped so
+  unindented text inside them is not read as a recipe (the toggle is naive about
+  quote escaping). The first of a duplicate name wins. `[private]` and
+  `_`-prefixed recipes are listed, although `just --list` hides them. An
+  unreadable or non-UTF-8 file logs a warning and lists nothing.
+- **Opaque:** `alias`, `import`, `mod`, parameters, dependencies, settings,
+  `[group]` and `[private]` semantics. A move to tree-sitter is open as #294, see
+  [research](research/markdown-parser.md).
+- **Adoption (information only):** no figure known in the repository.
+
+## Taskfile
+
+- **Format:** go-task. **Source:** `Taskfile.yml`, else `Taskfile.yaml` (other
+  spellings and `includes:` are not read). **Docs:** <https://taskfile.dev/>.
+- **Run:** `task <name>`. **Never use:** `task --list`: go-task evaluates dynamic
+  `sh:` variables while loading, which can run repository-controlled commands. A
+  test plants a `vars.<X>.sh` sentinel and proves it never runs.
+- **Gate check:** (1) safe: `yaml.safe_load` of the top-level `tasks` mapping.
+  (2) faithful: `task <name>`. (3) honest subset: names and `desc` only.
+- **Mapping:** `prefix` `task`; `argv_base` `("task", name)`; `description` from
+  `desc` when it is a string (an empty string stays empty); no `definition`;
+  `source_file` the file found; no `passthrough_prefix`.
+- **Edge cases:** a shorthand string or list task is listed with no description.
+  `internal: true` tasks are skipped (the literal boolean only). A root or
+  `tasks` that is not a mapping lists nothing. Names are listed as written,
+  including `:` namespaces and `_` or `.` prefixes. Malformed YAML and read
+  errors log a warning and list nothing. A file that is not valid UTF-8 is not
+  caught.
+- **Opaque:** `includes:` and the namespaced tasks they bring, `aliases`,
+  `summary`, `deps`, `cmds`, `vars`, `dir`, `platforms`.
+- **Adoption (information only):** no figure known in the repository.
+
+## mise
+
+- **Format:** mise tasks. **Source:** the first existing of `mise.local.toml`,
+  `mise.toml`, `.mise.local.toml`, `.mise.toml`, `.config/mise.toml`. **Docs:**
+  <https://mise.jdx.dev/tasks/>. **Issue:** #32.
+- **Run:** `mise run <name>`. **Never use:** `mise tasks ls`.
+- **Gate check:** (1) safe: `tomllib` only. (2) faithful: `mise run <name>`.
+  (3) honest subset: one file's `[tasks]` table.
+- **Mapping:** `prefix` `mise`; `argv_base` `("mise", "run", name)`;
+  `description` from a table's `description`; `definition` from `run` (a list
+  joined with ` && `); `source_file` the file chosen; no `passthrough_prefix`.
+- **Edge cases:** only the first file found is read and its siblings are
+  ignored, so mise's own merge of local and shared config is **not** replicated
+  (a `mise.local.toml` hides `mise.toml`). Detection needs a non-empty `[tasks]`.
+  String and list shorthands work. `hide = true` tasks are skipped, matching
+  `mise tasks ls`. A table without `run` (for instance a `file` task) has an empty
+  definition. Colon names such as `"build:fast"` pass through; nested tables are
+  not flattened. Malformed or non-UTF-8 TOML logs a warning and lists nothing,
+  without falling back to another file.
+- **Opaque:** file tasks (`mise_tasks/`, `.mise/tasks/`), `alias`, `depends`,
+  `dir`, `env`, `sources`, `outputs`, `tools`, parent and global config.
+- **Adoption (information only):** no figure known in the repository.
+
+## xc
+
+- **Format:** xc, tasks written as Markdown headings. **Source:** `README.md` in
+  the current directory only. **Docs:** <https://xcfile.dev/task-syntax/task-list/>.
+  **Issue:** #36.
+- **Run:** `xc <name>`. **Never use:** `xc -s` to list. It
+  does not run task scripts (the [Markdown parser evaluation](research/markdown-parser.md)
+  uses `xc -short` as the reference listing), but ADR 0005 gate 1 forbids shelling
+  out to a runner to enumerate, and a file scan needs no `xc` binary. The module
+  docstring says xc "executes task scripts"; that wording is imprecise.
+- **Gate check:** (1) safe: a Markdown scan; xc is never called. (2) faithful:
+  `xc <name>`. (3) honest subset: names, description and first script only.
+- **Mapping:** `prefix` `xc`; `argv_base` `("xc", name)`; `description` the prose
+  between the heading and the first fence, attribute lines removed; `definition`
+  the first fenced block's contents; `source_file` `README.md`; no
+  `passthrough_prefix` (extra arguments are appended positionally).
+- **Edge cases:** the task section is the heading preceded by `<!-- xc-heading -->`
+  (which wins), else the first heading named `Tasks` (case-insensitive, emphasis
+  stripped). It ends at the next heading of the same or higher level. Tasks are
+  headings exactly one level deeper; deeper headings are body. Headings inside
+  fences, indented code (4+ spaces) and bare `##` lines are not headings. A name
+  that is empty or has whitespace is skipped. Tilde, nested and unclosed fences
+  are handled. A task with no script is still listed. Detection needs at least one
+  task. Non-UTF-8 or unreadable files log a warning and list nothing.
+- **Opaque:** attribute values (`requires`, `dir`, `env`, `inputs`, `run`,
+  `rundeps`, `interactive`), script language, further fences, files other than
+  `README.md`. Measured behavior against the real runner:
+  [Markdown parser evaluation](research/markdown-parser.md).
+- **Adoption (information only):** no figure known in the repository.
 
 ## deno
 
