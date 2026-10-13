@@ -92,7 +92,9 @@ configuring the build, which executes the scripts and applies plugins.
    `check`, `jar`, `assemble`, and every plugin- or convention-contributed task)
    are added by plugins at configuration time. A literal-name scan yields a tiny,
    misleading subset that silently omits the real ones. DSL forms, dynamic names
-   and `settings.gradle` wiring compound this.
+   and `settings.gradle` wiring compound this. ADR 0005 allows a documented safe
+   subset, so this is a judgment that a subset missing nearly every real task
+   is not *honest* even when labelled; see the revisit trigger.
 
 **Decision:**
 

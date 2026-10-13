@@ -1,8 +1,11 @@
 # Implemented providers: evaluations
 
 The evaluation each shipped provider was accepted on, kept in the repository so
-it outlives the issue it came from. The run command shown is what `nur`
-delegates to. For every provider, discovery reads files and never executes
+it outlives the issue it came from. These entries record the **evaluation at
+acceptance**. The provider module docstring and its tests are authoritative for
+current behavior, which can have grown since (for example VS Code inheritance and
+Ant extension points); when they disagree, fix the entry. The run command shown
+is what `nur` delegates to. For every provider, discovery reads files and never executes
 project code or calls the runner to list.
 
 Entries follow the [template](template.md), condensed. Where a provider has its
@@ -121,7 +124,11 @@ is defined by their provider modules and tests. Open items:
   `command` are runnable. A task or the document may carry `windows`, `linux` and
   `osx` override objects, merged for the current platform; `command` and `args`
   items may be strings or `{ "value", "quoting" }`.
-- **Left out:** the legacy `"0.1.0"` schema; extension-contributed task types
+- **Also read:** a document-level `command` is inherited by commandless tasks,
+  with its global `args` and the `suppressTaskName`/`taskSelector` rules.
+- **Left out:** the legacy `"0.1.0"` schema; any task whose `options` set `env`
+  or `shell`, or whose `cwd` resolves anywhere other than the project root
+  (the whole task is skipped); extension-contributed task types
   (`npm`, `typescript`, `gulp`, `grunt`, `cargo`, ...), which the extension
   resolves at runtime; any task with a non-empty `dependsOn` (even one that also has its own
   `command`); editor-only variables
@@ -159,7 +166,8 @@ is defined by their provider modules and tests. Open items:
 
 - **Source:** `build.xml`. **Issue:** #141. **Docs:** <https://ant.apache.org/manual/>.
 - **Run:** `ant <target>`. **Never use:** `ant -p`.
-- **Reads:** `<target name=...>` and `description`. `depends` ordering and
+- **Reads:** `<target name=...>`, direct-child `<extension-point name=...>`
+  elements (both run as `ant <name>`) and `description`. `depends` ordering and
   `<project default>` are not read (an evaluation idea, not shipped). Declarative XML, so the safest of the imperative-adjacent set.
   Undescribed targets are conventionally internal (Ant hides them from `-p`).
 - **Left out:** targets from `<import>` and `<include>`, `<macrodef>` and

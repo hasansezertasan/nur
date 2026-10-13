@@ -155,8 +155,11 @@ data-aria-dark="Switch to auto color mode">
           <section id="implemented-providers-evaluations">
 <h1>Implemented providers: evaluations<a class="headerlink" href="#implemented-providers-evaluations" title="Link to this heading">#</a></h1>
 <p>The evaluation each shipped provider was accepted on, kept in the repository so
-it outlives the issue it came from. The run command shown is what <code class="docutils literal notranslate"><span class="pre">nur</span></code>
-delegates to. For every provider, discovery reads files and never executes
+it outlives the issue it came from. These entries record the <strong>evaluation at
+acceptance</strong>. The provider module docstring and its tests are authoritative for
+current behavior, which can have grown since (for example VS Code inheritance and
+Ant extension points); when they disagree, fix the entry. The run command shown
+is what <code class="docutils literal notranslate"><span class="pre">nur</span></code> delegates to. For every provider, discovery reads files and never executes
 project code or calls the runner to list.</p>
 <p>Entries follow the <a class="reference internal" href="template.html"><span class="std std-doc">template</span></a>, condensed. Where a provider has its
 own ADR, that ADR is the contract and the entry only links to it.</p>
@@ -287,7 +290,11 @@ appear), and the <code class="docutils literal notranslate"><span class="pre">ma
 <code class="docutils literal notranslate"><span class="pre">command</span></code> are runnable. A task or the document may carry <code class="docutils literal notranslate"><span class="pre">windows</span></code>, <code class="docutils literal notranslate"><span class="pre">linux</span></code> and
 <code class="docutils literal notranslate"><span class="pre">osx</span></code> override objects, merged for the current platform; <code class="docutils literal notranslate"><span class="pre">command</span></code> and <code class="docutils literal notranslate"><span class="pre">args</span></code>
 items may be strings or <code class="docutils literal notranslate"><span class="pre">{</span> <span class="pre">&quot;value&quot;,</span> <span class="pre">&quot;quoting&quot;</span> <span class="pre">}</span></code>.</p></li>
-<li><p><strong>Left out:</strong> the legacy <code class="docutils literal notranslate"><span class="pre">&quot;0.1.0&quot;</span></code> schema; extension-contributed task types
+<li><p><strong>Also read:</strong> a document-level <code class="docutils literal notranslate"><span class="pre">command</span></code> is inherited by commandless tasks,
+with its global <code class="docutils literal notranslate"><span class="pre">args</span></code> and the <code class="docutils literal notranslate"><span class="pre">suppressTaskName</span></code>/<code class="docutils literal notranslate"><span class="pre">taskSelector</span></code> rules.</p></li>
+<li><p><strong>Left out:</strong> the legacy <code class="docutils literal notranslate"><span class="pre">&quot;0.1.0&quot;</span></code> schema; any task whose <code class="docutils literal notranslate"><span class="pre">options</span></code> set <code class="docutils literal notranslate"><span class="pre">env</span></code>
+or <code class="docutils literal notranslate"><span class="pre">shell</span></code>, or whose <code class="docutils literal notranslate"><span class="pre">cwd</span></code> resolves anywhere other than the project root
+(the whole task is skipped); extension-contributed task types
 (<code class="docutils literal notranslate"><span class="pre">npm</span></code>, <code class="docutils literal notranslate"><span class="pre">typescript</span></code>, <code class="docutils literal notranslate"><span class="pre">gulp</span></code>, <code class="docutils literal notranslate"><span class="pre">grunt</span></code>, <code class="docutils literal notranslate"><span class="pre">cargo</span></code>, …), which the extension
 resolves at runtime; any task with a non-empty <code class="docutils literal notranslate"><span class="pre">dependsOn</span></code> (even one that also has its own
 <code class="docutils literal notranslate"><span class="pre">command</span></code>); editor-only variables
@@ -331,7 +338,8 @@ sessions, command bodies.</p></li>
 <ul class="simple">
 <li><p><strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">build.xml</span></code>. <strong>Issue:</strong> #141. <strong>Docs:</strong> <a class="reference external" href="https://ant.apache.org/manual/">https://ant.apache.org/manual/</a>.</p></li>
 <li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">&lt;target&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">-p</span></code>.</p></li>
-<li><p><strong>Reads:</strong> <code class="docutils literal notranslate"><span class="pre">&lt;target</span> <span class="pre">name=...&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">description</span></code>. <code class="docutils literal notranslate"><span class="pre">depends</span></code> ordering and
+<li><p><strong>Reads:</strong> <code class="docutils literal notranslate"><span class="pre">&lt;target</span> <span class="pre">name=...&gt;</span></code>, direct-child <code class="docutils literal notranslate"><span class="pre">&lt;extension-point</span> <span class="pre">name=...&gt;</span></code>
+elements (both run as <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">&lt;name&gt;</span></code>) and <code class="docutils literal notranslate"><span class="pre">description</span></code>. <code class="docutils literal notranslate"><span class="pre">depends</span></code> ordering and
 <code class="docutils literal notranslate"><span class="pre">&lt;project</span> <span class="pre">default&gt;</span></code> are not read (an evaluation idea, not shipped). Declarative XML, so the safest of the imperative-adjacent set.
 Undescribed targets are conventionally internal (Ant hides them from <code class="docutils literal notranslate"><span class="pre">-p</span></code>).</p></li>
 <li><p><strong>Left out:</strong> targets from <code class="docutils literal notranslate"><span class="pre">&lt;import&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;include&gt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;macrodef&gt;</span></code> and

@@ -230,7 +230,9 @@ the hard rule.</p></li>
 <code class="docutils literal notranslate"><span class="pre">check</span></code>, <code class="docutils literal notranslate"><span class="pre">jar</span></code>, <code class="docutils literal notranslate"><span class="pre">assemble</span></code>, and every plugin- or convention-contributed task)
 are added by plugins at configuration time. A literal-name scan yields a tiny,
 misleading subset that silently omits the real ones. DSL forms, dynamic names
-and <code class="docutils literal notranslate"><span class="pre">settings.gradle</span></code> wiring compound this.</p></li>
+and <code class="docutils literal notranslate"><span class="pre">settings.gradle</span></code> wiring compound this. ADR 0005 allows a documented safe
+subset, so this is a judgment that a subset missing nearly every real task
+is not <em>honest</em> even when labelled; see the revisit trigger.</p></li>
 </ol>
 <p><strong>Decision:</strong></p>
 <p>Declined. Enumerating by running the build breaks the hard rule (the reason
