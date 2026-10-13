@@ -62,8 +62,10 @@ is defined by their provider modules and tests. Open items:
   `default_stages`, `files`, `exclude`, `fail_fast`, ...) are configuration and
   hold no hooks. Three repo kinds: **local** (`entry` is in this file, so
   `definition` is available), **remote** (`entry` lives in the upstream
-  `.pre-commit-hooks.yaml`, so `definition` stays empty) and **meta** (the three
-  built-ins `check-hooks-apply`, `check-useless-excludes`, `identity`).
+  `.pre-commit-hooks.yaml`, so `definition` stays empty). `meta` repos (the
+  built-ins `check-hooks-apply`, `check-useless-excludes`, `identity`) are not
+  special-cased: they are listed like remote hooks. Hooks without an `id` are
+  skipped.
 - **Left out:** resolving remote hooks' `entry`, `language` and `args` (needs a
   clone); `stages` filtering.
 - **Resolved at implementation:** plain `pre-commit run <id>` runs on staged
@@ -74,14 +76,16 @@ is defined by their provider modules and tests. Open items:
 
 ## tox
 
-- **Source:** `tox.ini`, `tox.toml`, `pyproject.toml` `[tool.tox]`, `setup.cfg`
-  `[tox:tox]`. **Issue:** #74. **Shipped:** 0.5.0.
+- **Source:** `tox.ini`, `setup.cfg` (`[tox:tox]` section), `pyproject.toml`
+  (`[tool.tox]`, including `legacy_tox_ini`), `tox.toml`, in that order. **Issue:** #74. **Shipped:** 0.5.0.
 - **Run:** `tox -e <name>`. **Never use:** `tox -l` or `tox -a`.
 - **Reads:** environments as the union of the expanded `env_list`/`envlist` and
   the explicit `[testenv:NAME]` (INI) or `[tool.tox.env.NAME]` (TOML) sections,
   excluding the `[testenv]` base. INI `envlist` is brace- and range-expanded
   (`{py27,py36}-django{15,16}` is a hyphen-joined Cartesian product; `py3{10-14}`
-  expands too). TOML `env_list` strings are literal. Missing fields are
+  expands too). TOML `env_list` list items are literal (a top-level string `env_list` is
+  split and brace-expanded; `{replace = "env", ...}` items are resolved). With
+  no `envlist` the default env is `py`. Missing fields are
   inherited from `[testenv]` or `env_run_base`.
 - **Config discovery is version dependent.** tox 3 uses `pyproject.toml`,
   `tox.ini`, `setup.cfg`; tox 4 adds native `pyproject.toml` and `tox.toml`, and
@@ -92,7 +96,9 @@ is defined by their provider modules and tests. Open items:
   commands (filtered by the current environment's factors) and `labels` (INI and
   TOML).
 - **Left out:** TOML structured matrices (`range`, `labeled`, `product`) and
-  provisioning environments (`.pkg`, `.tox`), treated as non-runnable.
+  provisioning and package environments (`.pkg`, `.tox`, and the names given by
+  `provision_tox_env`, `package_env`, `isolated_build_env`, `wheel_build_env`),
+  treated as non-runnable.
 - **Adoption (information only):** about 1,869 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).
 
 ## cargo-make
@@ -101,6 +107,8 @@ is defined by their provider modules and tests. Open items:
 - **Run:** `cargo make <name>`. **Never use:** `cargo make --list-all-steps`.
 - **Reads:** `[tasks.<name>]` tables; `description`; `command` plus `args`, or
   `script` (a list joined with ` && `) as `definition`.
+- **Skipped:** tasks with `private = true` or `disabled = true`, and entries
+  that are not tables. `alias` is not resolved.
 - **Left out:** `extends`, `env`, `dependencies`, `condition`, profile-specific
   `env`, cargo-make's built-in predefined tasks (only locally declared tasks
   appear), and the `makers` alias.
@@ -113,6 +121,8 @@ is defined by their provider modules and tests. Open items:
 - **Left out:** inherited tasks from `.moon/tasks.yml` and `.moon/tasks/**`,
   `.moon/workspace.yml` (project locations, not tasks), project-qualified
   `<project>:<task>` addressing, and `deps`, `inputs`, `outputs`, `options`.
+- **Skipped:** tasks with `options.internal: true`, which cannot be run from
+  the CLI.
 
 ## VS Code tasks
 
@@ -134,8 +144,10 @@ is defined by their provider modules and tests. Open items:
   `command`); editor-only variables
   (`${file}`, `${selectedText}`, `${input:...}`): a task whose command, args or
   working directory still contains an unresolved variable is **skipped**, not
-  listed (`${workspaceFolder}` resolves to the discovery directory). Duplicate
-  labels are tolerated.
+  listed (`${workspaceFolder}`, `${workspaceRoot}`, `${workspaceFolderBasename}`,
+  `${pathSeparator}`, `${/}` and `${env:X}` resolve). Tasks with `hide: true`
+  are skipped. Document-level `options` (including `env`) and `type` merge
+  into each task. For duplicate labels the last definition wins.
 - **Sibling:** Zed `.zed/tasks.json`, see [candidates](candidates.md).
 
 ## invoke
@@ -145,6 +157,9 @@ is defined by their provider modules and tests. Open items:
 - **Reads:** AST of `@task`-decorated functions, including `@task(...)`,
   `@invoke.task` and aliased imports; explicit `name=` and `aliases=`; first
   docstring line as `description`. The module is never imported.
+- **Notes:** only top-level `def`s with one decorator are read; underscores in
+  names become dashes. A task with `pre=`/`post=` is dropped, and invalid task
+  metadata or colliding `default=True` tasks make the whole file list nothing.
 - **Left out:** command bodies (`c.run(...)`), parameters, `pre`/`post` graphs,
   `Collection` namespacing (so namespaced setups are under-covered), and tasks
   built dynamically or imported from other modules.
@@ -160,7 +175,9 @@ is defined by their provider modules and tests. Open items:
 - **Left out:** `python=[...]` and `@nox.parametrize` expansion (concrete names
   such as `tests-3.11` are runtime-generated, so only the base session name is
   listed, and `nox -s tests` still runs all its variants), dynamically registered
-  sessions, command bodies.
+  sessions, command bodies. If the module is not straight-line (loops, `with`,
+  `match`, star imports, namespace mutation), the provider lists nothing for the
+  file. Only top-level `def`s register sessions; `nox_uv.session` is accepted.
 
 ## Apache Ant
 
@@ -169,7 +186,9 @@ is defined by their provider modules and tests. Open items:
 - **Reads:** `<target name=...>`, direct-child `<extension-point name=...>`
   elements (both run as `ant <name>`) and `description`. `depends` ordering and
   `<project default>` are not read (an evaluation idea, not shipped). Declarative XML, so the safest of the imperative-adjacent set.
-  Undescribed targets are conventionally internal (Ant hides them from `-p`).
+  Undescribed targets are listed even though Ant hides them from `-p`. Only
+  direct children of `<project>` are read; names starting with `-`, files with a
+  `<!DOCTYPE>` and non-`<project>` roots are skipped.
 - **Left out:** targets from `<import>` and `<include>`, `<macrodef>` and
   `<presetdef>` output, `${property}` interpolation (kept literal), non-default
   file names (`ant -f foo.xml`). `if`/`unless` targets are still named, so still
@@ -189,8 +208,10 @@ is defined by their provider modules and tests. Open items:
 - **Source:** `maskfile.md`. **Issue:** #144. **Docs:** <https://github.com/jacobdeichert/mask>.
 - **Run:** `mask <path...>` (for example `mask test lint`).
 - **Reads:** the Markdown heading tree as the command tree; the `>` blockquote as
-  description; the fenced body as `definition`; heading args `(pattern)` stripped
-  from the name. A top-level title or prose heading with no code block or
+  description (its last paragraph); the last fenced block under the heading as
+  `definition`; heading args `(pattern)` or `[optional]` stripped from the name.
+  Untagged or empty fences, and `powershell`, `batch` and `cmd` fences on
+  non-Windows, make a command unrunnable. A top-level title or prose heading with no code block or
   subcommands is not a task.
 - **Overlap:** it shares machinery with `xc`; that was the reason it was first
   parked, and it no longer is one.
