@@ -39,7 +39,7 @@ change.
 | deno | `deno.json` / `deno.jsonc` | Implemented (0.3.0) | #71 |
 | composer | `composer.json` | Implemented (0.3.0) | #72 |
 | pre-commit | `.pre-commit-config.yaml` | Implemented (0.5.0) | #73 |
-| tox | `tox.ini` / `tox.toml` / `pyproject.toml` | Implemented (0.5.0) | #74 |
+| tox | `tox.ini` / `setup.cfg` / `pyproject.toml` / `tox.toml` | Implemented (0.5.0) | #74 |
 | cargo-make | `Makefile.toml` | Implemented (0.3.0) | #76 |
 | moon | `moon.yml` | Implemented (0.4.0) | #77 |
 | VS Code tasks | `.vscode/tasks.json` | Implemented | #139 |
