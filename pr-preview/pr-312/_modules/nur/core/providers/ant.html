@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="amber" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>nur.core.providers.ant - nur</title><link rel="index" title="Index" href="../../../../genindex.html" /><link rel="search" title="Search" href="../../../../search.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=e1a1ceaf" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx_paramlinks.css" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="nur.core.providers.ant"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../../../../index.html">
+      
+      
+      <strong>nur</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials">
+  <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../cli-reference.html">CLI reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../modules.html">Modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../adr/index.html">Architecture Decision Records</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../adr/0001-provider-selection-criteria.html">Provider selection criteria: static discovery, never execution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../adr/0002-bounded-rake-discovery.html">Bounded Rake discovery: extract literal declarations without simulating Ruby</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../adr/0003-bounded-make-discovery.html">Bounded Make discovery: read rule headers with Tree-sitter, never run Make</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../adr/0004-js-adjacent-task-runners.html">JS-adjacent runners: accept Grunt, Gulp, Turborepo, Nx, and workspace members</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../adr/0005-completeness-over-popularity.html">Completeness over popularity: every honestly supportable format, recorded in the repo</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../providers/index.html">Provider register</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../providers/template.html">Evaluation template</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../providers/implemented.html">Implemented providers: evaluations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../providers/candidates.html">Candidates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../providers/declined.html">Declined formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../providers/research/markdown-parser.html">Markdown parser evaluation (mask and xc)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Maintainer guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../maintaining/setup.html">Repository setup</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../packaging/homebrew-tap/README.html">Homebrew tap setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../packaging/scoop-bucket/README.html">Scoop bucket setup</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../../index.html"><span itemprop="name">nur</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../index.html"><span itemprop="name">Module code</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">nur.core.providers.ant</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <h1>Source code for nur.core.providers.ant</h1><div class="highlight"><pre>
+<span></span><span data-line="1"><span class="sd">"""Discover Apache Ant targets by parsing build.xml, without running Ant."""</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span data-line="4">
+</span><span data-line="5"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+</span><span data-line="6"><span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+</span><span data-line="7"><span class="kn">import</span><span class="w"> </span><span class="nn">xml.etree.ElementTree</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ET</span>
+</span><span data-line="8"><span class="kn">import</span><span class="w"> </span><span class="nn">xml.parsers.expat</span>
+</span><span data-line="9"><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">replace</span>
+</span><span data-line="10"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
+</span><span data-line="11">
+</span><span data-line="12"><span class="kn">from</span><span class="w"> </span><span class="nn">nur.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Task</span>
+</span><span data-line="13">
+</span><span data-line="14"><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+</span><span data-line="15">    <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+</span><span data-line="16">
+</span><span data-line="17"><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"AntProvider"</span><span class="p">,</span> <span class="s2">"parse_build_xml"</span><span class="p">]</span>
+</span><span data-line="18">
+</span><span data-line="19"><span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">"nur"</span><span class="p">)</span>
+</span><span data-line="20"><span class="n">_SOURCE_FILE</span> <span class="o">=</span> <span class="s2">"build.xml"</span>
+</span><span data-line="21"><span class="c1"># Both run as `ant &lt;name&gt;`: extension-points are target-like entry points with</span>
+</span><span data-line="22"><span class="c1"># a name, a depends list, and a description, but no task body of their own.</span>
+</span><span data-line="23"><span class="n">_RUNNABLE</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"target"</span><span class="p">,</span> <span class="s2">"extension-point"</span><span class="p">})</span>
+</span><span data-line="24"><span class="c1"># Ant installs &lt;target&gt;/&lt;extension-point&gt; only from the empty namespace or its</span>
+</span><span data-line="25"><span class="c1"># core antlib URI (ProjectHelper.ANT_CORE_URI); elements of the same local</span>
+</span><span data-line="26"><span class="c1"># name in any other namespace are ordinary task/type uses, not entry points.</span>
+</span><span data-line="27"><span class="n">_ANT_CORE_URI</span> <span class="o">=</span> <span class="s2">"antlib:org.apache.tools.ant"</span>
+</span><span data-line="28"><span class="c1"># The XML declaration, when present, is the first markup in the file (after an</span>
+</span><span data-line="29"><span class="c1"># optional BOM), so the encoding name is read from there only — never from</span>
+</span><span data-line="30"><span class="c1"># later lookalikes inside comments or document text.</span>
+</span><span data-line="31"><span class="n">_DECL_ENCODING_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
+</span><span data-line="32">    <span class="sa">rb</span><span class="s2">"\A(?:\xef\xbb\xbf)?\s*&lt;\?xml\s[^?]*?encoding\s*=\s*[</span><span class="se">\"</span><span class="s2">']([^</span><span class="se">\"</span><span class="s2">']+)[</span><span class="se">\"</span><span class="s2">']"</span>
+</span><span data-line="33"><span class="p">)</span>
+</span><span data-line="34"><span class="n">_STR_DECL_ENCODING_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
+</span><span data-line="35">    <span class="sa">r</span><span class="s2">"(?P&lt;head&gt;&lt;\?xml\s[^?]*?encoding\s*=\s*[</span><span class="se">\"</span><span class="s2">'])[^</span><span class="se">\"</span><span class="s2">']+(?P&lt;quote&gt;[</span><span class="se">\"</span><span class="s2">'])"</span>
+</span><span data-line="36"><span class="p">)</span>
+</span><span data-line="37"><span class="c1"># Encodings the stdlib XML stack parses natively; anything else declared is</span>
+</span><span data-line="38"><span class="c1"># transcoded to UTF-8 below (multibyte ones like Shift_JIS, which pyexpat</span>
+</span><span data-line="39"><span class="c1"># rejects but Ant's JAXP reader accepts).</span>
+</span><span data-line="40"><span class="n">_NATIVE_ENCODINGS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"utf-8"</span><span class="p">,</span> <span class="s2">"utf8"</span><span class="p">,</span> <span class="s2">"ascii"</span><span class="p">,</span> <span class="s2">"us-ascii"</span><span class="p">})</span>
+</span><span data-line="41"><span class="c1"># Xerces-supported aliases Python's codec registry does not know, derived from</span>
+</span><span data-line="42"><span class="c1"># the fIANA2JavaMap table in Xerces' EncodingMap.java: every IANA name Python</span>
+</span><span data-line="43"><span class="c1"># cannot resolve whose Java target has a verified Python equivalent. Keys are</span>
+</span><span data-line="44"><span class="c1"># lowercased with `_` folded to `-`, matching the normalization in</span>
+</span><span data-line="45"><span class="c1"># `_codec_for`. Java targets Python cannot decode (CP277/278/..., JIS0208,</span>
+</span><span data-line="46"><span class="c1"># ...) are deliberately absent: those files keep the graceful skip.</span>
+</span><span data-line="47"><span class="n">_XERCES_ALIASES</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="48">    <span class="s2">"ccsid00858"</span><span class="p">:</span> <span class="s2">"cp858"</span><span class="p">,</span>
+</span><span data-line="49">    <span class="s2">"ccsid01140"</span><span class="p">:</span> <span class="s2">"cp1140"</span><span class="p">,</span>
+</span><span data-line="50">    <span class="s2">"cseucpkdfmtjapanese"</span><span class="p">:</span> <span class="s2">"euc_jp"</span><span class="p">,</span>
+</span><span data-line="51">    <span class="s2">"csgb2312"</span><span class="p">:</span> <span class="s2">"gb2312"</span><span class="p">,</span>
+</span><span data-line="52">    <span class="s2">"cswindows31j"</span><span class="p">:</span> <span class="s2">"cp932"</span><span class="p">,</span>
+</span><span data-line="53">    <span class="s2">"extended-unix-code-packed-format-for-japanese"</span><span class="p">:</span> <span class="s2">"euc_jp"</span><span class="p">,</span>
+</span><span data-line="54">    <span class="s2">"ibm-1026"</span><span class="p">:</span> <span class="s2">"cp1026"</span><span class="p">,</span>
+</span><span data-line="55">    <span class="s2">"ibm-1140"</span><span class="p">:</span> <span class="s2">"cp1140"</span><span class="p">,</span>
+</span><span data-line="56">    <span class="s2">"ibm-273"</span><span class="p">:</span> <span class="s2">"cp273"</span><span class="p">,</span>
+</span><span data-line="57">    <span class="s2">"ibm-367"</span><span class="p">:</span> <span class="s2">"ascii"</span><span class="p">,</span>
+</span><span data-line="58">    <span class="s2">"ibm-37"</span><span class="p">:</span> <span class="s2">"cp037"</span><span class="p">,</span>
+</span><span data-line="59">    <span class="s2">"ibm-437"</span><span class="p">:</span> <span class="s2">"cp437"</span><span class="p">,</span>
+</span><span data-line="60">    <span class="s2">"ibm-500"</span><span class="p">:</span> <span class="s2">"cp500"</span><span class="p">,</span>
+</span><span data-line="61">    <span class="s2">"ibm-775"</span><span class="p">:</span> <span class="s2">"cp775"</span><span class="p">,</span>
+</span><span data-line="62">    <span class="s2">"ibm-819"</span><span class="p">:</span> <span class="s2">"iso8859_1"</span><span class="p">,</span>
+</span><span data-line="63">    <span class="s2">"ibm-850"</span><span class="p">:</span> <span class="s2">"cp850"</span><span class="p">,</span>
+</span><span data-line="64">    <span class="s2">"ibm-852"</span><span class="p">:</span> <span class="s2">"cp852"</span><span class="p">,</span>
+</span><span data-line="65">    <span class="s2">"ibm-855"</span><span class="p">:</span> <span class="s2">"cp855"</span><span class="p">,</span>
+</span><span data-line="66">    <span class="s2">"ibm-857"</span><span class="p">:</span> <span class="s2">"cp857"</span><span class="p">,</span>
+</span><span data-line="67">    <span class="s2">"ibm-858"</span><span class="p">:</span> <span class="s2">"cp858"</span><span class="p">,</span>
+</span><span data-line="68">    <span class="s2">"ibm-860"</span><span class="p">:</span> <span class="s2">"cp860"</span><span class="p">,</span>
+</span><span data-line="69">    <span class="s2">"ibm-861"</span><span class="p">:</span> <span class="s2">"cp861"</span><span class="p">,</span>
+</span><span data-line="70">    <span class="s2">"ibm-862"</span><span class="p">:</span> <span class="s2">"cp862"</span><span class="p">,</span>
+</span><span data-line="71">    <span class="s2">"ibm-863"</span><span class="p">:</span> <span class="s2">"cp863"</span><span class="p">,</span>
+</span><span data-line="72">    <span class="s2">"ibm-864"</span><span class="p">:</span> <span class="s2">"cp864"</span><span class="p">,</span>
+</span><span data-line="73">    <span class="s2">"ibm-865"</span><span class="p">:</span> <span class="s2">"cp865"</span><span class="p">,</span>
+</span><span data-line="74">    <span class="s2">"ibm-866"</span><span class="p">:</span> <span class="s2">"cp866"</span><span class="p">,</span>
+</span><span data-line="75">    <span class="s2">"ibm-869"</span><span class="p">:</span> <span class="s2">"cp869"</span><span class="p">,</span>
+</span><span data-line="76">    <span class="s2">"ibm-1208"</span><span class="p">:</span> <span class="s2">"utf-8"</span><span class="p">,</span>
+</span><span data-line="77">    <span class="s2">"eucjis"</span><span class="p">:</span> <span class="s2">"euc-jp"</span><span class="p">,</span>
+</span><span data-line="78">    <span class="c1"># Korean aliases for KS X 1001: Python resolves KOREAN/KS_C_5601-1987 to</span>
+</span><span data-line="79">    <span class="c1"># euc_kr itself, and these remaining Xerces names render the same way.</span>
+</span><span data-line="80">    <span class="s2">"iso-ir-149"</span><span class="p">:</span> <span class="s2">"euc_kr"</span><span class="p">,</span>
+</span><span data-line="81">    <span class="s2">"ks-c-5601-1989"</span><span class="p">:</span> <span class="s2">"euc_kr"</span><span class="p">,</span>
+</span><span data-line="82">    <span class="s2">"ksc-5601"</span><span class="p">:</span> <span class="s2">"euc_kr"</span><span class="p">,</span>
+</span><span data-line="83">    <span class="s2">"csksc56011987"</span><span class="p">:</span> <span class="s2">"euc_kr"</span><span class="p">,</span>
+</span><span data-line="84">    <span class="s2">"windows-936"</span><span class="p">:</span> <span class="s2">"gbk"</span><span class="p">,</span>
+</span><span data-line="85"><span class="p">}</span>
+</span><span data-line="86"><span class="c1"># Byte signatures for UTF-32/UTF-16 with the codec that decodes them (XML spec</span>
+</span><span data-line="87"><span class="c1"># Appendix F). Order matters: `FF FE` opens both UTF-32LE and UTF-16LE, so the</span>
+</span><span data-line="88"><span class="c1"># longer UTF-32 entries come first. Matched input is always transcoded, which</span>
+</span><span data-line="89"><span class="c1"># also maps names Python does not know (e.g. ISO-10646-UCS-2) to the right</span>
+</span><span data-line="90"><span class="c1"># decoder via the byte signature rather than the declared name.</span>
+</span><span data-line="91"><span class="n">_UNICODE_SIGNATURES</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="92">    <span class="p">(</span><span class="sa">b</span><span class="s2">"</span><span class="se">\x00\x00\xfe\xff</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"utf-32-be"</span><span class="p">),</span>
+</span><span data-line="93">    <span class="p">(</span><span class="sa">b</span><span class="s2">"</span><span class="se">\xff\xfe\x00\x00</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"utf-32-le"</span><span class="p">),</span>
+</span><span data-line="94">    <span class="p">(</span><span class="sa">b</span><span class="s2">"</span><span class="se">\x00\x00\x00\x3c</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"utf-32-be"</span><span class="p">),</span>
+</span><span data-line="95">    <span class="p">(</span><span class="sa">b</span><span class="s2">"</span><span class="se">\x3c\x00\x00\x00</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"utf-32-le"</span><span class="p">),</span>
+</span><span data-line="96">    <span class="p">(</span><span class="sa">b</span><span class="s2">"</span><span class="se">\xfe\xff</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"utf-16"</span><span class="p">),</span>
+</span><span data-line="97">    <span class="p">(</span><span class="sa">b</span><span class="s2">"</span><span class="se">\xff\xfe</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"utf-16"</span><span class="p">),</span>
+</span><span data-line="98">    <span class="p">(</span><span class="sa">b</span><span class="s2">"</span><span class="se">\x00\x3c\x00\x3f</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"utf-16-be"</span><span class="p">),</span>
+</span><span data-line="99">    <span class="p">(</span><span class="sa">b</span><span class="s2">"</span><span class="se">\x3c\x00\x3f\x00</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"utf-16-le"</span><span class="p">),</span>
+</span><span data-line="100"><span class="p">)</span>
+</span><span data-line="101"><span class="c1"># `&lt;?xml` in EBCDIC, shared by CP037/CP500/CP1140/CP273; the exact variant is</span>
+</span><span data-line="102"><span class="c1"># read from the declaration itself (see `_transcode_ebcdic`).</span>
+</span><span data-line="103"><span class="n">_EBCDIC_PREFIX</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">"</span><span class="se">\x4c\x6f\xa7\x94\x93</span><span class="s2">"</span>
+</span><span data-line="104"><span class="n">_EBCDIC_CODECS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"cp037"</span><span class="p">,</span> <span class="s2">"cp500"</span><span class="p">,</span> <span class="s2">"cp1140"</span><span class="p">,</span> <span class="s2">"cp273"</span><span class="p">)</span>
+</span><span data-line="105"><span class="n">_XML_VERSION_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"&lt;\?xml\s+version\s*="</span><span class="p">)</span>
+</span><span data-line="106"><span class="n">_STR_DECL_NAME_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"&lt;\?xml\s[^?]*?encoding\s*=\s*[</span><span class="se">\"</span><span class="s2">']([^</span><span class="se">\"</span><span class="s2">']+)[</span><span class="se">\"</span><span class="s2">']"</span><span class="p">)</span>
+</span><span data-line="107">
+</span><span data-line="108">
+</span><span data-line="109"><span class="k">def</span><span class="w"> </span><span class="nf">_to_utf8</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+</span><span data-line="110"><span class="w">    </span><span class="sd">"""Patch the declaration of *text* to UTF-8 and encode it."""</span>
+</span><span data-line="111">    <span class="n">text</span> <span class="o">=</span> <span class="n">_STR_DECL_ENCODING_RE</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">"\g&lt;head&gt;UTF-8\g&lt;quote&gt;"</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="112">    <span class="k">return</span> <span class="n">text</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">)</span>
+</span><span data-line="113">
+</span><span data-line="114">
+</span><span data-line="115"><span class="k">def</span><span class="w"> </span><span class="nf">_codec_for</span><span class="p">(</span><span class="n">declared</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span data-line="116"><span class="w">    </span><span class="sd">"""Map a declared encoding name to a Python codec.</span>
+</span><span data-line="117">
+</span><span data-line="118"><span class="sd">    Xerces aliases Python's registry does not know are translated first;</span>
+</span><span data-line="119"><span class="sd">    anything unmapped is returned unchanged for Python (or the graceful</span>
+</span><span data-line="120"><span class="sd">    skip) to judge.</span>
+</span><span data-line="121"><span class="sd">    """</span>
+</span><span data-line="122">    <span class="k">return</span> <span class="n">_XERCES_ALIASES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">declared</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"_"</span><span class="p">,</span> <span class="s2">"-"</span><span class="p">),</span> <span class="n">declared</span><span class="p">)</span>
+</span><span data-line="123">
+</span><span data-line="124">
+</span><span data-line="125"><span class="k">def</span><span class="w"> </span><span class="nf">_recode</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">codec</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="126"><span class="w">    </span><span class="sd">"""Decode *source* with *codec*, or None when it cannot be that codec."""</span>
+</span><span data-line="127">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="128">        <span class="k">return</span> <span class="n">source</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">codec</span><span class="p">)</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s2">"</span><span class="se">\ufeff</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="129">    <span class="k">except</span> <span class="ne">LookupError</span><span class="p">:</span>
+</span><span data-line="130">        <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="131">    <span class="k">except</span> <span class="ne">UnicodeError</span><span class="p">:</span>
+</span><span data-line="132">        <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="133">
+</span><span data-line="134">
+</span><span data-line="135"><span class="k">def</span><span class="w"> </span><span class="nf">_transcode_signature</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+</span><span data-line="136"><span class="w">    </span><span class="sd">"""Transcode byte input whose declaration is not ASCII-readable.</span>
+</span><span data-line="137">
+</span><span data-line="138"><span class="sd">    UTF-32/UTF-16 byte patterns are unambiguous (NUL bytes are illegal in XML</span>
+</span><span data-line="139"><span class="sd">    content), so a match is decoded directly. EBCDIC input goes through</span>
+</span><span data-line="140"><span class="sd">    `_transcode_ebcdic`; anything else passes through for the real parse to</span>
+</span><span data-line="141"><span class="sd">    report.</span>
+</span><span data-line="142"><span class="sd">    """</span>
+</span><span data-line="143">    <span class="k">for</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">codec</span> <span class="ow">in</span> <span class="n">_UNICODE_SIGNATURES</span><span class="p">:</span>
+</span><span data-line="144">        <span class="k">if</span> <span class="n">source</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span><span class="p">):</span>
+</span><span data-line="145">            <span class="n">text</span> <span class="o">=</span> <span class="n">_recode</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">codec</span><span class="p">)</span>
+</span><span data-line="146">            <span class="k">return</span> <span class="n">_to_utf8</span><span class="p">(</span><span class="n">text</span><span class="p">)</span> <span class="k">if</span> <span class="n">text</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">source</span>
+</span><span data-line="147">    <span class="k">if</span> <span class="n">source</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">_EBCDIC_PREFIX</span><span class="p">):</span>
+</span><span data-line="148">        <span class="k">return</span> <span class="n">_transcode_ebcdic</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+</span><span data-line="149">    <span class="k">return</span> <span class="n">source</span>
+</span><span data-line="150">
+</span><span data-line="151">
+</span><span data-line="152"><span class="k">def</span><span class="w"> </span><span class="nf">_transcode_ebcdic</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+</span><span data-line="153"><span class="w">    </span><span class="sd">"""Transcode EBCDIC input with the codec its own declaration names.</span>
+</span><span data-line="154">
+</span><span data-line="155"><span class="sd">    Sibling EBCDIC codecs share one `&lt;?xml` prefix, so the prefix alone cannot</span>
+</span><span data-line="156"><span class="sd">    select the codec: decoding a CP500 file as CP037 silently mangles every</span>
+</span><span data-line="157"><span class="sd">    character whose mapping differs (a `[` target would be listed as `¢`).</span>
+</span><span data-line="158"><span class="sd">    Instead any sibling bootstrap-decodes the declaration — whose characters</span>
+</span><span data-line="159"><span class="sd">    are variant-invariant — and the complete document is decoded with the</span>
+</span><span data-line="160"><span class="sd">    codec the declaration specifies (Xerces aliases resolved via</span>
+</span><span data-line="161"><span class="sd">    `_codec_for`). Anything unresolvable passes through for the real</span>
+</span><span data-line="162"><span class="sd">    parse to report.</span>
+</span><span data-line="163"><span class="sd">    """</span>
+</span><span data-line="164">    <span class="k">for</span> <span class="n">codec</span> <span class="ow">in</span> <span class="n">_EBCDIC_CODECS</span><span class="p">:</span>
+</span><span data-line="165">        <span class="n">bootstrap</span> <span class="o">=</span> <span class="n">_recode</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">codec</span><span class="p">)</span>
+</span><span data-line="166">        <span class="k">if</span> <span class="n">bootstrap</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="167">            <span class="k">continue</span>
+</span><span data-line="168">        <span class="n">match</span> <span class="o">=</span> <span class="n">_STR_DECL_NAME_RE</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">bootstrap</span><span class="p">)</span>
+</span><span data-line="169">        <span class="k">if</span> <span class="n">match</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="170">            <span class="k">continue</span>
+</span><span data-line="171">        <span class="n">text</span> <span class="o">=</span> <span class="n">_recode</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">_codec_for</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)))</span>
+</span><span data-line="172">        <span class="k">if</span> <span class="n">text</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">_XML_VERSION_RE</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">text</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="173">            <span class="k">continue</span>
+</span><span data-line="174">        <span class="k">return</span> <span class="n">_to_utf8</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+</span><span data-line="175">    <span class="k">return</span> <span class="n">source</span>
+</span><span data-line="176">
+</span><span data-line="177">
+</span><span data-line="178"><span class="k">def</span><span class="w"> </span><span class="nf">_transcode</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+</span><span data-line="179"><span class="w">    </span><span class="sd">"""Return *source* as bytes ElementTree can parse.</span>
+</span><span data-line="180">
+</span><span data-line="181"><span class="sd">    The declared encoding is honoured: UTF-8/ASCII pass through untouched,</span>
+</span><span data-line="182"><span class="sd">    Xerces aliases Python does not know are mapped first, and anything else</span>
+</span><span data-line="183"><span class="sd">    declared is decoded and re-encoded as UTF-8 with the declaration patched</span>
+</span><span data-line="184"><span class="sd">    to match. Undeclared input without a recognised signature passes through</span>
+</span><span data-line="185"><span class="sd">    to native handling. Undecodable declarations pass through; the real parse</span>
+</span><span data-line="186"><span class="sd">    below reports them.</span>
+</span><span data-line="187"><span class="sd">    """</span>
+</span><span data-line="188">    <span class="n">match</span> <span class="o">=</span> <span class="n">_DECL_ENCODING_RE</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+</span><span data-line="189">    <span class="k">if</span> <span class="n">match</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="190">        <span class="k">return</span> <span class="n">_transcode_signature</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+</span><span data-line="191">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="192">        <span class="n">declared</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"ascii"</span><span class="p">)</span>
+</span><span data-line="193">    <span class="k">except</span> <span class="ne">UnicodeDecodeError</span><span class="p">:</span>
+</span><span data-line="194">        <span class="k">return</span> <span class="n">source</span>
+</span><span data-line="195">    <span class="n">normalized</span> <span class="o">=</span> <span class="n">declared</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"_"</span><span class="p">,</span> <span class="s2">"-"</span><span class="p">)</span>
+</span><span data-line="196">    <span class="k">if</span> <span class="n">normalized</span> <span class="ow">in</span> <span class="n">_NATIVE_ENCODINGS</span><span class="p">:</span>
+</span><span data-line="197">        <span class="k">return</span> <span class="n">source</span>
+</span><span data-line="198">    <span class="n">text</span> <span class="o">=</span> <span class="n">_recode</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">_codec_for</span><span class="p">(</span><span class="n">declared</span><span class="p">))</span>
+</span><span data-line="199">    <span class="k">return</span> <span class="n">_to_utf8</span><span class="p">(</span><span class="n">text</span><span class="p">)</span> <span class="k">if</span> <span class="n">text</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">source</span>
+</span><span data-line="200">
+</span><span data-line="201">
+</span><span data-line="202"><span class="k">def</span><span class="w"> </span><span class="nf">_prepare</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">bytes</span><span class="p">:</span>
+</span><span data-line="203"><span class="w">    </span><span class="sd">"""Return *text* in a form the stdlib XML stack parses (see `_transcode`)."""</span>
+</span><span data-line="204">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+</span><span data-line="205">        <span class="k">return</span> <span class="n">_transcode</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+</span><span data-line="206">    <span class="k">return</span> <span class="n">text</span>
+</span><span data-line="207">
+</span><span data-line="208">
+</span><span data-line="209"><span class="k">class</span><span class="w"> </span><span class="nc">_DoctypeFoundError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+</span><span data-line="210"><span class="w">    </span><span class="sd">"""Control flow: the pre-scan spotted a document type declaration."""</span>
+</span><span data-line="211">
+</span><span data-line="212">
+</span><span data-line="213"><span class="k">def</span><span class="w"> </span><span class="nf">_reject_doctype</span><span class="p">(</span><span class="o">*</span><span class="n">_args</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="214">    <span class="k">raise</span> <span class="n">_DoctypeFoundError</span>
+</span><span data-line="215">
+</span><span data-line="216">
+</span><span data-line="217"><span class="k">def</span><span class="w"> </span><span class="nf">_has_doctype</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="218"><span class="w">    </span><span class="sd">"""Return whether *text* carries a ``&lt;!DOCTYPE`` declaration.</span>
+</span><span data-line="219">
+</span><span data-line="220"><span class="sd">    The declaration is the only carrier of inline ``&lt;!ENTITY&gt;`` definitions,</span>
+</span><span data-line="221"><span class="sd">    whose expansion ElementTree performs without bounds (billion laughs), and</span>
+</span><span data-line="222"><span class="sd">    of external entity references. Genuine Ant build files never need a</span>
+</span><span data-line="223"><span class="sd">    DOCTYPE, so reject it up front and keep the stdlib parser without adding</span>
+</span><span data-line="224"><span class="sd">    defusedxml.</span>
+</span><span data-line="225">
+</span><span data-line="226"><span class="sd">    Detection itself runs on expat with a handler that aborts the parse the</span>
+</span><span data-line="227"><span class="sd">    moment a declaration starts, so no entity is ever expanded and encodings,</span>
+</span><span data-line="228"><span class="sd">    comments, processing instructions, and CDATA sections are all handled by</span>
+</span><span data-line="229"><span class="sd">    a real parser rather than pattern matching. Anything expat rejects is</span>
+</span><span data-line="230"><span class="sd">    left for the ElementTree parse below, which skips the file the same way.</span>
+</span><span data-line="231"><span class="sd">    """</span>
+</span><span data-line="232">    <span class="n">parser</span> <span class="o">=</span> <span class="n">xml</span><span class="o">.</span><span class="n">parsers</span><span class="o">.</span><span class="n">expat</span><span class="o">.</span><span class="n">ParserCreate</span><span class="p">()</span>
+</span><span data-line="233">    <span class="n">parser</span><span class="o">.</span><span class="n">StartDoctypeDeclHandler</span> <span class="o">=</span> <span class="n">_reject_doctype</span>
+</span><span data-line="234">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="235">        <span class="c1"># pyexpat's Parse takes no keyword arguments, hence the positional flag.</span>
+</span><span data-line="236">        <span class="n">parser</span><span class="o">.</span><span class="n">Parse</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>  <span class="c1"># noqa: FBT003</span>
+</span><span data-line="237">    <span class="k">except</span> <span class="n">_DoctypeFoundError</span><span class="p">:</span>
+</span><span data-line="238">        <span class="k">return</span> <span class="kc">True</span>
+</span><span data-line="239">    <span class="c1"># Parenthesized with a binding on purpose: ruff format's preview style</span>
+</span><span data-line="240">    <span class="c1"># strips parens from binding-less tuples, which CPython before 3.14 cannot</span>
+</span><span data-line="241">    <span class="c1"># parse (the prek check-ast hook runs 3.10). The binding is intentionally</span>
+</span><span data-line="242">    <span class="c1"># unused: the ElementTree parse below logs the skip with the real error.</span>
+</span><span data-line="243">    <span class="k">except</span> <span class="p">(</span>
+</span><span data-line="244">        <span class="n">xml</span><span class="o">.</span><span class="n">parsers</span><span class="o">.</span><span class="n">expat</span><span class="o">.</span><span class="n">ExpatError</span><span class="p">,</span>
+</span><span data-line="245">        <span class="ne">LookupError</span><span class="p">,</span>
+</span><span data-line="246">        <span class="ne">ValueError</span><span class="p">,</span>
+</span><span data-line="247">        <span class="ne">UnicodeError</span><span class="p">,</span>
+</span><span data-line="248">    <span class="p">)</span> <span class="k">as</span> <span class="n">_exc</span><span class="p">:</span>
+</span><span data-line="249">        <span class="c1"># Unparsable input (unknown encoding, malformed XML, ...): no</span>
+</span><span data-line="250">        <span class="c1"># declaration was seen; the ElementTree parse below skips the file.</span>
+</span><span data-line="251">        <span class="k">return</span> <span class="kc">False</span>
+</span><span data-line="252">    <span class="k">return</span> <span class="kc">False</span>
+</span><span data-line="253">
+</span><span data-line="254">
+</span><span data-line="255"><span class="k">def</span><span class="w"> </span><span class="nf">_runnable</span><span class="p">(</span><span class="n">tag</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="256"><span class="w">    </span><span class="sd">"""Whether *tag* is an Ant core target-like element.</span>
+</span><span data-line="257">
+</span><span data-line="258"><span class="sd">    ElementTree reports namespaced tags as ``{uri}local``; only the empty</span>
+</span><span data-line="259"><span class="sd">    namespace and Ant's core URI count (``&lt;plugin:target&gt;`` is a task use).</span>
+</span><span data-line="260"><span class="sd">    """</span>
+</span><span data-line="261">    <span class="k">if</span> <span class="n">tag</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"{"</span><span class="p">):</span>
+</span><span data-line="262">        <span class="n">uri</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">local</span> <span class="o">=</span> <span class="n">tag</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">"}"</span><span class="p">)</span>
+</span><span data-line="263">        <span class="k">return</span> <span class="n">local</span> <span class="ow">in</span> <span class="n">_RUNNABLE</span> <span class="ow">and</span> <span class="n">uri</span> <span class="o">==</span> <span class="n">_ANT_CORE_URI</span>
+</span><span data-line="264">    <span class="k">return</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">_RUNNABLE</span>
+</span><span data-line="265">
+</span><span data-line="266">
+</span><span data-line="267"><span class="k">def</span><span class="w"> </span><span class="nf">_is_project_root</span><span class="p">(</span><span class="n">tag</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="268"><span class="w">    </span><span class="sd">"""Whether *tag* is an Ant ``&lt;project&gt;`` root element.</span>
+</span><span data-line="269">
+</span><span data-line="270"><span class="sd">    Ant's root handler only accepts ``project`` in the empty namespace or its</span>
+</span><span data-line="271"><span class="sd">    core URI and rejects anything else before installing any target.</span>
+</span><span data-line="272"><span class="sd">    """</span>
+</span><span data-line="273">    <span class="k">if</span> <span class="n">tag</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"{"</span><span class="p">):</span>
+</span><span data-line="274">        <span class="n">uri</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">local</span> <span class="o">=</span> <span class="n">tag</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">"}"</span><span class="p">)</span>
+</span><span data-line="275">        <span class="k">return</span> <span class="n">local</span> <span class="o">==</span> <span class="s2">"project"</span> <span class="ow">and</span> <span class="n">uri</span> <span class="o">==</span> <span class="n">_ANT_CORE_URI</span>
+</span><span data-line="276">    <span class="k">return</span> <span class="n">tag</span> <span class="o">==</span> <span class="s2">"project"</span>
+</span><span data-line="277">
+</span><span data-line="278">
+</span><span data-line="279"><span class="k">def</span><span class="w"> </span><span class="nf">_attr</span><span class="p">(</span><span class="n">element</span><span class="p">:</span> <span class="n">ET</span><span class="o">.</span><span class="n">Element</span><span class="p">,</span> <span class="n">local</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="280"><span class="w">    </span><span class="sd">"""Return the attribute with local name *local*, Ant-style.</span>
+</span><span data-line="281">
+</span><span data-line="282"><span class="sd">    Ant interprets attributes by local name when unqualified or qualified with</span>
+</span><span data-line="283"><span class="sd">    the element's own namespace, ignores other namespaces, and assigns while</span>
+</span><span data-line="284"><span class="sd">    iterating so the later duplicate wins. ElementTree keys a namespaced</span>
+</span><span data-line="285"><span class="sd">    attribute as ``{uri}local`` but preserves document order in</span>
+</span><span data-line="286"><span class="sd">    ``element.attrib``, so the last accepted form is returned.</span>
+</span><span data-line="287"><span class="sd">    """</span>
+</span><span data-line="288">    <span class="n">core</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="se">{{</span><span class="si">{</span><span class="n">_ANT_CORE_URI</span><span class="si">}</span><span class="se">}}</span><span class="si">{</span><span class="n">local</span><span class="si">}</span><span class="s2">"</span>
+</span><span data-line="289">    <span class="n">namespaced</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">tag</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">{{</span><span class="si">{</span><span class="n">_ANT_CORE_URI</span><span class="si">}</span><span class="se">}}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="290">    <span class="n">value</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="291">    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">element</span><span class="o">.</span><span class="n">attrib</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span data-line="292">        <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="n">local</span> <span class="ow">or</span> <span class="p">(</span><span class="n">namespaced</span> <span class="ow">and</span> <span class="n">key</span> <span class="o">==</span> <span class="n">core</span><span class="p">):</span>
+</span><span data-line="293">            <span class="n">value</span> <span class="o">=</span> <span class="n">val</span>
+</span><span data-line="294">    <span class="k">return</span> <span class="n">value</span>
+</span><span data-line="295">
+</span><span data-line="296">
+</span><span data-line="297"><span class="k">def</span><span class="w"> </span><span class="nf">_description</span><span class="p">(</span><span class="n">element</span><span class="p">:</span> <span class="n">ET</span><span class="o">.</span><span class="n">Element</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="298">    <span class="n">value</span> <span class="o">=</span> <span class="n">_attr</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="s2">"description"</span><span class="p">)</span>
+</span><span data-line="299">    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="300">        <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="301">    <span class="c1"># XML attribute normalization already folds literal newlines to spaces, so</span>
+</span><span data-line="302">    <span class="c1"># only `&amp;#10;` character references still split lines; strip the first one.</span>
+</span><span data-line="303">    <span class="n">lines</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
+</span><span data-line="304">    <span class="n">first</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">if</span> <span class="n">lines</span> <span class="k">else</span> <span class="s2">""</span>
+</span><span data-line="305">    <span class="k">return</span> <span class="n">first</span> <span class="ow">or</span> <span class="kc">None</span>
+</span><span data-line="306">
+</span><span data-line="307">
+<div class="viewcode-block" id="parse_build_xml">
+<a class="viewcode-back" href="../../../../modules.html#nur.core.providers.ant.parse_build_xml">[docs]</a>
+</span><span data-line="308"><span class="k">def</span><span class="w"> </span><span class="nf">parse_build_xml</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">source_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">_SOURCE_FILE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="309"><span class="w">    </span><span class="sd">"""Extract runnable entry names from ``build.xml`` without executing anything.</span>
+</span><span data-line="310">
+</span><span data-line="311"><span class="sd">    Deliberately does NOT shell out to ``ant -p``: the file is declarative XML,</span>
+</span><span data-line="312"><span class="sd">    so ``&lt;target name=...&gt;`` attributes can be read directly and a task body</span>
+</span><span data-line="313"><span class="sd">    (a sequence of XML tasks, not shell commands) never runs during discovery.</span>
+</span><span data-line="314"><span class="sd">    ``&lt;extension-point name=...&gt;`` entries are listed the same way: they are</span>
+</span><span data-line="315"><span class="sd">    target-like states with a name and an optional description, each running</span>
+</span><span data-line="316"><span class="sd">    as ``ant &lt;name&gt;``. Descriptions come from the ``description``</span>
+</span><span data-line="317"><span class="sd">    attribute; every entry is listed, including ones without a description</span>
+</span><span data-line="318"><span class="sd">    (which ``ant -p`` hides as internal). Names are kept verbatim — Ant permits</span>
+</span><span data-line="319"><span class="sd">    spaces in target names and ``argv_base`` passes the name as a single token,</span>
+</span><span data-line="320"><span class="sd">    so normalizing would change the target's identity. Only a missing name or</span>
+</span><span data-line="321"><span class="sd">    an actually empty one is skipped (Ant rejects the latter); anything else,</span>
+</span><span data-line="322"><span class="sd">    including whitespace-only names, stays listed exactly as Ant accepts it.</span>
+</span><span data-line="323"><span class="sd">    Names beginning with a</span>
+</span><span data-line="324"><span class="sd">    hyphen are skipped: Ant parses such arguments as options, so they cannot</span>
+</span><span data-line="325"><span class="sd">    run via ``ant &lt;name&gt;`` (the conventional internal-target form); the check</span>
+</span><span data-line="326"><span class="sd">    mirrors Ant's own ``startsWith("-")`` on the same verbatim token, so</span>
+</span><span data-line="327"><span class="sd">    padded variants (``  -init ``) stay listed. Only core-namespace</span>
+</span><span data-line="328"><span class="sd">    ``&lt;target&gt;``/``&lt;extension-point&gt;`` elements count: other namespaces are</span>
+</span><span data-line="329"><span class="sd">    ordinary task/type uses, not entry points. Documents whose root is not an</span>
+</span><span data-line="330"><span class="sd">    Ant ``&lt;project&gt;`` element are skipped: Ant rejects them before installing</span>
+</span><span data-line="331"><span class="sd">    any target. Task bodies stay</span>
+</span><span data-line="332"><span class="sd">    opaque, so ``definition`` is empty. Imported/included build files,</span>
+</span><span data-line="333"><span class="sd">    ``macrodef``-defined</span>
+</span><span data-line="334"><span class="sd">    behaviour, ``if``/``unless`` conditions, ``depends`` ordering, and</span>
+</span><span data-line="335"><span class="sd">    ``${property}`` interpolation are not resolved; names are left literal.</span>
+</span><span data-line="336"><span class="sd">    Parser errors skip the file. Files with a ``&lt;!DOCTYPE&gt;`` declaration are</span>
+</span><span data-line="337"><span class="sd">    skipped as well: it is the only carrier of ``&lt;!ENTITY&gt;`` definitions,</span>
+</span><span data-line="338"><span class="sd">    whose expansion is unbounded, and genuine Ant build files never need one.</span>
+</span><span data-line="339"><span class="sd">    Detection is an expat pre-scan that aborts at the first declaration, so no</span>
+</span><span data-line="340"><span class="sd">    entity is ever expanded during discovery.</span>
+</span><span data-line="341"><span class="sd">    Results are syntactic task candidates, not a</span>
+</span><span data-line="342"><span class="sd">    promise that Ant will accept or successfully execute each target.</span>
+</span><span data-line="343">
+</span><span data-line="344"><span class="sd">    Byte input is preferred: ElementTree honours the XML encoding declaration</span>
+</span><span data-line="345"><span class="sd">    only for bytes; a `str` carrying one is skipped as unparsable. Byte input</span>
+</span><span data-line="346"><span class="sd">    in an encoding outside the stdlib's native set (multibyte ones like</span>
+</span><span data-line="347"><span class="sd">    Shift_JIS, UTF-32, or EBCDIC variants, which Ant accepts) is transcoded to</span>
+</span><span data-line="348"><span class="sd">    UTF-8 first.</span>
+</span><span data-line="349"><span class="sd">    """</span>
+</span><span data-line="350">    <span class="n">text</span> <span class="o">=</span> <span class="n">_prepare</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+</span><span data-line="351">    <span class="k">if</span> <span class="n">_has_doctype</span><span class="p">(</span><span class="n">text</span><span class="p">):</span>
+</span><span data-line="352">        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+</span><span data-line="353">            <span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (document type declaration not allowed)"</span><span class="p">,</span> <span class="n">source_file</span>
+</span><span data-line="354">        <span class="p">)</span>
+</span><span data-line="355">        <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="356">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="357">        <span class="n">root</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">fromstring</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+</span><span data-line="358">    <span class="k">except</span> <span class="p">(</span><span class="n">ET</span><span class="o">.</span><span class="n">ParseError</span><span class="p">,</span> <span class="ne">LookupError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">UnicodeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="359">        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span> <span class="n">source_file</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+</span><span data-line="360">        <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="361">    <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_project_root</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">tag</span><span class="p">):</span>
+</span><span data-line="362">        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (not an Ant project file)"</span><span class="p">,</span> <span class="n">source_file</span><span class="p">)</span>
+</span><span data-line="363">        <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="364">    <span class="n">tasks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Task</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="365">    <span class="c1"># Only direct children of the project root: Ant only accepts &lt;target&gt; and</span>
+</span><span data-line="366">    <span class="c1"># &lt;extension-point&gt; there, so nested elements of the same name (e.g. inside</span>
+</span><span data-line="367">    <span class="c1"># &lt;macrodef&gt;) are not runnable entry points.</span>
+</span><span data-line="368">    <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">root</span><span class="p">:</span>
+</span><span data-line="369">        <span class="k">if</span> <span class="ow">not</span> <span class="n">_runnable</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">tag</span><span class="p">):</span>
+</span><span data-line="370">            <span class="k">continue</span>
+</span><span data-line="371">        <span class="n">raw</span> <span class="o">=</span> <span class="n">_attr</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">)</span>
+</span><span data-line="372">        <span class="k">if</span> <span class="ow">not</span> <span class="n">raw</span><span class="p">:</span>
+</span><span data-line="373">            <span class="k">continue</span>
+</span><span data-line="374">        <span class="k">if</span> <span class="n">raw</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"-"</span><span class="p">):</span>
+</span><span data-line="375">            <span class="c1"># Ant checks the original command-line token with startsWith("-"),</span>
+</span><span data-line="376">            <span class="c1"># so only position-zero hyphens read as options; padded variants</span>
+</span><span data-line="377">            <span class="c1"># (`  -init `) stay runnable as single-token target names, exactly</span>
+</span><span data-line="378">            <span class="c1"># as Ant itself treats them. Make skips `.`-prefixed names for the</span>
+</span><span data-line="379">            <span class="c1"># same reason.</span>
+</span><span data-line="380">            <span class="k">continue</span>
+</span><span data-line="381">        <span class="n">name</span> <span class="o">=</span> <span class="n">raw</span>
+</span><span data-line="382">        <span class="n">declared</span> <span class="o">=</span> <span class="n">Task</span><span class="p">(</span>
+</span><span data-line="383">            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+</span><span data-line="384">            <span class="n">prefix</span><span class="o">=</span><span class="s2">"ant"</span><span class="p">,</span>
+</span><span data-line="385">            <span class="n">argv_base</span><span class="o">=</span><span class="p">(</span><span class="s2">"ant"</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
+</span><span data-line="386">            <span class="n">description</span><span class="o">=</span><span class="n">_description</span><span class="p">(</span><span class="n">element</span><span class="p">),</span>
+</span><span data-line="387">            <span class="n">source_file</span><span class="o">=</span><span class="n">source_file</span><span class="p">,</span>
+</span><span data-line="388">        <span class="p">)</span>
+</span><span data-line="389">        <span class="n">existing</span> <span class="o">=</span> <span class="n">tasks</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="390">        <span class="k">if</span> <span class="n">existing</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="391">            <span class="k">if</span> <span class="n">existing</span><span class="o">.</span><span class="n">description</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">declared</span><span class="o">.</span><span class="n">description</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="392">                <span class="n">tasks</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span><span class="n">existing</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="n">declared</span><span class="o">.</span><span class="n">description</span><span class="p">)</span>
+</span><span data-line="393">            <span class="k">continue</span>
+</span><span data-line="394">        <span class="n">tasks</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">declared</span>
+</span><span data-line="395">    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">tasks</span><span class="o">.</span><span class="n">values</span><span class="p">())</span></div>
+
+</span><span data-line="396">
+</span><span data-line="397">
+</span><span data-line="398"><span class="k">class</span><span class="w"> </span><span class="nc">AntProvider</span><span class="p">:</span>
+</span><span data-line="399">    <span class="n">prefix</span> <span class="o">=</span> <span class="s2">"ant"</span>
+</span><span data-line="400">
+</span><span data-line="401">    <span class="k">def</span><span class="w"> </span><span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="402">        <span class="k">return</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">_SOURCE_FILE</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span>
+</span><span data-line="403">
+</span><span data-line="404">    <span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+</span><span data-line="405">        <span class="c1"># Bytes (not text): ElementTree honours the XML encoding declaration</span>
+</span><span data-line="406">        <span class="c1"># only for byte input; decoding first would misread non-UTF-8 files</span>
+</span><span data-line="407">        <span class="c1"># and reject declarations outright.</span>
+</span><span data-line="408">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="409">            <span class="n">source</span> <span class="o">=</span> <span class="p">(</span><span class="n">cwd</span> <span class="o">/</span> <span class="n">_SOURCE_FILE</span><span class="p">)</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">()</span>
+</span><span data-line="410">        <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="411">            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"nur: skipping </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span> <span class="n">_SOURCE_FILE</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+</span><span data-line="412">            <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="413">        <span class="k">return</span> <span class="n">parse_build_xml</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+</span></pre></div>
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Hasan Sezer Taşan</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../../../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../../_static/copybutton.js?v=f281be69"></script>
+      <script>let toggleHintShow = 'Click to show';</script>
+      <script>let toggleHintHide = 'Click to hide';</script>
+      <script>let toggleOpenOnPrint = 'true';</script>
+      <script src="../../../../_static/togglebutton.js?v=b8b12719"></script>
+      <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
+      <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+      <script src="../../../../_static/shibuya.js?v=50760d75"></script></body>
+</html>
