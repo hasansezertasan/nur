@@ -2,7 +2,7 @@
 <html lang="en" data-accent-color="amber" data-content_root="../">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Implemented providers: evaluations - nur</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Accepted candidates" href="candidates.html" /><link rel="prev" title="Evaluation template" href="template.html" /><script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Implemented providers: evaluations - nur</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Candidates" href="candidates.html" /><link rel="prev" title="Evaluation template" href="template.html" /><script>
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=e1a1ceaf" />
@@ -79,7 +79,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Provider register</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="template.html">Evaluation template</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Implemented providers: evaluations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="candidates.html">Accepted candidates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="candidates.html">Candidates</a></li>
 <li class="toctree-l2"><a class="reference internal" href="declined.html">Declined formats</a></li>
 <li class="toctree-l2"><a class="reference internal" href="research/markdown-parser.html">Markdown parser evaluation (mask and xc)</a></li>
 </ul>
@@ -189,7 +189,7 @@ trailing commas), so strict <code class="docutils literal notranslate"><span cla
 already lists them, avoiding double listing); <code class="docutils literal notranslate"><span class="pre">dependencies</span></code>, <code class="docutils literal notranslate"><span class="pre">env</span></code>, <code class="docutils literal notranslate"><span class="pre">cwd</span></code>,
 <code class="docutils literal notranslate"><span class="pre">--filter</span></code> semantics. Deno does not auto-run <code class="docutils literal notranslate"><span class="pre">pre</span></code>/<code class="docutils literal notranslate"><span class="pre">post</span></code> hooks, so none are
 synthesized.</p></li>
-<li><p><strong>Adoption (information only):</strong> about 188 repositories.</p></li>
+<li><p><strong>Adoption (information only):</strong> about 188 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).</p></li>
 </ul>
 </section>
 <section id="composer">
@@ -205,14 +205,14 @@ listed by name with an opaque <code class="docutils literal notranslate"><span c
 (<code class="docutils literal notranslate"><span class="pre">pre/post-install-cmd</span></code>, <code class="docutils literal notranslate"><span class="pre">pre/post-update-cmd</span></code>, <code class="docutils literal notranslate"><span class="pre">post-autoload-dump</span></code>, and the
 package, installer and plugin events) are filtered so the picker shows only
 user-defined scripts.</p></li>
-<li><p><strong>Adoption (information only):</strong> about 3,135 repositories.</p></li>
+<li><p><strong>Adoption (information only):</strong> about 3,135 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).</p></li>
 </ul>
 </section>
 <section id="pre-commit">
 <h2>pre-commit<a class="headerlink" href="#pre-commit" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">.pre-commit-config.yaml</span></code>. <strong>Issue:</strong> #73. <strong>Shipped:</strong> 0.5.0.</p></li>
-<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">pre-commit</span> <span class="pre">run</span> <span class="pre">&lt;id&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">pre-commit</span></code> to enumerate hooks.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">pre-commit</span> <span class="pre">run</span> <span class="pre">&lt;id&gt;</span> <span class="pre">--all-files</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">pre-commit</span></code> to enumerate hooks.</p></li>
 <li><p><strong>Reads:</strong> <code class="docutils literal notranslate"><span class="pre">repos[].hooks[]</span></code> only; sibling top-level keys (<code class="docutils literal notranslate"><span class="pre">ci</span></code>,
 <code class="docutils literal notranslate"><span class="pre">default_stages</span></code>, <code class="docutils literal notranslate"><span class="pre">files</span></code>, <code class="docutils literal notranslate"><span class="pre">exclude</span></code>, <code class="docutils literal notranslate"><span class="pre">fail_fast</span></code>, …) are configuration and
 hold no hooks. Three repo kinds: <strong>local</strong> (<code class="docutils literal notranslate"><span class="pre">entry</span></code> is in this file, so
@@ -221,11 +221,11 @@ hold no hooks. Three repo kinds: <strong>local</strong> (<code class="docutils l
 built-ins <code class="docutils literal notranslate"><span class="pre">check-hooks-apply</span></code>, <code class="docutils literal notranslate"><span class="pre">check-useless-excludes</span></code>, <code class="docutils literal notranslate"><span class="pre">identity</span></code>).</p></li>
 <li><p><strong>Left out:</strong> resolving remote hooks’ <code class="docutils literal notranslate"><span class="pre">entry</span></code>, <code class="docutils literal notranslate"><span class="pre">language</span></code> and <code class="docutils literal notranslate"><span class="pre">args</span></code> (needs a
 clone); <code class="docutils literal notranslate"><span class="pre">stages</span></code> filtering.</p></li>
-<li><p><strong>Open at filing:</strong> plain <code class="docutils literal notranslate"><span class="pre">pre-commit</span> <span class="pre">run</span> <span class="pre">&lt;id&gt;</span></code> runs on staged files and
-no-ops on a clean tree, whereas a task-runner user typically wants
-<code class="docutils literal notranslate"><span class="pre">--all-files</span></code>; and whether to key on <code class="docutils literal notranslate"><span class="pre">id</span></code> or <code class="docutils literal notranslate"><span class="pre">alias</span></code>. The <code class="docutils literal notranslate"><span class="pre">name</span></code> versus
-<code class="docutils literal notranslate"><span class="pre">alias</span></code> rule was not confirmed against primary sources.</p></li>
-<li><p><strong>Adoption (information only):</strong> about 3,632 repositories.</p></li>
+<li><p><strong>Resolved at implementation:</strong> plain <code class="docutils literal notranslate"><span class="pre">pre-commit</span> <span class="pre">run</span> <span class="pre">&lt;id&gt;</span></code> runs on staged
+files and no-ops on a clean tree, so the provider delegates with
+<code class="docutils literal notranslate"><span class="pre">--all-files</span></code>. Still unconfirmed against primary sources: the <code class="docutils literal notranslate"><span class="pre">name</span></code> versus
+<code class="docutils literal notranslate"><span class="pre">alias</span></code> rule (the provider keys on <code class="docutils literal notranslate"><span class="pre">id</span></code>).</p></li>
+<li><p><strong>Adoption (information only):</strong> about 3,632 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).</p></li>
 </ul>
 </section>
 <section id="tox">
@@ -249,7 +249,7 @@ over-trust cross-version precedence.</p></li>
 factor-conditional settings, generative section headers <code class="docutils literal notranslate"><span class="pre">[testenv:{a,b}]</span></code>,
 <code class="docutils literal notranslate"><span class="pre">labels</span></code>, and provisioning environments (<code class="docutils literal notranslate"><span class="pre">.pkg</span></code>, <code class="docutils literal notranslate"><span class="pre">.tox</span></code>), treated as
 non-runnable.</p></li>
-<li><p><strong>Adoption (information only):</strong> about 1,869 repositories.</p></li>
+<li><p><strong>Adoption (information only):</strong> about 1,869 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).</p></li>
 </ul>
 </section>
 <section id="cargo-make">
@@ -289,8 +289,10 @@ appear), and the <code class="docutils literal notranslate"><span class="pre">ma
 <li><p><strong>Left out:</strong> the legacy <code class="docutils literal notranslate"><span class="pre">&quot;0.1.0&quot;</span></code> schema; extension-contributed task types
 (<code class="docutils literal notranslate"><span class="pre">npm</span></code>, <code class="docutils literal notranslate"><span class="pre">typescript</span></code>, <code class="docutils literal notranslate"><span class="pre">gulp</span></code>, <code class="docutils literal notranslate"><span class="pre">grunt</span></code>, <code class="docutils literal notranslate"><span class="pre">cargo</span></code>, …), which the extension
 resolves at runtime; <code class="docutils literal notranslate"><span class="pre">dependsOn</span></code>-only compound tasks; editor-only variables
-(<code class="docutils literal notranslate"><span class="pre">${file}</span></code>, <code class="docutils literal notranslate"><span class="pre">${selectedText}</span></code>, <code class="docutils literal notranslate"><span class="pre">${input:...}</span></code>), kept literal. Duplicate labels
-are tolerated.</p></li>
+(<code class="docutils literal notranslate"><span class="pre">${file}</span></code>, <code class="docutils literal notranslate"><span class="pre">${selectedText}</span></code>, <code class="docutils literal notranslate"><span class="pre">${input:...}</span></code>): a task whose command, args or
+working directory still contains an unresolved variable is <strong>skipped</strong>, not
+listed (<code class="docutils literal notranslate"><span class="pre">${workspaceFolder}</span></code> resolves to the discovery directory). Duplicate
+labels are tolerated.</p></li>
 <li><p><strong>Sibling:</strong> Zed <code class="docutils literal notranslate"><span class="pre">.zed/tasks.json</span></code>, see <a class="reference internal" href="candidates.html"><span class="std std-doc">candidates</span></a>.</p></li>
 </ul>
 </section>
@@ -327,8 +329,8 @@ sessions, command bodies.</p></li>
 <ul class="simple">
 <li><p><strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">build.xml</span></code>. <strong>Issue:</strong> #141. <strong>Docs:</strong> <a class="reference external" href="https://ant.apache.org/manual/">https://ant.apache.org/manual/</a>.</p></li>
 <li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">&lt;target&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">-p</span></code>.</p></li>
-<li><p><strong>Reads:</strong> <code class="docutils literal notranslate"><span class="pre">&lt;target</span> <span class="pre">name=...&gt;</span></code>, <code class="docutils literal notranslate"><span class="pre">description</span></code>, <code class="docutils literal notranslate"><span class="pre">depends</span></code>; <code class="docutils literal notranslate"><span class="pre">&lt;project</span> <span class="pre">default&gt;</span></code>
-worth surfacing. Declarative XML, so the safest of the imperative-adjacent set.
+<li><p><strong>Reads:</strong> <code class="docutils literal notranslate"><span class="pre">&lt;target</span> <span class="pre">name=...&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">description</span></code>. <code class="docutils literal notranslate"><span class="pre">depends</span></code> ordering and
+<code class="docutils literal notranslate"><span class="pre">&lt;project</span> <span class="pre">default&gt;</span></code> are not read (an evaluation idea, not shipped). Declarative XML, so the safest of the imperative-adjacent set.
 Undescribed targets are conventionally internal (Ant hides them from <code class="docutils literal notranslate"><span class="pre">-p</span></code>).</p></li>
 <li><p><strong>Left out:</strong> targets from <code class="docutils literal notranslate"><span class="pre">&lt;import&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;include&gt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;macrodef&gt;</span></code> and
 <code class="docutils literal notranslate"><span class="pre">&lt;presetdef&gt;</span></code> output, <code class="docutils literal notranslate"><span class="pre">${property}</span></code> interpolation (kept literal), non-default
@@ -397,7 +399,7 @@ scripts the <code class="docutils literal notranslate"><span class="pre">npm</sp
     <a href="candidates.html">
       <div class="page-info">
         <span>Next</span>
-        <div class="title">Accepted candidates</div>
+        <div class="title">Candidates</div>
       </div>
       <i class="i-lucide chevron-right"></i>
     </a>

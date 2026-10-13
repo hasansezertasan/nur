@@ -79,7 +79,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../providers/index.html">Provider register</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../providers/template.html">Evaluation template</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../providers/implemented.html">Implemented providers: evaluations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../providers/candidates.html">Accepted candidates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../providers/candidates.html">Candidates</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../providers/declined.html">Declined formats</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../providers/research/markdown-parser.html">Markdown parser evaluation (mask and xc)</a></li>
 </ul>
@@ -239,7 +239,8 @@ file” clause of ADR 0001 is retired.</p>
 and “borderline fit” are <strong>not</strong> grounds to decline or park a format. Figures
 may still be recorded as information. If a format passes the three gates it is
 accepted and queued for implementation; ordering is a scheduling matter, not a
-verdict.</p>
+verdict. A gate that is merely unresolved leaves the format <em>pending</em>, not
+declined.</p>
 </section>
 <section id="what-still-declines-a-format">
 <h3>What still declines a format<a class="headerlink" href="#what-still-declines-a-format" title="Link to this heading">#</a></h3>
@@ -262,8 +263,8 @@ when the fact changes.</p>
 <tbody>
 <tr class="row-even"><td><p>Procfile (#145)</p></td>
 <td><p>parked: “borderline, not a task runner”</p></td>
-<td><p>1 yes, 2 yes with a runner chosen, 3 yes</p></td>
-<td><p><strong>Accepted.</strong> Implementation must settle the runner (see <a class="reference internal" href="../providers/candidates.html"><span class="std std-doc">candidates</span></a>).</p></td>
+<td><p>1 yes, 3 yes, 2 unresolved until a runner is chosen</p></td>
+<td><p><strong>Pending.</strong> Becomes accepted once one delegated invocation is chosen and validated (see <a class="reference internal" href="../providers/candidates.html"><span class="std std-doc">candidates</span></a>). Not declined.</p></td>
 </tr>
 <tr class="row-odd"><td><p>JBang catalog (#146)</p></td>
 <td><p>parked: “niche”</p></td>
@@ -282,12 +283,12 @@ when the fact changes.</p>
 </tr>
 <tr class="row-even"><td><p>Gradle / Maven (#148)</p></td>
 <td><p>declined</p></td>
-<td><p>Gradle: gate 3 (any static subset is misleading) and gate 1 for real enumeration; Maven: no project-specific task list</p></td>
+<td><p>Gradle: gate 3 (any static subset is misleading) and gate 1 for real enumeration; Maven: gate 3 (no project-specific task list)</p></td>
 <td><p><strong>Declined.</strong></p></td>
 </tr>
 <tr class="row-odd"><td><p>CMake (#149)</p></td>
 <td><p>declined</p></td>
-<td><p>gate 2 fails (configure/build two-step), names are runtime products</p></td>
+<td><p>gates 2 and 3 fail (configure/build two-step; names are runtime products)</p></td>
 <td><p><strong>Declined.</strong></p></td>
 </tr>
 <tr class="row-even"><td><p>cargo-xtask (#150)</p></td>
@@ -325,14 +326,14 @@ Evaluations and their results are register pages.</p></li>
 becomes “does X pass the three gates?”.</p></li>
 <li><p>Good: a fresh clone carries every candidate, evaluation and result, so an agent
 or a new contributor never depends on closed issues.</p></li>
-<li><p>Good: the niche formats parked on popularity (Procfile, JBang, argc) become
-scheduled work.</p></li>
+<li><p>Good: the niche formats parked on popularity become scheduled work (JBang,
+argc) or pending a concrete decision (Procfile).</p></li>
 <li><p>Bad / accepted: more providers to maintain, and each new format widens the
 parsing surface. The bounded contracts of ADRs 0002 and 0003 are the
 mitigation.</p></li>
 <li><p>Bad / accepted: the register must be kept current. A provider PR updates its
 register entry in the same change.</p></li>
-<li><p>Follow-up: open implementation issues for Procfile, JBang and argc; once the
+<li><p>Follow-up: open implementation issues for JBang and argc, and settle the Procfile runner; once the
 register is merged, close #78 and #147–#150 with a pointer to it (their
 content now lives in the repo).</p></li>
 </ul>

@@ -35,7 +35,7 @@ is defined by their provider modules and tests. Open items:
   already lists them, avoiding double listing); `dependencies`, `env`, `cwd`,
   `--filter` semantics. Deno does not auto-run `pre`/`post` hooks, so none are
   synthesized.
-- **Adoption (information only):** about 188 repositories.
+- **Adoption (information only):** about 188 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).
 
 ## composer
 
@@ -49,12 +49,12 @@ is defined by their provider modules and tests. Open items:
   (`pre/post-install-cmd`, `pre/post-update-cmd`, `post-autoload-dump`, and the
   package, installer and plugin events) are filtered so the picker shows only
   user-defined scripts.
-- **Adoption (information only):** about 3,135 repositories.
+- **Adoption (information only):** about 3,135 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).
 
 ## pre-commit
 
 - **Source:** `.pre-commit-config.yaml`. **Issue:** #73. **Shipped:** 0.5.0.
-- **Run:** `pre-commit run <id>`. **Never use:** `pre-commit` to enumerate hooks.
+- **Run:** `pre-commit run <id> --all-files`. **Never use:** `pre-commit` to enumerate hooks.
 - **Reads:** `repos[].hooks[]` only; sibling top-level keys (`ci`,
   `default_stages`, `files`, `exclude`, `fail_fast`, ...) are configuration and
   hold no hooks. Three repo kinds: **local** (`entry` is in this file, so
@@ -63,11 +63,11 @@ is defined by their provider modules and tests. Open items:
   built-ins `check-hooks-apply`, `check-useless-excludes`, `identity`).
 - **Left out:** resolving remote hooks' `entry`, `language` and `args` (needs a
   clone); `stages` filtering.
-- **Open at filing:** plain `pre-commit run <id>` runs on staged files and
-  no-ops on a clean tree, whereas a task-runner user typically wants
-  `--all-files`; and whether to key on `id` or `alias`. The `name` versus
-  `alias` rule was not confirmed against primary sources.
-- **Adoption (information only):** about 3,632 repositories.
+- **Resolved at implementation:** plain `pre-commit run <id>` runs on staged
+  files and no-ops on a clean tree, so the provider delegates with
+  `--all-files`. Still unconfirmed against primary sources: the `name` versus
+  `alias` rule (the provider keys on `id`).
+- **Adoption (information only):** about 3,632 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).
 
 ## tox
 
@@ -89,7 +89,7 @@ is defined by their provider modules and tests. Open items:
   factor-conditional settings, generative section headers `[testenv:{a,b}]`,
   `labels`, and provisioning environments (`.pkg`, `.tox`), treated as
   non-runnable.
-- **Adoption (information only):** about 1,869 repositories.
+- **Adoption (information only):** about 1,869 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).
 
 ## cargo-make
 
@@ -123,8 +123,10 @@ is defined by their provider modules and tests. Open items:
 - **Left out:** the legacy `"0.1.0"` schema; extension-contributed task types
   (`npm`, `typescript`, `gulp`, `grunt`, `cargo`, ...), which the extension
   resolves at runtime; `dependsOn`-only compound tasks; editor-only variables
-  (`${file}`, `${selectedText}`, `${input:...}`), kept literal. Duplicate labels
-  are tolerated.
+  (`${file}`, `${selectedText}`, `${input:...}`): a task whose command, args or
+  working directory still contains an unresolved variable is **skipped**, not
+  listed (`${workspaceFolder}` resolves to the discovery directory). Duplicate
+  labels are tolerated.
 - **Sibling:** Zed `.zed/tasks.json`, see [candidates](candidates.md).
 
 ## invoke
@@ -155,8 +157,8 @@ is defined by their provider modules and tests. Open items:
 
 - **Source:** `build.xml`. **Issue:** #141. **Docs:** <https://ant.apache.org/manual/>.
 - **Run:** `ant <target>`. **Never use:** `ant -p`.
-- **Reads:** `<target name=...>`, `description`, `depends`; `<project default>`
-  worth surfacing. Declarative XML, so the safest of the imperative-adjacent set.
+- **Reads:** `<target name=...>` and `description`. `depends` ordering and
+  `<project default>` are not read (an evaluation idea, not shipped). Declarative XML, so the safest of the imperative-adjacent set.
   Undescribed targets are conventionally internal (Ant hides them from `-p`).
 - **Left out:** targets from `<import>` and `<include>`, `<macrodef>` and
   `<presetdef>` output, `${property}` interpolation (kept literal), non-default

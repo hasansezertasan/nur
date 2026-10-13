@@ -79,7 +79,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Provider register</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="template.html">Evaluation template</a></li>
 <li class="toctree-l2"><a class="reference internal" href="implemented.html">Implemented providers: evaluations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="candidates.html">Accepted candidates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="candidates.html">Candidates</a></li>
 <li class="toctree-l2"><a class="reference internal" href="declined.html">Declined formats</a></li>
 <li class="toctree-l2"><a class="reference internal" href="research/markdown-parser.html">Markdown parser evaluation (mask and xc)</a></li>
 </ul>
@@ -161,12 +161,15 @@ cover every format that can be supported honestly.</p>
 <td><p>A provider ships. Evaluation kept in <a class="reference internal" href="implemented.html"><span class="std std-doc">implemented</span></a>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><strong>Accepted</strong></p></td>
-<td><p>Passes the gates; implementation not yet done. See <a class="reference internal" href="candidates.html"><span class="std std-doc">candidates</span></a>.</p></td>
+<td><p>Passes all three gates; implementation not yet done. See <a class="reference internal" href="candidates.html"><span class="std std-doc">candidates</span></a>.</p></td>
 </tr>
-<tr class="row-even"><td><p><strong>Declined</strong></p></td>
+<tr class="row-even"><td><p><strong>Pending</strong></p></td>
+<td><p>Not yet accepted: a gate is unresolved or evaluation is incomplete. See <a class="reference internal" href="candidates.html"><span class="std std-doc">candidates</span></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Declined</strong></p></td>
 <td><p>Fails a gate. Reason and revisit trigger in <a class="reference internal" href="declined.html"><span class="std std-doc">declined</span></a>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><strong>Research</strong></p></td>
+<tr class="row-even"><td><p><strong>Research</strong></p></td>
 <td><p>A cross-cutting investigation with measured results, under <a class="reference internal" href="research/markdown-parser.html"><span class="std std-doc">research</span></a>.</p></td>
 </tr>
 </tbody>
@@ -320,7 +323,7 @@ change.</p>
 </tr>
 <tr class="row-even"><td><p>Procfile</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">Procfile</span></code></p></td>
-<td><p><strong>Accepted</strong></p></td>
+<td><p><strong>Pending:</strong> gates 1 and 3 pass; gate 2 needs a runner chosen</p></td>
 <td><p>#145</p></td>
 </tr>
 <tr class="row-odd"><td><p>JBang catalog</p></td>
@@ -335,11 +338,11 @@ change.</p>
 </tr>
 <tr class="row-odd"><td><p>Zed tasks</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">.zed/tasks.json</span></code></p></td>
-<td><p><strong>Accepted</strong>, sibling of VS Code tasks (different top-level shape)</p></td>
+<td><p><strong>Pending evaluation</strong>; sibling of VS Code tasks (different top-level shape)</p></td>
 <td><p>#139</p></td>
 </tr>
 <tr class="row-even"><td><p>GitHub Actions</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">.github/workflows/*.yml</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.github/workflows/*.yml</span></code>, <code class="docutils literal notranslate"><span class="pre">*.yaml</span></code></p></td>
 <td><p>Declined (gate 2)</p></td>
 <td><p>#147</p></td>
 </tr>

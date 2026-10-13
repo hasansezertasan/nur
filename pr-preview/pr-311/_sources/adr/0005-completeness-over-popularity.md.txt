@@ -88,7 +88,8 @@ Adoption or census figures, niche ecosystems, overlap with another provider,
 and "borderline fit" are **not** grounds to decline or park a format. Figures
 may still be recorded as information. If a format passes the three gates it is
 accepted and queued for implementation; ordering is a scheduling matter, not a
-verdict.
+verdict. A gate that is merely unresolved leaves the format *pending*, not
+declined.
 
 ### What still declines a format
 
@@ -101,12 +102,12 @@ when the fact changes.
 
 | Format | Prior state | Gates | Decision |
 | ------ | ----------- | ----- | -------- |
-| Procfile (#145) | parked: "borderline, not a task runner" | 1 yes, 2 yes with a runner chosen, 3 yes | **Accepted.** Implementation must settle the runner (see [candidates](../providers/candidates.md)). |
+| Procfile (#145) | parked: "borderline, not a task runner" | 1 yes, 3 yes, 2 unresolved until a runner is chosen | **Pending.** Becomes accepted once one delegated invocation is chosen and validated (see [candidates](../providers/candidates.md)). Not declined. |
 | JBang catalog (#146) | parked: "niche" | all pass | **Accepted.** |
 | argc (#146) | parked: "niche" | all pass (comment scan, never `--argc-eval`) | **Accepted.** |
 | GitHub Actions (#147) | declined: not local, multi-file | gate 2 fails; the multi-file ground is retired by the rooted scope | **Declined on gate 2 alone.** |
-| Gradle / Maven (#148) | declined | Gradle: gate 3 (any static subset is misleading) and gate 1 for real enumeration; Maven: no project-specific task list | **Declined.** |
-| CMake (#149) | declined | gate 2 fails (configure/build two-step), names are runtime products | **Declined.** |
+| Gradle / Maven (#148) | declined | Gradle: gate 3 (any static subset is misleading) and gate 1 for real enumeration; Maven: gate 3 (no project-specific task list) | **Declined.** |
+| CMake (#149) | declined | gates 2 and 3 fail (configure/build two-step; names are runtime products) | **Declined.** |
 | cargo-xtask (#150) | declined | no declarative file; gate 3 fails | **Declined.** |
 
 The two JBang/argc formats were filed together in #146 but are independent
@@ -133,14 +134,14 @@ closed once their content is in the repo.
   becomes "does X pass the three gates?".
 - Good: a fresh clone carries every candidate, evaluation and result, so an agent
   or a new contributor never depends on closed issues.
-- Good: the niche formats parked on popularity (Procfile, JBang, argc) become
-  scheduled work.
+- Good: the niche formats parked on popularity become scheduled work (JBang,
+  argc) or pending a concrete decision (Procfile).
 - Bad / accepted: more providers to maintain, and each new format widens the
   parsing surface. The bounded contracts of ADRs 0002 and 0003 are the
   mitigation.
 - Bad / accepted: the register must be kept current. A provider PR updates its
   register entry in the same change.
-- Follow-up: open implementation issues for Procfile, JBang and argc; once the
+- Follow-up: open implementation issues for JBang and argc, and settle the Procfile runner; once the
   register is merged, close #78 and #147–#150 with a pointer to it (their
   content now lives in the repo).
 

@@ -2,7 +2,7 @@
 <html lang="en" data-accent-color="amber" data-content_root="../">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Accepted candidates - nur</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Declined formats" href="declined.html" /><link rel="prev" title="Implemented providers: evaluations" href="implemented.html" /><script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Candidates - nur</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Declined formats" href="declined.html" /><link rel="prev" title="Implemented providers: evaluations" href="implemented.html" /><script>
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=e1a1ceaf" />
@@ -22,7 +22,7 @@
 }
 </style>
     
-  <meta property="og:type" content="website"/><meta property="og:title" content="Accepted candidates"/>
+  <meta property="og:type" content="website"/><meta property="og:title" content="Candidates"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -79,7 +79,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Provider register</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="template.html">Evaluation template</a></li>
 <li class="toctree-l2"><a class="reference internal" href="implemented.html">Implemented providers: evaluations</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Accepted candidates</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Candidates</a></li>
 <li class="toctree-l2"><a class="reference internal" href="declined.html">Declined formats</a></li>
 <li class="toctree-l2"><a class="reference internal" href="research/markdown-parser.html">Markdown parser evaluation (mask and xc)</a></li>
 </ul>
@@ -129,7 +129,7 @@ data-aria-dark="Switch to auto color mode">
         <span>/</span>
         <meta itemprop="position" content="2" />
       </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <strong itemprop="name">Accepted candidates</strong>
+        <strong itemprop="name">Candidates</strong>
         <meta itemprop="position" content="3" />
       </li></ol>
     <div class="xl:hidden ml-1">
@@ -142,13 +142,13 @@ data-aria-dark="Switch to auto color mode">
 </div><div class="flex flex-col break-words justify-between">
       <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
   <article class="yue" role="main">
-          <section id="accepted-candidates">
-<h1>Accepted candidates<a class="headerlink" href="#accepted-candidates" title="Link to this heading">#</a></h1>
-<p>Formats that pass the gates of
-<a class="reference internal" href="../adr/0005-completeness-over-popularity.html"><span class="std std-doc">ADR 0005</span></a> and are queued for
-implementation. They were previously parked on niche adoption or fit; that is no
-longer a ground (<a class="reference internal" href="../adr/0005-completeness-over-popularity.html"><span class="std std-doc">ADR 0005</span></a>).
-Each moves to <a class="reference internal" href="implemented.html"><span class="std std-doc">implemented</span></a> when it ships.</p>
+          <section id="candidates">
+<h1>Candidates<a class="headerlink" href="#candidates" title="Link to this heading">#</a></h1>
+<p>Formats not yet shipped. <strong>Accepted</strong> means all three gates of
+<a class="reference internal" href="../adr/0005-completeness-over-popularity.html"><span class="std std-doc">ADR 0005</span></a> pass. <strong>Pending</strong> means a
+gate is unresolved or the evaluation is incomplete; it is neither accepted nor
+declined. They were previously parked on niche adoption or fit, which is no
+longer a ground. Each moves to <a class="reference internal" href="implemented.html"><span class="std std-doc">implemented</span></a> when it ships.</p>
 <section id="procfile">
 <h2>Procfile<a class="headerlink" href="#procfile" title="Link to this heading">#</a></h2>
 <ul class="simple">
@@ -159,7 +159,7 @@ Each moves to <a class="reference internal" href="implemented.html"><span class=
 Dokku-style platforms.</p></li>
 <li><p><strong>Source files:</strong> <code class="docutils literal notranslate"><span class="pre">Procfile</span></code> (root). <code class="docutils literal notranslate"><span class="pre">Procfile.dev</span></code> and similar by convention.</p></li>
 <li><p><strong>Docs:</strong> <a class="reference external" href="https://devcenter.heroku.com/articles/procfile">https://devcenter.heroku.com/articles/procfile</a></p></li>
-<li><p><strong>State:</strong> Accepted. Issue #145.</p></li>
+<li><p><strong>State:</strong> Pending. Gates 1 and 3 pass; gate 2 needs a chosen runner. Issue #145.</p></li>
 </ul>
 <p><strong>How it is used:</strong></p>
 <p>One process per line, <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">command</span></code>:</p>
@@ -174,7 +174,7 @@ Dokku-style platforms.</p></li>
 <p><strong>Gate check:</strong></p>
 <ol class="arabic simple">
 <li><p><strong>Safe listing:</strong> passes. A flat <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">command</span></code> text file; nothing runs.</p></li>
-<li><p><strong>Faithful run command:</strong> passes <strong>once a runner is chosen.</strong> The entries are
+<li><p><strong>Faithful run command:</strong> unresolved until a runner is chosen. The entries are
 long-running processes rather than one-shot tasks, and foreman, honcho and
 overmind differ, so the delegated command needs a deliberate choice (see
 open design question).</p></li>
@@ -185,7 +185,7 @@ open design question).</p></li>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">prefix</span></code> ← <code class="docutils literal notranslate"><span class="pre">procfile</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">name</span></code> ← process-type name (left of <code class="docutils literal notranslate"><span class="pre">:</span></code>)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">argv_base</span></code> ← <code class="docutils literal notranslate"><span class="pre">&lt;manager&gt;</span> <span class="pre">start</span> <span class="pre">&lt;name&gt;</span></code>, manager per the open question</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">argv_base</span></code> ← not yet defined: <code class="docutils literal notranslate"><span class="pre">&lt;manager&gt;</span> <span class="pre">start</span> <span class="pre">&lt;name&gt;</span></code> once the manager is chosen</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">description</span></code> ← none (the format has no description field)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">definition</span></code> ← the command string (right of <code class="docutils literal notranslate"><span class="pre">:</span></code>)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">source_file</span></code> ← <code class="docutils literal notranslate"><span class="pre">Procfile</span></code></p></li>
@@ -194,7 +194,9 @@ open design question).</p></li>
 <p>Which manager to delegate to. Options: a fixed default (honcho), detection of an
 installed manager, a project setting, or running the command string directly and
 bypassing the manager. Decide in the implementation issue and record it here.
-This is a fidelity question (gate 2), not a reason to decline.</p>
+This is a fidelity question (gate 2), not a reason to decline. The candidate
+becomes <strong>accepted</strong> when one invocation is chosen and validated, and its
+concrete form is recorded here.</p>
 <p><strong>Deferred:</strong></p>
 <p><code class="docutils literal notranslate"><span class="pre">$VAR</span></code> and <code class="docutils literal notranslate"><span class="pre">$PORT</span></code> substitution, <code class="docutils literal notranslate"><span class="pre">.env</span></code> and concurrency options (<code class="docutils literal notranslate"><span class="pre">-c</span> <span class="pre">web=2</span></code>),
 manager-specific extensions, automatic manager selection.</p>
@@ -298,13 +300,13 @@ tasks.</p></li>
 <ul class="simple">
 <li><p><strong>Format:</strong> Zed editor tasks.</p></li>
 <li><p><strong>Source files:</strong> <code class="docutils literal notranslate"><span class="pre">.zed/tasks.json</span></code>.</p></li>
-<li><p><strong>State:</strong> Accepted as a sibling of the VS Code provider. Raised in #139; no
-separate issue yet.</p></li>
+<li><p><strong>State:</strong> Pending evaluation. A sibling of the VS Code provider, raised in
+#139; no separate issue yet. The three gates have not been checked.</p></li>
 </ul>
 <p>It shares the <code class="docutils literal notranslate"><span class="pre">label</span></code>, <code class="docutils literal notranslate"><span class="pre">command</span></code> and <code class="docutils literal notranslate"><span class="pre">args</span></code> vocabulary of VS Code tasks but has
 a different top-level shape (a bare JSON array rather than an object with a
 <code class="docutils literal notranslate"><span class="pre">tasks</span></code> field), so it is a separate provider. Evaluate it against the template
-when its implementation issue is opened; the VS Code evaluation in
+before it is accepted; the VS Code evaluation in
 <a class="reference internal" href="implemented.html"><span class="std std-doc">implemented</span></a> is the starting point.</p>
 </section>
 </section>
