@@ -12,7 +12,7 @@ grounds below are restated without it.
 ## GitHub Actions
 
 - **Format:** [GitHub Actions](https://docs.github.com/en/actions) workflows.
-- **Source files:** `.github/workflows/*.yml`.
+- **Source files:** `.github/workflows/*.yml` and `*.yaml`.
 - **Docs:** <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions>
 - **State:** Declined. **Failed gate:** 2 (faithful run command). Issue #147.
 
@@ -55,8 +55,7 @@ jobs:
 Declined on gate 2 alone. It is CI orchestration, not a local task runner.
 The multi-file layout that the original record also cited is no longer a ground.
 
-- **Adoption (information only):** about 39,887 repositories (2025 census
-  figure recorded in #78), the highest of any candidate; it does not change the
+- **Adoption (information only):** about 39,887 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78), the highest of any candidate; it does not change the
   decision.
 - **Revisit trigger:** a supported way to run a single job or step locally with
   the same semantics (a local runner that resolves the expression context
@@ -101,7 +100,7 @@ Declined. Enumerating by running the build breaks the hard rule (the reason
 `make` text-parses instead of running `make -pRrq`), and the static subset
 misleads.
 
-- **Adoption (information only):** about 7,736 repositories (#78).
+- **Adoption (information only):** about 7,736 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).
 - **Not pursued:** configure-time or `gradle tasks` enumeration; the Tooling API.
 - **Revisit trigger:** a machine-readable, plugin-resolved task manifest that can
   be read without configuring the build, or a literal-`register` subset that can
@@ -112,7 +111,8 @@ misleads.
 - **Format:** Maven project object model.
 - **Source file:** `pom.xml`.
 - **Docs:** <https://maven.apache.org/guides/>
-- **State:** Declined. **Reason:** nothing project-specific to discover. Issue #148.
+- **State:** Declined. **Failed gate:** 3 (honest subset): nothing
+  project-specific to discover. Issue #148.
 
 **How it is used:**
 
@@ -149,8 +149,8 @@ Declined: a provider would emit the same roughly seven phases everywhere.
 - **Source file:** `CMakeLists.txt` (one per directory, linked by
   `add_subdirectory()`).
 - **Docs:** <https://cmake.org/cmake/help/latest/>
-- **State:** Declined. **Failed gate:** 2 (faithful run command), and names are
-  runtime products. Issue #149.
+- **State:** Declined. **Failed gates:** 2 (faithful run command) and 3 (names
+  are runtime products). Issue #149.
 
 **How it is used:**
 
@@ -186,7 +186,7 @@ generates the build system), then build a target
 Declined. It is a build-graph generator whose primary act is "generate a build
 system", not "run task X".
 
-- **Adoption (information only):** about 6,771 repositories (#78).
+- **Adoption (information only):** about 6,771 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).
 - **Not pursued:** configure-based enumeration, the File API, resolving
   variable, loop or generator-expression names, `add_subdirectory()` aggregation.
 - **Revisit trigger:** a stable one-step invocation that builds a named target

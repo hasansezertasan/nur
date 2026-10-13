@@ -1,10 +1,10 @@
-# Accepted candidates
+# Candidates
 
-Formats that pass the gates of
-[ADR 0005](../adr/0005-completeness-over-popularity.md) and are queued for
-implementation. They were previously parked on niche adoption or fit; that is no
-longer a ground ([ADR 0005](../adr/0005-completeness-over-popularity.md)).
-Each moves to [implemented](implemented.md) when it ships.
+Formats not yet shipped. **Accepted** means all three gates of
+[ADR 0005](../adr/0005-completeness-over-popularity.md) pass. **Pending** means a
+gate is unresolved or the evaluation is incomplete; it is neither accepted nor
+declined. They were previously parked on niche adoption or fit, which is no
+longer a ground. Each moves to [implemented](implemented.md) when it ships.
 
 ## Procfile
 
@@ -15,7 +15,7 @@ Each moves to [implemented](implemented.md) when it ships.
   Dokku-style platforms.
 - **Source files:** `Procfile` (root). `Procfile.dev` and similar by convention.
 - **Docs:** <https://devcenter.heroku.com/articles/procfile>
-- **State:** Accepted. Issue #145.
+- **State:** Pending. Gates 1 and 3 pass; gate 2 needs a chosen runner. Issue #145.
 
 **How it is used:**
 
@@ -34,7 +34,7 @@ Each entry is a process type. Run all with `foreman start`, `honcho start` or
 **Gate check:**
 
 1. **Safe listing:** passes. A flat `name: command` text file; nothing runs.
-2. **Faithful run command:** passes **once a runner is chosen.** The entries are
+2. **Faithful run command:** unresolved until a runner is chosen. The entries are
    long-running processes rather than one-shot tasks, and foreman, honcho and
    overmind differ, so the delegated command needs a deliberate choice (see
    open design question).
@@ -45,7 +45,7 @@ Each entry is a process type. Run all with `foreman start`, `honcho start` or
 
 - `prefix` ← `procfile`
 - `name` ← process-type name (left of `:`)
-- `argv_base` ← `<manager> start <name>`, manager per the open question
+- `argv_base` ← not yet defined: `<manager> start <name>` once the manager is chosen
 - `description` ← none (the format has no description field)
 - `definition` ← the command string (right of `:`)
 - `source_file` ← `Procfile`
@@ -55,7 +55,9 @@ Each entry is a process type. Run all with `foreman start`, `honcho start` or
 Which manager to delegate to. Options: a fixed default (honcho), detection of an
 installed manager, a project setting, or running the command string directly and
 bypassing the manager. Decide in the implementation issue and record it here.
-This is a fidelity question (gate 2), not a reason to decline.
+This is a fidelity question (gate 2), not a reason to decline. The candidate
+becomes **accepted** when one invocation is chosen and validated, and its
+concrete form is recorded here.
 
 **Deferred:**
 
@@ -177,11 +179,11 @@ No figure known; none invented.
 
 - **Format:** Zed editor tasks.
 - **Source files:** `.zed/tasks.json`.
-- **State:** Accepted as a sibling of the VS Code provider. Raised in #139; no
-  separate issue yet.
+- **State:** Pending evaluation. A sibling of the VS Code provider, raised in
+  #139; no separate issue yet. The three gates have not been checked.
 
 It shares the `label`, `command` and `args` vocabulary of VS Code tasks but has
 a different top-level shape (a bare JSON array rather than an object with a
 `tasks` field), so it is a separate provider. Evaluate it against the template
-when its implementation issue is opened; the VS Code evaluation in
+before it is accepted; the VS Code evaluation in
 [implemented](implemented.md) is the starting point.
