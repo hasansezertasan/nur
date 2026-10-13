@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="amber" data-content_root="../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Implemented providers: evaluations - nur</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Candidates" href="candidates.html" /><link rel="prev" title="Evaluation template" href="template.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=e1a1ceaf" />
+    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx_paramlinks.css" />
+    <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Implemented providers: evaluations"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../index.html">
+      
+      
+      <strong>nur</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials">
+  <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli-reference.html">CLI reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">Modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../adr/index.html">Architecture Decision Records</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0001-provider-selection-criteria.html">Provider selection criteria: static discovery, never execution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0002-bounded-rake-discovery.html">Bounded Rake discovery: extract literal declarations without simulating Ruby</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0003-bounded-make-discovery.html">Bounded Make discovery: read rule headers with Tree-sitter, never run Make</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0004-js-adjacent-task-runners.html">JS-adjacent runners: accept Grunt, Gulp, Turborepo, Nx, and workspace members</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0005-completeness-over-popularity.html">Completeness over popularity: every honestly supportable format, recorded in the repo</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Provider register</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="template.html">Evaluation template</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Implemented providers: evaluations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="candidates.html">Candidates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="declined.html">Declined formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="history.html">Origin of the register (issue #78)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="research/markdown-parser.html">Markdown parser evaluation (mask and xc)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Maintainer guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../maintaining/setup.html">Repository setup</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../packaging/homebrew-tap/README.html">Homebrew tap setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../packaging/scoop-bucket/README.html">Scoop bucket setup</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#providers-that-predate-the-register">Providers that predate the register</a></li>
+<li><a class="reference internal" href="#npm">npm</a></li>
+<li><a class="reference internal" href="#make">make</a></li>
+<li><a class="reference internal" href="#pdm">pdm</a></li>
+<li><a class="reference internal" href="#poe">poe</a></li>
+<li><a class="reference internal" href="#just">just</a></li>
+<li><a class="reference internal" href="#taskfile">Taskfile</a></li>
+<li><a class="reference internal" href="#mise">mise</a></li>
+<li><a class="reference internal" href="#xc">xc</a></li>
+<li><a class="reference internal" href="#deno">deno</a></li>
+<li><a class="reference internal" href="#composer">composer</a></li>
+<li><a class="reference internal" href="#pre-commit">pre-commit</a></li>
+<li><a class="reference internal" href="#tox">tox</a></li>
+<li><a class="reference internal" href="#cargo-make">cargo-make</a></li>
+<li><a class="reference internal" href="#moon">moon</a></li>
+<li><a class="reference internal" href="#vs-code-tasks">VS Code tasks</a></li>
+<li><a class="reference internal" href="#invoke">invoke</a></li>
+<li><a class="reference internal" href="#nox">nox</a></li>
+<li><a class="reference internal" href="#apache-ant">Apache Ant</a></li>
+<li><a class="reference internal" href="#rake">Rake</a></li>
+<li><a class="reference internal" href="#mask">mask</a></li>
+<li><a class="reference internal" href="#grunt-gulp-turborepo-nx-workspaces-npm-run-all">Grunt, Gulp, Turborepo, Nx, workspaces, npm-run-all</a></li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../index.html"><span itemprop="name">nur</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="index.html"><span itemprop="name">Provider register</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Implemented providers: evaluations</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <section id="implemented-providers-evaluations">
+<h1>Implemented providers: evaluations<a class="headerlink" href="#implemented-providers-evaluations" title="Link to this heading">#</a></h1>
+<p>The evaluation each shipped provider was accepted on, kept in the repository so
+it outlives the issue it came from. These entries record the <strong>evaluation at
+acceptance</strong>. The provider module docstring and its tests are authoritative for
+current behavior, which can have grown since (for example VS Code inheritance and
+Ant extension points); when they disagree, fix the entry. The run command shown
+is what <code class="docutils literal notranslate"><span class="pre">nur</span></code> delegates to. For every provider, discovery reads files and never executes
+project code or calls the runner to list.</p>
+<p>Entries follow the <a class="reference internal" href="template.html"><span class="std std-doc">template</span></a>, condensed. Where a provider has its
+own ADR, that ADR is the contract and the entry only links to it.</p>
+<section id="providers-that-predate-the-register">
+<h2>Providers that predate the register<a class="headerlink" href="#providers-that-predate-the-register" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">npm</span></code>, <code class="docutils literal notranslate"><span class="pre">make</span></code>, <code class="docutils literal notranslate"><span class="pre">pdm</span></code>, <code class="docutils literal notranslate"><span class="pre">poe</span></code>, <code class="docutils literal notranslate"><span class="pre">just</span></code>, <code class="docutils literal notranslate"><span class="pre">Taskfile</span></code>, <code class="docutils literal notranslate"><span class="pre">mise</span></code> and <code class="docutils literal notranslate"><span class="pre">xc</span></code> were selected
+under ADR 0001 before per-format evaluations were written down. Their entries
+below were backfilled from the provider modules and tests, not from issue text,
+and are checked against the three gates of
+<a class="reference internal" href="../adr/0005-completeness-over-popularity.html"><span class="std std-doc">ADR 0005</span></a>. Adoption: no figure for
+these eight is recorded in the repository, so each entry says so rather than
+quoting one. Observed gaps are recorded as they are, not fixed here.</p>
+</section>
+<section id="npm">
+<h2>npm<a class="headerlink" href="#npm" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Format:</strong> <code class="docutils literal notranslate"><span class="pre">scripts</span></code> of a Node package. <strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">package.json</span></code> (strict
+JSON). <strong>Docs:</strong> <a class="reference external" href="https://docs.npmjs.com/cli/using-npm/scripts">https://docs.npmjs.com/cli/using-npm/scripts</a>.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">&lt;pm&gt;</span> <span class="pre">run</span> <span class="pre">&lt;name&gt;</span></code>, where the package manager comes from the lockfile
+(first match of <code class="docutils literal notranslate"><span class="pre">bun.lock</span></code>, <code class="docutils literal notranslate"><span class="pre">bun.lockb</span></code>, <code class="docutils literal notranslate"><span class="pre">pnpm-lock.yaml</span></code>, <code class="docutils literal notranslate"><span class="pre">yarn.lock</span></code>,
+<code class="docutils literal notranslate"><span class="pre">package-lock.json</span></code>; <code class="docutils literal notranslate"><span class="pre">npm</span></code> when none exists). Extra arguments follow <code class="docutils literal notranslate"><span class="pre">--</span></code>.
+<strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">npm</span> <span class="pre">run</span></code> with no argument to list.</p></li>
+<li><p><strong>Gate check:</strong> (1) safe: the file is parsed as JSON and no runner is called.
+(2) faithful: the script runs under the package manager the lockfile names.
+(3) honest subset: names and command strings are read; nothing is evaluated.</p></li>
+<li><p><strong>Mapping:</strong> <code class="docutils literal notranslate"><span class="pre">prefix</span></code> is always <code class="docutils literal notranslate"><span class="pre">npm</span></code>, even when the package manager is pnpm,
+yarn or bun; <code class="docutils literal notranslate"><span class="pre">name</span></code> is the script key; <code class="docutils literal notranslate"><span class="pre">argv_base</span></code> is <code class="docutils literal notranslate"><span class="pre">(pm,</span> <span class="pre">&quot;run&quot;,</span> <span class="pre">name)</span></code>;
+<code class="docutils literal notranslate"><span class="pre">definition</span></code> is the script string (<code class="docutils literal notranslate"><span class="pre">str()</span></code> of the value); no <code class="docutils literal notranslate"><span class="pre">description</span></code>;
+<code class="docutils literal notranslate"><span class="pre">source_file</span></code> is <code class="docutils literal notranslate"><span class="pre">package.json</span></code>; <code class="docutils literal notranslate"><span class="pre">passthrough_prefix</span></code> is <code class="docutils literal notranslate"><span class="pre">(&quot;--&quot;,)</span></code>.</p></li>
+<li><p><strong>Edge cases:</strong> a missing, null or empty <code class="docutils literal notranslate"><span class="pre">scripts</span></code> lists nothing, and so does a
+falsy <code class="docutils literal notranslate"><span class="pre">scripts</span></code> such as <code class="docutils literal notranslate"><span class="pre">false</span></code> or <code class="docutils literal notranslate"><span class="pre">0</span></code>, silently; a truthy <code class="docutils literal notranslate"><span class="pre">scripts</span></code> that is not an
+object, malformed JSON or an unreadable file logs a warning and
+lists nothing. A JSON document whose top level is not an object, and a file
+that is not valid UTF-8, are not guarded.</p></li>
+<li><p><strong>Opaque:</strong> <code class="docutils literal notranslate"><span class="pre">pre*</span></code>/<code class="docutils literal notranslate"><span class="pre">post*</span></code> hooks are listed as ordinary scripts and not run
+specially by <code class="docutils literal notranslate"><span class="pre">nur</span></code>; <code class="docutils literal notranslate"><span class="pre">packageManager</span></code>, <code class="docutils literal notranslate"><span class="pre">engines</span></code> and workspaces (see
+<code class="docutils literal notranslate"><span class="pre">workspace</span></code> in ADR 0004) are not read.</p></li>
+<li><p><strong>Adoption (information only):</strong> no figure known in the repository.</p></li>
+</ul>
+</section>
+<section id="make">
+<h2>make<a class="headerlink" href="#make" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Format:</strong> Make rules. <strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">Makefile</span></code> in the current directory only
+(not <code class="docutils literal notranslate"><span class="pre">makefile</span></code> or <code class="docutils literal notranslate"><span class="pre">GNUmakefile</span></code>). <strong>Contract:</strong>
+<a class="reference internal" href="../adr/0003-bounded-make-discovery.html"><span class="std std-doc">ADR 0003</span></a>. <strong>Docs:</strong>
+<a class="reference external" href="https://www.gnu.org/software/make/manual/">https://www.gnu.org/software/make/manual/</a>.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">&lt;target&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">-pRrq</span></code> or any invocation that
+makes Make read the file: it evaluates <code class="docutils literal notranslate"><span class="pre">$(shell</span> <span class="pre">...)</span></code> and <code class="docutils literal notranslate"><span class="pre">!=</span></code> while parsing.</p></li>
+<li><p><strong>Gate check:</strong> (1) safe: tree-sitter-make syntax tree plus a line fallback;
+tests prove <code class="docutils literal notranslate"><span class="pre">$(shell</span> <span class="pre">...)</span></code> and <code class="docutils literal notranslate"><span class="pre">!=</span></code> never run. (2) faithful: <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">&lt;target&gt;</span></code>
+is what the file declares. (3) honest subset: syntactic candidates only, as
+ADR 0003 states.</p></li>
+<li><p><strong>Mapping:</strong> <code class="docutils literal notranslate"><span class="pre">prefix</span></code> <code class="docutils literal notranslate"><span class="pre">make</span></code>; <code class="docutils literal notranslate"><span class="pre">name</span></code> the target; <code class="docutils literal notranslate"><span class="pre">argv_base</span></code> <code class="docutils literal notranslate"><span class="pre">(&quot;make&quot;,</span> <span class="pre">name)</span></code>;
+<code class="docutils literal notranslate"><span class="pre">description</span></code> from a <code class="docutils literal notranslate"><span class="pre">##</span></code> comment on the rule’s own header line (first
+non-empty one wins; a multi-target rule gives each target the text); no
+<code class="docutils literal notranslate"><span class="pre">definition</span></code>; <code class="docutils literal notranslate"><span class="pre">source_file</span></code> <code class="docutils literal notranslate"><span class="pre">Makefile</span></code>.</p></li>
+<li><p><strong>Edge cases:</strong> names match <code class="docutils literal notranslate"><span class="pre">[A-Za-z0-9][A-Za-z0-9._/-]*</span></code>. Kept: multi-target,
+<code class="docutils literal notranslate"><span class="pre">::</span></code> and static-pattern rules, backslash-continued headers, rules inside
+conditionals (no branch is evaluated), target-specific variable targets.
+Skipped: <code class="docutils literal notranslate"><span class="pre">.</span></code>-prefixed specials such as <code class="docutils literal notranslate"><span class="pre">.PHONY</span></code>, <code class="docutils literal notranslate"><span class="pre">%</span></code> pattern rules, computed
+names (<code class="docutils literal notranslate"><span class="pre">$(X)</span></code>), a target literally named <code class="docutils literal notranslate"><span class="pre">Makefile</span></code> (excluded even though it
+matches the name pattern), assignments, recipe lines, <code class="docutils literal notranslate"><span class="pre">define</span></code> bodies, <code class="docutils literal notranslate"><span class="pre">include</span></code>
+directives (never followed). Non-ASCII name fragments are rejected, not
+truncated. A BOM is stripped and line endings normalised. Input the grammar
+rejects logs a warning and goes through the line fallback, so valid rules
+around the damage are still listed. An unreadable <code class="docutils literal notranslate"><span class="pre">Makefile</span></code> lists nothing.</p></li>
+<li><p><strong>Opaque:</strong> variable expansion, included files, the active branch of a
+conditional, prerequisites, recipe bodies and the default goal. Known limits
+(nested <code class="docutils literal notranslate"><span class="pre">define</span></code>, targets named like directive keywords) are in ADR 0003.</p></li>
+<li><p><strong>Adoption (information only):</strong> no figure known in the repository.</p></li>
+</ul>
+</section>
+<section id="pdm">
+<h2>pdm<a class="headerlink" href="#pdm" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Format:</strong> PDM user scripts. <strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">[tool.pdm.scripts]</span></code> in
+<code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>. <strong>Docs:</strong>
+<a class="reference external" href="https://pdm-project.org/latest/usage/scripts/">https://pdm-project.org/latest/usage/scripts/</a>.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">pdm</span> <span class="pre">run</span> <span class="pre">&lt;name&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">pdm</span> <span class="pre">run</span> <span class="pre">--list</span></code>.</p></li>
+<li><p><strong>Gate check:</strong> (1) safe: <code class="docutils literal notranslate"><span class="pre">tomllib</span></code> only; <code class="docutils literal notranslate"><span class="pre">pdm</span></code> is never called. (2) faithful:
+<code class="docutils literal notranslate"><span class="pre">pdm</span> <span class="pre">run</span> <span class="pre">&lt;name&gt;</span></code> is the documented way to run a script. (3) honest subset:
+names, a description and a flat command are read; composite behaviour is not.</p></li>
+<li><p><strong>Mapping:</strong> <code class="docutils literal notranslate"><span class="pre">prefix</span></code> <code class="docutils literal notranslate"><span class="pre">pdm</span></code>; <code class="docutils literal notranslate"><span class="pre">argv_base</span></code> <code class="docutils literal notranslate"><span class="pre">(&quot;pdm&quot;,</span> <span class="pre">&quot;run&quot;,</span> <span class="pre">name)</span></code>; <code class="docutils literal notranslate"><span class="pre">description</span></code>
+from <code class="docutils literal notranslate"><span class="pre">help</span></code> when it is a string; <code class="docutils literal notranslate"><span class="pre">definition</span></code> from a string value, or a table’s
+<code class="docutils literal notranslate"><span class="pre">cmd</span></code>, else <code class="docutils literal notranslate"><span class="pre">shell</span></code>, else <code class="docutils literal notranslate"><span class="pre">call</span></code> (the first present wins; a list body is joined
+with spaces); <code class="docutils literal notranslate"><span class="pre">source_file</span></code> <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>; no <code class="docutils literal notranslate"><span class="pre">passthrough_prefix</span></code>.</p></li>
+<li><p><strong>Edge cases:</strong> detection needs a non-empty scripts table. The reserved <code class="docutils literal notranslate"><span class="pre">_</span></code>
+table (shared options) is skipped. A bare list value (a composite) is listed,
+with <code class="docutils literal notranslate"><span class="pre">definition</span></code> the Python <code class="docutils literal notranslate"><span class="pre">repr</span></code> of the list, so treat it as opaque. A table
+with only <code class="docutils literal notranslate"><span class="pre">composite</span></code> has an empty definition. Malformed TOML logs a warning
+and lists nothing. The <code class="docutils literal notranslate"><span class="pre">call</span></code> form is handled but has no test.</p></li>
+<li><p><strong>Opaque:</strong> <code class="docutils literal notranslate"><span class="pre">composite</span></code> expansion, <code class="docutils literal notranslate"><span class="pre">env</span></code>, <code class="docutils literal notranslate"><span class="pre">env_file</span></code>, <code class="docutils literal notranslate"><span class="pre">working_dir</span></code>,
+<code class="docutils literal notranslate"><span class="pre">site_packages</span></code>, <code class="docutils literal notranslate"><span class="pre">{args}</span></code> placeholders and <code class="docutils literal notranslate"><span class="pre">pre_</span></code>/<code class="docutils literal notranslate"><span class="pre">post_</span></code> hooks.</p></li>
+<li><p><strong>Adoption (information only):</strong> no figure known in the repository.</p></li>
+</ul>
+</section>
+<section id="poe">
+<h2>poe<a class="headerlink" href="#poe" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Format:</strong> Poe the Poet tasks. <strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">[tool.poe.tasks]</span></code> in
+<code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> (no <code class="docutils literal notranslate"><span class="pre">poe_tasks.toml</span></code>). <strong>Docs:</strong>
+<a class="reference external" href="https://poethepoet.natn.io/">https://poethepoet.natn.io/</a>.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">poe</span> <span class="pre">&lt;name&gt;</span></code>, the bare binary (not <code class="docutils literal notranslate"><span class="pre">poe</span> <span class="pre">run</span></code>, not <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">run</span> <span class="pre">poe</span></code>).
+<strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">poe</span></code> with no arguments, which prints the task list.</p></li>
+<li><p><strong>Gate check:</strong> (1) safe: <code class="docutils literal notranslate"><span class="pre">tomllib</span></code> only. (2) faithful: <code class="docutils literal notranslate"><span class="pre">poe</span> <span class="pre">&lt;name&gt;</span></code> runs the
+declared task. (3) honest subset: as for pdm.</p></li>
+<li><p><strong>Mapping:</strong> <code class="docutils literal notranslate"><span class="pre">prefix</span></code> <code class="docutils literal notranslate"><span class="pre">poe</span></code>; <code class="docutils literal notranslate"><span class="pre">argv_base</span></code> <code class="docutils literal notranslate"><span class="pre">(&quot;poe&quot;,</span> <span class="pre">name)</span></code>; <code class="docutils literal notranslate"><span class="pre">description</span></code> from
+<code class="docutils literal notranslate"><span class="pre">help</span></code>; <code class="docutils literal notranslate"><span class="pre">definition</span></code> from a string, or a table’s <code class="docutils literal notranslate"><span class="pre">cmd</span></code>, else <code class="docutils literal notranslate"><span class="pre">shell</span></code>, else
+<code class="docutils literal notranslate"><span class="pre">script</span></code>, a list body joined with spaces; <code class="docutils literal notranslate"><span class="pre">source_file</span></code> <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>; no
+<code class="docutils literal notranslate"><span class="pre">passthrough_prefix</span></code>.</p></li>
+<li><p><strong>Edge cases:</strong> detection needs a non-empty tasks table. A sequence task (a
+TOML array) is listed with the <code class="docutils literal notranslate"><span class="pre">repr</span></code> of the list as <code class="docutils literal notranslate"><span class="pre">definition</span></code>. A table with
+only <code class="docutils literal notranslate"><span class="pre">sequence</span></code>, <code class="docutils literal notranslate"><span class="pre">switch</span></code>, <code class="docutils literal notranslate"><span class="pre">expr</span></code> or <code class="docutils literal notranslate"><span class="pre">ref</span></code> has an empty definition. Names
+starting with <code class="docutils literal notranslate"><span class="pre">_</span></code> are listed; the tests do not pin that. Malformed TOML logs a
+warning and lists nothing. A project that also has <code class="docutils literal notranslate"><span class="pre">[tool.pdm]</span></code> does not leak
+pdm scripts into poe (tested). The <code class="docutils literal notranslate"><span class="pre">shell</span></code> and <code class="docutils literal notranslate"><span class="pre">script</span></code> forms are handled but
+untested.</p></li>
+<li><p><strong>Opaque:</strong> <code class="docutils literal notranslate"><span class="pre">args</span></code>, <code class="docutils literal notranslate"><span class="pre">env</span></code>, <code class="docutils literal notranslate"><span class="pre">cwd</span></code>, <code class="docutils literal notranslate"><span class="pre">[tool.poe]</span></code> options such as <code class="docutils literal notranslate"><span class="pre">executor</span></code>.</p></li>
+<li><p><strong>Adoption (information only):</strong> no figure known in the repository.</p></li>
+</ul>
+</section>
+<section id="just">
+<h2>just<a class="headerlink" href="#just" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Format:</strong> just recipes. <strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">justfile</span></code>, else <code class="docutils literal notranslate"><span class="pre">Justfile</span></code> (not
+<code class="docutils literal notranslate"><span class="pre">.justfile</span></code>). <strong>Docs:</strong> <a class="reference external" href="https://just.systems/man/en/">https://just.systems/man/en/</a>. <strong>Issue:</strong> #91.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">just</span> <span class="pre">&lt;name&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">just</span> <span class="pre">--dump</span></code> or <code class="docutils literal notranslate"><span class="pre">just</span> <span class="pre">--list</span></code>. Before
+#91 the provider shelled out to <code class="docutils literal notranslate"><span class="pre">just</span> <span class="pre">--dump</span></code>; it now needs no <code class="docutils literal notranslate"><span class="pre">just</span></code> binary.</p></li>
+<li><p><strong>Gate check:</strong> (1) safe: a text scan, no subprocess. (2) faithful: <code class="docutils literal notranslate"><span class="pre">just</span> <span class="pre">&lt;name&gt;</span></code>. (3) honest subset: recipe names and doc text only.</p></li>
+<li><p><strong>Mapping:</strong> <code class="docutils literal notranslate"><span class="pre">prefix</span></code> <code class="docutils literal notranslate"><span class="pre">just</span></code>; <code class="docutils literal notranslate"><span class="pre">argv_base</span></code> <code class="docutils literal notranslate"><span class="pre">(&quot;just&quot;,</span> <span class="pre">name)</span></code>; a leading <code class="docutils literal notranslate"><span class="pre">&#64;</span></code> is
+dropped from the name; <code class="docutils literal notranslate"><span class="pre">description</span></code> from a <code class="docutils literal notranslate"><span class="pre">[doc(&quot;...&quot;)]</span></code> attribute, else the
+<code class="docutils literal notranslate"><span class="pre">#</span></code> comment directly above; no <code class="docutils literal notranslate"><span class="pre">definition</span></code>; <code class="docutils literal notranslate"><span class="pre">source_file</span></code> the file found; no
+<code class="docutils literal notranslate"><span class="pre">passthrough_prefix</span></code>.</p></li>
+<li><p><strong>Edge cases:</strong> a header is an unindented <code class="docutils literal notranslate"><span class="pre">name</span> <span class="pre">args:</span> <span class="pre">deps</span></code> line whose <code class="docutils literal notranslate"><span class="pre">:</span></code> is
+not followed by <code class="docutils literal notranslate"><span class="pre">=</span></code>, which excludes <code class="docutils literal notranslate"><span class="pre">alias</span></code>, <code class="docutils literal notranslate"><span class="pre">export</span> <span class="pre">X</span> <span class="pre">:=</span></code> and <code class="docutils literal notranslate"><span class="pre">set</span></code>. Parameters
+and dependencies are skipped. Indented lines are bodies. A blank line or an unindented
+non-comment line clears a pending comment; attribute lines between comment and
+recipe keep it, and so do indented lines, so a comment can still reach a later
+unindented recipe past an indented body line. <code class="docutils literal notranslate"><span class="pre">doc(...)</span></code> inside another attribute’s string is not mistaken
+for a description. Triple-quoted and triple-backtick literals are skipped so
+unindented text inside them is not read as a recipe (the toggle is naive about
+quote escaping). The first of a duplicate name wins. <code class="docutils literal notranslate"><span class="pre">[private]</span></code> and
+<code class="docutils literal notranslate"><span class="pre">_</span></code>-prefixed recipes are listed, although <code class="docutils literal notranslate"><span class="pre">just</span> <span class="pre">--list</span></code> hides them. An
+unreadable or non-UTF-8 file logs a warning and lists nothing.</p></li>
+<li><p><strong>Opaque:</strong> <code class="docutils literal notranslate"><span class="pre">alias</span></code>, <code class="docutils literal notranslate"><span class="pre">import</span></code>, <code class="docutils literal notranslate"><span class="pre">mod</span></code>, parameters, dependencies, settings,
+<code class="docutils literal notranslate"><span class="pre">[group]</span></code> and <code class="docutils literal notranslate"><span class="pre">[private]</span></code> semantics. A move to tree-sitter is open as #294, see
+<a class="reference internal" href="research/markdown-parser.html"><span class="std std-doc">research</span></a>.</p></li>
+<li><p><strong>Adoption (information only):</strong> no figure known in the repository.</p></li>
+</ul>
+</section>
+<section id="taskfile">
+<h2>Taskfile<a class="headerlink" href="#taskfile" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Format:</strong> go-task. <strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">Taskfile.yml</span></code>, else <code class="docutils literal notranslate"><span class="pre">Taskfile.yaml</span></code> (other
+spellings and <code class="docutils literal notranslate"><span class="pre">includes:</span></code> are not read). <strong>Docs:</strong> <a class="reference external" href="https://taskfile.dev/">https://taskfile.dev/</a>.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">task</span> <span class="pre">&lt;name&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">task</span> <span class="pre">--list</span></code>: go-task evaluates dynamic
+<code class="docutils literal notranslate"><span class="pre">sh:</span></code> variables while loading, which can run repository-controlled commands. A
+test plants a <code class="docutils literal notranslate"><span class="pre">vars.&lt;X&gt;.sh</span></code> sentinel and proves it never runs.</p></li>
+<li><p><strong>Gate check:</strong> (1) safe: <code class="docutils literal notranslate"><span class="pre">yaml.safe_load</span></code> of the top-level <code class="docutils literal notranslate"><span class="pre">tasks</span></code> mapping.
+(2) faithful: <code class="docutils literal notranslate"><span class="pre">task</span> <span class="pre">&lt;name&gt;</span></code>. (3) honest subset: names and <code class="docutils literal notranslate"><span class="pre">desc</span></code> only.</p></li>
+<li><p><strong>Mapping:</strong> <code class="docutils literal notranslate"><span class="pre">prefix</span></code> <code class="docutils literal notranslate"><span class="pre">task</span></code>; <code class="docutils literal notranslate"><span class="pre">argv_base</span></code> <code class="docutils literal notranslate"><span class="pre">(&quot;task&quot;,</span> <span class="pre">name)</span></code>; <code class="docutils literal notranslate"><span class="pre">description</span></code> from
+<code class="docutils literal notranslate"><span class="pre">desc</span></code> when it is a string (an empty string stays empty); no <code class="docutils literal notranslate"><span class="pre">definition</span></code>;
+<code class="docutils literal notranslate"><span class="pre">source_file</span></code> the file found; no <code class="docutils literal notranslate"><span class="pre">passthrough_prefix</span></code>.</p></li>
+<li><p><strong>Edge cases:</strong> a shorthand string or list task is listed with no description.
+<code class="docutils literal notranslate"><span class="pre">internal:</span> <span class="pre">true</span></code> tasks are skipped (the literal boolean only). A root or
+<code class="docutils literal notranslate"><span class="pre">tasks</span></code> that is not a mapping lists nothing. Names are listed as written,
+including <code class="docutils literal notranslate"><span class="pre">:</span></code> namespaces and <code class="docutils literal notranslate"><span class="pre">_</span></code> or <code class="docutils literal notranslate"><span class="pre">.</span></code> prefixes. Malformed YAML and read
+errors log a warning and list nothing. A file that is not valid UTF-8 is not
+caught.</p></li>
+<li><p><strong>Opaque:</strong> <code class="docutils literal notranslate"><span class="pre">includes:</span></code> and the namespaced tasks they bring, <code class="docutils literal notranslate"><span class="pre">aliases</span></code>,
+<code class="docutils literal notranslate"><span class="pre">summary</span></code>, <code class="docutils literal notranslate"><span class="pre">deps</span></code>, <code class="docutils literal notranslate"><span class="pre">cmds</span></code>, <code class="docutils literal notranslate"><span class="pre">vars</span></code>, <code class="docutils literal notranslate"><span class="pre">dir</span></code>, <code class="docutils literal notranslate"><span class="pre">platforms</span></code>.</p></li>
+<li><p><strong>Adoption (information only):</strong> no figure known in the repository.</p></li>
+</ul>
+</section>
+<section id="mise">
+<h2>mise<a class="headerlink" href="#mise" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Format:</strong> mise tasks. <strong>Source:</strong> the first existing of <code class="docutils literal notranslate"><span class="pre">mise.local.toml</span></code>,
+<code class="docutils literal notranslate"><span class="pre">mise.toml</span></code>, <code class="docutils literal notranslate"><span class="pre">.mise.local.toml</span></code>, <code class="docutils literal notranslate"><span class="pre">.mise.toml</span></code>, <code class="docutils literal notranslate"><span class="pre">.config/mise.toml</span></code>. <strong>Docs:</strong>
+<a class="reference external" href="https://mise.jdx.dev/tasks/">https://mise.jdx.dev/tasks/</a>. <strong>Issue:</strong> #32.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">mise</span> <span class="pre">run</span> <span class="pre">&lt;name&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">mise</span> <span class="pre">tasks</span> <span class="pre">ls</span></code>.</p></li>
+<li><p><strong>Gate check:</strong> (1) safe: <code class="docutils literal notranslate"><span class="pre">tomllib</span></code> only. (2) faithful: <code class="docutils literal notranslate"><span class="pre">mise</span> <span class="pre">run</span> <span class="pre">&lt;name&gt;</span></code>.
+(3) honest subset: one file’s <code class="docutils literal notranslate"><span class="pre">[tasks]</span></code> table.</p></li>
+<li><p><strong>Mapping:</strong> <code class="docutils literal notranslate"><span class="pre">prefix</span></code> <code class="docutils literal notranslate"><span class="pre">mise</span></code>; <code class="docutils literal notranslate"><span class="pre">argv_base</span></code> <code class="docutils literal notranslate"><span class="pre">(&quot;mise&quot;,</span> <span class="pre">&quot;run&quot;,</span> <span class="pre">name)</span></code>;
+<code class="docutils literal notranslate"><span class="pre">description</span></code> from a table’s <code class="docutils literal notranslate"><span class="pre">description</span></code>; <code class="docutils literal notranslate"><span class="pre">definition</span></code> from <code class="docutils literal notranslate"><span class="pre">run</span></code> (a list
+joined with <code class="docutils literal notranslate"><span class="pre">&amp;&amp;</span></code>); <code class="docutils literal notranslate"><span class="pre">source_file</span></code> the file chosen; no <code class="docutils literal notranslate"><span class="pre">passthrough_prefix</span></code>.</p></li>
+<li><p><strong>Edge cases:</strong> only the first file found is read and its siblings are
+ignored, so mise’s own merge of local and shared config is <strong>not</strong> replicated
+(a <code class="docutils literal notranslate"><span class="pre">mise.local.toml</span></code> hides <code class="docutils literal notranslate"><span class="pre">mise.toml</span></code>). Detection needs a non-empty <code class="docutils literal notranslate"><span class="pre">[tasks]</span></code>.
+String and list shorthands work. <code class="docutils literal notranslate"><span class="pre">hide</span> <span class="pre">=</span> <span class="pre">true</span></code> tasks are skipped, matching
+<code class="docutils literal notranslate"><span class="pre">mise</span> <span class="pre">tasks</span> <span class="pre">ls</span></code>. A table without <code class="docutils literal notranslate"><span class="pre">run</span></code> (for instance a <code class="docutils literal notranslate"><span class="pre">file</span></code> task) has an empty
+definition. Colon names such as <code class="docutils literal notranslate"><span class="pre">&quot;build:fast&quot;</span></code> pass through; nested tables are
+not flattened. Malformed or non-UTF-8 TOML logs a warning and lists nothing,
+without falling back to another file.</p></li>
+<li><p><strong>Opaque:</strong> file tasks (<code class="docutils literal notranslate"><span class="pre">mise_tasks/</span></code>, <code class="docutils literal notranslate"><span class="pre">.mise/tasks/</span></code>), <code class="docutils literal notranslate"><span class="pre">alias</span></code>, <code class="docutils literal notranslate"><span class="pre">depends</span></code>,
+<code class="docutils literal notranslate"><span class="pre">dir</span></code>, <code class="docutils literal notranslate"><span class="pre">env</span></code>, <code class="docutils literal notranslate"><span class="pre">sources</span></code>, <code class="docutils literal notranslate"><span class="pre">outputs</span></code>, <code class="docutils literal notranslate"><span class="pre">tools</span></code>, parent and global config.</p></li>
+<li><p><strong>Adoption (information only):</strong> no figure known in the repository.</p></li>
+</ul>
+</section>
+<section id="xc">
+<h2>xc<a class="headerlink" href="#xc" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Format:</strong> xc, tasks written as Markdown headings. <strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">README.md</span></code> in
+the current directory only. <strong>Docs:</strong> <a class="reference external" href="https://xcfile.dev/task-syntax/task-list/">https://xcfile.dev/task-syntax/task-list/</a>.
+<strong>Issue:</strong> #36.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">xc</span> <span class="pre">&lt;name&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">xc</span> <span class="pre">-s</span></code> to list. It
+does not run task scripts (the <a class="reference internal" href="research/markdown-parser.html"><span class="std std-doc">Markdown parser evaluation</span></a>
+uses <code class="docutils literal notranslate"><span class="pre">xc</span> <span class="pre">-short</span></code> as the reference listing), but ADR 0005 gate 1 forbids shelling
+out to a runner to enumerate, and a file scan needs no <code class="docutils literal notranslate"><span class="pre">xc</span></code> binary. The module
+docstring says xc “executes task scripts”; that wording is imprecise.</p></li>
+<li><p><strong>Gate check:</strong> (1) safe: a Markdown scan; xc is never called. (2) faithful:
+<code class="docutils literal notranslate"><span class="pre">xc</span> <span class="pre">&lt;name&gt;</span></code>. (3) honest subset: names, description and first script only.</p></li>
+<li><p><strong>Mapping:</strong> <code class="docutils literal notranslate"><span class="pre">prefix</span></code> <code class="docutils literal notranslate"><span class="pre">xc</span></code>; <code class="docutils literal notranslate"><span class="pre">argv_base</span></code> <code class="docutils literal notranslate"><span class="pre">(&quot;xc&quot;,</span> <span class="pre">name)</span></code>; <code class="docutils literal notranslate"><span class="pre">description</span></code> the prose
+between the heading and the first fence, attribute lines removed; <code class="docutils literal notranslate"><span class="pre">definition</span></code>
+the first fenced block’s contents; <code class="docutils literal notranslate"><span class="pre">source_file</span></code> <code class="docutils literal notranslate"><span class="pre">README.md</span></code>; no
+<code class="docutils literal notranslate"><span class="pre">passthrough_prefix</span></code> (extra arguments are appended positionally).</p></li>
+<li><p><strong>Edge cases:</strong> the task section is the heading preceded by <code class="docutils literal notranslate"><span class="pre">&lt;!--</span> <span class="pre">xc-heading</span> <span class="pre">--&gt;</span></code>
+(which wins), else the first heading named <code class="docutils literal notranslate"><span class="pre">Tasks</span></code> (case-insensitive, emphasis
+stripped). It ends at the next heading of the same or higher level. Tasks are
+headings exactly one level deeper; deeper headings are body. Headings inside
+fences, indented code (4+ spaces) and bare <code class="docutils literal notranslate"><span class="pre">##</span></code> lines are not headings. A name
+that is empty or has whitespace is skipped. Tilde, nested and unclosed fences
+are handled. A task with no script is still listed. Detection needs at least one
+task. Non-UTF-8 or unreadable files log a warning and list nothing.</p></li>
+<li><p><strong>Opaque:</strong> attribute values (<code class="docutils literal notranslate"><span class="pre">requires</span></code>, <code class="docutils literal notranslate"><span class="pre">dir</span></code>, <code class="docutils literal notranslate"><span class="pre">env</span></code>, <code class="docutils literal notranslate"><span class="pre">inputs</span></code>, <code class="docutils literal notranslate"><span class="pre">run</span></code>,
+<code class="docutils literal notranslate"><span class="pre">rundeps</span></code>, <code class="docutils literal notranslate"><span class="pre">interactive</span></code>), script language, further fences, files other than
+<code class="docutils literal notranslate"><span class="pre">README.md</span></code>. Measured behavior against the real runner:
+<a class="reference internal" href="research/markdown-parser.html"><span class="std std-doc">Markdown parser evaluation</span></a>.</p></li>
+<li><p><strong>Adoption (information only):</strong> no figure known in the repository.</p></li>
+</ul>
+</section>
+<section id="deno">
+<h2>deno<a class="headerlink" href="#deno" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">deno.json</span></code>, then <code class="docutils literal notranslate"><span class="pre">deno.jsonc</span></code> (first existing). <strong>Issue:</strong> #71. <strong>Shipped:</strong> 0.3.0.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">deno</span> <span class="pre">task</span> <span class="pre">&lt;name&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">deno</span> <span class="pre">task</span></code> to list.</p></li>
+<li><p><strong>Reads:</strong> top-level <code class="docutils literal notranslate"><span class="pre">tasks</span></code>; a value is a command string or an object with a
+<code class="docutils literal notranslate"><span class="pre">command</span></code>. <code class="docutils literal notranslate"><span class="pre">description</span></code> from the object form. JSONC-tolerant (comments,
+trailing commas), so strict <code class="docutils literal notranslate"><span class="pre">json.loads</span></code> is wrong.</p></li>
+<li><p><strong>Left out:</strong> the fallback to <code class="docutils literal notranslate"><span class="pre">package.json</span></code> scripts (the <code class="docutils literal notranslate"><span class="pre">npm</span></code> provider
+already lists them, avoiding double listing); <code class="docutils literal notranslate"><span class="pre">dependencies</span></code>, <code class="docutils literal notranslate"><span class="pre">env</span></code>, <code class="docutils literal notranslate"><span class="pre">cwd</span></code>,
+<code class="docutils literal notranslate"><span class="pre">--filter</span></code> semantics. Deno does not auto-run <code class="docutils literal notranslate"><span class="pre">pre</span></code>/<code class="docutils literal notranslate"><span class="pre">post</span></code> hooks, so none are
+synthesized.</p></li>
+<li><p><strong>Adoption (information only):</strong> about 188 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).</p></li>
+</ul>
+</section>
+<section id="composer">
+<h2>composer<a class="headerlink" href="#composer" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">composer.json</span></code>. <strong>Issue:</strong> #72. <strong>Shipped:</strong> 0.3.0.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">composer</span> <span class="pre">run-script</span> <span class="pre">&lt;name&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">composer</span> <span class="pre">run-script</span> <span class="pre">--list</span></code>.</p></li>
+<li><p><strong>Reads:</strong> <code class="docutils literal notranslate"><span class="pre">scripts</span></code> (string or array; arrays joined with <code class="docutils literal notranslate"><span class="pre">&amp;&amp;</span></code>);
+<code class="docutils literal notranslate"><span class="pre">scripts-descriptions</span></code> supplies descriptions.</p></li>
+<li><p><strong>Left out:</strong> PHP static-method callbacks and <code class="docutils literal notranslate"><span class="pre">&#64;other-script</span></code> references are
+listed by name with an opaque <code class="docutils literal notranslate"><span class="pre">definition</span></code>; <code class="docutils literal notranslate"><span class="pre">&#64;php</span></code>, <code class="docutils literal notranslate"><span class="pre">&#64;composer</span></code>, <code class="docutils literal notranslate"><span class="pre">&#64;putenv</span></code>,
+<code class="docutils literal notranslate"><span class="pre">&#64;additional_args</span></code> directives are opaque. Reserved lifecycle events
+(<code class="docutils literal notranslate"><span class="pre">pre/post-install-cmd</span></code>, <code class="docutils literal notranslate"><span class="pre">pre/post-update-cmd</span></code>, <code class="docutils literal notranslate"><span class="pre">post-autoload-dump</span></code>, and the
+package, installer and plugin events) are filtered so the picker shows only
+user-defined scripts.</p></li>
+<li><p><strong>Adoption (information only):</strong> about 3,135 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).</p></li>
+</ul>
+</section>
+<section id="pre-commit">
+<h2>pre-commit<a class="headerlink" href="#pre-commit" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">.pre-commit-config.yaml</span></code>. <strong>Issue:</strong> #73. <strong>Shipped:</strong> 0.5.0.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">pre-commit</span> <span class="pre">run</span> <span class="pre">&lt;id&gt;</span> <span class="pre">--all-files</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">pre-commit</span></code> to enumerate hooks.</p></li>
+<li><p><strong>Reads:</strong> <code class="docutils literal notranslate"><span class="pre">repos[].hooks[]</span></code> only; sibling top-level keys (<code class="docutils literal notranslate"><span class="pre">ci</span></code>,
+<code class="docutils literal notranslate"><span class="pre">default_stages</span></code>, <code class="docutils literal notranslate"><span class="pre">files</span></code>, <code class="docutils literal notranslate"><span class="pre">exclude</span></code>, <code class="docutils literal notranslate"><span class="pre">fail_fast</span></code>, …) are configuration and
+hold no hooks. Three repo kinds: <strong>local</strong> (<code class="docutils literal notranslate"><span class="pre">entry</span></code> is in this file, so
+<code class="docutils literal notranslate"><span class="pre">definition</span></code> is available), <strong>remote</strong> (<code class="docutils literal notranslate"><span class="pre">entry</span></code> lives in the upstream
+<code class="docutils literal notranslate"><span class="pre">.pre-commit-hooks.yaml</span></code>, so <code class="docutils literal notranslate"><span class="pre">definition</span></code> stays empty). <code class="docutils literal notranslate"><span class="pre">meta</span></code> repos (the
+built-ins <code class="docutils literal notranslate"><span class="pre">check-hooks-apply</span></code>, <code class="docutils literal notranslate"><span class="pre">check-useless-excludes</span></code>, <code class="docutils literal notranslate"><span class="pre">identity</span></code>) are not
+special-cased: they are listed like remote hooks. Hooks without an <code class="docutils literal notranslate"><span class="pre">id</span></code> are
+skipped.</p></li>
+<li><p><strong>Left out:</strong> resolving remote hooks’ <code class="docutils literal notranslate"><span class="pre">entry</span></code>, <code class="docutils literal notranslate"><span class="pre">language</span></code> and <code class="docutils literal notranslate"><span class="pre">args</span></code> (needs a
+clone); <code class="docutils literal notranslate"><span class="pre">stages</span></code> filtering.</p></li>
+<li><p><strong>Resolved at implementation:</strong> plain <code class="docutils literal notranslate"><span class="pre">pre-commit</span> <span class="pre">run</span> <span class="pre">&lt;id&gt;</span></code> runs on staged
+files and no-ops on a clean tree, so the provider delegates with
+<code class="docutils literal notranslate"><span class="pre">--all-files</span></code>. Still unconfirmed against primary sources: the <code class="docutils literal notranslate"><span class="pre">name</span></code> versus
+<code class="docutils literal notranslate"><span class="pre">alias</span></code> rule (the provider keys on <code class="docutils literal notranslate"><span class="pre">id</span></code>).</p></li>
+<li><p><strong>Adoption (information only):</strong> about 3,632 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).</p></li>
+</ul>
+</section>
+<section id="tox">
+<h2>tox<a class="headerlink" href="#tox" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">tox.ini</span></code>, <code class="docutils literal notranslate"><span class="pre">setup.cfg</span></code> (<code class="docutils literal notranslate"><span class="pre">[tox:tox]</span></code> section), <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>
+(<code class="docutils literal notranslate"><span class="pre">[tool.tox]</span></code>, including <code class="docutils literal notranslate"><span class="pre">legacy_tox_ini</span></code>), <code class="docutils literal notranslate"><span class="pre">tox.toml</span></code>, in that order. <strong>Issue:</strong> #74. <strong>Shipped:</strong> 0.5.0.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">tox</span> <span class="pre">-e</span> <span class="pre">&lt;name&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">tox</span> <span class="pre">-l</span></code> or <code class="docutils literal notranslate"><span class="pre">tox</span> <span class="pre">-a</span></code>.</p></li>
+<li><p><strong>Reads:</strong> environments as the union of the expanded <code class="docutils literal notranslate"><span class="pre">env_list</span></code>/<code class="docutils literal notranslate"><span class="pre">envlist</span></code> and
+the explicit <code class="docutils literal notranslate"><span class="pre">[testenv:NAME]</span></code> (INI) or <code class="docutils literal notranslate"><span class="pre">[tool.tox.env.NAME]</span></code> (TOML) sections,
+excluding the <code class="docutils literal notranslate"><span class="pre">[testenv]</span></code> base. INI <code class="docutils literal notranslate"><span class="pre">envlist</span></code> is brace- and range-expanded
+(<code class="docutils literal notranslate"><span class="pre">{py27,py36}-django{15,16}</span></code> is a hyphen-joined Cartesian product; <code class="docutils literal notranslate"><span class="pre">py3{10-14}</span></code>
+expands too). TOML <code class="docutils literal notranslate"><span class="pre">env_list</span></code> list items are literal (a top-level string <code class="docutils literal notranslate"><span class="pre">env_list</span></code> is
+split and brace-expanded; <code class="docutils literal notranslate"><span class="pre">{replace</span> <span class="pre">=</span> <span class="pre">&quot;env&quot;,</span> <span class="pre">...}</span></code> items are resolved). With
+no <code class="docutils literal notranslate"><span class="pre">envlist</span></code> the default env is <code class="docutils literal notranslate"><span class="pre">py</span></code>. Missing fields are
+inherited from <code class="docutils literal notranslate"><span class="pre">[testenv]</span></code> or <code class="docutils literal notranslate"><span class="pre">env_run_base</span></code>.</p></li>
+<li><p><strong>Config discovery is version dependent.</strong> tox 3 uses <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>,
+<code class="docutils literal notranslate"><span class="pre">tox.ini</span></code>, <code class="docutils literal notranslate"><span class="pre">setup.cfg</span></code>; tox 4 adds native <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> and <code class="docutils literal notranslate"><span class="pre">tox.toml</span></code>, and
+its real precedence was buggy until tox PR #3742 (merged Feb 2026, issue
+#3645). Pick the first existing file by a documented order and do not
+over-trust cross-version precedence.</p></li>
+<li><p><strong>Also read:</strong> generative section headers <code class="docutils literal notranslate"><span class="pre">[testenv:{a,b}]</span></code>, factor-conditional
+commands (filtered by the current environment’s factors) and <code class="docutils literal notranslate"><span class="pre">labels</span></code> (INI and
+TOML).</p></li>
+<li><p><strong>Left out:</strong> TOML structured matrices (<code class="docutils literal notranslate"><span class="pre">range</span></code>, <code class="docutils literal notranslate"><span class="pre">labeled</span></code>, <code class="docutils literal notranslate"><span class="pre">product</span></code>) and
+provisioning and package environments (<code class="docutils literal notranslate"><span class="pre">.pkg</span></code>, <code class="docutils literal notranslate"><span class="pre">.tox</span></code>, and the names given by
+<code class="docutils literal notranslate"><span class="pre">provision_tox_env</span></code>, <code class="docutils literal notranslate"><span class="pre">package_env</span></code>, <code class="docutils literal notranslate"><span class="pre">isolated_build_env</span></code>, <code class="docutils literal notranslate"><span class="pre">wheel_build_env</span></code>),
+treated as non-runnable.</p></li>
+<li><p><strong>Adoption (information only):</strong> about 1,869 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).</p></li>
+</ul>
+</section>
+<section id="cargo-make">
+<h2>cargo-make<a class="headerlink" href="#cargo-make" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">Makefile.toml</span></code>. <strong>Issue:</strong> #76. <strong>Shipped:</strong> 0.3.0.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">cargo</span> <span class="pre">make</span> <span class="pre">&lt;name&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">cargo</span> <span class="pre">make</span> <span class="pre">--list-all-steps</span></code>.</p></li>
+<li><p><strong>Reads:</strong> <code class="docutils literal notranslate"><span class="pre">[tasks.&lt;name&gt;]</span></code> tables; <code class="docutils literal notranslate"><span class="pre">description</span></code>; <code class="docutils literal notranslate"><span class="pre">command</span></code> plus <code class="docutils literal notranslate"><span class="pre">args</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">script</span></code> (a list joined with <code class="docutils literal notranslate"><span class="pre">&amp;&amp;</span></code>) as <code class="docutils literal notranslate"><span class="pre">definition</span></code>.</p></li>
+<li><p><strong>Skipped:</strong> tasks with <code class="docutils literal notranslate"><span class="pre">private</span> <span class="pre">=</span> <span class="pre">true</span></code> or <code class="docutils literal notranslate"><span class="pre">disabled</span> <span class="pre">=</span> <span class="pre">true</span></code>, and entries
+that are not tables. <code class="docutils literal notranslate"><span class="pre">alias</span></code> is not resolved.</p></li>
+<li><p><strong>Left out:</strong> <code class="docutils literal notranslate"><span class="pre">extends</span></code>, <code class="docutils literal notranslate"><span class="pre">env</span></code>, <code class="docutils literal notranslate"><span class="pre">dependencies</span></code>, <code class="docutils literal notranslate"><span class="pre">condition</span></code>, profile-specific
+<code class="docutils literal notranslate"><span class="pre">env</span></code>, cargo-make’s built-in predefined tasks (only locally declared tasks
+appear), and the <code class="docutils literal notranslate"><span class="pre">makers</span></code> alias.</p></li>
+</ul>
+</section>
+<section id="moon">
+<h2>moon<a class="headerlink" href="#moon" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">moon.yml</span></code> in the current directory. <strong>Issue:</strong> #77. <strong>Shipped:</strong> 0.4.0.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">moon</span> <span class="pre">run</span> <span class="pre">&lt;name&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">moon</span> <span class="pre">query</span> <span class="pre">tasks</span></code>.</p></li>
+<li><p><strong>Reads:</strong> top-level <code class="docutils literal notranslate"><span class="pre">tasks:</span></code>; <code class="docutils literal notranslate"><span class="pre">description</span></code>; <code class="docutils literal notranslate"><span class="pre">command</span></code> plus <code class="docutils literal notranslate"><span class="pre">args</span></code>, or <code class="docutils literal notranslate"><span class="pre">script</span></code>.</p></li>
+<li><p><strong>Left out:</strong> inherited tasks from <code class="docutils literal notranslate"><span class="pre">.moon/tasks.yml</span></code> and <code class="docutils literal notranslate"><span class="pre">.moon/tasks/**</span></code>,
+<code class="docutils literal notranslate"><span class="pre">.moon/workspace.yml</span></code> (project locations, not tasks), project-qualified
+<code class="docutils literal notranslate"><span class="pre">&lt;project&gt;:&lt;task&gt;</span></code> addressing, and <code class="docutils literal notranslate"><span class="pre">deps</span></code>, <code class="docutils literal notranslate"><span class="pre">inputs</span></code>, <code class="docutils literal notranslate"><span class="pre">outputs</span></code>, <code class="docutils literal notranslate"><span class="pre">options</span></code>.</p></li>
+<li><p><strong>Skipped:</strong> tasks with <code class="docutils literal notranslate"><span class="pre">options.internal:</span> <span class="pre">true</span></code>, which cannot be run from
+the CLI.</p></li>
+</ul>
+</section>
+<section id="vs-code-tasks">
+<h2>VS Code tasks<a class="headerlink" href="#vs-code-tasks" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">.vscode/tasks.json</span></code>. <strong>Issue:</strong> #139. <strong>Shipped:</strong> 0.5.0. <strong>Spec:</strong>
+<a class="reference external" href="https://code.visualstudio.com/docs/editor/tasks">https://code.visualstudio.com/docs/editor/tasks</a>, schema appendix
+<a class="reference external" href="https://code.visualstudio.com/docs/editor/tasks-appendix">https://code.visualstudio.com/docs/editor/tasks-appendix</a>.</p></li>
+<li><p><strong>Run:</strong> the task’s own <code class="docutils literal notranslate"><span class="pre">command</span></code> and <code class="docutils literal notranslate"><span class="pre">args</span></code>; <code class="docutils literal notranslate"><span class="pre">definition</span></code> is the command
+and its args joined with spaces. No <code class="docutils literal notranslate"><span class="pre">passthrough_prefix</span></code>.</p></li>
+<li><p><strong>Reads:</strong> schema <code class="docutils literal notranslate"><span class="pre">version</span></code> <code class="docutils literal notranslate"><span class="pre">&quot;2.0.0&quot;</span></code>, JSONC. Task <code class="docutils literal notranslate"><span class="pre">label</span></code> is the name,
+<code class="docutils literal notranslate"><span class="pre">detail</span></code> the description. <code class="docutils literal notranslate"><span class="pre">shell</span></code>, <code class="docutils literal notranslate"><span class="pre">process</span></code> and untyped tasks with a
+<code class="docutils literal notranslate"><span class="pre">command</span></code> are runnable. A task or the document may carry <code class="docutils literal notranslate"><span class="pre">windows</span></code>, <code class="docutils literal notranslate"><span class="pre">linux</span></code> and
+<code class="docutils literal notranslate"><span class="pre">osx</span></code> override objects, merged for the current platform; <code class="docutils literal notranslate"><span class="pre">command</span></code> and <code class="docutils literal notranslate"><span class="pre">args</span></code>
+items may be strings or <code class="docutils literal notranslate"><span class="pre">{</span> <span class="pre">&quot;value&quot;,</span> <span class="pre">&quot;quoting&quot;</span> <span class="pre">}</span></code>.</p></li>
+<li><p><strong>Also read:</strong> a document-level <code class="docutils literal notranslate"><span class="pre">command</span></code> is inherited by commandless tasks,
+with its global <code class="docutils literal notranslate"><span class="pre">args</span></code> and the <code class="docutils literal notranslate"><span class="pre">suppressTaskName</span></code>/<code class="docutils literal notranslate"><span class="pre">taskSelector</span></code> rules.</p></li>
+<li><p><strong>Left out:</strong> the legacy <code class="docutils literal notranslate"><span class="pre">&quot;0.1.0&quot;</span></code> schema; any task whose <code class="docutils literal notranslate"><span class="pre">options</span></code> set <code class="docutils literal notranslate"><span class="pre">env</span></code>
+or <code class="docutils literal notranslate"><span class="pre">shell</span></code>, or whose <code class="docutils literal notranslate"><span class="pre">cwd</span></code> resolves anywhere other than the project root
+(the whole task is skipped); extension-contributed task types
+(<code class="docutils literal notranslate"><span class="pre">npm</span></code>, <code class="docutils literal notranslate"><span class="pre">typescript</span></code>, <code class="docutils literal notranslate"><span class="pre">gulp</span></code>, <code class="docutils literal notranslate"><span class="pre">grunt</span></code>, <code class="docutils literal notranslate"><span class="pre">cargo</span></code>, …), which the extension
+resolves at runtime; any task with a non-empty <code class="docutils literal notranslate"><span class="pre">dependsOn</span></code> (even one that also has its own
+<code class="docutils literal notranslate"><span class="pre">command</span></code>); editor-only variables
+(<code class="docutils literal notranslate"><span class="pre">${file}</span></code>, <code class="docutils literal notranslate"><span class="pre">${selectedText}</span></code>, <code class="docutils literal notranslate"><span class="pre">${input:...}</span></code>): a task whose command, args or
+working directory still contains an unresolved variable is <strong>skipped</strong>, not
+listed (<code class="docutils literal notranslate"><span class="pre">${workspaceFolder}</span></code>, <code class="docutils literal notranslate"><span class="pre">${workspaceRoot}</span></code>, <code class="docutils literal notranslate"><span class="pre">${workspaceFolderBasename}</span></code>,
+<code class="docutils literal notranslate"><span class="pre">${pathSeparator}</span></code>, <code class="docutils literal notranslate"><span class="pre">${/}</span></code> and <code class="docutils literal notranslate"><span class="pre">${env:X}</span></code> resolve). Tasks with <code class="docutils literal notranslate"><span class="pre">hide:</span> <span class="pre">true</span></code>
+are skipped. Document-level <code class="docutils literal notranslate"><span class="pre">options</span></code> (including <code class="docutils literal notranslate"><span class="pre">env</span></code>) and <code class="docutils literal notranslate"><span class="pre">type</span></code> merge
+into each task. For duplicate labels the last definition wins.</p></li>
+<li><p><strong>Not read:</strong> <code class="docutils literal notranslate"><span class="pre">group</span></code> and <code class="docutils literal notranslate"><span class="pre">isDefault</span></code> (a possible later mapping onto
+grouping) and <code class="docutils literal notranslate"><span class="pre">dependsOrder</span></code>.</p></li>
+<li><p><strong>Adoption (information only):</strong> the most widely used statically parseable
+candidate when it was filed, and unlike GitHub Actions its tasks run locally.
+No census figure.</p></li>
+<li><p><strong>Sibling:</strong> Zed <code class="docutils literal notranslate"><span class="pre">.zed/tasks.json</span></code>, see <a class="reference internal" href="candidates.html"><span class="std std-doc">candidates</span></a>.</p></li>
+</ul>
+</section>
+<section id="invoke">
+<h2>invoke<a class="headerlink" href="#invoke" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">tasks.py</span></code>. <strong>Issue:</strong> #140. <strong>Shipped:</strong> 0.6.0. <strong>Docs:</strong>
+<a class="reference external" href="https://www.pyinvoke.org/">https://www.pyinvoke.org/</a>, <a class="reference external" href="https://docs.pyinvoke.org/en/stable/">https://docs.pyinvoke.org/en/stable/</a>.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">invoke</span> <span class="pre">&lt;name&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">inv</span> <span class="pre">-l</span></code> (imports and executes the module).</p></li>
+<li><p><strong>Reads:</strong> AST of <code class="docutils literal notranslate"><span class="pre">&#64;task</span></code>-decorated functions, including <code class="docutils literal notranslate"><span class="pre">&#64;task(...)</span></code>,
+<code class="docutils literal notranslate"><span class="pre">&#64;invoke.task</span></code> and aliased imports; explicit <code class="docutils literal notranslate"><span class="pre">name=</span></code> and <code class="docutils literal notranslate"><span class="pre">aliases=</span></code>; first
+docstring line as <code class="docutils literal notranslate"><span class="pre">description</span></code>. The module is never imported.</p></li>
+<li><p><strong>Notes:</strong> only top-level <code class="docutils literal notranslate"><span class="pre">def</span></code>s with one decorator are read; underscores in
+names become dashes. A task with a non-empty <code class="docutils literal notranslate"><span class="pre">pre=</span></code>/<code class="docutils literal notranslate"><span class="pre">post=</span></code> is dropped (empty collections are
+accepted), and invalid task
+metadata or colliding <code class="docutils literal notranslate"><span class="pre">default=True</span></code> tasks make the whole file list nothing.</p></li>
+<li><p><strong>Left out:</strong> command bodies (<code class="docutils literal notranslate"><span class="pre">c.run(...)</span></code>), parameters, <code class="docutils literal notranslate"><span class="pre">pre</span></code>/<code class="docutils literal notranslate"><span class="pre">post</span></code> graphs,
+<code class="docutils literal notranslate"><span class="pre">Collection</span></code> namespacing (so namespaced setups are under-covered), and tasks
+built dynamically or imported from other modules.</p></li>
+<li><p><strong>History:</strong> first parked “low priority” on reliability and value; accepted
+once value stopped being a gate (ADR 0004 and 0005). The parking reasons were
+that an opaque definition adds little over telling users to run <code class="docutils literal notranslate"><span class="pre">inv</span> <span class="pre">-l</span></code>, and
+that parameter-driven tasks may not run from <code class="docutils literal notranslate"><span class="pre">invoke</span> <span class="pre">&lt;name&gt;</span></code> alone (function
+arguments become CLI flags such as <code class="docutils literal notranslate"><span class="pre">--repository</span></code>; the first parameter is the
+<code class="docutils literal notranslate"><span class="pre">Context</span></code>, not a user argument).</p></li>
+<li><p><strong>Adoption (information only):</strong> the runner behind Fabric and a common
+Makefile alternative in Python projects. No census figure. nox is its natural
+AST sibling.</p></li>
+</ul>
+</section>
+<section id="nox">
+<h2>nox<a class="headerlink" href="#nox" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">noxfile.py</span></code>. <strong>Issue:</strong> #142. <strong>Shipped:</strong> 0.5.0. <strong>Docs:</strong>
+<a class="reference external" href="https://nox.thea.codes/">https://nox.thea.codes/</a>, <a class="reference external" href="https://nox.thea.codes/en/stable/">https://nox.thea.codes/en/stable/</a>.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">-s</span> <span class="pre">&lt;name&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">-l</span></code>.</p></li>
+<li><p><strong>Reads:</strong> AST of <code class="docutils literal notranslate"><span class="pre">&#64;nox.session</span></code>, <code class="docutils literal notranslate"><span class="pre">&#64;nox.session(...)</span></code> and <code class="docutils literal notranslate"><span class="pre">&#64;session</span></code> (aliased
+import); explicit <code class="docutils literal notranslate"><span class="pre">name=</span></code>; docstring first line.</p></li>
+<li><p><strong>Left out:</strong> <code class="docutils literal notranslate"><span class="pre">python=[...]</span></code> and <code class="docutils literal notranslate"><span class="pre">&#64;nox.parametrize</span></code> expansion (concrete names
+such as <code class="docutils literal notranslate"><span class="pre">tests-3.11</span></code> are runtime-generated, so only the base session name is
+listed, and <code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">-s</span> <span class="pre">tests</span></code> still runs all its variants), dynamically registered
+sessions, command bodies. If the module is not straight-line (loops, <code class="docutils literal notranslate"><span class="pre">with</span></code>,
+<code class="docutils literal notranslate"><span class="pre">match</span></code>, unrecognized star imports, namespace mutation; <code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">nox</span> <span class="pre">import</span> <span class="pre">*</span></code> is
+modeled), the provider lists nothing for the
+file. Only top-level <code class="docutils literal notranslate"><span class="pre">def</span></code>s register sessions; <code class="docutils literal notranslate"><span class="pre">nox_uv.session</span></code> is accepted.</p></li>
+<li><p><strong>Notes:</strong> the first parameter is the <code class="docutils literal notranslate"><span class="pre">Session</span></code>, not a user argument. Bare
+<code class="docutils literal notranslate"><span class="pre">nox</span></code> runs the default sessions; <code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">-s</span> <span class="pre">&lt;name&gt;</span></code> runs one. Displayed names may
+differ from <code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">-l</span></code> output, which is why that command is not used. nox is the
+imperative sibling of tox (#74).</p></li>
+<li><p><strong>Adoption (information only):</strong> common as a tox alternative. No census
+figure.</p></li>
+</ul>
+</section>
+<section id="apache-ant">
+<h2>Apache Ant<a class="headerlink" href="#apache-ant" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">build.xml</span></code>. <strong>Issue:</strong> #141. <strong>Docs:</strong> <a class="reference external" href="https://ant.apache.org/">https://ant.apache.org/</a>,
+<a class="reference external" href="https://ant.apache.org/manual/">https://ant.apache.org/manual/</a>, targets:
+<a class="reference external" href="https://ant.apache.org/manual/targets.html">https://ant.apache.org/manual/targets.html</a>.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">&lt;target&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">-p</span></code>.</p></li>
+<li><p><strong>Reads:</strong> <code class="docutils literal notranslate"><span class="pre">&lt;target</span> <span class="pre">name=...&gt;</span></code>, direct-child <code class="docutils literal notranslate"><span class="pre">&lt;extension-point</span> <span class="pre">name=...&gt;</span></code>
+elements (both run as <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">&lt;name&gt;</span></code>) and <code class="docutils literal notranslate"><span class="pre">description</span></code>. <code class="docutils literal notranslate"><span class="pre">depends</span></code> ordering and
+<code class="docutils literal notranslate"><span class="pre">&lt;project</span> <span class="pre">default&gt;</span></code> are not read (an evaluation idea, not shipped). Declarative XML, so the safest of the imperative-adjacent set.
+Undescribed targets are listed even though Ant hides them from <code class="docutils literal notranslate"><span class="pre">-p</span></code>. Only
+direct children of <code class="docutils literal notranslate"><span class="pre">&lt;project&gt;</span></code> are read; names starting with <code class="docutils literal notranslate"><span class="pre">-</span></code>, files with a
+<code class="docutils literal notranslate"><span class="pre">&lt;!DOCTYPE&gt;</span></code> and non-<code class="docutils literal notranslate"><span class="pre">&lt;project&gt;</span></code> roots are skipped.</p></li>
+<li><p><strong>Left out:</strong> targets from <code class="docutils literal notranslate"><span class="pre">&lt;import&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;include&gt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;macrodef&gt;</span></code> and
+<code class="docutils literal notranslate"><span class="pre">&lt;presetdef&gt;</span></code> output, <code class="docutils literal notranslate"><span class="pre">${property}</span></code> interpolation (kept literal), non-default
+file names (<code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">-f</span> <span class="pre">foo.xml</span></code>). <code class="docutils literal notranslate"><span class="pre">if</span></code>/<code class="docutils literal notranslate"><span class="pre">unless</span></code> targets are still named, so still
+listed.</p></li>
+<li><p><strong>Notes:</strong> <code class="docutils literal notranslate"><span class="pre">definition</span></code> is empty: a target’s body is declarative XML tasks.
+Bare <code class="docutils literal notranslate"><span class="pre">ant</span></code> runs the <code class="docutils literal notranslate"><span class="pre">&lt;project</span> <span class="pre">default&gt;</span></code> target, which is not read.</p></li>
+<li><p><strong>Adoption (information only):</strong> a legacy JVM tool, superseded by Maven and
+Gradle but still present in older enterprise code. No census figure. It was
+parked on demand, never on parseability.</p></li>
+</ul>
+</section>
+<section id="rake">
+<h2>Rake<a class="headerlink" href="#rake" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Contract:</strong> <a class="reference internal" href="../adr/0002-bounded-rake-discovery.html"><span class="std std-doc">ADR 0002</span></a>. <strong>Issue:</strong> #143.
+<strong>Shipped:</strong> 0.7.0. <strong>Docs:</strong> <a class="reference external" href="https://ruby.github.io/rake/">https://ruby.github.io/rake/</a>,
+<a class="reference external" href="https://github.com/ruby/rake">https://github.com/ruby/rake</a>.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">rake</span> <span class="pre">&lt;qualified-name&gt;</span></code>. <strong>Never use:</strong> <code class="docutils literal notranslate"><span class="pre">rake</span> <span class="pre">-T</span></code>.</p></li>
+<li><p><strong>Notes from the evaluation:</strong> namespacing determines the runnable name
+(<code class="docutils literal notranslate"><span class="pre">rake</span> <span class="pre">db:migrate</span></code>, not <code class="docutils literal notranslate"><span class="pre">rake</span> <span class="pre">migrate</span></code>), so nested <code class="docutils literal notranslate"><span class="pre">namespace</span></code> blocks must be
+tracked; <code class="docutils literal notranslate"><span class="pre">desc</span></code> binds to the next <code class="docutils literal notranslate"><span class="pre">task</span></code>. First implementation grew into a
+partial Ruby interpreter and was reset to the bounded syntactic contract.</p></li>
+<li><p><strong>Left out:</strong> <code class="docutils literal notranslate"><span class="pre">rakelib/*.rake</span></code> and <code class="docutils literal notranslate"><span class="pre">require</span></code>d files (a possible follow-up
+pass), file tasks, rules and loop-generated tasks. A wrong namespaced name
+yields a <code class="docutils literal notranslate"><span class="pre">rake</span> <span class="pre">&lt;name&gt;</span></code> that does not run. <code class="docutils literal notranslate"><span class="pre">rake</span> <span class="pre">-T</span></code> loads and evaluates the
+Rakefile, so it is never used.</p></li>
+<li><p><strong>Adoption (information only):</strong> ships with Ruby and underpins Rails. No
+census figure.</p></li>
+</ul>
+</section>
+<section id="mask">
+<h2>mask<a class="headerlink" href="#mask" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">maskfile.md</span></code>. <strong>Issue:</strong> #144. <strong>Shipped:</strong> 0.5.0. <strong>Docs:</strong>
+<a class="reference external" href="https://github.com/jacobdeichert/mask">https://github.com/jacobdeichert/mask</a>.</p></li>
+<li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">mask</span> <span class="pre">&lt;path...&gt;</span></code> (for example <code class="docutils literal notranslate"><span class="pre">mask</span> <span class="pre">test</span> <span class="pre">lint</span></code>). <code class="docutils literal notranslate"><span class="pre">name</span></code> is the
+space-joined heading path (<code class="docutils literal notranslate"><span class="pre">test</span> <span class="pre">lint</span></code>) and <code class="docutils literal notranslate"><span class="pre">argv_base</span></code> is
+<code class="docutils literal notranslate"><span class="pre">(&quot;mask&quot;,</span> <span class="pre">*parts)</span></code>.</p></li>
+<li><p><strong>Reads:</strong> the Markdown heading tree as the command tree; the <code class="docutils literal notranslate"><span class="pre">&gt;</span></code> blockquote as
+description (its last paragraph); the last fenced block under the heading as
+<code class="docutils literal notranslate"><span class="pre">definition</span></code>; heading args <code class="docutils literal notranslate"><span class="pre">(pattern)</span></code> or <code class="docutils literal notranslate"><span class="pre">[optional]</span></code> stripped from the name.
+Untagged or empty fences, and <code class="docutils literal notranslate"><span class="pre">powershell</span></code>, <code class="docutils literal notranslate"><span class="pre">batch</span></code> and <code class="docutils literal notranslate"><span class="pre">cmd</span></code> fences on
+non-Windows, make a command unrunnable. A top-level title or prose heading with no code block or
+subcommands is not a task.</p></li>
+<li><p><strong>Left out:</strong> <code class="docutils literal notranslate"><span class="pre">**OPTIONS**</span></code> flag sections, interpolation of positional
+arguments and option variables into <code class="docutils literal notranslate"><span class="pre">definition</span></code>, the <code class="docutils literal notranslate"><span class="pre">//</span></code> include and
+<code class="docutils literal notranslate"><span class="pre">--maskfile</span></code> alternate file, and the choice between flattening and nesting deep
+subcommand trees. The fence info string selects the interpreter and the body
+stays verbatim.</p></li>
+<li><p><strong>Adoption (information only):</strong> a niche but liked single-binary runner. No
+census figure.</p></li>
+<li><p><strong>Overlap:</strong> it shares machinery with <code class="docutils literal notranslate"><span class="pre">xc</span></code>; that was the reason it was first
+parked, and it no longer is one.</p></li>
+<li><p><strong>Measured behavior:</strong> <a class="reference internal" href="research/markdown-parser.html"><span class="std std-doc">Markdown parser evaluation</span></a>.</p></li>
+</ul>
+</section>
+<section id="grunt-gulp-turborepo-nx-workspaces-npm-run-all">
+<h2>Grunt, Gulp, Turborepo, Nx, workspaces, npm-run-all<a class="headerlink" href="#grunt-gulp-turborepo-nx-workspaces-npm-run-all" title="Link to this heading">#</a></h2>
+<p><a class="reference internal" href="../adr/0004-js-adjacent-task-runners.html"><span class="std std-doc">ADR 0004</span></a> holds the full evaluation
+table, per-provider read boundaries and consequences. Summary:</p>
+<ul class="simple">
+<li><p><strong>Grunt:</strong> literal <code class="docutils literal notranslate"><span class="pre">grunt.registerTask</span></code> and <code class="docutils literal notranslate"><span class="pre">registerMultiTask</span></code> names via
+tree-sitter; run <code class="docutils literal notranslate"><span class="pre">grunt</span> <span class="pre">&lt;name&gt;</span></code>.</p></li>
+<li><p><strong>Gulp:</strong> literal <code class="docutils literal notranslate"><span class="pre">gulp.task(name,</span> <span class="pre">...)</span></code> and CommonJS <code class="docutils literal notranslate"><span class="pre">exports.name</span></code>; run
+<code class="docutils literal notranslate"><span class="pre">gulp</span> <span class="pre">&lt;name&gt;</span></code>.</p></li>
+<li><p><strong>Turborepo:</strong> <code class="docutils literal notranslate"><span class="pre">turbo.json</span></code> <code class="docutils literal notranslate"><span class="pre">tasks</span></code> keys (legacy <code class="docutils literal notranslate"><span class="pre">pipeline</span></code>); run
+<code class="docutils literal notranslate"><span class="pre">turbo</span> <span class="pre">run</span> <span class="pre">&lt;task&gt;</span></code>.</p></li>
+<li><p><strong>Nx:</strong> <code class="docutils literal notranslate"><span class="pre">nx.json</span></code> <code class="docutils literal notranslate"><span class="pre">targetDefaults</span></code> keys; run <code class="docutils literal notranslate"><span class="pre">nx</span> <span class="pre">run-many</span> <span class="pre">-t</span> <span class="pre">&lt;name&gt;</span></code>.</p></li>
+<li><p><strong>workspace:</strong> members from <code class="docutils literal notranslate"><span class="pre">pnpm-workspace.yaml</span></code>, <code class="docutils literal notranslate"><span class="pre">package.json</span></code>
+<code class="docutils literal notranslate"><span class="pre">workspaces</span></code>, <code class="docutils literal notranslate"><span class="pre">lerna.json</span></code>; tasks named <code class="docutils literal notranslate"><span class="pre">&lt;package&gt;:&lt;script&gt;</span></code>, run through the
+lockfile-resolved package manager. Rooted traversal, never escaping <code class="docutils literal notranslate"><span class="pre">cwd</span></code>.</p></li>
+<li><p><strong>npm-run-all, run-p, run-s:</strong> no provider; they compose <code class="docutils literal notranslate"><span class="pre">package.json</span></code>
+scripts the <code class="docutils literal notranslate"><span class="pre">npm</span></code> provider already lists.</p></li>
+</ul>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="template.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Evaluation template</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="candidates.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">Candidates</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Hasan Sezer Taşan</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
+    </div>
+  </div>
+</footer>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+      <script>let toggleHintShow = 'Click to show';</script>
+      <script>let toggleHintHide = 'Click to hide';</script>
+      <script>let toggleOpenOnPrint = 'true';</script>
+      <script src="../_static/togglebutton.js?v=b8b12719"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+      <script src="../_static/shibuya.js?v=50760d75"></script></body>
+</html>
