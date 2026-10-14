@@ -181,7 +181,7 @@ Delegates to honcho. Issue #145.</p></li>
 <p><strong>Gate check:</strong></p>
 <ol class="arabic simple">
 <li><p><strong>Safe listing:</strong> passes. A flat <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">command</span></code> text file; nothing runs.</p></li>
-<li><p><strong>Faithful run command:</strong> passes with honcho: <code class="docutils literal notranslate"><span class="pre">honcho</span> <span class="pre">start</span> <span class="pre">&lt;name&gt;</span></code>. The
+<li><p><strong>Faithful run command:</strong> passes with honcho: <code class="docutils literal notranslate"><span class="pre">honcho</span> <span class="pre">-f</span> <span class="pre">Procfile</span> <span class="pre">start</span> <span class="pre">&lt;name&gt;</span></code>. The
 entries are long-running processes rather than one-shot tasks, and the
 managers differ, so the runner was chosen deliberately (see the decision
 below).</p></li>
@@ -192,13 +192,15 @@ below).</p></li>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">prefix</span></code> ← <code class="docutils literal notranslate"><span class="pre">procfile</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">name</span></code> ← process-type name (left of <code class="docutils literal notranslate"><span class="pre">:</span></code>)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">argv_base</span></code> ← <code class="docutils literal notranslate"><span class="pre">(&quot;honcho&quot;,</span> <span class="pre">&quot;start&quot;,</span> <span class="pre">name)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">argv_base</span></code> ← <code class="docutils literal notranslate"><span class="pre">(&quot;honcho&quot;,</span> <span class="pre">&quot;-f&quot;,</span> <span class="pre">&quot;Procfile&quot;,</span> <span class="pre">&quot;start&quot;,</span> <span class="pre">name)</span></code>; <code class="docutils literal notranslate"><span class="pre">-f</span></code> pins the file
+that was parsed, because honcho otherwise lets a <code class="docutils literal notranslate"><span class="pre">PROCFILE</span></code> value in <code class="docutils literal notranslate"><span class="pre">.env</span></code>
+override the default file name</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">description</span></code> ← none (the format has no description field)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">definition</span></code> ← the command string (right of <code class="docutils literal notranslate"><span class="pre">:</span></code>)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">source_file</span></code> ← <code class="docutils literal notranslate"><span class="pre">Procfile</span></code></p></li>
 </ul>
 <p><strong>Decision: honcho, as a fixed default.</strong></p>
-<p>The delegated command is <code class="docutils literal notranslate"><span class="pre">honcho</span> <span class="pre">start</span> <span class="pre">&lt;name&gt;</span></code>, chosen in
+<p>The delegated command is <code class="docutils literal notranslate"><span class="pre">honcho</span> <span class="pre">-f</span> <span class="pre">Procfile</span> <span class="pre">start</span> <span class="pre">&lt;name&gt;</span></code>, chosen in
 <a class="reference internal" href="../adr/0006-accept-gradle-zed-and-procfile-runner.html"><span class="std std-doc">ADR 0006</span></a> with the
 comparison of foreman, overmind and hivemind recorded there. Validated on
 2026-10-14 with honcho 2.0.0 and a three-entry Procfile:</p>
@@ -208,6 +210,9 @@ comparison of foreman, overmind and hivemind recorded there. Validated on
 the caller.</p></li>
 <li><p>An unknown type was rejected: <code class="docutils literal notranslate"><span class="pre">Process</span> <span class="pre">type</span> <span class="pre">'nosuch'</span> <span class="pre">does</span> <span class="pre">not</span> <span class="pre">exist</span> <span class="pre">in</span> <span class="pre">Procfile</span></code>.</p></li>
 <li><p>A process referencing <code class="docutils literal notranslate"><span class="pre">$PORT</span></code> received 5000, honcho’s default.</p></li>
+<li><p>With <code class="docutils literal notranslate"><span class="pre">PROCFILE=Procfile.dev</span></code> in <code class="docutils literal notranslate"><span class="pre">.env</span></code>, plain <code class="docutils literal notranslate"><span class="pre">honcho</span> <span class="pre">start</span> <span class="pre">web</span></code> ran the
+entry from <code class="docutils literal notranslate"><span class="pre">Procfile.dev</span></code>; <code class="docutils literal notranslate"><span class="pre">honcho</span> <span class="pre">-f</span> <span class="pre">Procfile</span> <span class="pre">start</span> <span class="pre">web</span></code> ran the entry from
+<code class="docutils literal notranslate"><span class="pre">Procfile</span></code>, the file <code class="docutils literal notranslate"><span class="pre">nur</span></code> parsed.</p></li>
 <li><p>Extra arguments after the name are read as more process types, so forwarded
 arguments must not be passed through (see the acceptance criteria).</p></li>
 </ul>
@@ -217,7 +222,7 @@ arguments must not be passed through (see the acceptance criteria).</p></li>
 <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">command</span></code> line is a task; a malformed line is skipped, not guessed.</p></li>
 <li><p>Never run honcho or any manager to list.</p></li>
 <li><p>Do not forward extra arguments. <code class="docutils literal notranslate"><span class="pre">Task.run_argv</span></code> appends them unconditionally,
-so <code class="docutils literal notranslate"><span class="pre">nur</span> <span class="pre">procfile:web</span> <span class="pre">--</span> <span class="pre">worker</span></code> would run <code class="docutils literal notranslate"><span class="pre">honcho</span> <span class="pre">start</span> <span class="pre">web</span> <span class="pre">worker</span></code> and start a
+so <code class="docutils literal notranslate"><span class="pre">nur</span> <span class="pre">procfile:web</span> <span class="pre">--</span> <span class="pre">worker</span></code> would run <code class="docutils literal notranslate"><span class="pre">honcho</span> <span class="pre">-f</span> <span class="pre">Procfile</span> <span class="pre">start</span> <span class="pre">web</span> <span class="pre">worker</span></code> and start a
 second process type. The implementation must reject or drop extras (a model
 option if needed), with a test.</p></li>
 <li><p>The listing and docs say the run needs honcho installed and that process types
@@ -433,8 +438,8 @@ the decline, so the implementation issue is new.</p></li>
 <li><p><strong>Safe listing:</strong> passes for a text or syntax-tree scan of literal task
 declarations; nothing runs. <code class="docutils literal notranslate"><span class="pre">gradle</span> <span class="pre">tasks</span></code> configures the build, which
 executes the scripts, so it is <strong>never used</strong> (nor the Tooling API).</p></li>
-<li><p><strong>Faithful run command:</strong> passes: <code class="docutils literal notranslate"><span class="pre">gradle</span> <span class="pre">&lt;task&gt;</span></code>, or the wrapper
-<code class="docutils literal notranslate"><span class="pre">./gradlew</span> <span class="pre">&lt;task&gt;</span></code> when the project has one.</p></li>
+<li><p><strong>Faithful run command:</strong> passes: <code class="docutils literal notranslate"><span class="pre">gradle</span> <span class="pre">:&lt;task&gt;</span></code>, or the wrapper
+<code class="docutils literal notranslate"><span class="pre">./gradlew</span> <span class="pre">:&lt;task&gt;</span></code> when the project has one.</p></li>
 <li><p><strong>Honest subset:</strong> passes as a labelled subset. Literal declarations are
 real project tasks; what is not listed is stated (below).</p></li>
 </ol>
@@ -442,8 +447,10 @@ real project tasks; what is not listed is stated (below).</p></li>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">prefix</span></code> ← <code class="docutils literal notranslate"><span class="pre">gradle</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">name</span></code> ← the literal task name</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">argv_base</span></code> ← <code class="docutils literal notranslate"><span class="pre">(&quot;./gradlew&quot;,</span> <span class="pre">name)</span></code> when <code class="docutils literal notranslate"><span class="pre">gradlew</span></code> exists in the project root
-(<code class="docutils literal notranslate"><span class="pre">gradlew.bat</span></code> on Windows), else <code class="docutils literal notranslate"><span class="pre">(&quot;gradle&quot;,</span> <span class="pre">name)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">argv_base</span></code> ← <code class="docutils literal notranslate"><span class="pre">(&quot;./gradlew&quot;,</span> <span class="pre">&quot;:&quot;</span> <span class="pre">+</span> <span class="pre">name)</span></code> when <code class="docutils literal notranslate"><span class="pre">gradlew</span></code> exists in the project
+root (<code class="docutils literal notranslate"><span class="pre">gradlew.bat</span></code> on Windows), else <code class="docutils literal notranslate"><span class="pre">(&quot;gradle&quot;,</span> <span class="pre">&quot;:&quot;</span> <span class="pre">+</span> <span class="pre">name)</span></code>. The leading
+colon selects the root project’s task by path; a bare name is a selector that
+can also run same-named tasks in every subproject of a multi-project build</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">description</span></code> ← a literal <code class="docutils literal notranslate"><span class="pre">description</span> <span class="pre">=</span> <span class="pre">&quot;...&quot;</span></code> (Groovy also
 <code class="docutils literal notranslate"><span class="pre">description</span> <span class="pre">&quot;...&quot;</span></code>) in the task’s configuration block, if present</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">definition</span></code> ← empty: the body is build logic, not a command</p></li>

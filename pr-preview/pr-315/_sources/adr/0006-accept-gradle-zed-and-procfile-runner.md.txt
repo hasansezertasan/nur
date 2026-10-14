@@ -38,7 +38,7 @@ stands.
    decline reasoning is kept in the [register](../providers/candidates.md) as
    history. Maven stays declined.
 2. **Procfile: accepted; delegates to honcho.** The delegated command is
-   `honcho start <name>`. Validated against honcho 2.0.0: it runs exactly the
+   `honcho -f Procfile start <name>`. Validated against honcho 2.0.0: it runs exactly the
    named process type, passes the process's exit code through (`rc=3` for a
    failing process), and rejects an unknown type with an error. Honcho reads
    every argument after the name as another process type, so the provider must
@@ -55,7 +55,7 @@ the specification.
 
 | Manager | Runs one process type | Needs | Verdict |
 | ------- | --------------------- | ----- | ------- |
-| honcho | `honcho start <name>` | Python (`uvx honcho`, `pip`) | **Chosen:** installs without a Ruby, Go or tmux toolchain, matching how `nur` itself is installed |
+| honcho | `honcho -f Procfile start <name>` | Python (`uvx honcho`, `pip`) | **Chosen:** installs without a Ruby, Go or tmux toolchain, matching how `nur` itself is installed |
 | foreman | `foreman start <name>` | Ruby gem | Reference implementation; same invocation, heavier prerequisite |
 | overmind | `overmind start -l <name>` | Go binary and tmux (Linux, BSD, macOS only) | tmux required; no Windows |
 | hivemind | not documented in its README | Go binary | Not validated; no documented single-process selection |

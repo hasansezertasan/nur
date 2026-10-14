@@ -38,7 +38,7 @@ Each entry is a process type. Run all with `foreman start`, `honcho start` or
 **Gate check:**
 
 1. **Safe listing:** passes. A flat `name: command` text file; nothing runs.
-2. **Faithful run command:** passes with honcho: `honcho start <name>`. The
+2. **Faithful run command:** passes with honcho: `honcho -f Procfile start <name>`. The
    entries are long-running processes rather than one-shot tasks, and the
    managers differ, so the runner was chosen deliberately (see the decision
    below).
@@ -49,14 +49,16 @@ Each entry is a process type. Run all with `foreman start`, `honcho start` or
 
 - `prefix` ← `procfile`
 - `name` ← process-type name (left of `:`)
-- `argv_base` ← `("honcho", "start", name)`
+- `argv_base` ← `("honcho", "-f", "Procfile", "start", name)`; `-f` pins the file
+  that was parsed, because honcho otherwise lets a `PROCFILE` value in `.env`
+  override the default file name
 - `description` ← none (the format has no description field)
 - `definition` ← the command string (right of `:`)
 - `source_file` ← `Procfile`
 
 **Decision: honcho, as a fixed default.**
 
-The delegated command is `honcho start <name>`, chosen in
+The delegated command is `honcho -f Procfile start <name>`, chosen in
 [ADR 0006](../adr/0006-accept-gradle-zed-and-procfile-runner.md) with the
 comparison of foreman, overmind and hivemind recorded there. Validated on
 2026-10-14 with honcho 2.0.0 and a three-entry Procfile:
@@ -67,6 +69,9 @@ comparison of foreman, overmind and hivemind recorded there. Validated on
 - An unknown type was rejected: `Process type 'nosuch' does not exist in
   Procfile`.
 - A process referencing `$PORT` received 5000, honcho's default.
+- With `PROCFILE=Procfile.dev` in `.env`, plain `honcho start web` ran the
+  entry from `Procfile.dev`; `honcho -f Procfile start web` ran the entry from
+  `Procfile`, the file `nur` parsed.
 - Extra arguments after the name are read as more process types, so forwarded
   arguments must not be passed through (see the acceptance criteria).
 
@@ -76,7 +81,7 @@ Acceptance criteria for the implementation:
   `name: command` line is a task; a malformed line is skipped, not guessed.
 - Never run honcho or any manager to list.
 - Do not forward extra arguments. `Task.run_argv` appends them unconditionally,
-  so `nur procfile:web -- worker` would run `honcho start web worker` and start a
+  so `nur procfile:web -- worker` would run `honcho -f Procfile start web worker` and start a
   second process type. The implementation must reject or drop extras (a model
   option if needed), with a test.
 - The listing and docs say the run needs honcho installed and that process types
@@ -319,8 +324,8 @@ Run with `gradle <task>` or `./gradlew <task>`.
 1. **Safe listing:** passes for a text or syntax-tree scan of literal task
    declarations; nothing runs. `gradle tasks` configures the build, which
    executes the scripts, so it is **never used** (nor the Tooling API).
-2. **Faithful run command:** passes: `gradle <task>`, or the wrapper
-   `./gradlew <task>` when the project has one.
+2. **Faithful run command:** passes: `gradle :<task>`, or the wrapper
+   `./gradlew :<task>` when the project has one.
 3. **Honest subset:** passes as a labelled subset. Literal declarations are
    real project tasks; what is not listed is stated (below).
 
@@ -328,8 +333,10 @@ Run with `gradle <task>` or `./gradlew <task>`.
 
 - `prefix` ← `gradle`
 - `name` ← the literal task name
-- `argv_base` ← `("./gradlew", name)` when `gradlew` exists in the project root
-  (`gradlew.bat` on Windows), else `("gradle", name)`
+- `argv_base` ← `("./gradlew", ":" + name)` when `gradlew` exists in the project
+  root (`gradlew.bat` on Windows), else `("gradle", ":" + name)`. The leading
+  colon selects the root project's task by path; a bare name is a selector that
+  can also run same-named tasks in every subproject of a multi-project build
 - `description` ← a literal `description = "..."` (Groovy also
   `description "..."`) in the task's configuration block, if present
 - `definition` ← empty: the body is build logic, not a command

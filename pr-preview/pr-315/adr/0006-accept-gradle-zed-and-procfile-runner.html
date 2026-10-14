@@ -181,7 +181,7 @@ stay opaque, and the provider’s documentation and listing text say so. The
 decline reasoning is kept in the <a class="reference internal" href="../providers/candidates.html"><span class="std std-doc">register</span></a> as
 history. Maven stays declined.</p></li>
 <li><p><strong>Procfile: accepted; delegates to honcho.</strong> The delegated command is
-<code class="docutils literal notranslate"><span class="pre">honcho</span> <span class="pre">start</span> <span class="pre">&lt;name&gt;</span></code>. Validated against honcho 2.0.0: it runs exactly the
+<code class="docutils literal notranslate"><span class="pre">honcho</span> <span class="pre">-f</span> <span class="pre">Procfile</span> <span class="pre">start</span> <span class="pre">&lt;name&gt;</span></code>. Validated against honcho 2.0.0: it runs exactly the
 named process type, passes the process’s exit code through (<code class="docutils literal notranslate"><span class="pre">rc=3</span></code> for a
 failing process), and rejects an unknown type with an error. Honcho reads
 every argument after the name as another process type, so the provider must
@@ -206,7 +206,7 @@ the specification.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>honcho</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">honcho</span> <span class="pre">start</span> <span class="pre">&lt;name&gt;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">honcho</span> <span class="pre">-f</span> <span class="pre">Procfile</span> <span class="pre">start</span> <span class="pre">&lt;name&gt;</span></code></p></td>
 <td><p>Python (<code class="docutils literal notranslate"><span class="pre">uvx</span> <span class="pre">honcho</span></code>, <code class="docutils literal notranslate"><span class="pre">pip</span></code>)</p></td>
 <td><p><strong>Chosen:</strong> installs without a Ruby, Go or tmux toolchain, matching how <code class="docutils literal notranslate"><span class="pre">nur</span></code> itself is installed</p></td>
 </tr>
