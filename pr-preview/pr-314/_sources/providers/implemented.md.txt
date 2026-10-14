@@ -395,7 +395,8 @@ quoting one. Observed gaps are recorded as they are, not fixed here.
   modeled), the provider lists nothing for the
   file. Only top-level `def`s register sessions; `nox_uv.session` is accepted.
 - **Notes:** the first parameter is the `Session`, not a user argument. Bare
-  `nox` runs the default sessions; `nox -s <name>` runs one. Displayed names may
+  `nox` runs the default sessions; `nox -s <name>` selects a session name, which
+  may cover several variants. Displayed names may
   differ from `nox -l` output, which is why that command is not used. nox is the
   imperative sibling of tox (#74).
 - **Adoption (information only):** common as a tox alternative. No census
@@ -445,8 +446,10 @@ quoting one. Observed gaps are recorded as they are, not fixed here.
 - **Source:** `maskfile.md`. **Issue:** #144. **Shipped:** 0.5.0. **Docs:**
   <https://github.com/jacobdeichert/mask>.
 - **Run:** `mask <path...>` (for example `mask test lint`). `name` is the
-  space-joined heading path (`test lint`) and `argv_base` is
-  `("mask", *parts)`.
+  heading path shell-quoted and space-joined (`test lint`; a single heading
+  `deploy prod` is named `'deploy prod'`, distinct from nested `deploy` / `prod`)
+  and `argv_base` is `("mask", *parts)`. Nested headings are emitted as full
+  paths.
 - **Reads:** the Markdown heading tree as the command tree; the `>` blockquote as
   description (its last paragraph); the last fenced block under the heading as
   `definition`; heading args `(pattern)` or `[optional]` stripped from the name.
@@ -455,9 +458,8 @@ quoting one. Observed gaps are recorded as they are, not fixed here.
   subcommands is not a task.
 - **Left out:** `**OPTIONS**` flag sections, interpolation of positional
   arguments and option variables into `definition`, the `//` include and
-  `--maskfile` alternate file, and the choice between flattening and nesting deep
-  subcommand trees. The fence info string selects the interpreter and the body
-  stays verbatim.
+  `--maskfile` alternate file. The fence info string selects the interpreter and
+  the body stays verbatim.
 - **Adoption (information only):** a niche but liked single-binary runner. No
   census figure.
 - **Overlap:** it shares machinery with `xc`; that was the reason it was first

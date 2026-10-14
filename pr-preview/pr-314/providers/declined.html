@@ -167,7 +167,7 @@ events. A repository has many files, each with <code class="docutils literal not
 <code class="docutils literal notranslate"><span class="pre">steps</span></code>; a step is either <code class="docutils literal notranslate"><span class="pre">uses:</span></code> (a packaged action) or <code class="docutils literal notranslate"><span class="pre">run:</span></code> (a shell command).
 Workflows start from triggers (<code class="docutils literal notranslate"><span class="pre">on:</span></code> events, <code class="docutils literal notranslate"><span class="pre">schedule</span></code> cron, <code class="docutils literal notranslate"><span class="pre">workflow_dispatch</span></code>),
 <code class="docutils literal notranslate"><span class="pre">needs:</span></code> chains jobs, and logic can live in reusable or composite workflows in
-other files or repositories.</p>
+other files or repositories (reusable workflows) or in composite actions.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nt">jobs</span><span class="p">:</span>
 </span><span data-line="2"><span class="w">  </span><span class="nt">test</span><span class="p">:</span>
 </span><span data-line="3"><span class="w">    </span><span class="nt">runs-on</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ubuntu-latest</span>
@@ -251,7 +251,8 @@ be presented unambiguously as incomplete and is judged worth shipping.</p></li>
 </ul>
 <p>Gradle and Maven are both build systems rather than task runners. Declining them
 is consistent with GitHub Actions (remote orchestration) and CMake (a build-graph
-generator): none is a place where a developer declares tasks to run.</p>
+generator). Gradle does let developers declare tasks, but their full set is
+produced at configuration time and by plugins, which cannot be enumerated safely.</p>
 </section>
 <section id="maven">
 <h2>Maven<a class="headerlink" href="#maven" title="Link to this heading">#</a></h2>
@@ -374,7 +375,8 @@ with matklad), README: <a class="reference external" href="https://github.com/ma
 <p><code class="docutils literal notranslate"><span class="pre">cargo</span> <span class="pre">xtask</span></code> expands to <code class="docutils literal notranslate"><span class="pre">cargo</span> <span class="pre">run</span> <span class="pre">--package</span> <span class="pre">xtask</span> <span class="pre">--</span></code>, compiling and running a
 normal Rust binary. Subcommands are whatever <code class="docutils literal notranslate"><span class="pre">main</span></code> accepts (a <code class="docutils literal notranslate"><span class="pre">match</span></code> on
 <code class="docutils literal notranslate"><span class="pre">args()</span></code>, <code class="docutils literal notranslate"><span class="pre">clap</span></code>, <code class="docutils literal notranslate"><span class="pre">argh</span></code>, <code class="docutils literal notranslate"><span class="pre">pico-args</span></code>, and so on). <code class="docutils literal notranslate"><span class="pre">cargo</span> <span class="pre">xtask</span> <span class="pre">--help</span></code> works
-only if the binary implements it, and it is slow because it compiles first.</p>
+only if the binary implements it, and the first run, or any run after a change,
+compiles the crate first.</p>
 <p><strong>Gate check:</strong></p>
 <ol class="arabic simple">
 <li><p><strong>Safe listing:</strong> reading <code class="docutils literal notranslate"><span class="pre">.cargo/config.toml</span></code> executes nothing but only shows

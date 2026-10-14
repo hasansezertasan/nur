@@ -588,7 +588,8 @@ sessions, command bodies. If the module is not straight-line (loops, <code class
 modeled), the provider lists nothing for the
 file. Only top-level <code class="docutils literal notranslate"><span class="pre">def</span></code>s register sessions; <code class="docutils literal notranslate"><span class="pre">nox_uv.session</span></code> is accepted.</p></li>
 <li><p><strong>Notes:</strong> the first parameter is the <code class="docutils literal notranslate"><span class="pre">Session</span></code>, not a user argument. Bare
-<code class="docutils literal notranslate"><span class="pre">nox</span></code> runs the default sessions; <code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">-s</span> <span class="pre">&lt;name&gt;</span></code> runs one. Displayed names may
+<code class="docutils literal notranslate"><span class="pre">nox</span></code> runs the default sessions; <code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">-s</span> <span class="pre">&lt;name&gt;</span></code> selects a session name, which
+may cover several variants. Displayed names may
 differ from <code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">-l</span></code> output, which is why that command is not used. nox is the
 imperative sibling of tox (#74).</p></li>
 <li><p><strong>Adoption (information only):</strong> common as a tox alternative. No census
@@ -644,8 +645,10 @@ census figure.</p></li>
 <li><p><strong>Source:</strong> <code class="docutils literal notranslate"><span class="pre">maskfile.md</span></code>. <strong>Issue:</strong> #144. <strong>Shipped:</strong> 0.5.0. <strong>Docs:</strong>
 <a class="reference external" href="https://github.com/jacobdeichert/mask">https://github.com/jacobdeichert/mask</a>.</p></li>
 <li><p><strong>Run:</strong> <code class="docutils literal notranslate"><span class="pre">mask</span> <span class="pre">&lt;path...&gt;</span></code> (for example <code class="docutils literal notranslate"><span class="pre">mask</span> <span class="pre">test</span> <span class="pre">lint</span></code>). <code class="docutils literal notranslate"><span class="pre">name</span></code> is the
-space-joined heading path (<code class="docutils literal notranslate"><span class="pre">test</span> <span class="pre">lint</span></code>) and <code class="docutils literal notranslate"><span class="pre">argv_base</span></code> is
-<code class="docutils literal notranslate"><span class="pre">(&quot;mask&quot;,</span> <span class="pre">*parts)</span></code>.</p></li>
+heading path shell-quoted and space-joined (<code class="docutils literal notranslate"><span class="pre">test</span> <span class="pre">lint</span></code>; a single heading
+<code class="docutils literal notranslate"><span class="pre">deploy</span> <span class="pre">prod</span></code> is named <code class="docutils literal notranslate"><span class="pre">'deploy</span> <span class="pre">prod'</span></code>, distinct from nested <code class="docutils literal notranslate"><span class="pre">deploy</span></code> / <code class="docutils literal notranslate"><span class="pre">prod</span></code>)
+and <code class="docutils literal notranslate"><span class="pre">argv_base</span></code> is <code class="docutils literal notranslate"><span class="pre">(&quot;mask&quot;,</span> <span class="pre">*parts)</span></code>. Nested headings are emitted as full
+paths.</p></li>
 <li><p><strong>Reads:</strong> the Markdown heading tree as the command tree; the <code class="docutils literal notranslate"><span class="pre">&gt;</span></code> blockquote as
 description (its last paragraph); the last fenced block under the heading as
 <code class="docutils literal notranslate"><span class="pre">definition</span></code>; heading args <code class="docutils literal notranslate"><span class="pre">(pattern)</span></code> or <code class="docutils literal notranslate"><span class="pre">[optional]</span></code> stripped from the name.
@@ -654,9 +657,8 @@ non-Windows, make a command unrunnable. A top-level title or prose heading with 
 subcommands is not a task.</p></li>
 <li><p><strong>Left out:</strong> <code class="docutils literal notranslate"><span class="pre">**OPTIONS**</span></code> flag sections, interpolation of positional
 arguments and option variables into <code class="docutils literal notranslate"><span class="pre">definition</span></code>, the <code class="docutils literal notranslate"><span class="pre">//</span></code> include and
-<code class="docutils literal notranslate"><span class="pre">--maskfile</span></code> alternate file, and the choice between flattening and nesting deep
-subcommand trees. The fence info string selects the interpreter and the body
-stays verbatim.</p></li>
+<code class="docutils literal notranslate"><span class="pre">--maskfile</span></code> alternate file. The fence info string selects the interpreter and
+the body stays verbatim.</p></li>
 <li><p><strong>Adoption (information only):</strong> a niche but liked single-binary runner. No
 census figure.</p></li>
 <li><p><strong>Overlap:</strong> it shares machinery with <code class="docutils literal notranslate"><span class="pre">xc</span></code>; that was the reason it was first

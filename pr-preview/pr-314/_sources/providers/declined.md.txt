@@ -23,7 +23,7 @@ events. A repository has many files, each with `jobs`, each job a list of
 `steps`; a step is either `uses:` (a packaged action) or `run:` (a shell command).
 Workflows start from triggers (`on:` events, `schedule` cron, `workflow_dispatch`),
 `needs:` chains jobs, and logic can live in reusable or composite workflows in
-other files or repositories.
+other files or repositories (reusable workflows) or in composite actions.
 
 ```yaml
 jobs:
@@ -113,7 +113,8 @@ misleads.
 
 Gradle and Maven are both build systems rather than task runners. Declining them
 is consistent with GitHub Actions (remote orchestration) and CMake (a build-graph
-generator): none is a place where a developer declares tasks to run.
+generator). Gradle does let developers declare tasks, but their full set is
+produced at configuration time and by plugins, which cannot be enumerated safely.
 
 ## Maven
 
@@ -241,7 +242,8 @@ fn main() -> Result<(), anyhow::Error> {
 `cargo xtask` expands to `cargo run --package xtask --`, compiling and running a
 normal Rust binary. Subcommands are whatever `main` accepts (a `match` on
 `args()`, `clap`, `argh`, `pico-args`, and so on). `cargo xtask --help` works
-only if the binary implements it, and it is slow because it compiles first.
+only if the binary implements it, and the first run, or any run after a change,
+compiles the crate first.
 
 **Gate check:**
 
