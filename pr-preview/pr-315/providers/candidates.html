@@ -383,6 +383,11 @@ tokens are quoted as single arguments (as for VS Code <code class="docutils lite
 <li><p>Read <code class="docutils literal notranslate"><span class="pre">.zed/tasks.json</span></code> under the current directory only, never the global
 file (rooted scope, ADR 0004). Parse as JSONC, since the docs show <code class="docutils literal notranslate"><span class="pre">//</span></code>
 comments.</p></li>
+<li><p>A task whose <code class="docutils literal notranslate"><span class="pre">label</span></code> or <code class="docutils literal notranslate"><span class="pre">cwd</span></code> holds a non-Zed <code class="docutils literal notranslate"><span class="pre">$NAME</span></code> is skipped (neither can
+be resolved or run faithfully). In <code class="docutils literal notranslate"><span class="pre">command</span></code> and <code class="docutils literal notranslate"><span class="pre">args</span></code>, ordinary <code class="docutils literal notranslate"><span class="pre">$NAME</span></code>
+references are left to the shell. Known boundary: Zed may omit a task whose
+command references an unset ordinary variable (for example <code class="docutils literal notranslate"><span class="pre">deploy-$TARGET</span></code>),
+where <code class="docutils literal notranslate"><span class="pre">nur</span></code> lists it and the shell expands it to empty. Document this.</p></li>
 <li><p>Skip a task whose <code class="docutils literal notranslate"><span class="pre">args</span></code> still contain a <code class="docutils literal notranslate"><span class="pre">$</span></code> after Zed variables are resolved:
 <code class="docutils literal notranslate"><span class="pre">nur</span></code> quotes every argument after the command, so shell expansion that Zed
 would perform there (for example <code class="docutils literal notranslate"><span class="pre">$HOME</span></code>) would print literally. Shell syntax
@@ -469,6 +474,9 @@ Kotlin: <code class="docutils literal notranslate"><span class="pre">tasks.regis
 do not declare them; they are not read.</p></li>
 <li><p>Skip non-literal names (variables, string templates, loops, conditionals,
 <code class="docutils literal notranslate"><span class="pre">afterEvaluate</span></code>).</p></li>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">settings.gradle(.kts)</span></code> mentions <code class="docutils literal notranslate"><span class="pre">buildFileName</span></code> (which can point the root
+project at a differently named script), list nothing and say why: the script
+Gradle loads is not the one the provider would read.</p></li>
 <li><p>Say, in the provider docs and in the listing text, that this is a list of
 literal declarations and does <strong>not</strong> include plugin-contributed tasks such as
 <code class="docutils literal notranslate"><span class="pre">build</span></code>, <code class="docutils literal notranslate"><span class="pre">test</span></code>, <code class="docutils literal notranslate"><span class="pre">check</span></code>, <code class="docutils literal notranslate"><span class="pre">jar</span></code> or <code class="docutils literal notranslate"><span class="pre">assemble</span></code>.</p></li>

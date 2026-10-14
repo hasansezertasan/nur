@@ -263,6 +263,11 @@ documented.
 - Read `.zed/tasks.json` under the current directory only, never the global
   file (rooted scope, ADR 0004). Parse as JSONC, since the docs show `//`
   comments.
+- A task whose `label` or `cwd` holds a non-Zed `$NAME` is skipped (neither can
+  be resolved or run faithfully). In `command` and `args`, ordinary `$NAME`
+  references are left to the shell. Known boundary: Zed may omit a task whose
+  command references an unset ordinary variable (for example `deploy-$TARGET`),
+  where `nur` lists it and the shell expands it to empty. Document this.
 - Skip a task whose `args` still contain a `$` after Zed variables are resolved:
   `nur` quotes every argument after the command, so shell expansion that Zed
   would perform there (for example `$HOME`) would print literally. Shell syntax
@@ -355,6 +360,9 @@ Run with `gradle <task>` or `./gradlew <task>`.
   do not declare them; they are not read.
 - Skip non-literal names (variables, string templates, loops, conditionals,
   `afterEvaluate`).
+- If `settings.gradle(.kts)` mentions `buildFileName` (which can point the root
+  project at a differently named script), list nothing and say why: the script
+  Gradle loads is not the one the provider would read.
 - Say, in the provider docs and in the listing text, that this is a list of
   literal declarations and does **not** include plugin-contributed tasks such as
   `build`, `test`, `check`, `jar` or `assemble`.
