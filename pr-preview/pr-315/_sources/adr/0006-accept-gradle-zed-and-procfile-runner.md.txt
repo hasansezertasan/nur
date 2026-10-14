@@ -29,8 +29,9 @@ This record updates the re-triage table of ADR 0005; the rest of that record
 stands.
 
 1. **Gradle: accepted, as a labelled subset.** The provider reads literal task
-   declarations from the root `build.gradle` and `build.gradle.kts` and lists
-   them as syntactic candidates. It never runs Gradle, the wrapper or the
+   declarations from the root build script (`build.gradle`, else
+   `build.gradle.kts`, matching Gradle's own precedence when both exist) and
+   lists them as syntactic candidates. It never runs Gradle, the wrapper or the
    Tooling API to enumerate (`gradle tasks` stays forbidden by gate 1). Tasks
    contributed by plugins and conventions, dynamic names and subproject wiring
    stay opaque, and the provider's documentation and listing text say so. The

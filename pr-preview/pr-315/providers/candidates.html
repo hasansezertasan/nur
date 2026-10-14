@@ -378,6 +378,11 @@ tokens are quoted as single arguments (as for VS Code <code class="docutils lite
 <li><p>Read <code class="docutils literal notranslate"><span class="pre">.zed/tasks.json</span></code> under the current directory only, never the global
 file (rooted scope, ADR 0004). Parse as JSONC, since the docs show <code class="docutils literal notranslate"><span class="pre">//</span></code>
 comments.</p></li>
+<li><p>Skip a task whose <code class="docutils literal notranslate"><span class="pre">args</span></code> still contain a <code class="docutils literal notranslate"><span class="pre">$</span></code> after Zed variables are resolved:
+<code class="docutils literal notranslate"><span class="pre">nur</span></code> quotes every argument after the command, so shell expansion that Zed
+would perform there (for example <code class="docutils literal notranslate"><span class="pre">$HOME</span></code>) would print literally. Shell syntax
+inside <code class="docutils literal notranslate"><span class="pre">command</span></code> itself works because that token is passed to the shell
+verbatim.</p></li>
 <li><p>Skip, as VS Code does: tasks whose <code class="docutils literal notranslate"><span class="pre">command</span></code>, <code class="docutils literal notranslate"><span class="pre">args</span></code>, <code class="docutils literal notranslate"><span class="pre">cwd</span></code> or <code class="docutils literal notranslate"><span class="pre">label</span></code> still
 hold an unresolved <code class="docutils literal notranslate"><span class="pre">$ZED_*</span></code> variable without a default; tasks that set <code class="docutils literal notranslate"><span class="pre">env</span></code> or
 <code class="docutils literal notranslate"><span class="pre">shell</span></code>; and any task whose <code class="docutils literal notranslate"><span class="pre">cwd</span></code> resolves anywhere other than the project
@@ -389,6 +394,11 @@ still available from the task modal like any other task”, and <code class="doc
 a task to editor runnables.</p></li>
 <li><p>Do not treat Zed’s <code class="docutils literal notranslate"><span class="pre">hide</span></code> as VS Code’s <code class="docutils literal notranslate"><span class="pre">hide</span></code>: in Zed it controls closing the
 terminal after the run, not visibility in the picker.</p></li>
+<li><p>Document the known difference in login-shell handling: Zed launches a task in
+a login shell, while <code class="docutils literal notranslate"><span class="pre">nur</span></code> runs <code class="docutils literal notranslate"><span class="pre">$SHELL</span> <span class="pre">-c</span> <span class="pre">&lt;line&gt;</span></code> without a login flag
+(<code class="docutils literal notranslate"><span class="pre">src/nur/core/execution.py</span></code>). A task that depends on PATH entries, functions
+or aliases set only by a login profile can behave differently. This is the same
+boundary as VS Code shell tasks.</p></li>
 <li><p>Never run Zed or any editor.</p></li>
 </ul>
 <p><strong>Deferred:</strong></p>
@@ -401,7 +411,10 @@ other terminal options.</p>
 <h2>Gradle<a class="headerlink" href="#gradle" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><strong>Format:</strong> Gradle build scripts, Groovy or Kotlin DSL.</p></li>
-<li><p><strong>Source files:</strong> <code class="docutils literal notranslate"><span class="pre">build.gradle</span></code> and <code class="docutils literal notranslate"><span class="pre">build.gradle.kts</span></code> in the current directory.</p></li>
+<li><p><strong>Source files:</strong> <code class="docutils literal notranslate"><span class="pre">build.gradle</span></code> or <code class="docutils literal notranslate"><span class="pre">build.gradle.kts</span></code> in the current directory.
+When both exist Gradle loads <code class="docutils literal notranslate"><span class="pre">build.gradle</span></code> and ignores the Kotlin script (its
+current precedence, see gradle/gradle#34110), so the provider reads only that
+one.</p></li>
 <li><p><strong>Docs:</strong> <a class="reference external" href="https://docs.gradle.org/current/userguide/userguide.html">https://docs.gradle.org/current/userguide/userguide.html</a></p></li>
 <li><p><strong>State:</strong> Accepted as a labelled subset
 (<a class="reference internal" href="../adr/0006-accept-gradle-zed-and-procfile-runner.html"><span class="std std-doc">ADR 0006</span></a>). It was

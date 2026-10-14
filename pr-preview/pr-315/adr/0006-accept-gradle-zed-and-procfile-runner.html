@@ -172,8 +172,9 @@ applied a stricter reading than the gate states. This record settles all three.<
 stands.</p>
 <ol class="arabic simple">
 <li><p><strong>Gradle: accepted, as a labelled subset.</strong> The provider reads literal task
-declarations from the root <code class="docutils literal notranslate"><span class="pre">build.gradle</span></code> and <code class="docutils literal notranslate"><span class="pre">build.gradle.kts</span></code> and lists
-them as syntactic candidates. It never runs Gradle, the wrapper or the
+declarations from the root build script (<code class="docutils literal notranslate"><span class="pre">build.gradle</span></code>, else
+<code class="docutils literal notranslate"><span class="pre">build.gradle.kts</span></code>, matching Gradle’s own precedence when both exist) and
+lists them as syntactic candidates. It never runs Gradle, the wrapper or the
 Tooling API to enumerate (<code class="docutils literal notranslate"><span class="pre">gradle</span> <span class="pre">tasks</span></code> stays forbidden by gate 1). Tasks
 contributed by plugins and conventions, dynamic names and subproject wiring
 stay opaque, and the provider’s documentation and listing text say so. The

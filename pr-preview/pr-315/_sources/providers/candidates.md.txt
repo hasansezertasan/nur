@@ -258,6 +258,11 @@ documented.
 - Read `.zed/tasks.json` under the current directory only, never the global
   file (rooted scope, ADR 0004). Parse as JSONC, since the docs show `//`
   comments.
+- Skip a task whose `args` still contain a `$` after Zed variables are resolved:
+  `nur` quotes every argument after the command, so shell expansion that Zed
+  would perform there (for example `$HOME`) would print literally. Shell syntax
+  inside `command` itself works because that token is passed to the shell
+  verbatim.
 - Skip, as VS Code does: tasks whose `command`, `args`, `cwd` or `label` still
   hold an unresolved `$ZED_*` variable without a default; tasks that set `env` or
   `shell`; and any task whose `cwd` resolves anywhere other than the project
@@ -269,6 +274,11 @@ documented.
   a task to editor runnables.
 - Do not treat Zed's `hide` as VS Code's `hide`: in Zed it controls closing the
   terminal after the run, not visibility in the picker.
+- Document the known difference in login-shell handling: Zed launches a task in
+  a login shell, while `nur` runs `$SHELL -c <line>` without a login flag
+  (`src/nur/core/execution.py`). A task that depends on PATH entries, functions
+  or aliases set only by a login profile can behave differently. This is the same
+  boundary as VS Code shell tasks.
 - Never run Zed or any editor.
 
 **Deferred:**
@@ -283,7 +293,10 @@ No figure known; none invented.
 ## Gradle
 
 - **Format:** Gradle build scripts, Groovy or Kotlin DSL.
-- **Source files:** `build.gradle` and `build.gradle.kts` in the current directory.
+- **Source files:** `build.gradle` or `build.gradle.kts` in the current directory.
+  When both exist Gradle loads `build.gradle` and ignores the Kotlin script (its
+  current precedence, see gradle/gradle#34110), so the provider reads only that
+  one.
 - **Docs:** <https://docs.gradle.org/current/userguide/userguide.html>
 - **State:** Accepted as a labelled subset
   ([ADR 0006](../adr/0006-accept-gradle-zed-and-procfile-runner.md)). It was
