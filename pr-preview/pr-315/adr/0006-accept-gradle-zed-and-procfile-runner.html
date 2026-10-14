@@ -182,7 +182,9 @@ history. Maven stays declined.</p></li>
 <li><p><strong>Procfile: accepted; delegates to honcho.</strong> The delegated command is
 <code class="docutils literal notranslate"><span class="pre">honcho</span> <span class="pre">start</span> <span class="pre">&lt;name&gt;</span></code>. Validated against honcho 2.0.0: it runs exactly the
 named process type, passes the process’s exit code through (<code class="docutils literal notranslate"><span class="pre">rc=3</span></code> for a
-failing process), and rejects an unknown type with an error.</p></li>
+failing process), and rejects an unknown type with an error. Honcho reads
+every argument after the name as another process type, so the provider must
+not forward extra arguments.</p></li>
 <li><p><strong>Zed tasks: accepted.</strong> Evaluated against the three gates in the
 <a class="reference internal" href="../providers/candidates.html"><span class="std std-doc">register</span></a>. It follows the VS Code provider
 contract: the task’s own <code class="docutils literal notranslate"><span class="pre">command</span></code> and <code class="docutils literal notranslate"><span class="pre">args</span></code> are the delegated run, since

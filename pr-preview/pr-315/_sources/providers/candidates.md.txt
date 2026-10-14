@@ -67,14 +67,18 @@ comparison of foreman, overmind and hivemind recorded there. Validated on
 - An unknown type was rejected: `Process type 'nosuch' does not exist in
   Procfile`.
 - A process referencing `$PORT` received 5000, honcho's default.
-- Extra arguments after the name are read as more process types, so there is no
-  `passthrough_prefix` and forwarded arguments are not supported.
+- Extra arguments after the name are read as more process types, so forwarded
+  arguments must not be passed through (see the acceptance criteria).
 
 Acceptance criteria for the implementation:
 
 - Discovery reads only `Procfile` in the current directory; each non-comment
   `name: command` line is a task; a malformed line is skipped, not guessed.
 - Never run honcho or any manager to list.
+- Do not forward extra arguments. `Task.run_argv` appends them unconditionally,
+  so `nur procfile:web -- worker` would run `honcho start web worker` and start a
+  second process type. The implementation must reject or drop extras (a model
+  option if needed), with a test.
 - The listing and docs say the run needs honcho installed and that process types
   are long-running.
 
@@ -230,20 +234,24 @@ documented.
 **Gate check:**
 
 1. **Safe listing:** passes. A JSON document; nothing runs.
-2. **Faithful run command:** passes the same way as VS Code tasks: the delegated
-   run is the task's own `command` plus `args`, because Zed offers no CLI to run
-   a task by label.
+2. **Faithful run command:** passes the same way as VS Code shell tasks: the
+   delegated run is the task's own `command` plus `args`, run through the shell,
+   because Zed offers no CLI to run a task by label and itself launches the
+   command in a login shell (so `$VAR`, pipes and loops work).
 3. **Honest subset:** passes. `label`, `command` and `args` are literal.
 
 **Task-model mapping:**
 
 - `prefix` ← `zed`
 - `name` ← `label`
-- `argv_base` ← `command` followed by `args`
+- `argv_base` ← `command` verbatim as the first token, then each `args` item;
+  `run_in_shell=True`, so the command string may use shell syntax and later
+  tokens are quoted as single arguments (as for VS Code `shell` tasks)
 - `description` ← none (Zed has no description field)
 - `definition` ← the command and args joined with spaces
 - `source_file` ← `.zed/tasks.json`
 - `passthrough_prefix` ← none
+- `run_in_shell` ← true
 
 **Acceptance criteria for the implementation:**
 
@@ -252,10 +260,13 @@ documented.
   comments.
 - Skip, as VS Code does: tasks whose `command`, `args`, `cwd` or `label` still
   hold an unresolved `$ZED_*` variable without a default; tasks that set `env` or
-  `shell`, or a `cwd` that resolves outside the project root. Resolve
-  `$ZED_WORKTREE_ROOT`. `${VAR:default}` resolves to its default.
-- Skip tasks with `hooks`: they run on events, not by choice. `tags` binds a task
-  to editor runnables and does not hide it.
+  `shell`; and any task whose `cwd` resolves anywhere other than the project
+  root, because the `Task` model carries no working directory and
+  `run_direct` runs from the discovery directory. Resolve `$ZED_WORKTREE_ROOT`.
+  `${VAR:default}` resolves to its default.
+- Keep tasks that declare `hooks` or `tags`: Zed states that hook tasks "are
+  still available from the task modal like any other task", and `tags` only binds
+  a task to editor runnables.
 - Do not treat Zed's `hide` as VS Code's `hide`: in Zed it controls closing the
   terminal after the run, not visibility in the picker.
 - Never run Zed or any editor.
