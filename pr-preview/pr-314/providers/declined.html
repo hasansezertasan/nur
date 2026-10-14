@@ -166,8 +166,8 @@ grounds below are restated without it.</p>
 events. A repository has many files, each with <code class="docutils literal notranslate"><span class="pre">jobs</span></code>, each job a list of
 <code class="docutils literal notranslate"><span class="pre">steps</span></code>; a step is either <code class="docutils literal notranslate"><span class="pre">uses:</span></code> (a packaged action) or <code class="docutils literal notranslate"><span class="pre">run:</span></code> (a shell command).
 Workflows start from triggers (<code class="docutils literal notranslate"><span class="pre">on:</span></code> events, <code class="docutils literal notranslate"><span class="pre">schedule</span></code> cron, <code class="docutils literal notranslate"><span class="pre">workflow_dispatch</span></code>),
-<code class="docutils literal notranslate"><span class="pre">needs:</span></code> chains jobs, and logic can live in reusable or composite workflows in
-other files or repositories (reusable workflows) or in composite actions.</p>
+<code class="docutils literal notranslate"><span class="pre">needs:</span></code> chains jobs, and logic can live in reusable workflows (other files or
+repositories) or in composite actions.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nt">jobs</span><span class="p">:</span>
 </span><span data-line="2"><span class="w">  </span><span class="nt">test</span><span class="p">:</span>
 </span><span data-line="3"><span class="w">    </span><span class="nt">runs-on</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ubuntu-latest</span>

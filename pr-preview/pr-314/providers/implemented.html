@@ -589,8 +589,8 @@ modeled), the provider lists nothing for the
 file. Only top-level <code class="docutils literal notranslate"><span class="pre">def</span></code>s register sessions; <code class="docutils literal notranslate"><span class="pre">nox_uv.session</span></code> is accepted.</p></li>
 <li><p><strong>Notes:</strong> the first parameter is the <code class="docutils literal notranslate"><span class="pre">Session</span></code>, not a user argument. Bare
 <code class="docutils literal notranslate"><span class="pre">nox</span></code> runs the default sessions; <code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">-s</span> <span class="pre">&lt;name&gt;</span></code> selects a session name, which
-may cover several variants. Displayed names may
-differ from <code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">-l</span></code> output, which is why that command is not used. nox is the
+may cover several variants. <code class="docutils literal notranslate"><span class="pre">nox</span> <span class="pre">-l</span></code> imports and executes <code class="docutils literal notranslate"><span class="pre">noxfile.py</span></code>, so it is
+never used; displayed names may also differ from its output. nox is the
 imperative sibling of tox (#74).</p></li>
 <li><p><strong>Adoption (information only):</strong> common as a tox alternative. No census
 figure.</p></li>
@@ -614,7 +614,8 @@ direct children of <code class="docutils literal notranslate"><span class="pre">
 file names (<code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">-f</span> <span class="pre">foo.xml</span></code>). <code class="docutils literal notranslate"><span class="pre">if</span></code>/<code class="docutils literal notranslate"><span class="pre">unless</span></code> targets are still named, so still
 listed.</p></li>
 <li><p><strong>Notes:</strong> <code class="docutils literal notranslate"><span class="pre">definition</span></code> is empty: a target’s body is declarative XML tasks.
-Bare <code class="docutils literal notranslate"><span class="pre">ant</span></code> runs the <code class="docutils literal notranslate"><span class="pre">&lt;project</span> <span class="pre">default&gt;</span></code> target, which is not read.</p></li>
+Bare <code class="docutils literal notranslate"><span class="pre">ant</span></code> runs the <code class="docutils literal notranslate"><span class="pre">&lt;project</span> <span class="pre">default&gt;</span></code> target. The attribute itself is
+not read, though the target it names is listed like any other.</p></li>
 <li><p><strong>Adoption (information only):</strong> a legacy JVM tool, superseded by Maven and
 Gradle but still present in older enterprise code. No census figure. It was
 parked on demand, never on parseability.</p></li>
