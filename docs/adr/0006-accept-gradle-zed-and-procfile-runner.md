@@ -39,7 +39,9 @@ stands.
 2. **Procfile: accepted; delegates to honcho.** The delegated command is
    `honcho start <name>`. Validated against honcho 2.0.0: it runs exactly the
    named process type, passes the process's exit code through (`rc=3` for a
-   failing process), and rejects an unknown type with an error.
+   failing process), and rejects an unknown type with an error. Honcho reads
+   every argument after the name as another process type, so the provider must
+   not forward extra arguments.
 3. **Zed tasks: accepted.** Evaluated against the three gates in the
    [register](../providers/candidates.md). It follows the VS Code provider
    contract: the task's own `command` and `args` are the delegated run, since
