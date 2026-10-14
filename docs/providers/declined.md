@@ -22,8 +22,8 @@ A workflow is YAML that runs on GitHub's (or self-hosted) runners in response to
 events. A repository has many files, each with `jobs`, each job a list of
 `steps`; a step is either `uses:` (a packaged action) or `run:` (a shell command).
 Workflows start from triggers (`on:` events, `schedule` cron, `workflow_dispatch`),
-`needs:` chains jobs, and logic can live in reusable or composite workflows in
-other files or repositories (reusable workflows) or in composite actions.
+`needs:` chains jobs, and logic can live in reusable workflows (other files or
+repositories) or in composite actions.
 
 ```yaml
 jobs:

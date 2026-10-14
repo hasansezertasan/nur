@@ -396,8 +396,8 @@ quoting one. Observed gaps are recorded as they are, not fixed here.
   file. Only top-level `def`s register sessions; `nox_uv.session` is accepted.
 - **Notes:** the first parameter is the `Session`, not a user argument. Bare
   `nox` runs the default sessions; `nox -s <name>` selects a session name, which
-  may cover several variants. Displayed names may
-  differ from `nox -l` output, which is why that command is not used. nox is the
+  may cover several variants. `nox -l` imports and executes `noxfile.py`, so it is
+  never used; displayed names may also differ from its output. nox is the
   imperative sibling of tox (#74).
 - **Adoption (information only):** common as a tox alternative. No census
   figure.
@@ -419,7 +419,8 @@ quoting one. Observed gaps are recorded as they are, not fixed here.
   file names (`ant -f foo.xml`). `if`/`unless` targets are still named, so still
   listed.
 - **Notes:** `definition` is empty: a target's body is declarative XML tasks.
-  Bare `ant` runs the `<project default>` target, which is not read.
+  Bare `ant` runs the `<project default>` target. The attribute itself is
+  not read, though the target it names is listed like any other.
 - **Adoption (information only):** a legacy JVM tool, superseded by Maven and
   Gradle but still present in older enterprise code. No census figure. It was
   parked on demand, never on parseability.
