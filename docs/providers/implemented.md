@@ -324,9 +324,11 @@ quoting one. Observed gaps are recorded as they are, not fixed here.
 
 ## VS Code tasks
 
-- **Source:** `.vscode/tasks.json`. **Issue:** #139. **Spec:**
-  <https://code.visualstudio.com/docs/editor/tasks>.
-- **Run:** the task's own `command` and `args`.
+- **Source:** `.vscode/tasks.json`. **Issue:** #139. **Shipped:** 0.5.0. **Spec:**
+  <https://code.visualstudio.com/docs/editor/tasks>, schema appendix
+  <https://code.visualstudio.com/docs/editor/tasks-appendix>.
+- **Run:** the task's own `command` and `args`; `definition` is the command
+  and its args joined with spaces. No `passthrough_prefix`.
 - **Reads:** schema `version` `"2.0.0"`, JSONC. Task `label` is the name,
   `detail` the description. `shell`, `process` and untyped tasks with a
   `command` are runnable. A task or the document may carry `windows`, `linux` and
@@ -346,11 +348,17 @@ quoting one. Observed gaps are recorded as they are, not fixed here.
   `${pathSeparator}`, `${/}` and `${env:X}` resolve). Tasks with `hide: true`
   are skipped. Document-level `options` (including `env`) and `type` merge
   into each task. For duplicate labels the last definition wins.
+- **Not read:** `group` and `isDefault` (a possible later mapping onto
+  grouping) and `dependsOrder`.
+- **Adoption (information only):** the most widely used statically parseable
+  candidate when it was filed, and unlike GitHub Actions its tasks run locally.
+  No census figure.
 - **Sibling:** Zed `.zed/tasks.json`, see [candidates](candidates.md).
 
 ## invoke
 
-- **Source:** `tasks.py`. **Issue:** #140. **Docs:** <https://docs.pyinvoke.org/en/stable/>.
+- **Source:** `tasks.py`. **Issue:** #140. **Shipped:** 0.6.0. **Docs:**
+  <https://www.pyinvoke.org/>, <https://docs.pyinvoke.org/en/stable/>.
 - **Run:** `invoke <name>`. **Never use:** `inv -l` (imports and executes the module).
 - **Reads:** AST of `@task`-decorated functions, including `@task(...)`,
   `@invoke.task` and aliased imports; explicit `name=` and `aliases=`; first
@@ -363,11 +371,19 @@ quoting one. Observed gaps are recorded as they are, not fixed here.
   `Collection` namespacing (so namespaced setups are under-covered), and tasks
   built dynamically or imported from other modules.
 - **History:** first parked "low priority" on reliability and value; accepted
-  once value stopped being a gate (ADR 0004 and 0005).
+  once value stopped being a gate (ADR 0004 and 0005). The parking reasons were
+  that an opaque definition adds little over telling users to run `inv -l`, and
+  that parameter-driven tasks may not run from `invoke <name>` alone (function
+  arguments become CLI flags such as `--repository`; the first parameter is the
+  `Context`, not a user argument).
+- **Adoption (information only):** the runner behind Fabric and a common
+  Makefile alternative in Python projects. No census figure. nox is its natural
+  AST sibling.
 
 ## nox
 
-- **Source:** `noxfile.py`. **Issue:** #142. **Docs:** <https://nox.thea.codes/en/stable/>.
+- **Source:** `noxfile.py`. **Issue:** #142. **Shipped:** 0.5.0. **Docs:**
+  <https://nox.thea.codes/>, <https://nox.thea.codes/en/stable/>.
 - **Run:** `nox -s <name>`. **Never use:** `nox -l`.
 - **Reads:** AST of `@nox.session`, `@nox.session(...)` and `@session` (aliased
   import); explicit `name=`; docstring first line.
@@ -378,10 +394,19 @@ quoting one. Observed gaps are recorded as they are, not fixed here.
   `match`, unrecognized star imports, namespace mutation; `from nox import *` is
   modeled), the provider lists nothing for the
   file. Only top-level `def`s register sessions; `nox_uv.session` is accepted.
+- **Notes:** the first parameter is the `Session`, not a user argument. Bare
+  `nox` runs the default sessions; `nox -s <name>` selects a session name, which
+  may cover several variants. `nox -l` imports and executes `noxfile.py`, so it is
+  never used; displayed names may also differ from its output. nox is the
+  imperative sibling of tox (#74).
+- **Adoption (information only):** common as a tox alternative. No census
+  figure.
 
 ## Apache Ant
 
-- **Source:** `build.xml`. **Issue:** #141. **Docs:** <https://ant.apache.org/manual/>.
+- **Source:** `build.xml`. **Issue:** #141. **Docs:** <https://ant.apache.org/>,
+  <https://ant.apache.org/manual/>, targets:
+  <https://ant.apache.org/manual/targets.html>.
 - **Run:** `ant <target>`. **Never use:** `ant -p`.
 - **Reads:** `<target name=...>`, direct-child `<extension-point name=...>`
   elements (both run as `ant <name>`) and `description`. `depends` ordering and
@@ -393,26 +418,51 @@ quoting one. Observed gaps are recorded as they are, not fixed here.
   `<presetdef>` output, `${property}` interpolation (kept literal), non-default
   file names (`ant -f foo.xml`). `if`/`unless` targets are still named, so still
   listed.
+- **Notes:** `definition` is empty: a target's body is declarative XML tasks.
+  Bare `ant` runs the `<project default>` target. The attribute itself is
+  not read, though the target it names is listed like any other.
+- **Adoption (information only):** a legacy JVM tool, superseded by Maven and
+  Gradle but still present in older enterprise code. No census figure. It was
+  parked on demand, never on parseability.
 
 ## Rake
 
 - **Contract:** [ADR 0002](../adr/0002-bounded-rake-discovery.md). **Issue:** #143.
+  **Shipped:** 0.7.0. **Docs:** <https://ruby.github.io/rake/>,
+  <https://github.com/ruby/rake>.
 - **Run:** `rake <qualified-name>`. **Never use:** `rake -T`.
 - **Notes from the evaluation:** namespacing determines the runnable name
   (`rake db:migrate`, not `rake migrate`), so nested `namespace` blocks must be
   tracked; `desc` binds to the next `task`. First implementation grew into a
   partial Ruby interpreter and was reset to the bounded syntactic contract.
+- **Left out:** `rakelib/*.rake` and `require`d files (a possible follow-up
+  pass), file tasks, rules and loop-generated tasks. A wrong namespaced name
+  yields a `rake <name>` that does not run. `rake -T` loads and evaluates the
+  Rakefile, so it is never used.
+- **Adoption (information only):** ships with Ruby and underpins Rails. No
+  census figure.
 
 ## mask
 
-- **Source:** `maskfile.md`. **Issue:** #144. **Docs:** <https://github.com/jacobdeichert/mask>.
-- **Run:** `mask <path...>` (for example `mask test lint`).
+- **Source:** `maskfile.md`. **Issue:** #144. **Shipped:** 0.5.0. **Docs:**
+  <https://github.com/jacobdeichert/mask>.
+- **Run:** `mask <path...>` (for example `mask test lint`). `name` is the
+  heading path shell-quoted and space-joined (`test lint`; a single heading
+  `deploy prod` is named `'deploy prod'`, distinct from nested `deploy` / `prod`)
+  and `argv_base` is `("mask", *parts)`. Nested headings are emitted as full
+  paths.
 - **Reads:** the Markdown heading tree as the command tree; the `>` blockquote as
   description (its last paragraph); the last fenced block under the heading as
   `definition`; heading args `(pattern)` or `[optional]` stripped from the name.
   Untagged or empty fences, and `powershell`, `batch` and `cmd` fences on
   non-Windows, make a command unrunnable. A top-level title or prose heading with no code block or
   subcommands is not a task.
+- **Left out:** `**OPTIONS**` flag sections, interpolation of positional
+  arguments and option variables into `definition`, the `//` include and
+  `--maskfile` alternate file. The fence info string selects the interpreter and
+  the body stays verbatim.
+- **Adoption (information only):** a niche but liked single-binary runner. No
+  census figure.
 - **Overlap:** it shares machinery with `xc`; that was the reason it was first
   parked, and it no longer is one.
 - **Measured behavior:** [Markdown parser evaluation](research/markdown-parser.md).

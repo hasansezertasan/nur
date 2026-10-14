@@ -21,6 +21,9 @@ grounds below are restated without it.
 A workflow is YAML that runs on GitHub's (or self-hosted) runners in response to
 events. A repository has many files, each with `jobs`, each job a list of
 `steps`; a step is either `uses:` (a packaged action) or `run:` (a shell command).
+Workflows start from triggers (`on:` events, `schedule` cron, `workflow_dispatch`),
+`needs:` chains jobs, and logic can live in reusable workflows (other files or
+repositories) or in composite actions.
 
 ```yaml
 jobs:
@@ -108,6 +111,11 @@ misleads.
   be read without configuring the build, or a literal-`register` subset that can
   be presented unambiguously as incomplete and is judged worth shipping.
 
+Gradle and Maven are both build systems rather than task runners. Declining them
+is consistent with GitHub Actions (remote orchestration) and CMake (a build-graph
+generator). Gradle does let developers declare tasks, but their full set is
+produced at configuration time and by plugins, which cannot be enumerated safely.
+
 ## Maven
 
 - **Format:** Maven project object model.
@@ -152,7 +160,8 @@ Declined: a provider would emit the same roughly seven phases everywhere.
   from an imperative scripting language.
 - **Source file:** `CMakeLists.txt` (one per directory, linked by
   `add_subdirectory()`).
-- **Docs:** <https://cmake.org/cmake/help/latest/>
+- **Docs:** <https://cmake.org/cmake/help/latest/>, commands:
+  <https://cmake.org/cmake/help/latest/manual/cmake-commands.7.html>
 - **State:** Declined. **Failed gates:** 2 (faithful run command) and 3 (names
   are runtime products). Issue #149.
 
@@ -171,7 +180,9 @@ add_subdirectory(lib)
 Usage is two-step: configure once (`cmake -B build`, which runs the script and
 generates the build system), then build a target
 (`cmake --build build --target app`). Tests run via `ctest`. There is no
-`cmake <target>` one-shot like `ant <target>`.
+`cmake <target>` one-shot like `ant <target>`. CMake generates native build files
+(Makefiles, Ninja, IDE projects), so a build can also run as `make app` or
+`ninja app` in the build directory.
 
 **Gate check:**
 
@@ -204,7 +215,8 @@ system", not "run task X".
   crate, not a tool or a file format.
 - **Source files:** none that is declarative. The only static artifact is a
   `cargo` alias in `.cargo/config.toml`.
-- **Docs:** <https://github.com/matklad/cargo-xtask>
+- **Docs:** <https://github.com/matklad/cargo-xtask> (the convention originated
+  with matklad), README: <https://github.com/matklad/cargo-xtask/blob/master/README.md>
 - **State:** Declined. **Reason:** no declarative file; gate 3. Issue #150.
 
 **How it is used:**
@@ -229,7 +241,9 @@ fn main() -> Result<(), anyhow::Error> {
 
 `cargo xtask` expands to `cargo run --package xtask --`, compiling and running a
 normal Rust binary. Subcommands are whatever `main` accepts (a `match` on
-`args()`, `clap`, `argh`, `pico-args`, and so on).
+`args()`, `clap`, `argh`, `pico-args`, and so on). `cargo xtask --help` works
+only if the binary implements it, and the first run, or any run after a change,
+compiles the crate first.
 
 **Gate check:**
 
@@ -247,7 +261,7 @@ normal Rust binary. Subcommands are whatever `main` accepts (a `match` on
 Declined: it is a convention, so there is no file format to parse.
 
 - **Adoption (information only):** no census figure; used by rust-analyzer among
-  others.
+  others. A convention is also hard to count, so #78 did not enumerate it.
 - **Revisit trigger:** a conventional, declarative description of xtask commands
   that projects adopt, or a bounded subset (for example a `clap` derive enum)
   judged reliable enough to ship as syntactic candidates.
