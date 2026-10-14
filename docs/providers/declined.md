@@ -66,55 +66,11 @@ The multi-file layout that the original record also cited is no longer a ground.
 
 ## Gradle
 
-- **Format:** Gradle build scripts, Groovy or Kotlin DSL.
-- **Source files:** `build.gradle`, `build.gradle.kts`, with `settings.gradle(.kts)`
-  for multi-module builds.
-- **Docs:** <https://docs.gradle.org/current/userguide/userguide.html>
-- **State:** Declined. **Failed gate:** 3 (honest subset), and gate 1 for real
-  enumeration. Issue #148.
-
-**How it is used:**
-
-Tasks are registered imperatively while the build is configured:
-
-```kotlin
-tasks.register("hello") { doLast { println("hi") } }  // explicit
-plugins { java }  // adds build, test, jar, check, ... at configuration time
-```
-
-Run with `gradle <task>` or `./gradlew <task>`. `gradle tasks` lists them by
-configuring the build, which executes the scripts and applies plugins.
-
-**Gate check:**
-
-1. **Safe listing:** only a literal text or AST scan for `tasks.register("x")` or
-   `task x` avoids execution. Real enumeration needs `gradle tasks`, which fails
-   the hard rule.
-2. **Faithful run command:** `gradle <task>` is fine once a name is known.
-3. **Honest subset: fails.** The tasks users actually run (`build`, `test`,
-   `check`, `jar`, `assemble`, and every plugin- or convention-contributed task)
-   are added by plugins at configuration time. A literal-name scan yields a tiny,
-   misleading subset that silently omits the real ones. DSL forms, dynamic names
-   and `settings.gradle` wiring compound this. ADR 0005 allows a documented safe
-   subset, so this is a judgment that a subset missing nearly every real task
-   is not *honest* even when labelled; see the revisit trigger.
-
-**Decision:**
-
-Declined. Enumerating by running the build breaks the hard rule (the reason
-`make` text-parses instead of running `make -pRrq`), and the static subset
-misleads.
-
-- **Adoption (information only):** about 7,736 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).
-- **Not pursued:** configure-time or `gradle tasks` enumeration; the Tooling API.
-- **Revisit trigger:** a machine-readable, plugin-resolved task manifest that can
-  be read without configuring the build, or a literal-`register` subset that can
-  be presented unambiguously as incomplete and is judged worth shipping.
-
-Gradle and Maven are both build systems rather than task runners. Declining them
-is consistent with GitHub Actions (remote orchestration) and CMake (a build-graph
-generator). Gradle does let developers declare tasks, but their full set is
-produced at configuration time and by plugins, which cannot be enumerated safely.
+Gradle was declined here by ADR 0005 and then **accepted as a labelled subset**
+by [ADR 0006](../adr/0006-accept-gradle-zed-and-procfile-runner.md). Its
+evaluation, the gate analysis, the earlier decline reasoning and the
+specification are in [candidates](candidates.md). Issue #148 was closed with the
+original decline.
 
 ## Maven
 
@@ -147,6 +103,8 @@ every Maven project; `pom.xml` configures how they behave, not which exist.
 
 Declined: a provider would emit the same roughly seven phases everywhere.
 
+- **Scope note:** Maven is a build system rather than a task runner, like
+  Gradle, but unlike Gradle it has no project-specific tasks to list.
 - **Adoption (information only):** no figure recorded; none is assumed.
 - **Not pursued:** effective-POM resolution, profiles, parent inheritance,
   plugin-goal binding extraction.

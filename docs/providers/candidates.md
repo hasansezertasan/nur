@@ -5,6 +5,9 @@ Formats not yet shipped. **Accepted** means all three gates of
 gate is unresolved or the evaluation is incomplete; it is neither accepted nor
 declined. They were previously parked on niche adoption or fit, which is no
 longer a ground. Each moves to [implemented](implemented.md) when it ships.
+[ADR 0006](../adr/0006-accept-gradle-zed-and-procfile-runner.md) settled the
+Procfile runner, accepted Gradle as a labelled subset and accepted Zed tasks, so
+nothing is pending today.
 
 ## Procfile
 
@@ -15,7 +18,8 @@ longer a ground. Each moves to [implemented](implemented.md) when it ships.
   Dokku-style platforms.
 - **Source files:** `Procfile` (root). `Procfile.dev` and similar by convention.
 - **Docs:** <https://devcenter.heroku.com/articles/procfile>
-- **State:** Pending. Gates 1 and 3 pass; gate 2 needs a chosen runner. Issue #145.
+- **State:** Accepted ([ADR 0006](../adr/0006-accept-gradle-zed-and-procfile-runner.md)).
+  Delegates to honcho. Issue #145.
 
 **How it is used:**
 
@@ -34,10 +38,10 @@ Each entry is a process type. Run all with `foreman start`, `honcho start` or
 **Gate check:**
 
 1. **Safe listing:** passes. A flat `name: command` text file; nothing runs.
-2. **Faithful run command:** unresolved until a runner is chosen. The entries are
-   long-running processes rather than one-shot tasks, and foreman, honcho and
-   overmind differ, so the delegated command needs a deliberate choice (see
-   open design question).
+2. **Faithful run command:** passes with honcho: `honcho -f Procfile start <name>`. The
+   entries are long-running processes rather than one-shot tasks, and the
+   managers differ, so the runner was chosen deliberately (see the decision
+   below).
 3. **Honest subset:** passes. `name` and the full `command` are literal; only
    `$PORT` and environment interpolation is left literal.
 
@@ -45,24 +49,49 @@ Each entry is a process type. Run all with `foreman start`, `honcho start` or
 
 - `prefix` ← `procfile`
 - `name` ← process-type name (left of `:`)
-- `argv_base` ← not yet defined: `<manager> start <name>` once the manager is chosen
+- `argv_base` ← `("honcho", "-f", "Procfile", "start", name)`; `-f` pins the file
+  that was parsed, because honcho otherwise lets a `PROCFILE` value in `.env`
+  override the default file name
 - `description` ← none (the format has no description field)
 - `definition` ← the command string (right of `:`)
 - `source_file` ← `Procfile`
 
-**Open design question:**
+**Decision: honcho, as a fixed default.**
 
-Which manager to delegate to. Options: a fixed default (honcho), detection of an
-installed manager, a project setting, or running the command string directly and
-bypassing the manager. Decide in the implementation issue and record it here.
-This is a fidelity question (gate 2), not a reason to decline. The candidate
-becomes **accepted** when one invocation is chosen and validated, and its
-concrete form is recorded here.
+The delegated command is `honcho -f Procfile start <name>`, chosen in
+[ADR 0006](../adr/0006-accept-gradle-zed-and-procfile-runner.md) with the
+comparison of foreman, overmind and hivemind recorded there. Validated on
+2026-10-14 with honcho 2.0.0 and a three-entry Procfile:
+
+- `honcho start worker` ran only that process type and exited 0.
+- A process exiting with status 3 made `honcho start` exit 3, so failures reach
+  the caller.
+- An unknown type was rejected: `Process type 'nosuch' does not exist in
+  Procfile`.
+- A process referencing `$PORT` received 5000, honcho's default.
+- With `PROCFILE=Procfile.dev` in `.env`, plain `honcho start web` ran the
+  entry from `Procfile.dev`; `honcho -f Procfile start web` ran the entry from
+  `Procfile`, the file `nur` parsed.
+- Extra arguments after the name are read as more process types, so forwarded
+  arguments must not be passed through (see the acceptance criteria).
+
+Acceptance criteria for the implementation:
+
+- Discovery reads only `Procfile` in the current directory; each non-comment
+  `name: command` line is a task; a malformed line is skipped, not guessed.
+- Never run honcho or any manager to list.
+- Do not forward extra arguments. `Task.run_argv` appends them unconditionally,
+  so `nur procfile:web -- worker` would run `honcho -f Procfile start web worker` and start a
+  second process type. The implementation must reject or drop extras (a model
+  option if needed), with a test.
+- The listing and docs say the run needs honcho installed and that process types
+  are long-running.
 
 **Deferred:**
 
 `$VAR` and `$PORT` substitution, `.env` and concurrency options (`-c web=2`),
-manager-specific extensions, automatic manager selection.
+manager-specific extensions, automatic manager selection, `Procfile.dev` and
+other variants (`honcho -f`).
 
 **Adoption (information only):**
 
@@ -179,11 +208,185 @@ No figure known; none invented.
 
 - **Format:** Zed editor tasks.
 - **Source files:** `.zed/tasks.json`.
-- **State:** Pending evaluation. A sibling of the VS Code provider, raised in
-  #139; no separate issue yet. The three gates have not been checked.
+- **Docs:** <https://zed.dev/docs/tasks>
+- **State:** Accepted ([ADR 0006](../adr/0006-accept-gradle-zed-and-procfile-runner.md)).
+  A sibling of the VS Code provider, raised in #139.
 
-It shares the `label`, `command` and `args` vocabulary of VS Code tasks but has
-a different top-level shape (a bare JSON array rather than an object with a
-`tasks` field), so it is a separate provider. Evaluate it against the template
-before it is accepted; the VS Code evaluation in
-[implemented](implemented.md) is the starting point.
+**How it is used:**
+
+A project file `.zed/tasks.json` holds a JSON array of task objects, run from the
+editor's task picker (`task: spawn`). The format is not VS Code's: a bare array
+with `label`, `command`, `args`, `env`, `cwd`, `use_new_terminal`,
+`allow_concurrent_runs`, `reveal`, `hide`, `shell`, `show_summary`,
+`show_command`, `save`, `tags` and `hooks`.
+
+```json
+[
+  {
+    "label": "Run tests",
+    "command": "cargo",
+    "args": ["test", "--workspace"]
+  }
+]
+```
+
+Variables use `$VAR` or `${VAR:default}` in `label`, `command`, `args` and `cwd`
+(`ZED_FILE`, `ZED_WORKTREE_ROOT`, `ZED_SELECTED_TEXT` and others). Zed filters
+out a task whose variables are unset when the list is built. There is a global
+`~/.config/zed/tasks.json` too. No command-line way to run a task by label is
+documented.
+
+**Gate check:**
+
+1. **Safe listing:** passes. A JSON document; nothing runs.
+2. **Faithful run command:** passes the same way as VS Code shell tasks: the
+   delegated run is the task's own `command` plus `args`, run through the shell,
+   because Zed offers no CLI to run a task by label and itself launches the
+   command in a login shell (so `$VAR`, pipes and loops work).
+3. **Honest subset:** passes. `label`, `command` and `args` are literal.
+
+**Task-model mapping:**
+
+- `prefix` ← `zed`
+- `name` ← `label`
+- `argv_base` ← `command` verbatim as the first token, then each `args` item;
+  `run_in_shell=True`, so the command string may use shell syntax and later
+  tokens are quoted as single arguments (as for VS Code `shell` tasks)
+- `description` ← none (Zed has no description field)
+- `definition` ← the command and args joined with spaces
+- `source_file` ← `.zed/tasks.json`
+- `passthrough_prefix` ← none
+- `run_in_shell` ← true
+
+**Acceptance criteria for the implementation:**
+
+- Read `.zed/tasks.json` under the current directory only, never the global
+  file (rooted scope, ADR 0004). Parse as JSONC, since the docs show `//`
+  comments.
+- A task whose `label` or `cwd` holds a non-Zed `$NAME` is skipped (neither can
+  be resolved or run faithfully). In `command` and `args`, ordinary `$NAME`
+  references are left to the shell. Known boundary: Zed may omit a task whose
+  command references an unset ordinary variable (for example `deploy-$TARGET`),
+  where `nur` lists it and the shell expands it to empty. Document this.
+- Skip a task whose `args` still contain a `$` after Zed variables are resolved:
+  `nur` quotes every argument after the command, so shell expansion that Zed
+  would perform there (for example `$HOME`) would print literally. Shell syntax
+  inside `command` itself works because that token is passed to the shell
+  verbatim.
+- Skip, as VS Code does: tasks whose `command`, `args`, `cwd` or `label` still
+  hold an unresolved `$ZED_*` variable without a default; tasks that set `env` or
+  `shell`; and any task whose `cwd` resolves anywhere other than the project
+  root, because the `Task` model carries no working directory and
+  `run_direct` runs from the discovery directory. Resolve `$ZED_WORKTREE_ROOT`.
+  `${VAR:default}` resolves to its default.
+- Keep tasks that declare `hooks` or `tags`: Zed states that hook tasks "are
+  still available from the task modal like any other task", and `tags` only binds
+  a task to editor runnables.
+- Do not treat Zed's `hide` as VS Code's `hide`: in Zed it controls closing the
+  terminal after the run, not visibility in the picker.
+- Document the known difference in login-shell handling: Zed launches a task in
+  a login shell, while `nur` runs `$SHELL -c <line>` without a login flag
+  (`src/nur/core/execution.py`). A task that depends on PATH entries, functions
+  or aliases set only by a login profile can behave differently. This is the same
+  boundary as VS Code shell tasks.
+- Never run Zed or any editor.
+
+**Deferred:**
+
+Global tasks, language-extension tasks, oneshot tasks, `save`, `reveal` and the
+other terminal options.
+
+**Adoption (information only):**
+
+No figure known; none invented.
+
+## Gradle
+
+- **Format:** Gradle build scripts, Groovy or Kotlin DSL.
+- **Source files:** `build.gradle` or `build.gradle.kts` in the current directory.
+  When both exist Gradle loads `build.gradle` and ignores the Kotlin script (its
+  current precedence, see gradle/gradle#34110), so the provider reads only that
+  one.
+- **Docs:** <https://docs.gradle.org/current/userguide/userguide.html>
+- **State:** Accepted as a labelled subset
+  ([ADR 0006](../adr/0006-accept-gradle-zed-and-procfile-runner.md)). It was
+  declined by ADR 0005; see "Earlier decline" below. Issue #148 was closed with
+  the decline, so the implementation issue is new.
+
+**How it is used:**
+
+Tasks are registered while the build is configured:
+
+```kotlin
+tasks.register("hello") { doLast { println("hi") } }  // explicit
+plugins { java }  // adds build, test, jar, check, ... at configuration time
+```
+
+Run with `gradle <task>` or `./gradlew <task>`.
+
+**Gate check:**
+
+1. **Safe listing:** passes for a text or syntax-tree scan of literal task
+   declarations; nothing runs. `gradle tasks` configures the build, which
+   executes the scripts, so it is **never used** (nor the Tooling API).
+2. **Faithful run command:** passes: `gradle :<task>`, or the wrapper
+   `./gradlew :<task>` when the project has one.
+3. **Honest subset:** passes as a labelled subset. Literal declarations are
+   real project tasks; what is not listed is stated (below).
+
+**Task-model mapping:**
+
+- `prefix` ← `gradle`
+- `name` ← the literal task name
+- `argv_base` ← `("./gradlew", ":" + name)` when `gradlew` exists in the project
+  root (`gradlew.bat` on Windows), else `("gradle", ":" + name)`. The leading
+  colon selects the root project's task by path; a bare name is a selector that
+  can also run same-named tasks in every subproject of a multi-project build
+- `description` ← a literal `description = "..."` (Groovy also
+  `description "..."`) in the task's configuration block, if present
+- `definition` ← empty: the body is build logic, not a command
+- `source_file` ← the parsed build script
+- `passthrough_prefix` ← none for the first cut
+
+**Acceptance criteria for the implementation:**
+
+- Read literal declarations at the top level of the root script.
+  Groovy: `task name`, `task name { }`, `task name(type: X) { }`,
+  `task('name')`, `tasks.register('name')`, `tasks.create('name')`.
+  Kotlin: `tasks.register("name")`, `tasks.register<Type>("name")`,
+  `tasks.create("name")`, `val name by tasks.registering`,
+  `val name by tasks.creating`.
+- `tasks.named`, `tasks.withType` and `tasks.configureEach` configure tasks and
+  do not declare them; they are not read.
+- Skip non-literal names (variables, string templates, loops, conditionals,
+  `afterEvaluate`).
+- If `settings.gradle(.kts)` mentions `buildFileName` (which can point the root
+  project at a differently named script), list nothing and say why: the script
+  Gradle loads is not the one the provider would read.
+- Say, in the provider docs and in the listing text, that this is a list of
+  literal declarations and does **not** include plugin-contributed tasks such as
+  `build`, `test`, `check`, `jar` or `assemble`.
+- Use a bounded parser (the tree-sitter approach of ADR 0003 and 0004 is the
+  precedent) with malformed-input tests; ship it through the packaging checks of
+  the supported platforms.
+
+**Deferred:**
+
+`settings.gradle(.kts)` and subproject (`include`) wiring, `buildSrc` and
+convention plugins, version catalogs, `init` scripts, task dependencies and
+types.
+
+**Earlier decline:**
+
+ADR 0005 declined Gradle on gate 3: the tasks people actually run are added by
+plugins at configuration time, so a literal scan "yields a tiny, misleading
+subset that silently omits the real ones". The maintainer then ruled that a
+subset presented unambiguously as incomplete passes the gate as written, which
+ADR 0006 records. The real, plugin-resolved task set remains out of reach
+without configuring the build; the revisit trigger for a fuller provider is a
+machine-readable, plugin-resolved task manifest readable without configuring
+the build.
+
+**Adoption (information only):**
+
+About 7,736 repositories (2025 Task Runner Census (aleyan.com), as recorded in issue 78).

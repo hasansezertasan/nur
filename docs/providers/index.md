@@ -62,12 +62,12 @@ change.
 | Nx | `nx.json` | Implemented (ADR 0004) | #75 |
 | pnpm / yarn / bun workspaces, Lerna | `pnpm-workspace.yaml`, `package.json`, `lerna.json` | Implemented as `workspace` (ADR 0004) | #75 |
 | npm-run-all / run-p / run-s | none | No provider needed: composes `package.json` scripts the `npm` provider already lists | #75 |
-| Procfile | `Procfile` | **Pending:** gates 1 and 3 pass; gate 2 needs a runner chosen | #145 |
+| Procfile | `Procfile` | **Accepted** ([ADR 0006](../adr/0006-accept-gradle-zed-and-procfile-runner.md)): delegates to `honcho -f Procfile start <name>` | #145 |
 | JBang catalog | `jbang-catalog.json` | **Accepted** | #146 |
 | argc | `Argcfile.sh` | **Accepted** | #146 |
-| Zed tasks | `.zed/tasks.json` | **Pending evaluation**; sibling of VS Code tasks (different top-level shape) | #139 |
+| Zed tasks | `.zed/tasks.json` | **Accepted** (ADR 0006); sibling of VS Code tasks | #139 |
 | GitHub Actions | `.github/workflows/*.yml`, `*.yaml` | Declined (gate 2) | #147 |
-| Gradle | `build.gradle(.kts)` | Declined (gate 3) | #148 |
+| Gradle | `build.gradle(.kts)` | **Accepted** as a labelled subset (ADR 0006); declined by ADR 0005 | #148 |
 | Maven | `pom.xml` | Declined (no project-specific tasks) | #148 |
 | CMake | `CMakeLists.txt` | Declined (gate 2) | #149 |
 | cargo-xtask | `xtask/` crate | Declined (no declarative file) | #150 |
