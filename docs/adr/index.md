@@ -12,4 +12,5 @@ once accepted; supersede a decision with a new record rather than rewriting it.
 0003-bounded-make-discovery
 0004-js-adjacent-task-runners
 0005-completeness-over-popularity
+0006-accept-gradle-zed-and-procfile-runner
 ```
