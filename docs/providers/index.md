@@ -62,7 +62,7 @@ change.
 | Nx | `nx.json` | Implemented (ADR 0004) | #75 |
 | pnpm / yarn / bun workspaces, Lerna | `pnpm-workspace.yaml`, `package.json`, `lerna.json` | Implemented as `workspace` (ADR 0004) | #75 |
 | npm-run-all / run-p / run-s | none | No provider needed: composes `package.json` scripts the `npm` provider already lists | #75 |
-| Procfile | `Procfile` | **Accepted** ([ADR 0006](../adr/0006-accept-gradle-zed-and-procfile-runner.md)): delegates to `honcho start <name>` | #145 |
+| Procfile | `Procfile` | **Accepted** ([ADR 0006](../adr/0006-accept-gradle-zed-and-procfile-runner.md)): delegates to `honcho -f Procfile start <name>` | #145 |
 | JBang catalog | `jbang-catalog.json` | **Accepted** | #146 |
 | argc | `Argcfile.sh` | **Accepted** | #146 |
 | Zed tasks | `.zed/tasks.json` | **Accepted** (ADR 0006); sibling of VS Code tasks | #139 |
