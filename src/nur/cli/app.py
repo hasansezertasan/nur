@@ -1,16 +1,3 @@
-<<<<<<< before updating
-=======
-"""CLI application for the project.
-
-The ``nur`` command is the single Typer root. Every enabled
-component other than the primary (CLI > GUI > TUI > web > MCP > worker) is hung
-off it as a lazily-imported subcommand — ``nur interactive``
-(TUI), ``nur web``, ``nur mcp``, ... — rather
-than a separate ``nur-<name>`` console script (see https://hasansezertasan.github.io/copier-pyproject/context/components/#secondary-components-are-subcommands-of-one-console-root-not-separate-scripts).
-"""
-# mypy: disable-error-code="misc"
-
->>>>>>> after updating
 from __future__ import annotations
 
 import sys

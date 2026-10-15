@@ -7,14 +7,6 @@ component without per-test decoration. Markers are registered in pyproject.toml
 
 Also keeps the Markdown doctest surface to the single root ``README.md``: see
 ``collect_ignore_glob`` below.
-<<<<<<< before updating
-=======
-
-Also hosts the ``missing_metadata`` fixture: every component degrades or fails
-differently when the package metadata is unreadable, but they all read it
-through ``core.app``, so one fixture covers every component's error path
-(https://hasansezertasan.github.io/copier-pyproject/context/components/#one-application-payload-in-coreapppy-components-are-adapters-over-it).
->>>>>>> after updating
 """
 
 from __future__ import annotations

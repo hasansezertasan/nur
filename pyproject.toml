@@ -20,7 +20,6 @@ keywords = [
   "pre-commit",
   "pdm",
   "poe",
-<<<<<<< before updating
   "tox",
   "mise",
   "cargo-make",
@@ -39,12 +38,6 @@ keywords = [
   "turbo",
   "nx",
   "workspace",
-=======
-  "sphinx",
-  "typer",
-  "textual",
-  "tui",
->>>>>>> after updating
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -65,18 +58,10 @@ dependencies = [
   "textual>=3.0.0",
   "pyyaml>=6.0",
   "typer>=0.20.0",
-<<<<<<< before updating
   "tree-sitter>=0.26.0,<0.27",
   "tree-sitter-javascript>=0.25,<0.26",
   "tree-sitter-make>=1.1.1,<1.2",
   "tree-sitter-ruby>=0.23.1,<0.24",
-=======
-  # >=6.0.0 for `Static.content`, which the headless pilot test asserts on
-  # (https://hasansezertasan.github.io/copier-pyproject/context/testing-strategy/#interactive-components-expose-injected-driver-seams-so-headless-ci-measures-everything-but-the-blocking-call). Earlier releases expose only `Static.renderable`, and 6.0.0
-  # onward returns None for it — there is no spelling that spans both.
-  "textual>=6.0.0",
-  "typing-extensions>=4.4.0",
->>>>>>> after updating
 ]
 
 [project.urls]
@@ -93,13 +78,8 @@ nur = "nur.__main__:main"
 
 [dependency-groups]
 dev = [
-<<<<<<< before updating
   "tox==4.61.2",
   "tox-uv==1.36.0",
-=======
-  "tox==4.64.10",
-  "tox-uv==1.36.1",
->>>>>>> after updating
   "debugpy==1.8.22",
   { include-group = "style" },
   { include-group = "test" },
@@ -108,7 +88,6 @@ dev = [
   { include-group = "prek" },
 ]
 style = [
-<<<<<<< before updating
   "actionlint-py==1.7.12.25",
   "basedpyright==1.40.1",
   "detect-secrets==1.5.0",
@@ -118,16 +97,6 @@ style = [
   "pylint==4.0.9",
   "pyrefly==1.3.1",
   "ruff==0.16.8",
-=======
-  "basedpyright==1.40.2",
-  "detect-secrets==1.5.0",
-  "editorconfig-checker==3.8.0",
-  "import-linter==2.15",
-  "mypy==2.4.0",
-  "pylint==4.0.6",
-  "pyrefly==1.2.0",
-  "ruff==0.16.1",
->>>>>>> after updating
   "slotscheck==0.21.0",
   "sphinx-lint==1.0.2",
   "taplo==0.9.3",
@@ -166,15 +135,9 @@ deps = [
 ]
 test = [
   "coverage-enable-subprocess==1.0",
-<<<<<<< before updating
   "coverage[toml]==7.11.0",
   "pytest-mock==3.15.1",
   "pytest-rerunfailures==16.6.1",
-=======
-  "coverage[toml]==7.16.2",
-  "pytest-mock==3.16.0",
-  "pytest-rerunfailures==16.7",
->>>>>>> after updating
   "pytest-xdist[psutil]==3.8.0",
   "pytest==9.1.1",
   "pytest-sugar",
@@ -192,14 +155,9 @@ docs = [
   "sphinx-togglebutton==0.4.5",
   "sphinx-paramlinks==0.6.0",
   "auto-pytabs[sphinx]==0.5.0",
-<<<<<<< before updating
   "myst-parser==5.1.0",
   "sphinx-click==6.2.0",
   # Per-page "last updated" footer sourced from git commit dates (ADR-027);
-=======
-  "myst-parser==4.0.1",
-  # Per-page "last updated" footer sourced from git commit dates (https://hasansezertasan.github.io/copier-pyproject/context/docs-versioning/#per-page-last-updated-comes-from-git-history);
->>>>>>> after updating
   # offline, no network. Works from full history (docs CI checks out depth 0).
   "sphinx-last-updated-by-git==0.3.8",
   # PEP 440 version parsing/sorting used by tools/build_docs.py to order
@@ -279,13 +237,8 @@ name = "cz_conventional_commits"
 # addopts = "-rXs --strict-config --strict-markers"
 addopts = "-v --tb=short --doctest-glob=README.md"
 # One marker per component, auto-applied by tests/conftest.py from each test's
-<<<<<<< before updating
 # top-level tests/<dir>/. Enables `pytest -m tui` locally and the per-component
 # CI jobs (ADR-028).
-=======
-# top-level tests/<dir>/. Enables `pytest -m web` locally and per-component CI
-# jobs (issue #160, https://hasansezertasan.github.io/copier-pyproject/context/ci-topology/#per-component-markers-path-filtered-jobs-and-one-coverage-gate-per-component); `integration` (https://hasansezertasan.github.io/copier-pyproject/context/testing-strategy/#real-broker-integration-tests-testcontainers-locally-per-broker-ci-mechanism) is one axis of the scheme.
->>>>>>> after updating
 markers = [
   "core: core/shared component tests",
   "cli: CLI component tests",
@@ -578,7 +531,6 @@ convention = "pep257"
 # package) whose whole job is to print GitHub `::error::` annotations to stdout.
 "docs/check_warnings.py" = ["implicit-namespace-package", "print"]
 # The versioned-docs build orchestrator is a standalone CLI script under tools/,
-<<<<<<< before updating
 # not part of an importable package (ADR-027).
 "tools/build_docs.py" = ["implicit-namespace-package"]
 # Typer's declarative API puts function calls (Argument/Option) in argument
@@ -631,10 +583,6 @@ convention = "pep257"
 # narrows the post-scan Optional Registry for the type checker; _rebuild()
 # guarantees it's non-None before _matches() is ever called.
 "src/nur/tui/app.py" = ["no-self-use", "mutable-class-default", "assert"]
-=======
-# not part of an importable package (https://hasansezertasan.github.io/copier-pyproject/context/docs-versioning/#docs-publish-only-the-current-version-and-carry-older-built-versions-forward-from-gh-pages).
-"tools/build_docs.py" = ["INP001"]
->>>>>>> after updating
 
 
 [tool.ruff.lint.pyupgrade]
@@ -751,7 +699,6 @@ disable = [
   "missing-class-docstring", # C0115
   "missing-function-docstring", # C0116
   "too-few-public-methods", # R0903 — trips dataclasses / config / Protocol classes
-<<<<<<< before updating
   "import-outside-toplevel", # C0415 — components (cli->tui/gui/web, and each
   # component's own optional-dependency probe) are
   # deliberately lazy-imported so import-linter's
@@ -769,25 +716,6 @@ disable = [
   # the same way. That structural symmetry is a
   # feature of the scaffold, not copy-paste debt, and
   # R0801 cannot be suppressed inline at the call site.
-=======
-  # C0415 — the cli->tui/gui/web dispatch, and each component's own heavy or
-  # platform-conditional import (tkinter, uvicorn, the worker's uvloop probe),
-  # are deliberately lazy so import-linter's layering contract holds and a
-  # framework is only imported when the code path that needs it actually runs.
-  # Textual is the exception: the TUI imports it at module scope so `InfoApp`
-  # can be defined there and driven by the headless pilot (https://hasansezertasan.github.io/copier-pyproject/context/testing-strategy/#interactive-components-expose-injected-driver-seams-so-headless-ci-measures-everything-but-the-blocking-call).
-  "import-outside-toplevel",
-  # W0706 — the generated TUI entry point explicitly re-raises
-  # KeyboardInterrupt/SystemExit ahead of a broad `except Exception` to make the
-  # "let these propagate" intent obvious to readers, even though BaseException
-  # subclasses wouldn't be caught by the Exception clause anyway.
-  "try-except-raise",
-  # R0801 — the component skeletons (gui/tui/mcp/worker) are deliberately
-  # parallel: each fetches package metadata and formats the same info block the
-  # same way. That structural symmetry is a feature of the scaffold, not
-  # copy-paste debt, and R0801 cannot be suppressed inline at the call site.
-  "duplicate-code",
->>>>>>> after updating
 ]
 
 [tool.pylint.design]
