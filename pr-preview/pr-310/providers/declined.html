@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="amber" data-content_root="../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Declined formats - nur</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Origin of the register (issue #78)" href="history.html" /><link rel="prev" title="Candidates" href="candidates.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=e1a1ceaf" />
+    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx_paramlinks.css" />
+    <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Declined formats"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../index.html">
+      
+      
+      <strong>nur</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials">
+  <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli-reference.html">CLI reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">Modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../adr/index.html">Architecture Decision Records</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0001-provider-selection-criteria.html">Provider selection criteria: static discovery, never execution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0002-bounded-rake-discovery.html">Bounded Rake discovery: extract literal declarations without simulating Ruby</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0003-bounded-make-discovery.html">Bounded Make discovery: read rule headers with Tree-sitter, never run Make</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0004-js-adjacent-task-runners.html">JS-adjacent runners: accept Grunt, Gulp, Turborepo, Nx, and workspace members</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0005-completeness-over-popularity.html">Completeness over popularity: every honestly supportable format, recorded in the repo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../adr/0006-accept-gradle-zed-and-procfile-runner.html">Accept Gradle and Zed tasks, and delegate Procfile to honcho</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Provider register</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="template.html">Evaluation template</a></li>
+<li class="toctree-l2"><a class="reference internal" href="implemented.html">Implemented providers: evaluations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="candidates.html">Candidates</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Declined formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="history.html">Origin of the register (issue #78)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="research/markdown-parser.html">Markdown parser evaluation (mask and xc)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Maintainer guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../maintaining/setup.html">Repository setup</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../packaging/homebrew-tap/README.html">Homebrew tap setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../packaging/scoop-bucket/README.html">Scoop bucket setup</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#github-actions">GitHub Actions</a></li>
+<li><a class="reference internal" href="#gradle">Gradle</a></li>
+<li><a class="reference internal" href="#maven">Maven</a></li>
+<li><a class="reference internal" href="#cmake">CMake</a></li>
+<li><a class="reference internal" href="#cargo-xtask">cargo-xtask</a></li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../index.html"><span itemprop="name">nur</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="index.html"><span itemprop="name">Provider register</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Declined formats</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <section id="declined-formats">
+<h1>Declined formats<a class="headerlink" href="#declined-formats" title="Link to this heading">#</a></h1>
+<p>Each format here fails a gate of
+<a class="reference internal" href="../adr/0005-completeness-over-popularity.html"><span class="std std-doc">ADR 0005</span></a>. A decline records a fact
+about the format, not a priority call, and each entry names the <strong>revisit
+trigger</strong> that would reopen it. Adoption figures are information only.</p>
+<p>Where the original evaluation cited the single-file scope of ADR 0001, note that
+scope was retired by <a class="reference internal" href="../adr/0004-js-adjacent-task-runners.html"><span class="std std-doc">ADR 0004</span></a>; the
+grounds below are restated without it.</p>
+<section id="github-actions">
+<h2>GitHub Actions<a class="headerlink" href="#github-actions" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Format:</strong> <a class="reference external" href="https://docs.github.com/en/actions">GitHub Actions</a> workflows.</p></li>
+<li><p><strong>Source files:</strong> <code class="docutils literal notranslate"><span class="pre">.github/workflows/*.yml</span></code> and <code class="docutils literal notranslate"><span class="pre">*.yaml</span></code>.</p></li>
+<li><p><strong>Docs:</strong> <a class="reference external" href="https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions">https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions</a></p></li>
+<li><p><strong>State:</strong> Declined. <strong>Failed gate:</strong> 2 (faithful run command). Issue #147.</p></li>
+</ul>
+<p><strong>How it is used:</strong></p>
+<p>A workflow is YAML that runs on GitHub’s (or self-hosted) runners in response to
+events. A repository has many files, each with <code class="docutils literal notranslate"><span class="pre">jobs</span></code>, each job a list of
+<code class="docutils literal notranslate"><span class="pre">steps</span></code>; a step is either <code class="docutils literal notranslate"><span class="pre">uses:</span></code> (a packaged action) or <code class="docutils literal notranslate"><span class="pre">run:</span></code> (a shell command).
+Workflows start from triggers (<code class="docutils literal notranslate"><span class="pre">on:</span></code> events, <code class="docutils literal notranslate"><span class="pre">schedule</span></code> cron, <code class="docutils literal notranslate"><span class="pre">workflow_dispatch</span></code>),
+<code class="docutils literal notranslate"><span class="pre">needs:</span></code> chains jobs, and logic can live in reusable workflows (other files or
+repositories) or in composite actions.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nt">jobs</span><span class="p">:</span>
+</span><span data-line="2"><span class="w">  </span><span class="nt">test</span><span class="p">:</span>
+</span><span data-line="3"><span class="w">    </span><span class="nt">runs-on</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ubuntu-latest</span>
+</span><span data-line="4"><span class="w">    </span><span class="nt">strategy</span><span class="p">:</span>
+</span><span data-line="5"><span class="w">      </span><span class="nt">matrix</span><span class="p">:</span>
+</span><span data-line="6"><span class="w">        </span><span class="nt">python</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"3.11"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"3.12"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"3.13"</span><span class="p p-Indicator">]</span>
+</span><span data-line="7"><span class="w">    </span><span class="nt">steps</span><span class="p">:</span>
+</span><span data-line="8"><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/checkout@v4</span>
+</span><span data-line="9"><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/setup-python@v5</span>
+</span><span data-line="10"><span class="w">        </span><span class="nt">with</span><span class="p">:</span>
+</span><span data-line="11"><span class="w">          </span><span class="nt">python-version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${{ matrix.python }}</span>
+</span><span data-line="12"><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pip install -e .</span>
+</span><span data-line="13"><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pytest -q</span>
+</span></pre></div>
+</div>
+<p><strong>Gate check:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Safe listing: passes.</strong> Workflow YAML is data; parsing executes nothing.
+Safety is not the blocker (the earlier “cannot be statically parsed” label
+in #78 was imprecise).</p></li>
+<li><p><strong>Faithful run command: fails.</strong> <code class="docutils literal notranslate"><span class="pre">run:</span></code> commands routinely embed <code class="docutils literal notranslate"><span class="pre">${{</span> <span class="pre">…</span> <span class="pre">}}</span></code>
+expressions (<code class="docutils literal notranslate"><span class="pre">matrix</span></code>, <code class="docutils literal notranslate"><span class="pre">secrets</span></code>, <code class="docutils literal notranslate"><span class="pre">env</span></code>, <code class="docutils literal notranslate"><span class="pre">github</span></code>, <code class="docutils literal notranslate"><span class="pre">needs</span></code>, <code class="docutils literal notranslate"><span class="pre">vars</span></code>) resolved by
+the Actions runner, and presume a provisioned runner (checkout done, actions
+installed, env injected). A step extracted verbatim rarely runs on a laptop
+or means the same thing, so a delegated command cannot reproduce it.</p></li>
+<li><p><strong>Honest subset:</strong> no useful locally-runnable subset exists, for the same reason.</p></li>
+</ol>
+<p><strong>Decision:</strong></p>
+<p>Declined on gate 2 alone. It is CI orchestration, not a local task runner.
+The multi-file layout that the original record also cited is no longer a ground.</p>
+<ul class="simple">
+<li><p><strong>Adoption (information only):</strong> about 39,887 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78), the highest of any candidate; it does not change the
+decision.</p></li>
+<li><p><strong>Revisit trigger:</strong> a supported way to run a single job or step locally with
+the same semantics (a local runner that resolves the expression context
+without remote state), and one <code class="docutils literal notranslate"><span class="pre">nur</span></code> could delegate to.</p></li>
+</ul>
+</section>
+<section id="gradle">
+<h2>Gradle<a class="headerlink" href="#gradle" title="Link to this heading">#</a></h2>
+<p>Gradle was declined here by ADR 0005 and then <strong>accepted as a labelled subset</strong>
+by <a class="reference internal" href="../adr/0006-accept-gradle-zed-and-procfile-runner.html"><span class="std std-doc">ADR 0006</span></a>. Its
+evaluation, the gate analysis, the earlier decline reasoning and the
+specification are in <a class="reference internal" href="candidates.html"><span class="std std-doc">candidates</span></a>. Issue #148 was closed with the
+original decline.</p>
+</section>
+<section id="maven">
+<h2>Maven<a class="headerlink" href="#maven" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Format:</strong> Maven project object model.</p></li>
+<li><p><strong>Source file:</strong> <code class="docutils literal notranslate"><span class="pre">pom.xml</span></code>.</p></li>
+<li><p><strong>Docs:</strong> <a class="reference external" href="https://maven.apache.org/guides/">https://maven.apache.org/guides/</a></p></li>
+<li><p><strong>State:</strong> Declined. <strong>Failed gate:</strong> 3 (honest subset): the provider would
+not enumerate anything project-specific today. Issue #148.</p></li>
+</ul>
+<p><strong>How it is used:</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">pom.xml</span></code> is declarative XML, but Maven is not a named-task runner. You invoke
+<strong>lifecycle phases</strong> (<code class="docutils literal notranslate"><span class="pre">mvn</span> <span class="pre">compile</span></code>, <code class="docutils literal notranslate"><span class="pre">test</span></code>, <code class="docutils literal notranslate"><span class="pre">package</span></code>, <code class="docutils literal notranslate"><span class="pre">verify</span></code>, <code class="docutils literal notranslate"><span class="pre">install</span></code>,
+<code class="docutils literal notranslate"><span class="pre">deploy</span></code>) or <strong>plugin goals</strong> (<code class="docutils literal notranslate"><span class="pre">mvn</span> <span class="pre">spotless:apply</span></code>). The phases are identical in
+every Maven project; <code class="docutils literal notranslate"><span class="pre">pom.xml</span></code> configures how they behave, not which exist.</p>
+<p><strong>Gate check:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Safe listing:</strong> passes, <code class="docutils literal notranslate"><span class="pre">pom.xml</span></code> is XML.</p></li>
+<li><p><strong>Faithful run command:</strong> passes (<code class="docutils literal notranslate"><span class="pre">mvn</span> <span class="pre">&lt;phase&gt;</span></code>).</p></li>
+<li><p><strong>Honest subset: fails today.</strong> Configured plugin goals are project-specific,
+but extracting them is not done (see below), so nothing project-distinct is
+discovered. The runnable phases
+are a fixed universal list <code class="docutils literal notranslate"><span class="pre">nur</span></code> could hard-code without reading any file,
+which is not discovery. Plugin <code class="docutils literal notranslate"><span class="pre">&lt;executions&gt;</span></code> bind goals to phases that still
+run via <code class="docutils literal notranslate"><span class="pre">mvn</span> <span class="pre">&lt;phase&gt;</span></code>, and correctness needs <code class="docutils literal notranslate"><span class="pre">&lt;parent&gt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;profiles&gt;</span></code> and
+effective-POM resolution.</p></li>
+</ol>
+<p><strong>Decision:</strong></p>
+<p>Declined: a provider would emit the same roughly seven phases everywhere.</p>
+<ul class="simple">
+<li><p><strong>Scope note:</strong> Maven is a build system rather than a task runner, like
+Gradle, but unlike Gradle it has no project-specific tasks to list.</p></li>
+<li><p><strong>Adoption (information only):</strong> no figure recorded; none is assumed.</p></li>
+<li><p><strong>Not pursued:</strong> effective-POM resolution, profiles, parent inheritance,
+plugin-goal binding extraction.</p></li>
+<li><p><strong>Revisit trigger:</strong> a use case for surfacing configured plugin goals
+(for example formatter or release goals declared in the POM) as tasks, with a
+documented resolution boundary.</p></li>
+</ul>
+</section>
+<section id="cmake">
+<h2>CMake<a class="headerlink" href="#cmake" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Format:</strong> CMake, a meta-build system that generates native build files
+from an imperative scripting language.</p></li>
+<li><p><strong>Source file:</strong> <code class="docutils literal notranslate"><span class="pre">CMakeLists.txt</span></code> (one per directory, linked by
+<code class="docutils literal notranslate"><span class="pre">add_subdirectory()</span></code>).</p></li>
+<li><p><strong>Docs:</strong> <a class="reference external" href="https://cmake.org/cmake/help/latest/">https://cmake.org/cmake/help/latest/</a>, commands:
+<a class="reference external" href="https://cmake.org/cmake/help/latest/manual/cmake-commands.7.html">https://cmake.org/cmake/help/latest/manual/cmake-commands.7.html</a></p></li>
+<li><p><strong>State:</strong> Declined. <strong>Failed gates:</strong> 2 (faithful run command) and 3 (names
+are runtime products). Issue #149.</p></li>
+</ul>
+<p><strong>How it is used:</strong></p>
+<div class="highlight-cmake notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nb">cmake_minimum_required</span><span class="p">(</span><span class="s">VERSION</span><span class="w"> </span><span class="s">3.20</span><span class="p">)</span>
+</span><span data-line="2"><span class="nb">project</span><span class="p">(</span><span class="s">demo</span><span class="p">)</span>
+</span><span data-line="3"><span class="nb">add_executable</span><span class="p">(</span><span class="s">app</span><span class="w"> </span><span class="s">main.c</span><span class="p">)</span><span class="w">                 </span><span class="c"># build target "app"</span>
+</span><span data-line="4"><span class="nb">add_custom_target</span><span class="p">(</span><span class="s">docs</span><span class="w"> </span><span class="s">COMMAND</span><span class="w"> </span><span class="s">doxygen</span><span class="p">)</span><span class="w">    </span><span class="c"># custom target "docs"</span>
+</span><span data-line="5"><span class="nb">enable_testing</span><span class="p">()</span>
+</span><span data-line="6"><span class="nb">add_test</span><span class="p">(</span><span class="s">NAME</span><span class="w"> </span><span class="s">unit</span><span class="w"> </span><span class="s">COMMAND</span><span class="w"> </span><span class="s">app</span><span class="w"> </span><span class="s">--test</span><span class="p">)</span><span class="w">     </span><span class="c"># ctest test "unit"</span>
+</span><span data-line="7"><span class="nb">add_subdirectory</span><span class="p">(</span><span class="s">lib</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>Usage is two-step: configure once (<code class="docutils literal notranslate"><span class="pre">cmake</span> <span class="pre">-B</span> <span class="pre">build</span></code>, which runs the script and
+generates the build system), then build a target
+(<code class="docutils literal notranslate"><span class="pre">cmake</span> <span class="pre">--build</span> <span class="pre">build</span> <span class="pre">--target</span> <span class="pre">app</span></code>). Tests run via <code class="docutils literal notranslate"><span class="pre">ctest</span></code>. There is no
+<code class="docutils literal notranslate"><span class="pre">cmake</span> <span class="pre">&lt;target&gt;</span></code> one-shot like <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">&lt;target&gt;</span></code>. CMake generates native build files
+(Makefiles, Ninja, IDE projects), so a build can also run as <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">app</span></code> or
+<code class="docutils literal notranslate"><span class="pre">ninja</span> <span class="pre">app</span></code> in the build directory.</p>
+<p><strong>Gate check:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Safe listing:</strong> a text scan for <code class="docutils literal notranslate"><span class="pre">add_executable(</span></code> or <code class="docutils literal notranslate"><span class="pre">add_custom_target(</span></code>
+does not execute, but reliable enumeration needs configuration
+(<code class="docutils literal notranslate"><span class="pre">cmake</span> <span class="pre">-B</span> <span class="pre">build</span></code>, then <code class="docutils literal notranslate"><span class="pre">cmake</span> <span class="pre">--build</span> <span class="pre">...</span> <span class="pre">--target</span> <span class="pre">help</span></code>), which runs the
+project script and fails the hard rule.</p></li>
+<li><p><strong>Faithful run command: fails.</strong> The configure and build split means no
+delegated <code class="docutils literal notranslate"><span class="pre">(&quot;cmake&quot;,</span> <span class="pre">name)</span></code> works without a prior configure step.</p></li>
+<li><p><strong>Honest subset:</strong> target names come from <code class="docutils literal notranslate"><span class="pre">${VARIABLES}</span></code>, <code class="docutils literal notranslate"><span class="pre">foreach()</span></code> loops,
+<code class="docutils literal notranslate"><span class="pre">function()</span></code> or <code class="docutils literal notranslate"><span class="pre">macro()</span></code> wrappers and generator expressions (<code class="docutils literal notranslate"><span class="pre">$&lt;...&gt;</span></code>), all
+resolved only when CMake runs. A literal scan is incomplete and often wrong.</p></li>
+</ol>
+<p><strong>Decision:</strong></p>
+<p>Declined. It is a build-graph generator whose primary act is “generate a build
+system”, not “run task X”.</p>
+<ul class="simple">
+<li><p><strong>Adoption (information only):</strong> about 6,771 repositories (2025 Task Runner Census (aleyan.com), as recorded in #78).</p></li>
+<li><p><strong>Not pursued:</strong> configure-based enumeration, the File API, resolving
+variable, loop or generator-expression names, <code class="docutils literal notranslate"><span class="pre">add_subdirectory()</span></code> aggregation.</p></li>
+<li><p><strong>Revisit trigger:</strong> a stable one-step invocation that builds a named target
+without a manual configure, together with a name source that needs no
+evaluation. CMake presets (<code class="docutils literal notranslate"><span class="pre">CMakePresets.json</span></code>) are a separate declarative
+file worth evaluating on their own.</p></li>
+</ul>
+</section>
+<section id="cargo-xtask">
+<h2>cargo-xtask<a class="headerlink" href="#cargo-xtask" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Format:</strong> a Rust convention for writing project automation in an <code class="docutils literal notranslate"><span class="pre">xtask/</span></code>
+crate, not a tool or a file format.</p></li>
+<li><p><strong>Source files:</strong> none that is declarative. The only static artifact is a
+<code class="docutils literal notranslate"><span class="pre">cargo</span></code> alias in <code class="docutils literal notranslate"><span class="pre">.cargo/config.toml</span></code>.</p></li>
+<li><p><strong>Docs:</strong> <a class="reference external" href="https://github.com/matklad/cargo-xtask">https://github.com/matklad/cargo-xtask</a> (the convention originated
+with matklad), README: <a class="reference external" href="https://github.com/matklad/cargo-xtask/blob/master/README.md">https://github.com/matklad/cargo-xtask/blob/master/README.md</a></p></li>
+<li><p><strong>State:</strong> Declined. <strong>Reason:</strong> no declarative file; gate 3. Issue #150.</p></li>
+</ul>
+<p><strong>How it is used:</strong></p>
+<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># .cargo/config.toml, the only static artifact</span>
+</span><span data-line="2"><span class="k">[alias]</span>
+</span><span data-line="3"><span class="n">xtask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"run --package xtask --"</span>
+</span></pre></div>
+</div>
+<div class="highlight-rust notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1">// xtask/src/main.rs: arbitrary Rust, subcommands hand-parsed</span>
+</span><span data-line="2"><span class="k">fn</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">anyhow</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span data-line="3"><span class="w">    </span><span class="k">match</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">env</span><span class="p">::</span><span class="n">args</span><span class="p">().</span><span class="n">nth</span><span class="p">(</span><span class="mi">1</span><span class="p">).</span><span class="n">as_deref</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span data-line="4"><span class="w">        </span><span class="nb">Some</span><span class="p">(</span><span class="s">"dist"</span><span class="p">)</span><span class="w">    </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">dist</span><span class="p">()</span><span class="o">?</span><span class="p">,</span>
+</span><span data-line="5"><span class="w">        </span><span class="nb">Some</span><span class="p">(</span><span class="s">"codegen"</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">codegen</span><span class="p">()</span><span class="o">?</span><span class="p">,</span>
+</span><span data-line="6"><span class="w">        </span><span class="n">_</span><span class="w">               </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">print_help</span><span class="p">(),</span>
+</span><span data-line="7"><span class="w">    </span><span class="p">}</span>
+</span><span data-line="8"><span class="w">    </span><span class="nb">Ok</span><span class="p">(())</span>
+</span><span data-line="9"><span class="p">}</span>
+</span></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">cargo</span> <span class="pre">xtask</span></code> expands to <code class="docutils literal notranslate"><span class="pre">cargo</span> <span class="pre">run</span> <span class="pre">--package</span> <span class="pre">xtask</span> <span class="pre">--</span></code>, compiling and running a
+normal Rust binary. Subcommands are whatever <code class="docutils literal notranslate"><span class="pre">main</span></code> accepts (a <code class="docutils literal notranslate"><span class="pre">match</span></code> on
+<code class="docutils literal notranslate"><span class="pre">args()</span></code>, <code class="docutils literal notranslate"><span class="pre">clap</span></code>, <code class="docutils literal notranslate"><span class="pre">argh</span></code>, <code class="docutils literal notranslate"><span class="pre">pico-args</span></code>, and so on). <code class="docutils literal notranslate"><span class="pre">cargo</span> <span class="pre">xtask</span> <span class="pre">--help</span></code> works
+only if the binary implements it, and the first run, or any run after a change,
+compiles the crate first.</p>
+<p><strong>Gate check:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Safe listing:</strong> reading <code class="docutils literal notranslate"><span class="pre">.cargo/config.toml</span></code> executes nothing but only shows
+that the alias exists. Reliable enumeration means <code class="docutils literal notranslate"><span class="pre">cargo</span> <span class="pre">xtask</span> <span class="pre">--help</span></code>, which
+compiles and runs the crate.</p></li>
+<li><p><strong>Faithful run command:</strong> passes once a name is known (<code class="docutils literal notranslate"><span class="pre">cargo</span> <span class="pre">xtask</span> <span class="pre">&lt;name&gt;</span></code>).</p></li>
+<li><p><strong>Honest subset: fails.</strong> Names are string literals buried in arbitrary Rust
+with no guaranteed shape; grepping <code class="docutils literal notranslate"><span class="pre">match</span></code> arms or <code class="docutils literal notranslate"><span class="pre">clap</span></code> <code class="docutils literal notranslate"><span class="pre">.subcommand(&quot;...&quot;)</span></code>
+calls is heuristic and breaks on any non-trivial setup. There is nothing
+standardized to target.</p></li>
+</ol>
+<p><strong>Decision:</strong></p>
+<p>Declined: it is a convention, so there is no file format to parse.</p>
+<ul class="simple">
+<li><p><strong>Adoption (information only):</strong> no census figure; used by rust-analyzer among
+others. A convention is also hard to count, so #78 did not enumerate it.</p></li>
+<li><p><strong>Revisit trigger:</strong> a conventional, declarative description of xtask commands
+that projects adopt, or a bounded subset (for example a <code class="docutils literal notranslate"><span class="pre">clap</span></code> derive enum)
+judged reliable enough to ship as syntactic candidates.</p></li>
+</ul>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="candidates.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Candidates</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="history.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">Origin of the register (issue #78)</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Hasan Sezer Taşan</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
+    </div>
+  </div>
+</footer>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+      <script>let toggleHintShow = 'Click to show';</script>
+      <script>let toggleHintHide = 'Click to hide';</script>
+      <script>let toggleOpenOnPrint = 'true';</script>
+      <script src="../_static/togglebutton.js?v=b8b12719"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+      <script src="../_static/shibuya.js?v=50760d75"></script></body>
+</html>
