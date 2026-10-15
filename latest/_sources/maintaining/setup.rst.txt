@@ -53,6 +53,14 @@ head branches**.
 Branch protection
 -----------------
 
+Branch protection and rulesets are free on public repositories, but a
+**private** repository needs a paid GitHub plan (Pro, Team or Enterprise) for
+them to be enforced. On a free-plan private repository mark this section
+**not applicable** and skip its commands and checks.
+Also defer the Settings App installation below until required code-owner review
+can be enforced; its review safeguard depends on branch protection.
+Continue with the remaining applicable steps.
+
 Protect ``main`` so a PR can only merge once its checks pass. Mark these check
 contexts as required (the names are the **check runs**, not the workflow files):
 
@@ -502,6 +510,13 @@ check on them
 copier PR can look mergeable while carrying conflicts. Reconcile before merging:
 keep your project identity, adopt the template's tooling/config changes.
 
+Where the project maintains an overlay on a file the template also renders
+(e.g. project-specific entries in ``.vscode/launch.json`` that the template
+cannot derive from its answers), resolve the conflict in favour of the committed
+file and port only genuine template-side improvements instead of taking the
+template file wholesale. Re-applying the overlay is expected, not a merge
+failure.
+
 If the update touches dependency metadata in ``pyproject.toml`` — the
 ``dependencies`` list, a dependency group, or the optional-dependency table —
 also run ``uv lock`` and commit the refreshed ``uv.lock`` in the same PR.
@@ -617,7 +632,39 @@ Repository settings ("Settings" App)
 the `Settings GitHub App <https://github.com/apps/settings>`_ on every push to
 the default branch. Nothing syncs until it is installed.
 
-**[HUMAN]** Install it once on this repository (or your account) from the
+Before installing, enforce **Require review from Code Owners** on the default
+branch as described below. On a free-plan private repository, **defer the
+Settings App** until that safeguard can be enforced. Record this integration
+as deferred and skip its installation and check; the metadata file can stay
+in the repository without the App.
+
+**[HUMAN]** Confirm that a distinct trusted reviewer with write access can
+approve changes authored by the maintainer and is listed in CODEOWNERS for
+``.github/settings.yml`` and ``.github/CODEOWNERS``.
+A sole maintainer cannot approve their own pull requests;
+defer the Settings App until that reviewer is available.
+
+**[AGENT]** Only after the reviewer is confirmed, enable code-owner review.
+This updates the review policy separately from the required status contexts.
+If reviewer confirmation is pending or unavailable, skip this command and defer
+the integration.
+
+.. code-block:: sh
+
+   gh api -X PATCH repos/hasansezertasan/nur/branches/main/protection/required_pull_request_reviews \
+     -F require_code_owner_reviews=true
+
+**[CHECK]** Prerequisite: required code-owner review is enforced on ``main``.
+If the check fails or cannot be verified, defer installation and return to that
+policy step; a CODEOWNERS file alone does not enforce review.
+
+.. code-block:: sh
+
+
+   gh api repos/hasansezertasan/nur/branches/main/protection \
+     --jq '.required_pull_request_reviews.require_code_owner_reviews == true' | grep -qx true
+
+**[HUMAN]** Only after the prerequisite check passes, install it once on this repository (or your account) from the
 `App page <https://github.com/apps/settings>`_.
 
 **[CHECK]** No scriptable check — confirm the Settings GitHub App is installed.

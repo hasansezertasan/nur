@@ -41,10 +41,10 @@
 </form><div class="nav-versions">
     <button type="button" aria-label="Versions">
       <span class="md:hidden">Versions</span>
-      <span class="hidden md:inline">0.9</span>
+      <span class="hidden md:inline">0.10</span>
       <i class="i-lucide chevron-down"></i>
     </button>
-    <div class="nav-versions-choices"><ul><li><a href="/nur/latest/">latest</a></li><li><a href="/nur/0.9/">0.9</a></li><li><a href="/nur/0.8/">0.8</a></li><li><a href="/nur/0.7/">0.7</a></li><li><a href="/nur/0.6/">0.6</a></li><li><a href="/nur/0.5/">0.5</a></li></ul></div>
+    <div class="nav-versions-choices"><ul><li><a href="/nur/latest/">latest</a></li><li><a href="/nur/0.10/">0.10</a></li><li><a href="/nur/0.9/">0.9</a></li><li><a href="/nur/0.8/">0.8</a></li><li><a href="/nur/0.7/">0.7</a></li><li><a href="/nur/0.6/">0.6</a></li><li><a href="/nur/0.5/">0.5</a></li></ul></div>
   </div><div class="sy-head-socials">
   <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
     <iconify-icon icon="simple-icons:github"></iconify-icon>
@@ -80,6 +80,17 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="adr/0002-bounded-rake-discovery.html">Bounded Rake discovery: extract literal declarations without simulating Ruby</a></li>
 <li class="toctree-l2"><a class="reference internal" href="adr/0003-bounded-make-discovery.html">Bounded Make discovery: read rule headers with Tree-sitter, never run Make</a></li>
 <li class="toctree-l2"><a class="reference internal" href="adr/0004-js-adjacent-task-runners.html">JS-adjacent runners: accept Grunt, Gulp, Turborepo, Nx, and workspace members</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adr/0005-completeness-over-popularity.html">Completeness over popularity: every honestly supportable format, recorded in the repo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adr/0006-accept-gradle-zed-and-procfile-runner.html">Accept Gradle and Zed tasks, and delegate Procfile to honcho</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="providers/index.html">Provider register</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="providers/template.html">Evaluation template</a></li>
+<li class="toctree-l2"><a class="reference internal" href="providers/implemented.html">Implemented providers: evaluations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="providers/candidates.html">Candidates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="providers/declined.html">Declined formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="providers/history.html">Origin of the register (issue #78)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="providers/research/markdown-parser.html">Markdown parser evaluation (mask and xc)</a></li>
 </ul>
 </li>
 </ul>
@@ -142,7 +153,7 @@ data-aria-dark="Switch to auto color mode">
 <p><code class="docutils literal notranslate"><span class="pre">nur</span></code> discovers the runnable tasks in your project (from <code class="docutils literal notranslate"><span class="pre">Makefile</span></code>,
 <code class="docutils literal notranslate"><span class="pre">package.json</span></code>, <code class="docutils literal notranslate"><span class="pre">deno.json</span></code>/<code class="docutils literal notranslate"><span class="pre">deno.jsonc</span></code>, <code class="docutils literal notranslate"><span class="pre">composer.json</span></code>, <code class="docutils literal notranslate"><span class="pre">justfile</span></code>,
 <code class="docutils literal notranslate"><span class="pre">Taskfile</span></code>, <code class="docutils literal notranslate"><span class="pre">mise.toml</span></code>, <code class="docutils literal notranslate"><span class="pre">Makefile.toml</span></code> (cargo-make), <code class="docutils literal notranslate"><span class="pre">moon.yml</span></code>, the xc
-task section of <code class="docutils literal notranslate"><span class="pre">README.md</span></code>, <code class="docutils literal notranslate"><span class="pre">.vscode/tasks.json</span></code>, <code class="docutils literal notranslate"><span class="pre">noxfile.py</span></code>, <code class="docutils literal notranslate"><span class="pre">tasks.py</span></code>, <code class="docutils literal notranslate"><span class="pre">maskfile.md</span></code>, <code class="docutils literal notranslate"><span class="pre">Rakefile</span></code>, <code class="docutils literal notranslate"><span class="pre">Gruntfile.js</span></code>, <code class="docutils literal notranslate"><span class="pre">gulpfile.js</span></code>, <code class="docutils literal notranslate"><span class="pre">turbo.json</span></code>, <code class="docutils literal notranslate"><span class="pre">nx.json</span></code>, workspace member <code class="docutils literal notranslate"><span class="pre">package.json</span></code> files, and the <code class="docutils literal notranslate"><span class="pre">pdm</span></code>/<code class="docutils literal notranslate"><span class="pre">poe</span></code>
+task section of <code class="docutils literal notranslate"><span class="pre">README.md</span></code>, <code class="docutils literal notranslate"><span class="pre">.vscode/tasks.json</span></code>, <code class="docutils literal notranslate"><span class="pre">noxfile.py</span></code>, <code class="docutils literal notranslate"><span class="pre">tasks.py</span></code>, <code class="docutils literal notranslate"><span class="pre">maskfile.md</span></code>, <code class="docutils literal notranslate"><span class="pre">Rakefile</span></code>, <code class="docutils literal notranslate"><span class="pre">Gruntfile.js</span></code>, <code class="docutils literal notranslate"><span class="pre">gulpfile.js</span></code>, <code class="docutils literal notranslate"><span class="pre">build.xml</span></code>, <code class="docutils literal notranslate"><span class="pre">turbo.json</span></code>, <code class="docutils literal notranslate"><span class="pre">nx.json</span></code>, workspace member <code class="docutils literal notranslate"><span class="pre">package.json</span></code> files, and the <code class="docutils literal notranslate"><span class="pre">pdm</span></code>/<code class="docutils literal notranslate"><span class="pre">poe</span></code>
 tables in <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>) and runs them from one entry point.</p>
 <section id="launch-the-tui">
 <h2>Launch the TUI<a class="headerlink" href="#launch-the-tui" title="Link to this heading">#</a></h2>
@@ -160,7 +171,7 @@ discovered tasks in an interactive terminal UI:</p>
 <p>Tasks are grouped by their provider prefix (<code class="docutils literal notranslate"><span class="pre">make</span></code>, <code class="docutils literal notranslate"><span class="pre">npm</span></code>, <code class="docutils literal notranslate"><span class="pre">deno</span></code>,
 <code class="docutils literal notranslate"><span class="pre">composer</span></code>, <code class="docutils literal notranslate"><span class="pre">just</span></code>, <code class="docutils literal notranslate"><span class="pre">task</span></code>, <code class="docutils literal notranslate"><span class="pre">pdm</span></code>, <code class="docutils literal notranslate"><span class="pre">poe</span></code>, <code class="docutils literal notranslate"><span class="pre">tox</span></code>, <code class="docutils literal notranslate"><span class="pre">mise</span></code>, <code class="docutils literal notranslate"><span class="pre">cargo-make</span></code>,
 <code class="docutils literal notranslate"><span class="pre">moon</span></code>, <code class="docutils literal notranslate"><span class="pre">xc</span></code>, <code class="docutils literal notranslate"><span class="pre">vscode</span></code>, <code class="docutils literal notranslate"><span class="pre">nox</span></code>, <code class="docutils literal notranslate"><span class="pre">mask</span></code>, <code class="docutils literal notranslate"><span class="pre">invoke</span></code>, <code class="docutils literal notranslate"><span class="pre">rake</span></code>,
-<code class="docutils literal notranslate"><span class="pre">turbo</span></code>, <code class="docutils literal notranslate"><span class="pre">nx</span></code>, <code class="docutils literal notranslate"><span class="pre">grunt</span></code>, <code class="docutils literal notranslate"><span class="pre">gulp</span></code>, <code class="docutils literal notranslate"><span class="pre">workspace</span></code>).</p>
+<code class="docutils literal notranslate"><span class="pre">turbo</span></code>, <code class="docutils literal notranslate"><span class="pre">nx</span></code>, <code class="docutils literal notranslate"><span class="pre">grunt</span></code>, <code class="docutils literal notranslate"><span class="pre">gulp</span></code>, <code class="docutils literal notranslate"><span class="pre">ant</span></code>, <code class="docutils literal notranslate"><span class="pre">workspace</span></code>).</p>
 </section>
 <section id="run-a-task">
 <h2>Run a task<a class="headerlink" href="#run-a-task" title="Link to this heading">#</a></h2>

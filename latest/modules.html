@@ -41,10 +41,10 @@
 </form><div class="nav-versions">
     <button type="button" aria-label="Versions">
       <span class="md:hidden">Versions</span>
-      <span class="hidden md:inline">0.9</span>
+      <span class="hidden md:inline">0.10</span>
       <i class="i-lucide chevron-down"></i>
     </button>
-    <div class="nav-versions-choices"><ul><li><a href="/nur/latest/">latest</a></li><li><a href="/nur/0.9/">0.9</a></li><li><a href="/nur/0.8/">0.8</a></li><li><a href="/nur/0.7/">0.7</a></li><li><a href="/nur/0.6/">0.6</a></li><li><a href="/nur/0.5/">0.5</a></li></ul></div>
+    <div class="nav-versions-choices"><ul><li><a href="/nur/latest/">latest</a></li><li><a href="/nur/0.10/">0.10</a></li><li><a href="/nur/0.9/">0.9</a></li><li><a href="/nur/0.8/">0.8</a></li><li><a href="/nur/0.7/">0.7</a></li><li><a href="/nur/0.6/">0.6</a></li><li><a href="/nur/0.5/">0.5</a></li></ul></div>
   </div><div class="sy-head-socials">
   <a href="https://github.com/hasansezertasan/nur" aria-label="GitHub">
     <iconify-icon icon="simple-icons:github"></iconify-icon>
@@ -80,6 +80,17 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="adr/0002-bounded-rake-discovery.html">Bounded Rake discovery: extract literal declarations without simulating Ruby</a></li>
 <li class="toctree-l2"><a class="reference internal" href="adr/0003-bounded-make-discovery.html">Bounded Make discovery: read rule headers with Tree-sitter, never run Make</a></li>
 <li class="toctree-l2"><a class="reference internal" href="adr/0004-js-adjacent-task-runners.html">JS-adjacent runners: accept Grunt, Gulp, Turborepo, Nx, and workspace members</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adr/0005-completeness-over-popularity.html">Completeness over popularity: every honestly supportable format, recorded in the repo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adr/0006-accept-gradle-zed-and-procfile-runner.html">Accept Gradle and Zed tasks, and delegate Procfile to honcho</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="providers/index.html">Provider register</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="providers/template.html">Evaluation template</a></li>
+<li class="toctree-l2"><a class="reference internal" href="providers/implemented.html">Implemented providers: evaluations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="providers/candidates.html">Candidates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="providers/declined.html">Declined formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="providers/history.html">Origin of the register (issue #78)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="providers/research/markdown-parser.html">Markdown parser evaluation (mask and xc)</a></li>
 </ul>
 </li>
 </ul>
@@ -154,6 +165,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#nur.core.providers.nx.parse_nx"><code class="docutils literal notranslate"><span class="pre">parse_nx()</span></code></a></li>
 <li><a class="reference internal" href="#nur.core.providers.grunt.parse_gruntfile"><code class="docutils literal notranslate"><span class="pre">parse_gruntfile()</span></code></a></li>
 <li><a class="reference internal" href="#nur.core.providers.gulp.parse_gulpfile"><code class="docutils literal notranslate"><span class="pre">parse_gulpfile()</span></code></a></li>
+<li><a class="reference internal" href="#nur.core.providers.ant.parse_build_xml"><code class="docutils literal notranslate"><span class="pre">parse_build_xml()</span></code></a></li>
 <li><a class="reference internal" href="#nur.core.providers.workspace.member_scripts"><code class="docutils literal notranslate"><span class="pre">member_scripts()</span></code></a></li>
 <li><a class="reference internal" href="#nur.core.providers.mask.parse_mask"><code class="docutils literal notranslate"><span class="pre">parse_mask()</span></code></a></li>
 </ul>
@@ -413,7 +425,7 @@ characters around it stop the text from naming a real variable.</p>
 <h2>Providers (<code class="docutils literal notranslate"><span class="pre">nur.core.providers</span></code>)<a class="headerlink" href="#providers-nur-core-providers" title="Link to this heading">#</a></h2>
 <p>One module per supported task source (make, npm, deno, composer, just, taskfile,
 pre-commit, pdm, poe, tox, mise, cargo-make, moon, xc, VS Code tasks, nox, mask, invoke, rake,
-grunt, gulp, turbo, nx, workspace).</p>
+grunt, gulp, ant, turbo, nx, workspace).</p>
 <dl class="py function" id="module-nur.core.providers.npm">
 <span id="module-nur.core.providers.make"></span><dt class="sig sig-object py" id="nur.core.providers.npm.resolve_pm">
 <span class="sig-prename descclassname"><span class="pre">nur.core.providers.npm.</span></span><span class="sig-name descname"><span class="pre">resolve_pm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cwd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/core/providers/_package_manager.html#resolve_pm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.core.providers.npm.resolve_pm" title="Link to this definition">#</a></dt>
@@ -772,6 +784,61 @@ candidates, not a promise that Gulp will register or run each task.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>text</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p></li>
+<li><p><strong>source_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)">list</a>[<a class="reference internal" href="#nur.core.models.Task" title="nur.core.models.Task"><em>Task</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p id="module-nur.core.providers.ant">Discover Apache Ant targets by parsing build.xml, without running Ant.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="nur.core.providers.ant.parse_build_xml">
+<span class="sig-prename descclassname"><span class="pre">nur.core.providers.ant.</span></span><span class="sig-name descname"><span class="pre">parse_build_xml</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'build.xml'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/nur/core/providers/ant.html#parse_build_xml"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nur.core.providers.ant.parse_build_xml" title="Link to this definition">#</a></dt>
+<dd><p>Extract runnable entry names from <code class="docutils literal notranslate"><span class="pre">build.xml</span></code> without executing anything.</p>
+<p>Deliberately does NOT shell out to <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">-p</span></code>: the file is declarative XML,
+so <code class="docutils literal notranslate"><span class="pre">&lt;target</span> <span class="pre">name=...&gt;</span></code> attributes can be read directly and a task body
+(a sequence of XML tasks, not shell commands) never runs during discovery.
+<code class="docutils literal notranslate"><span class="pre">&lt;extension-point</span> <span class="pre">name=...&gt;</span></code> entries are listed the same way: they are
+target-like states with a name and an optional description, each running
+as <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">&lt;name&gt;</span></code>. Descriptions come from the <code class="docutils literal notranslate"><span class="pre">description</span></code>
+attribute; every entry is listed, including ones without a description
+(which <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">-p</span></code> hides as internal). Names are kept verbatim — Ant permits
+spaces in target names and <code class="docutils literal notranslate"><span class="pre">argv_base</span></code> passes the name as a single token,
+so normalizing would change the target’s identity. Only a missing name or
+an actually empty one is skipped (Ant rejects the latter); anything else,
+including whitespace-only names, stays listed exactly as Ant accepts it.
+Names beginning with a
+hyphen are skipped: Ant parses such arguments as options, so they cannot
+run via <code class="docutils literal notranslate"><span class="pre">ant</span> <span class="pre">&lt;name&gt;</span></code> (the conventional internal-target form); the check
+mirrors Ant’s own <code class="docutils literal notranslate"><span class="pre">startsWith(&quot;-&quot;)</span></code> on the same verbatim token, so
+padded variants (``  -init <code class="docutils literal notranslate"><span class="pre">)</span> <span class="pre">stay</span> <span class="pre">listed.</span> <span class="pre">Only</span> <span class="pre">core-namespace</span>
+<span class="pre">``&lt;target&gt;</span></code>/<code class="docutils literal notranslate"><span class="pre">&lt;extension-point&gt;</span></code> elements count: other namespaces are
+ordinary task/type uses, not entry points. Documents whose root is not an
+Ant <code class="docutils literal notranslate"><span class="pre">&lt;project&gt;</span></code> element are skipped: Ant rejects them before installing
+any target. Task bodies stay
+opaque, so <code class="docutils literal notranslate"><span class="pre">definition</span></code> is empty. Imported/included build files,
+<code class="docutils literal notranslate"><span class="pre">macrodef</span></code>-defined
+behaviour, <code class="docutils literal notranslate"><span class="pre">if</span></code>/<code class="docutils literal notranslate"><span class="pre">unless</span></code> conditions, <code class="docutils literal notranslate"><span class="pre">depends</span></code> ordering, and
+<code class="docutils literal notranslate"><span class="pre">${property}</span></code> interpolation are not resolved; names are left literal.
+Parser errors skip the file. Files with a <code class="docutils literal notranslate"><span class="pre">&lt;!DOCTYPE&gt;</span></code> declaration are
+skipped as well: it is the only carrier of <code class="docutils literal notranslate"><span class="pre">&lt;!ENTITY&gt;</span></code> definitions,
+whose expansion is unbounded, and genuine Ant build files never need one.
+Detection is an expat pre-scan that aborts at the first declaration, so no
+entity is ever expanded during discovery.
+Results are syntactic task candidates, not a
+promise that Ant will accept or successfully execute each target.</p>
+<p>Byte input is preferred: ElementTree honours the XML encoding declaration
+only for bytes; a <cite>str</cite> carrying one is skipped as unparsable. Byte input
+in an encoding outside the stdlib’s native set (multibyte ones like
+Shift_JIS, UTF-32, or EBCDIC variants, which Ant accepts) is transcoded to
+UTF-8 first.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>text</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#bytes" title="(in Python v3.15)"><em>bytes</em></a>)</p></li>
 <li><p><strong>source_file</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p></li>
 </ul>
 </dd>
