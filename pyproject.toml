@@ -349,6 +349,12 @@ strict-imports = false
 exclude-modules = "nur.tui"
 
 
+[tool.typos.default]
+# release-please renders each changelog entry as `([<7-char sha>](.../commit/<sha>))`.
+# A short sha is arbitrary hex that can spell a word (`ba2849c` -> `ba`), so
+# ignore the bracketed short sha rather than excluding the whole CHANGELOG.
+extend-ignore-re = ["\\[[0-9a-f]{7,40}\\]"]
+
 [tool.typos.default.extend-words]
 # Intentional misspelling used to exercise the close-match suggestion path
 # (tests/core/test_registry.py resolves "biuld").
