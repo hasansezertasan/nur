@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.10.0](https://github.com/hasansezertasan/nur/compare/v0.9.0...v0.10.0) (2026-10-15)
+
+
+### 🚀 Features
+
+* **providers:** add Apache Ant build.xml target discovery ([#309](https://github.com/hasansezertasan/nur/issues/309)) ([ba2849c](https://github.com/hasansezertasan/nur/commit/ba2849c24590ea505fd5420d2c8325102f78824d))
+
+
+### 🐛 Bug Fixes
+
+* **ci:** ignore short commit shas in typos check ([#321](https://github.com/hasansezertasan/nur/issues/321)) ([5b0773a](https://github.com/hasansezertasan/nur/commit/5b0773a5461d08552c692b1987a39e19cd6c683b))
+
+
+### 📝 Documentation
+
+* **adr:** accept Gradle and Zed tasks and delegate Procfile to honcho ([#315](https://github.com/hasansezertasan/nur/issues/315)) ([d679265](https://github.com/hasansezertasan/nur/commit/d67926526c7e0c6881be3be42219c1ebf35256f3))
+* **providers:** add provider register and supersede ADR 0001 with ADR 0005 ([#311](https://github.com/hasansezertasan/nur/issues/311))G ([88c03c4](https://github.com/hasansezertasan/nur/commit/88c03c43a996e200df7f8e24790c4746e817dc9a))
+* **providers:** backfill details from issues 139-150 into the register ([#314](https://github.com/hasansezertasan/nur/issues/314)) ([47d772d](https://github.com/hasansezertasan/nur/commit/47d772d01583a964a68ba44d40f99de9421065f0))
+* **providers:** backfill evaluations for the eight pre-register providers ([#312](https://github.com/hasansezertasan/nur/issues/312)) ([2ecf6e5](https://github.com/hasansezertasan/nur/commit/2ecf6e52f6ffa245021f4a2fa3431c255fbbd16b))
+* **providers:** preserve issue [#78](https://github.com/hasansezertasan/nur/issues/78) content as register history ([#313](https://github.com/hasansezertasan/nur/issues/313)) ([4e1709d](https://github.com/hasansezertasan/nur/commit/4e1709dca08b35757c49dfac478941bdbf5a26e6))
+
 ## [0.9.0](https://github.com/hasansezertasan/nur/compare/v0.8.0...v0.9.0) (2026-10-11)
 
 
