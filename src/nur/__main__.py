@@ -2,7 +2,8 @@
 
 This is the single runnable entrypoint used by ``python -m nur``
 and by every standalone-executable build (PyCrucible launcher, PyInstaller
-freezer, Nuitka compiler — see ADR-007). The build tools all target this file,
+freezer, Nuitka compiler — see https://hasansezertasan.github.io/copier-pyproject/context/standalone-executables/#executables-are-named-per-tool-and-os-and-all-target-the-package-main-module).
+The build tools all target this file,
 so the component-selection logic lives here and nowhere else.
 
 ``main()`` runs the ``nur`` console root (``nur.cli.main``), which runs a task
