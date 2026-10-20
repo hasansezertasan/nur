@@ -2,7 +2,7 @@
 
 This is the single runnable entrypoint used by ``python -m nur``
 and by every standalone-executable build (PyCrucible launcher, PyInstaller
-freezer, Nuitka compiler — see https://hasansezertasan.github.io/copier-pyproject/context/standalone-executables/#executables-are-named-per-tool-and-os-and-all-target-the-package-main-module).
+freezer, Nuitka compiler).
 The build tools all target this file,
 so the component-selection logic lives here and nowhere else.
 
@@ -28,8 +28,8 @@ __all__ = ["main"]
 
 # Each of these ships as a core dependency of this package, so a missing one
 # never means "install an extra" -- it means this environment is out of sync with
-# the installed metadata. A ``copier update`` that adds the shared launcher (or
-# enables settings) adds both the code and its dependency at once, so an
+# the installed metadata. Adding the shared launcher (or
+# enabling settings) adds both the code and its dependency at once, so an
 # environment that has not been re-synced would otherwise fail here with a bare
 # ``ModuleNotFoundError`` before any launcher code executes.
 _ROOT_DEPENDENCIES = ("typer",)
