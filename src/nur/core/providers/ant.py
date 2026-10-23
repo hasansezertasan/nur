@@ -236,10 +236,8 @@ def _has_doctype(text: str | bytes) -> bool:
         parser.Parse(text, True)  # noqa: FBT003
     except _DoctypeFoundError:
         return True
-    # Parenthesized with a binding on purpose: ruff format's preview style
-    # strips parens from binding-less tuples, which CPython before 3.14 cannot
-    # parse (the prek check-ast hook runs 3.10). The binding is intentionally
-    # unused: the ElementTree parse below logs the skip with the real error.
+    # The binding is intentionally unused: the ElementTree parse below logs
+    # the skip with the real error.
     except (
         xml.parsers.expat.ExpatError,
         LookupError,

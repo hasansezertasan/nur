@@ -3,7 +3,7 @@ from __future__ import annotations
 import codecs
 import logging
 import re
-from typing import TYPE_CHECKING, TypeAlias
+from typing import TYPE_CHECKING
 
 import tree_sitter_make
 from tree_sitter import Language, Parser
@@ -39,7 +39,7 @@ _BARE_NEWLINE = re.compile(rb"(?<!\\)(?<!\\\r)\n")
 # Bytes that may directly surround a target name ('' is start/end of input).
 _BOUNDARY = {b"", b" ", b"\t", b"\r", b"\n", b"\f", b":", b"\\"}
 
-_Found: TypeAlias = tuple[str, str | None]  # noqa: UP040 -- AST hooks run Python 3.10.
+type _Found = tuple[str, str | None]
 
 
 def _line_targets(line: str) -> list[_Found]:
