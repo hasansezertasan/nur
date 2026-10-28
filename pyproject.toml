@@ -46,14 +46,32 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: POSIX",
   "Programming Language :: Python :: 3",
+<<<<<<< before updating
   "Programming Language :: Python :: 3 :: Only",
+=======
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+>>>>>>> after updating
   "Programming Language :: Python :: 3.14",
   "Topic :: Software Development",
   "Topic :: Software Development :: Build Tools",
   "Topic :: Utilities",
+<<<<<<< before updating
   "Typing :: Typed",
 ]
 requires-python = ">=3.14"
+=======
+  "Topic :: Terminals",
+]
+requires-python = ">=3.11"
+# The enabled component's runtime deps live here, not in an optional extra: a
+# selected component is chosen at generation time and ``__main__`` imports it
+# unconditionally (see the CLI > GUI > TUI > web > MCP > worker precedence
+# there), so ``pip install nur`` must pull them or the binary
+# fails at launch. Same for pydantic-settings, which ``core.config`` imports
+# unconditionally when enabled.
+>>>>>>> after updating
 dependencies = [
   "textual>=3.0.0",
   "pyyaml>=6.0",
@@ -431,7 +449,11 @@ output-format = "full"
 preview = true
 show-fixes = true
 src = ["src", "tests", "docs/examples"]
+<<<<<<< before updating
 target-version = "py314"
+=======
+target-version = "py311"
+>>>>>>> after updating
 unsafe-fixes = true
 
 
@@ -601,14 +623,22 @@ parenthesize-tuple-in-subscript = true
 [tool.mypy]
 files = ["src", "docs/examples"]
 pretty = true
+<<<<<<< before updating
 python_version = "3.14"
+=======
+python_version = "3.11"
+>>>>>>> after updating
 strict = true
 
 
 [tool.basedpyright]
 exclude = [".venv"]
 include = ["src/nur", "docs/examples"]
+<<<<<<< before updating
 pythonVersion = "3.14"
+=======
+pythonVersion = "3.11"
+>>>>>>> after updating
 venv = ".venv"
 # Silence basedpyright's strict-mode *warnings* that fight this project's
 # deliberate patterns; error-level type checking stays on (0 errors), and dead
@@ -666,7 +696,11 @@ respect-ignore-files = false
 
 
 [tool.ty.environment]
+<<<<<<< before updating
 python-version = "3.14"
+=======
+python-version = "3.11"
+>>>>>>> after updating
 
 
 [tool.ty.terminal]
@@ -674,6 +708,7 @@ error-on-warning = true
 
 
 [tool.pyrefly]
+<<<<<<< before updating
 python-version = "3.14"
 # Pin the type-checking platform so results are deterministic across CI runners.
 # Unlike mypy/basedpyright/ty, pyrefly does not narrow `sys.platform` to the
@@ -681,6 +716,9 @@ python-version = "3.14"
 # os.killpg/os.getpgid in the platform-guarded interrupt path. The Windows
 # branches remain type-checked by the other three checkers on that runner.
 python-platform = "linux"
+=======
+python-version = "3.11"
+>>>>>>> after updating
 project-includes = ["src", "docs/examples"]
 
 [tool.pylint.main]
@@ -747,7 +785,21 @@ extend-exclude = [
 # and would hang/fail under ``tox run`` in CI (where no broker is available).
 # The worker is covered by its pytest TestBroker suite; run it on demand with
 # ``tox -e worker`` when a broker is up (e.g. inside the devcontainer).
+<<<<<<< before updating
 env_list = ["style", "docs-doctest", "cli", "3.14"]
+=======
+env_list = [
+  "style",
+  # Inline ``>>>`` snippets are part of the tested-documentation contract,
+  # so run them in the default CI ``tox run`` invocation.
+  "docs-doctest",
+  "cli",
+  "3.14",
+  "3.13",
+  "3.12",
+  "3.11",
+]
+>>>>>>> after updating
 requires = ["tox>=4"]
 
 
@@ -785,11 +837,37 @@ runner = "uv-venv-lock-runner"
 
 
 [tool.tox.env.style]
+<<<<<<< before updating
 base_python = ["3.14"]
 commands = [
   ["ruff", "check", "--no-fix"],
   ["ruff", "format", "--check", "--diff"],
   ["mypy", "--python-version", "3.14"],
+=======
+base_python = ["3.11"]
+commands = [
+  [
+    "ruff",
+    "check",
+    "--no-fix",
+  ],
+  [
+    "ruff",
+    "format",
+    "--check",
+    "--diff",
+  ],
+  [
+    "mypy",
+    "--python-version",
+    "3.11",
+  ],
+  [
+    "mypy",
+    "--python-version",
+    "3.14",
+  ],
+>>>>>>> after updating
   # Style runs once on Linux, so explicitly sweep platform-gated branches that
   # mypy would otherwise prune as unreachable on the host platform.
   ["mypy", "--platform", "win32"],
